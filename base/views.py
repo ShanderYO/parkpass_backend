@@ -25,14 +25,13 @@ class APIView(View, ValidatePostParametersMixin):
         if request.method == 'POST':
             # Parse json-string
             try:
-                request.data = json.loads(self.request.POST.get("data", '{}'))
+                request.data = json.loads(request.body)
             except Exception as e:
                 e = ValidationException(
                     ValidationException.INVALID_JSON_FORMAT,
                     e.message
                 )
                 return JsonResponse(e.to_dict(), status=400)
-
             # Validate json-parameters
             if self.validator_class:
                 exception_response = self.validate_request(request)
@@ -45,7 +44,7 @@ class APIView(View, ValidatePostParametersMixin):
 class LoginRequiredAPIView(APIView):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-        if not request.account:
+        if not hasattr(request, "account") or not request.account:
             auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
             return JsonResponse(auth_exception.to_dict(), status=401)
         return super(LoginRequiredAPIView, self).dispatch(request, *args, **kwargs)
@@ -56,7 +55,7 @@ class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):
     def dispatch(self, request, *args, **kwargs):
 
         # Only multipart/form-data Content-type allow
-        if request.META['CONTENT_TYPE'] != "multipart/form-data":
+        if not request.META['CONTENT_TYPE'].startswith("multipart/form-data"):
             return JsonResponse({
                 "error": "HTTP Status 415 - Unsupported Media Type"
             }, status=415)

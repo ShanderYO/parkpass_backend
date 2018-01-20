@@ -3,9 +3,11 @@ from django.http import JsonResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account
-from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator
-from base.exceptions import AuthException
+from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
+    CardParamValidator
+from base.exceptions import AuthException, ValidationException, PermissionException
 from base.views import APIView, LoginRequiredAPIView
+from payments.models import CreditCard
 
 
 class LoginView(APIView):
@@ -14,7 +16,7 @@ class LoginView(APIView):
     def post(self, request):
         phone = request.data["phone"]
         success_status = 200
-        if Account.objects.filter.exists(phone=phone):
+        if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:
             account = Account(phone=phone)
@@ -23,7 +25,8 @@ class LoginView(APIView):
         account.create_sms_code()
         account.save()
         account.send_sms_code()
-        return JsonResponse({"sms_code":account.sms_code}, status=success_status)
+        return JsonResponse(
+            {"sms_code":account.sms_code}, status=success_status)
 
 
 class ConfirmLoginView(APIView):
@@ -35,7 +38,7 @@ class ConfirmLoginView(APIView):
             account = Account.objects.get(sms_code=sms_code)
             account.login()
             session = account.get_session()
-            return JsonResponse(serializer(session))
+            return JsonResponse(serializer(session, exclude_attr=("created_at",)))
 
         except ObjectDoesNotExist:
             e = AuthException(
@@ -50,10 +53,99 @@ class LogoutView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-
 class AccountView(LoginRequiredAPIView):
     validator_class = AccountParamValidator
 
+    def get(self, request):
+        account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code"))
+        card_list = CreditCard.get_card_by_account(request.account)
+        account_dict["cards"] = serializer(card_list, include_attr=("id", "number", "is_default"))
+        return JsonResponse(account_dict, status=200)
+
     def post(self, request):
+        first_name = request.data.get("first_name")
+        if first_name:
+            request.account.first_name = first_name
+        last_name = request.data.get("last_name")
+        if last_name:
+            request.account.last_name = last_name
+        request.account.save()
+
         return JsonResponse({}, status=200)
+
+
+class CreateCardView(LoginRequiredAPIView):
+    validator_class = CardParamValidator
+
+    def post(self, request):
+        number = self.request.data["number"]
+        owner = self.request.data["owner"]
+        expiration_date_month = self.request.data["expiration_date_month"]
+        expiration_date_year = self.request.data["expiration_date_year"]
+        #TODO check card in bank
+        # TODO check exist
+
+        card_by_default = False
+        if not CreditCard.objects.filter(account=request.account).exists():
+            card_by_default = True
+
+        card = CreditCard(number=number, account=request.account, is_default=card_by_default)
+        card.save()
+
+        return JsonResponse({}, status=200)
+
+
+class DeleteCardView(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        card_id = request.data["id"]
+        try:
+            card = CreditCard.objects.get(id=card_id, account=request.account)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Your card with such id not found")
+            return JsonResponse(e.to_dict(), status=400)
+
+        if CreditCard.objects.filter(account=request.account).count() > 1:
+            # TODO make added operation
+            if not card.is_default:
+                card.delete()
+            else:
+                card.delete()
+                another_card = CreditCard.objects.filter(account=request.account)[0]
+                another_card.is_default = True
+                another_card.save()
+        else:
+            e = PermissionException(
+                PermissionException.ONLY_ONE_CARD,
+                "Impossible to delete card"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        return JsonResponse({}, status=200)
+
+
+class SetDefaultCardView(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        card_id = request.data["id"]
+        try:
+            card = CreditCard.objects.get(id=card_id, account=request.account)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Your card with such id not found")
+            return JsonResponse(e.to_dict(), status=400)
+
+        default_card = CreditCard.objects.get(account=request.account, is_default=True)
+        default_card.is_default=False
+        default_card.save()
+
+        card.is_default = True
+        card.save()
+        return JsonResponse({}, status=200)
+
 

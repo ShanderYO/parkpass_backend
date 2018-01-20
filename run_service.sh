@@ -1,4 +1,4 @@
 #!/bin/bash
 
-echo "Start Pebbyweb server"
+echo "Start Parkpass server"
 supervisord

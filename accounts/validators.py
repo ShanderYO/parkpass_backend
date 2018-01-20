@@ -4,8 +4,24 @@ import datetime
 from django.core.exceptions import ValidationError
 
 from base.exceptions import ValidationException
-from django.core.validators import validate_email, BaseValidator
+from django.core.validators import validate_email
+from base.validators import BaseValidator
 
+
+class IdValidator(BaseValidator):
+    def is_valid(self):
+        id = self.request.data.get("id", None)
+        if not id:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Id is required"
+            return False
+        try:
+            self.request.data["id"] = int(id)
+        except Exception:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Id has invalid format"
+            return False
+        return True
 
 class LoginParamValidator(BaseValidator):
     def is_valid(self):
@@ -29,6 +45,7 @@ class ConfirmLoginParamValidator(BaseValidator):
         if not sms_code:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Empty sms-code"
+            return False
         try:
             validate_sms_code(sms_code)
         except ValidationError as e:
@@ -45,6 +62,7 @@ class AccountParamValidator(BaseValidator):
         if not first_name and not last_name:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Nothing change"
+            return False
         try:
             validate_name(first_name)
             validate_name(last_name)
@@ -52,6 +70,21 @@ class AccountParamValidator(BaseValidator):
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e.message)
             return False
+        return True
+
+
+class CardParamValidator(BaseValidator):
+    def is_valid(self):
+        number = self.request.data.get("number", None)
+        owner = self.request.data.get("owner", None)
+        expiration_date_month = self.request.data.get("expiration_date_month", None)
+        expiration_date_year = self.request.data.get("expiration_date_year", None)
+
+        if not number and not owner and not expiration_date_month and expiration_date_year:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Number, owner, expiration_date_month and expiration_date_year are required"
+            return False
+        # TODO add validation
         return True
 
 
@@ -89,6 +122,6 @@ def validate_mail_code(value):
 
 
 def validate_sms_code(value):
-    regex = '^[0-9]{4}$'
+    regex = '^[0-9]{6}$'
     if not re.match(regex, value):
         raise ValidationError("Phone code has invalidate format")

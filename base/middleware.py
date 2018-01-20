@@ -2,10 +2,9 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils.functional import SimpleLazyObject
 from django.utils.six import text_type
 
-from .models import AccountSession
-
-
 # Header encoding (see RFC5987)
+from accounts.models import AccountSession
+
 HTTP_HEADER_ENCODING = 'iso-8859-1'
 
 
@@ -23,7 +22,6 @@ def get_authorization_header(request):
 
 def get_account(request):
     auth = get_authorization_header(request).split()
-    print auth
 
     if not auth or auth[0].lower() != b'token':
         return None
@@ -40,8 +38,5 @@ def get_account(request):
     except UnicodeError:
         #get_logger().warning("Invalid token encoding")
         return None
-    try:
-        account = AccountSession.get_account_by_token(token)
-    except ObjectDoesNotExist:
-        return "Invalid or empty token"
-    return account
+
+    return AccountSession.get_account_by_token(token)
