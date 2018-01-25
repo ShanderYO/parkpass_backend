@@ -38,10 +38,6 @@ class Account(models.Model):
     def create_sms_code(self):
         self.sms_code = "".join([str(random.randrange(1,9)) for x in xrange(6)])
 
-    def send_sms_code(self):
-        # TODO add sms gateway
-        print "send sms code %s" % self.sms_code
-
     def get_session(self):
         return AccountSession.objects.get(account=self)
 

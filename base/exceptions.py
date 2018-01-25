@@ -29,6 +29,7 @@ class NetworkException(ApiException):
     """
     SMS_GATEWAY_DISABLE = 200
     SMS_GATEWAY_NOT_AVAILABLE = 201
+    SMD_GATEWAY_ERROR = 202
 
     def __init__(self, code, message):
         super(NetworkException, self).__init__(message)

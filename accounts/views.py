@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account
+from accounts.sms_gateway import SMSGateway
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     CardParamValidator
 from base.exceptions import AuthException, ValidationException, PermissionException
@@ -24,9 +25,14 @@ class LoginView(APIView):
 
         account.create_sms_code()
         account.save()
-        account.send_sms_code()
-        return JsonResponse(
-            {"sms_code":account.sms_code}, status=success_status)
+
+        # Send sms
+        sms_gateway = SMSGateway()
+        sms_gateway.send_sms(account.phone, account.code)
+        if sms_gateway.exception:
+            return JsonResponse(sms_gateway.exception.to_dict, status=400)
+
+        return JsonResponse({}, status=success_status)
 
 
 class ConfirmLoginView(APIView):
