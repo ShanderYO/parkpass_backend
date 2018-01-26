@@ -246,3 +246,54 @@ Status: 400 (Ошибка)
     "message": "Impossible to delete card"
 }
 ```
+
+```- GET /parking/get/<id>/``` (Получение информации о парковке)
+
+Status 200
+```
+{
+  "id": 1,
+  "name": "Best parking",
+  "description": "Sample optional information",
+  "address": "streat Sezam",
+  "latitude": 55.714843,
+  "longitude": 37.6784,
+  "free_places": 55
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking with such id not found"
+}
+```
+
+```http://127.0.0.1:8000/parking/list/?lt_lat=[val1]&lt_lon=[val2]&rb_lat=[val3]&rb_lon=[val4]```
+
+Status 200
+```
+{
+  "result": [
+    {
+      "id": 1,
+      "name": "Parking1",
+      "latitude": 55.707843,
+      "longitude": 37.6784,
+      "free_places": 55
+    }
+    ......
+  ]
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid query parametes"
+}
+```

@@ -42,7 +42,8 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'base',
     'accounts',
-    'payments'
+    'payments',
+    'parkings',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -85,7 +86,7 @@ DATABASES = {}
 if os.environ.get("PROD"):
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'ENGINE': 'django.contrib.gis.db.backends.postgis', # 'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': os.environ.get("POSTGRES_DB_NAME"),
             'USER': os.environ.get("POSTGRES_USER"),
             'PASSWORD': os.environ.get("POSTGRES_PASSWORD"),
