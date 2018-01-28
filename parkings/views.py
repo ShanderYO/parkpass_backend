@@ -23,7 +23,7 @@ class GetParkingView(LoginRequiredAPIView):
         return JsonResponse(result_dict, status=200)
 
 
-class GetParkingViewList(View):
+class GetParkingViewList(LoginRequiredAPIView):
     def get(self, request):
         left_top_latitude = request.GET.get("lt_lat", None)
         left_top_longitude = request.GET.get("lt_lon", None)
