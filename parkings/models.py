@@ -1,5 +1,7 @@
 from django.db import models
 
+from accounts.models import Account
+
 
 class Parking(models.Model):
     id = models.AutoField(primary_key=True)
@@ -30,3 +32,24 @@ class Parking(models.Model):
             enabled=True
         )
         return result
+
+
+class ParkingSession(models.Model):
+    STATE_SESSION_CANCELED = -1
+    STATE_SESSION_STARTED = 0
+    STATE_SESSION_UPDATED = 1
+    STATE_SESSION_COMPLETED = 2
+    SESSION_STATES = [
+        STATE_SESSION_CANCELED, STATE_SESSION_STARTED, STATE_SESSION_UPDATED, STATE_SESSION_COMPLETED
+    ]
+
+    id = models.CharField(primary_key=True, unique=True)
+    client = models.ForeignKey(Account)
+    parking = models.IntegerField(Parking)
+    zone_id = models.IntegerField()
+
+    state = models.IntegerField()
+    start_at = models.DateTimeField()
+    completed_at = models.DateTimeField()
+    last_update = models.DateTimeField()
+    created_at = models.DateField(auto_now_add=True)

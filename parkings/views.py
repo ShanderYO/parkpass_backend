@@ -4,8 +4,8 @@ from django.views.generic import View
 from dss.Serializer import serializer
 
 from base.exceptions import ValidationException
-from base.views import LoginRequiredAPIView
-from parkings.models import Parking
+from base.views import LoginRequiredAPIView, APIView
+from parkings.models import Parking, ParkingSession
 from parkings.validators import validate_longitude, validate_latitude
 
 
@@ -65,3 +65,69 @@ class GetParkingViewList(LoginRequiredAPIView):
             parking_list, include_attr=("id","name","latitude","longitude","free_places")
         )
         return JsonResponse(response_dict, status=200)
+
+
+class UpdateParkingView(APIView):
+    def get(self, **kwargs):
+        parking_id = kwargs.GET["id"]
+        try:
+            parking = Parking.objects.get(id=parking_id)
+            response_data = serializer(parking, include_attr=("id", "name", "enabled", "free_places",))
+            return JsonResponse(response_data, 200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking with such id not found"
+            )
+            return JsonResponse(e.serialize(), 400)
+
+
+    def post(self, request):
+        parking_id = request.data["parking_id"]
+        enabled = request.data["enabled"]
+        free_places = int(request.data["free_places"])
+        # TODO check signature or hmac
+
+        try:
+            parking = Parking.objects.get(id=parking_id)
+            parking.enabled = enabled
+            parking.free_places = free_places
+            parking.save()
+            return JsonResponse({}, 200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking with such id not found"
+            )
+            return JsonResponse(e.serialize(), 400)
+
+
+class ParkingSessionView(APIView):
+
+    def post(self, request):
+        session_id = request.data["session_id"]
+        parking_id = request.data["parking_id"]
+        client_id = request.data["client_id"]
+        status = request.data["status"]
+
+        if status == ParkingSession.STATE_SESSION_STARTED:
+            started_at = request.data["started_at"]
+        elif status == ParkingSession.STATE_SESSION_UPDATED:
+            pass
+        elif status == ParkingSession.STATE_SESSION_COMPLETED:
+            completed_at = request.data["completed_at"]
+        else:
+            pass
+            #ParkingSession.STATE_SESSION_CANCELED:
+        return JsonResponse({}, 200)
+
+
+
+
+
+
+class ParkingSessionCompleteView(APIView):
+    def post(self, request):
+        pass
