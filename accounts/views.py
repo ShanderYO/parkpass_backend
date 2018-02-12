@@ -8,6 +8,7 @@ from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator,
     CardParamValidator
 from base.exceptions import AuthException, ValidationException, PermissionException
 from base.views import APIView, LoginRequiredAPIView
+from parkings.models import ParkingSession
 from payments.models import CreditCard
 
 
@@ -27,10 +28,10 @@ class LoginView(APIView):
         account.save()
 
         # Send sms
-        sms_gateway = SMSGateway()
-        sms_gateway.send_sms(account.phone, account.code)
-        if sms_gateway.exception:
-            return JsonResponse(sms_gateway.exception.to_dict, status=400)
+        #sms_gateway = SMSGateway()
+        #sms_gateway.send_sms(account.phone, account.code)
+        #if sms_gateway.exception:
+        #    return JsonResponse(sms_gateway.exception.to_dict, status=400)
 
         return JsonResponse({}, status=success_status)
 
@@ -155,3 +156,42 @@ class SetDefaultCardView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
+class StartParkingSession(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        client_id = request.data["client_id"]
+        parking_id = request.data["parking_id"]
+        start_at = request.data["client_id"]
+        # TODO create session
+        return JsonResponse({}, status=200)
+
+
+class ForceStopParkingSession(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        account_session_id = request.data["session_id"]
+        # TODO set up pause on session
+        return JsonResponse({}, status=200)
+
+
+class FinishParkingSession(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post (self, request):
+        account_session_id = request.data["session_id"]
+        completed_at = request.data["completed_at"]
+        # TODO set up stop session
+        return JsonResponse({}, status=200)
+
+
+class DebtParkingSession(LoginRequiredAPIView):
+    def get(self, request):
+        try:
+            # TODO get current debt debt - paid_debt
+            parking_session = ParkingSession.objects.get(client=request.account)
+            debt_dict = serializer(parking_session, include_attr=("debt", "start_at", "update_at"))
+            return JsonResponse(debt_dict, status=200)
+        except ObjectDoesNotExist:
+            return JsonResponse({}, status=200)

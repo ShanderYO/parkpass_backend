@@ -8,6 +8,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils import timezone
 
+from parkings.models import Parking, ParkingSession
+
 
 class Account(models.Model):
     id = models.AutoField(primary_key=True)
@@ -17,6 +19,7 @@ class Account(models.Model):
     sms_code = models.CharField(max_length=6, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
+    parking_session = models.ForeignKey(AccountParkingSession)
 
     class Meta:
         ordering = ["-id"]
@@ -90,3 +93,12 @@ class AccountSession(models.Model):
     def is_expired(self):
         print self.expired_at
         return timezone.now() >= self.expired_at
+
+
+class AccountParkingSession(models.Model):
+    id = models.CharField(primary_key=True, unique=True)
+    paid_debt = models.DecimalField(max_digits=7, decimal_places=2)
+    start_at = models.DateTimeField()
+    completed_at = models.DateTimeField()
+    created_at = models.DateField(auto_now_add=True)
+    linked_session = models.ForeignKey(ParkingSession)
