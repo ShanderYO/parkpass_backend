@@ -301,14 +301,14 @@ Status 400
 
 ```- POST /update/``` (Обновление парковки от вендора)
 
-Status 200
+Тело
 ```
 {
     "parking_id":1,
     "free_places":10
 }
 ```
-Status 200 (Ok)
+Status 200 (ОK)
 
 Status 400
 ```
@@ -337,7 +337,7 @@ Status 400
 
 ```- POST /parking/session/create/``` (Новая сессия от вендора)
 
-Status 200
+Тело
 ```
 {
     "session_id":2, (Session id from vendor storage)
@@ -346,6 +346,8 @@ Status 200
     "started_at":1518952262 ( Unix-timestamp )
 }
 ```
+
+Status 200 (ОK)
 
 Status 400
 ```
@@ -382,7 +384,7 @@ Status 400
 
 ```- POST /parking/session/update/``` (Обновление статуса по сессии от вендора)
 
-Status 200
+Тело
 ```
 {
     "session_id":2, (Session id from vendor storage)
@@ -390,6 +392,8 @@ Status 200
     "updated_at":1518953262
 }
 ```
+
+Status 200 (ОK)
 
 Status 400
 ```
@@ -418,7 +422,7 @@ Status 400
 
 ```- POST /parking/session/complete/``` (Завершение сессии от вендора)
 
-Status 200
+Тело
 ```
 {
     "session_id":2, (Session id from vendor storage)
@@ -426,6 +430,8 @@ Status 200
     "completed_at":1518953262
 }
 ```
+
+Status 200 (ОK)
 
 Status 400
 ```
@@ -452,3 +458,95 @@ Status 400
 }
 ```
 
+```- POST /account/session/create/``` (Создание сессии от пользователя. Требует токен сессии)
+
+Тело
+```
+{
+    "session_id":2, (Session id from vendor storage)
+    "parking_id":1,
+    "client_id":1,
+    "started_at":1518952262 ( Unix-timestamp )
+}
+```
+
+Status 200 (ОK)
+```
+{
+    "id":2 (Session id)
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Session id, parking id, client id and started at are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking with such id not found"
+}
+```
+
+```- POST /account/session/complete/``` (Завершение сессии от пользователя. Требует токен сессии)
+
+Тело
+```
+{
+    "session_id":2, (Session id from vendor storage)
+    "parking_id":1,
+    "client_id":1,
+    "completed_at":1518952262 ( Unix-timestamp )
+}
+```
+
+Status 200
+
+
+```- POST /account/session/cancel/``` (Отмена сессии от пользователя. Требует токен сессии)
+
+Тело
+```
+{
+    "id":2 (Session id)
+}
+```
+Status 200 (OK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Error"
+}
+```
+
+
+```- POST /account/debt/current/``` (Получени задолжности по текущей сессии. Требует токен сессии)
+
+Status 200 (OK)
+```
+{
+    "session_id": "BCHHASAX..." (Account session id)
+    "debt":10.25,
+    "paid_debt":8.50,
+    "started_at":1518952262, ( Unix-timestamp )
+    "updated_at":1518952452 ( Unix-timestamp )
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Error"
+}
+```

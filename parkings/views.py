@@ -192,6 +192,7 @@ class CompleteParkingSessionView(APIView):
         return JsonResponse({}, status=200)
 
 
+"""
 class ParkingSessionCancelView(APIView):
     validator_class = CancelParkingSessionValidator
 
@@ -216,3 +217,4 @@ class ParkingSessionListUpdateView(APIView):
     def post(self, request):
         sessions = request.data["sessions"]
         return JsonResponse({}, 200)
+"""

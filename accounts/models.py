@@ -8,11 +8,17 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils import timezone
 
+from parkings.models import Parking
+
+
 class AccountParkingSession(models.Model):
     start_at = models.DateTimeField()
-    completed_at = models.DateTimeField()
-    created_at = models.DateField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    canceled_at = models.DateTimeField(null=True, blank=True)
+
     linked_session_id = models.CharField(max_length=128)
+    parking_id = models.IntegerField()
+    created_at = models.DateField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -108,6 +114,7 @@ class AccountSession(models.Model):
 class PaidDebt(models.Model):
     paid_debt = models.DecimalField(max_digits=7, decimal_places=2)
     linked_session_id = models.CharField(max_length=128)
+    parking = models.ForeignKey(Parking)
     is_completed = models.BooleanField(default=False)
     account = models.ForeignKey(Account)
     created_at = models.DateField(auto_now_add=True)

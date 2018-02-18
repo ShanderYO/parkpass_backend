@@ -1,3 +1,6 @@
+import datetime
+
+import pytz
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from dss.Serializer import serializer
@@ -157,26 +160,36 @@ class SetDefaultCardView(LoginRequiredAPIView):
 
 
 class StartParkingSession(LoginRequiredAPIView):
-    #validator_class = IdValidator
 
     def post(self, request):
         session_id = request.data["session_id"]
-        client_id = request.data["client_id"]
-        parking_id = request.data["parking_id"]
-        started_at = request.data["started_at"]
+        client_id = int(request.data["client_id"])
+        parking_id = int(request.data["parking_id"])
+        started_at = int(request.data["started_at"])
 
-        #TODO check equlity client_id == account.id
+        if request.account.pk != client_id:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Invalid client id")
+            return JsonResponse(e.to_dict(), status=400)
 
-        account_parking_session = AccountParkingSession(started_at=started_at,
+        started_at_date = datetime.datetime.fromtimestamp(int(started_at))
+        started_at_date_tz = pytz.utc.localize(started_at_date)
+
+        account_parking_session = AccountParkingSession(started_at=started_at_date_tz,
                                                         linked_session_id=session_id,
                                                         parking_id=parking_id)
         account_parking_session.save()
+
+        # Set parking session to account
+        request.account.parking_session = account_parking_session
+        request.account.save()
 
         PaidDebt.objects.create(
             account=request.account,
             linked_session_id=session_id
         )
-        return JsonResponse({}, status=200)
+        return JsonResponse({"id":account_parking_session.pk}, status=200)
 
 
 class ForceStopParkingSession(LoginRequiredAPIView):
@@ -184,31 +197,85 @@ class ForceStopParkingSession(LoginRequiredAPIView):
 
     def post(self, request):
         id = request.data["id"]
+
         try:
             account_parking_session = AccountParkingSession.objects.get(id=id)
+            parking_session = ParkingSession.objects.get(
+                session_id=account_parking_session.linked_session_id,
+                parking_id=account_parking_session.parking_id)
+            parking_session.is_paused = True
+
+            # Remove parking session to account
+            request.account.parking_session = None
+            request.account.save()
+
+            # TODO Set final debt
+            parking_session.save()
+
         except ObjectDoesNotExist:
-            return JsonResponse({}, status=400)
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "ParkingSession with such not found")
+            return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, status=200)
 
 
-class FinishParkingSession(LoginRequiredAPIView):
-    validator_class = IdValidator
-
+class CompleteParkingSession(LoginRequiredAPIView):
     def post (self, request):
-        account_session_id = request.data["session_id"]
-        completed_at = request.data["completed_at"]
-        account_parking_session = AccountParkingSession.objects.get(id=id)
-        # TODO set up stop session
+        session_id = request.data["session_id"]
+        client_id = int(request.data["client_id"])
+        parking_id = int(request.data["parking_id"])
+        completed_at = int(request.data["completed_at"])
+
+        if request.account.pk != client_id:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Invalid client id")
+            return JsonResponse(e.to_dict(), status=400)
+
+        try:
+            account_parking_session = AccountParkingSession.objects.get(
+                linked_session_id=session_id,
+                parking_id = parking_id
+            )
+
+            completed_at_date = datetime.datetime.fromtimestamp(int(completed_at))
+            completed_at_date_tz = pytz.utc.localize(completed_at_date)
+
+            account_parking_session.completed_at = completed_at_date_tz
+
+            # Remove parking session to account
+            request.account.parking_session = None
+            request.account.save()
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "ParkingSession with such not found")
+            return JsonResponse(e.to_dict(), status=400)
+
         return JsonResponse({}, status=200)
 
 
-class DebtParkingSession(LoginRequiredAPIView):
+class DebtParkingSessionView(LoginRequiredAPIView):
     def get(self, request):
-        try:
-            # TODO get current debt debt - paid_debt
-            parking_session = ParkingSession.objects.get(client=request.account)
-            debt_dict = serializer(parking_session, include_attr=("debt", "start_at", "update_at"))
-            return JsonResponse(debt_dict, status=200)
-        except ObjectDoesNotExist:
+        account_parking_session = request.account.parking_session
+
+        if account_parking_session:
+            try:
+                parking_session = ParkingSession.objects.get(
+                    session_id=account_parking_session.linked_session_id,
+                    parking_id=account_parking_session.parking.id)
+
+                debt_dict = serializer(parking_session, include_attr=("debt", "started_at", "updated_at"))
+                debt_dict["paid_debt"] = account_parking_session.paid_debt
+                return JsonResponse(debt_dict, status=200)
+
+            except ObjectDoesNotExist:
+                e = ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "ParkingSession not found")
+                return JsonResponse(e.to_dict(), status=400)
+        else:
             return JsonResponse({}, status=200)
