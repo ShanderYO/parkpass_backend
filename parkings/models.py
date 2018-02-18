@@ -31,7 +31,6 @@ class Parking(models.Model):
         return result
 
 
-# TODO активные сессии
 class ParkingSession(models.Model):
     STATE_SESSION_CANCELED = -1
     STATE_SESSION_STARTED = 0
@@ -42,7 +41,15 @@ class ParkingSession(models.Model):
         STATE_SESSION_CANCELED, STATE_SESSION_STARTED, STATE_SESSION_UPDATED, STATE_SESSION_COMPLETED
     ]
 
-    id = models.CharField(primary_key=True, unique=True)
+    STATE_CHOICES = (
+        (STATE_SESSION_CANCELED, 'Canceled'),
+        (STATE_SESSION_STARTED, 'Started'),
+        (STATE_SESSION_UPDATED, 'Updated'),
+        (STATE_SESSION_COMPLETED, 'Completed'),  # extensible.
+    )
+
+    id = models.AutoField(unique=True, primary_key=True)
+    session_id = models.CharField(max_length=64)
 
     client = models.ForeignKey(Account)
     parking = models.ForeignKey(Parking)
@@ -50,10 +57,19 @@ class ParkingSession(models.Model):
     is_paused = models.BooleanField(default=False)
 
     debt = models.DecimalField(max_digits=7, decimal_places=2, default=0)
-    state = models.IntegerField(default=STATE_SESSION_STARTED)
+    state = models.IntegerField(choices=STATE_CHOICES, default=STATE_SESSION_STARTED)
 
     started_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
-    completed_at = models.DateTimeField()
+    updated_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-id"]
+        verbose_name = 'Parking Session'
+        verbose_name_plural = 'Parking Sessions'
+        unique_together = ("session_id", "parking")
+
+    def __unicode__(self):
+        return "%s [%s]" % (self.parking.id, self.client.id)

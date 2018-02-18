@@ -272,7 +272,7 @@ Status 400
 }
 ```
 
-```http://127.0.0.1:8000/parking/list/?lt_lat=[val1]&lt_lon=[val2]&rb_lat=[val3]&rb_lon=[val4]```
+```- GET /parking/list/?lt_lat=[val1]&lt_lon=[val2]&rb_lat=[val3]&rb_lon=[val4]``` (Получение парковок в квадрате)
 
 Status 200
 ```
@@ -298,3 +298,157 @@ Status 400
     "message": "Invalid query parametes"
 }
 ```
+
+```- POST /update/``` (Обновление парковки от вендора)
+
+Status 200
+```
+{
+    "parking_id":1,
+    "free_places":10
+}
+```
+Status 200 (Ok)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Parking id and free places are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking with such id not found"
+}
+```
+
+```- POST /parking/session/create/``` (Новая сессия от вендора)
+
+Status 200
+```
+{
+    "session_id":2, (Session id from vendor storage)
+    "parking_id":1,
+    "client_id":1,
+    "started_at":1518952262 ( Unix-timestamp )
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Session id, parking id, client id and started at are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking with such id not found"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Account with such id not found"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 403,
+    "message": "Parking Session with such id for this parking is found"
+}
+```
+
+```- POST /parking/session/update/``` (Обновление статуса по сессии от вендора)
+
+Status 200
+```
+{
+    "session_id":2, (Session id from vendor storage)
+    "debt":0.1,
+    "updated_at":1518953262
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Session id, debt, updated at are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid format debt or updated_at. Debt float required, Updated at int required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Session does not exists"
+}
+```
+
+```- POST /parking/session/complete/``` (Завершение сессии от вендора)
+
+Status 200
+```
+{
+    "session_id":2, (Session id from vendor storage)
+    "debt":0.1,
+    "completed_at":1518953262
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Session id, debt, completed at are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid format debt or completed_at. Debt float required, Completed at int required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Session does not exists"
+}
+```
+

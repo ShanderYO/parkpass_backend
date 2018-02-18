@@ -8,7 +8,17 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils import timezone
 
-from parkings.models import Parking, ParkingSession
+class AccountParkingSession(models.Model):
+    start_at = models.DateTimeField()
+    completed_at = models.DateTimeField()
+    created_at = models.DateField(auto_now_add=True)
+    linked_session_id = models.CharField(max_length=128)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __unicode__(self):
+        return "Park session: %s" % self.linked_session_id
 
 
 class Account(models.Model):
@@ -19,7 +29,7 @@ class Account(models.Model):
     sms_code = models.CharField(max_length=6, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
-    parking_session = models.ForeignKey(AccountParkingSession)
+    parking_session = models.ForeignKey(AccountParkingSession, null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]
@@ -62,8 +72,8 @@ class AccountSession(models.Model):
     class Meta:
         ordering = ["-expired_at"]
 
-        def __unicode__(self):
-            return "Session for %s %s" % (self.account.fistname, self.account.lastname)
+    def __unicode__(self):
+        return "Session for %s %s" % (self.account.fistname, self.account.lastname)
 
     @classmethod
     def get_account_by_token(cls, token):
@@ -95,10 +105,15 @@ class AccountSession(models.Model):
         return timezone.now() >= self.expired_at
 
 
-class AccountParkingSession(models.Model):
-    id = models.CharField(primary_key=True, unique=True)
+class PaidDebt(models.Model):
     paid_debt = models.DecimalField(max_digits=7, decimal_places=2)
-    start_at = models.DateTimeField()
-    completed_at = models.DateTimeField()
+    linked_session_id = models.CharField(max_length=128)
+    is_completed = models.BooleanField(default=False)
+    account = models.ForeignKey(Account)
     created_at = models.DateField(auto_now_add=True)
-    linked_session = models.ForeignKey(ParkingSession)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __unicode__(self):
+        return "Park session: %s" % self.linked_session_id

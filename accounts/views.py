@@ -2,7 +2,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
-from accounts.models import Account
+from accounts.models import Account, AccountParkingSession, PaidDebt
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     CardParamValidator
@@ -28,10 +28,10 @@ class LoginView(APIView):
         account.save()
 
         # Send sms
-        #sms_gateway = SMSGateway()
-        #sms_gateway.send_sms(account.phone, account.code)
-        #if sms_gateway.exception:
-        #    return JsonResponse(sms_gateway.exception.to_dict, status=400)
+        sms_gateway = SMSGateway()
+        sms_gateway.send_sms(account.phone, account.sms_code)
+        if sms_gateway.exception:
+           return JsonResponse(sms_gateway.exception.to_dict, status=400)
 
         return JsonResponse({}, status=success_status)
 
@@ -157,13 +157,25 @@ class SetDefaultCardView(LoginRequiredAPIView):
 
 
 class StartParkingSession(LoginRequiredAPIView):
-    validator_class = IdValidator
+    #validator_class = IdValidator
 
     def post(self, request):
+        session_id = request.data["session_id"]
         client_id = request.data["client_id"]
         parking_id = request.data["parking_id"]
-        start_at = request.data["client_id"]
-        # TODO create session
+        started_at = request.data["started_at"]
+
+        #TODO check equlity client_id == account.id
+
+        account_parking_session = AccountParkingSession(started_at=started_at,
+                                                        linked_session_id=session_id,
+                                                        parking_id=parking_id)
+        account_parking_session.save()
+
+        PaidDebt.objects.create(
+            account=request.account,
+            linked_session_id=session_id
+        )
         return JsonResponse({}, status=200)
 
 
@@ -171,8 +183,12 @@ class ForceStopParkingSession(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        account_session_id = request.data["session_id"]
-        # TODO set up pause on session
+        id = request.data["id"]
+        try:
+            account_parking_session = AccountParkingSession.objects.get(id=id)
+        except ObjectDoesNotExist:
+            return JsonResponse({}, status=400)
+
         return JsonResponse({}, status=200)
 
 
@@ -182,6 +198,7 @@ class FinishParkingSession(LoginRequiredAPIView):
     def post (self, request):
         account_session_id = request.data["session_id"]
         completed_at = request.data["completed_at"]
+        account_parking_session = AccountParkingSession.objects.get(id=id)
         # TODO set up stop session
         return JsonResponse({}, status=200)
 

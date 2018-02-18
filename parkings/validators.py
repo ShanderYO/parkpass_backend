@@ -20,6 +20,28 @@ def validate_longitude(value):
         raise ValidationError("Invalid longitude of geo position")
 
 
+class UpdateParkingValidator(BaseValidator):
+    def is_valid(self):
+        parking_id = self.request.data.get("parking_id")
+        free_places = self.request.data.get("free_places")
+
+        if not parking_id or not free_places:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Parking id and free places are required"
+            return False
+
+        try:
+            int(parking_id)
+            int(free_places)
+
+        except Exception:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Invalid format free_places. Int required"
+            return False
+
+        return True
+
+
 class CreateParkingSessionValidator(BaseValidator):
     def is_valid(self):
         session_id = self.request.data.get("session_id", None)
@@ -29,7 +51,7 @@ class CreateParkingSessionValidator(BaseValidator):
 
         if not session_id or not parking_id or not client_id or not started_at:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Session id is required"
+            self.message = "Session id, parking id, client id and started at are required"
             return False
 
         # TODO add validation
@@ -44,7 +66,15 @@ class UpdateParkingSessionValidator(BaseValidator):
 
         if not session_id or not debt or not updated_at:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Session id is required"
+            self.message = "Session id, debt and updated at are required"
+            return False
+        try:
+            float(debt)
+            int(updated_at)
+
+        except Exception:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Invalid format debt or updated_at. Debt float required, Updated at int required"
             return False
 
         # TODO add validation
@@ -55,11 +85,19 @@ class CompleteParkingSessionValidator(BaseValidator):
     def is_valid(self):
         session_id = self.request.data.get("session_id", None)
         debt = self.request.data.get("debt", None)
-        completed_at = self.request.data.get("updated_at", None)
+        completed_at = self.request.data.get("completed_at", None)
 
         if not session_id or not debt or not completed_at:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Session id is required"
+            self.message = "Session id, debt and completed at are required"
+            return False
+        try:
+            float(debt)
+            int(completed_at)
+
+        except Exception:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Invalid format debt or completed_at. Debt float required, Completed at int required"
             return False
 
         # TODO add validation
