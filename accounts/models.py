@@ -17,7 +17,7 @@ class AccountParkingSession(models.Model):
     canceled_at = models.DateTimeField(null=True, blank=True)
 
     linked_session_id = models.CharField(max_length=128)
-    parking_id = models.IntegerField()
+    parking_id = models.IntegerField(null=True, blank=True) #TODO delete
     created_at = models.DateField(auto_now_add=True)
 
     class Meta:
@@ -114,7 +114,7 @@ class AccountSession(models.Model):
 class PaidDebt(models.Model):
     paid_debt = models.DecimalField(max_digits=7, decimal_places=2)
     linked_session_id = models.CharField(max_length=128)
-    parking = models.ForeignKey(Parking)
+    parking = models.ForeignKey(Parking, null=True, blank=True)
     is_completed = models.BooleanField(default=False)
     account = models.ForeignKey(Account)
     created_at = models.DateField(auto_now_add=True)

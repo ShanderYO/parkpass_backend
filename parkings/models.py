@@ -1,6 +1,5 @@
 from django.db import models
 
-from accounts.models import Account
 
 class Parking(models.Model):
     id = models.AutoField(primary_key=True)
@@ -51,7 +50,7 @@ class ParkingSession(models.Model):
     id = models.AutoField(unique=True, primary_key=True)
     session_id = models.CharField(max_length=64)
 
-    client = models.ForeignKey(Account)
+    client = models.ForeignKey('accounts.Account')
     parking = models.ForeignKey(Parking)
 
     is_paused = models.BooleanField(default=False)

@@ -4,7 +4,6 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
-from accounts.models import Account
 from base.exceptions import ValidationException
 from base.views import LoginRequiredAPIView, APIView
 from parkings.models import Parking, ParkingSession
