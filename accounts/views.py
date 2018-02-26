@@ -1,6 +1,6 @@
 import datetime
-
 import pytz
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from dss.Serializer import serializer
@@ -34,7 +34,7 @@ class LoginView(APIView):
         sms_gateway = SMSGateway()
         sms_gateway.send_sms(account.phone, account.sms_code)
         if sms_gateway.exception:
-           return JsonResponse(sms_gateway.exception.to_dict, status=400)
+           return JsonResponse(sms_gateway.exception.to_dict(), status=400)
 
         return JsonResponse({}, status=success_status)
 
