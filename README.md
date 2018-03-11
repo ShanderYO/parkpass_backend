@@ -299,164 +299,7 @@ Status 400
 }
 ```
 
-```- POST /update/``` (Обновление парковки от вендора)
 
-Тело
-```
-{
-    "parking_id":1,
-    "free_places":10
-}
-```
-Status 200 (ОK)
-
-Status 400
-```
-{
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Invalid format"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Parking id and free places are required"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 402,
-    "message": "Parking with such id not found"
-}
-```
-
-```- POST /parking/session/create/``` (Новая сессия от вендора)
-
-Тело
-```
-{
-    "session_id":2, (Session id from vendor storage)
-    "parking_id":1,
-    "client_id":1,
-    "started_at":1518952262 ( Unix-timestamp )
-}
-```
-
-Status 200 (ОK)
-
-Status 400
-```
-{
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Session id, parking id, client id and started at are required"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 402,
-    "message": "Parking with such id not found"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 402,
-    "message": "Account with such id not found"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 403,
-    "message": "Parking Session with such id for this parking is found"
-}
-```
-
-```- POST /parking/session/update/``` (Обновление статуса по сессии от вендора)
-
-Тело
-```
-{
-    "session_id":2, (Session id from vendor storage)
-    "debt":0.1,
-    "updated_at":1518953262
-}
-```
-
-Status 200 (ОK)
-
-Status 400
-```
-{
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Session id, debt, updated at are required"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Invalid format debt or updated_at. Debt float required, Updated at int required"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 402,
-    "message": "Session does not exists"
-}
-```
-
-```- POST /parking/session/complete/``` (Завершение сессии от вендора)
-
-Тело
-```
-{
-    "session_id":2, (Session id from vendor storage)
-    "debt":0.1,
-    "completed_at":1518953262
-}
-```
-
-Status 200 (ОK)
-
-Status 400
-```
-{
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Session id, debt, completed at are required"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Invalid format debt or completed_at. Debt float required, Completed at int required"
-}
-```
-
-```
-{
-    "exception": "ValidationException",
-    "code": 402,
-    "message": "Session does not exists"
-}
-```
 
 ```- POST /account/session/create/``` (Создание сессии от пользователя. Требует токен сессии)
 
@@ -551,45 +394,278 @@ Status 400
 }
 ```
 
-### Информация для вендора: ###
-Для использования API-вендора необходимо с помощью администратора добавить организацию в список.
-Вендору будет выдан секретный ключ для цифровой подписи запросов. Например:
+## Информация для вендора: ##
+Для использования API вендора необходимо с помощью администратора добавить организацию в список.
+Вендору будет выдан секретный ключ ```secret``` для цифровой подписи запросов и имя ```slug``` организации. Например:
 
 ```
     secret = 223c63e6c71520cc6d0bf75a054b8c1d00ffc0c3d645af46c0abfdec08d9613f
     vendor_name = 'example-parking-name'
 ```
+Для тестирования API можно использовать эти параметры. Данному тестовому вендору также принадлежит парковка с id=1
 
-Все запросы к API вендора должны содержать в header 2 дополнительных параметра c указанием этих параметров:
+Все запросы к API вендора должны содержать в заголовках Header 2 дополнительных параметра c указанием:
 ```
-    Header["x_signature"] = "0cc6d0bf75a054b..." (hmac-sha512 тела запроса c использованием secret в 16-ричном представлении)
-    Header["x_vendor_name"] = "example-parking-name"
-    vendor_name = 'example-parking-name'
+    Header["x-signature"] = "0cc6d0bf75a054b..." (hmac-sha512 тела запроса c использованием secret в 16-ричном представлении)
+    Header["x-vendor-name"] = "example-parking-name"
 ```
+Информацию о ```hmac``` можно найти [здесь](https://ru.wikipedia.org/wiki/HMAC).
+API добавление парковок и управления ими в личном кабинете, будет добавлено позднее. В настоящий момент, добавление парковки осуществляется через администратора.
 
 Перечень ошибок при выполнении запросов к API вендора:
+
 Status 400
 ```
 {
-    "error": "Signature is empty. [x-signature] header required"
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Signature is empty. [x-signature] header required"
 }
 ```
 
 ```
 {
-    "error": "The vendor name is empty. [X-VENDOR-UNIQUE-NAME] header required"
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "The vendor name is empty. [x-vendor-name] header required"
 }
 ```
 
 ```
 {
-    "error": "Vendor not found"
+    "exception": "PermissionException",
+    "code": 303,
+    "message": "Vendor does not exist"
 }
 ```
 
 ```
 {
-    "error": "Invalid signature"
+    "exception": "PermissionException",
+    "code": 300,
+    "message": "Invalid signature"
+}
+```
+
+### Описание API ###
+
+```- POST /parking/v1/test/``` (Тестовый метод для проверки ```secret```, выданный вендору. echo-метод)
+
+Тело
+```
+{
+    "sample_key":"lorem"
+}
+```
+
+Status 200 (ОK)
+```
+{
+    "sample_key":"lorem"
+}
+```
+
+
+```- POST /parking/v1/update/``` (Обновление информации о парковке от вендора)
+
+Тело
+```
+{
+    "parking_id":1,
+    "free_places":10
+}
+```
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Parking id and free places are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking with such id not found"
+}
+```
+
+```- POST /parking/v1/session/create/``` (Новая сессия от вендора)
+
+Тело
+```
+{
+    "session_id":2, (Session id from vendor storage)
+    "parking_id":1,
+    "client_id":1,
+    "started_at":1518952262 ( Unix-timestamp )
+}
+```
+
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Session id, parking id, client id and started at are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking with such id not found"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Account with such id not found"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 403,
+    "message": "Parking Session with such id for this parking is found"
+}
+```
+
+```- POST /parking/v1/session/update/``` (Обновление статуса по сессии от вендора)
+
+Тело
+```
+{
+    "session_id":2, (Session id from vendor storage)
+    "debt":0.1,
+    "updated_at":1518953262
+}
+```
+
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Session id, debt, updated at are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid format debt or updated_at. Debt float required, Updated at int required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Session does not exists"
+}
+```
+
+```- POST /parking/v1/session/complete/``` (Завершение сессии от вендора)
+
+Тело
+```
+{
+    "session_id":2, (Session id from vendor storage)
+    "debt":0.1,
+    "completed_at":1518953262
+}
+```
+
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Session id, debt, completed at are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid format debt or completed_at. Debt float required, Completed at int required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Session does not exists"
+}
+```
+
+
+```- POST /parking/v1/session/list/``` (Обновление списка сессий от вендора)
+
+Тело
+```
+{
+    "sessions":[
+        {
+            "session_id":4, (Session id from vendor storage)
+            "parking_id":1,
+            "client_id":1,
+            "status": "create",
+            "started_at":1518952262 ( Unix-timestamp )
+        },
+        ....
+        {
+            "session_id":2, (Session id from vendor storage)
+            "debt":0.1,
+            "status": "update"
+            "updated_at":1518953262"
+        },
+        ....
+        {
+            "session_id":1, (Session id from vendor storage)
+            "debt":0.1,
+            "status": "complete"
+            "completed_at":1518953262"
+        },
+        ...
+    ]
+}
+```
+
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid format"
 }
 ```
 

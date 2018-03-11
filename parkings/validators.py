@@ -114,3 +114,14 @@ class CancelParkingSessionValidator(BaseValidator):
 
         # TODO add validation
         return True
+
+
+class UpdateListParkingSessionValidator(BaseValidator):
+    def is_valid(self):
+        sessions = self.request.data.get("sessions", None)
+        if not sessions:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Sessions is required"
+            return False
+        # TODO check format bulk update
+        return True

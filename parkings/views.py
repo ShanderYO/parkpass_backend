@@ -9,7 +9,8 @@ from base.exceptions import ValidationException
 from base.views import LoginRequiredAPIView, APIView, SignedRequestAPIView
 from parkings.models import Parking, ParkingSession
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
-    UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator
+    UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
+    UpdateListParkingSessionValidator
 
 
 class GetParkingView(LoginRequiredAPIView):
@@ -68,6 +69,14 @@ class GetParkingViewList(LoginRequiredAPIView):
             parking_list, include_attr=("id","name","latitude","longitude","free_places")
         )
         return JsonResponse(response_dict, status=200)
+
+
+class TestSignedRequestView(SignedRequestAPIView):
+    def post(self, request):
+        res = {}
+        for key in request.data:
+            res[key] = request.data[key]
+        return JsonResponse(res, status=200)
 
 
 class UpdateParkingView(SignedRequestAPIView):
@@ -192,12 +201,36 @@ class CompleteParkingSessionView(SignedRequestAPIView):
 
 
 class ParkingSessionListUpdateView(SignedRequestAPIView):
+    validator_class = UpdateListParkingSessionValidator
 
     def post(self, request):
         sessions = request.data["sessions"]
-        timestamp = request.data["timestamp"]
 
         for session in sessions:
-            pass
+            session_id = session["session_id"]
+            session_status = session["status"]
+
+            if session_status == "create":
+                parking_id = int(session["parking_id"])
+                client_id = int(session["client_id"])
+                started_at = int(session["started_at"])
+                # TODO add to db
+
+            elif session_status == "update":
+                debt = int(session["debt"])
+                session = int(session["updated_at"])
+                # TODO add to db
+
+            elif session_status == "complete":
+                debt = int(session["debt"])
+                session = int(session["completed_at"])
+                # TODO add to db
+
+            else:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Session objects has invalid status"
+                )
+                return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, 200)

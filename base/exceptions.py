@@ -43,6 +43,7 @@ class PermissionException(ApiException):
     SIGNATURE_INVALID = 300
     NO_PERMISSION = 301
     ONLY_ONE_CARD = 302
+    VENDOR_NOT_FOUND = 303
 
     def __init__(self, code, message):
         super(PermissionException, self).__init__(message)
