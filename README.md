@@ -550,3 +550,46 @@ Status 400
     "message": "Error"
 }
 ```
+
+### Информация для вендора: ###
+Для использования API-вендора необходимо с помощью администратора добавить организацию в список.
+Вендору будет выдан секретный ключ для цифровой подписи запросов. Например:
+
+```
+    secret = 223c63e6c71520cc6d0bf75a054b8c1d00ffc0c3d645af46c0abfdec08d9613f
+    vendor_name = 'example-parking-name'
+```
+
+Все запросы к API вендора должны содержать в header 2 дополнительных параметра c указанием этих параметров:
+```
+    Header["x_signature"] = "0cc6d0bf75a054b..." (hmac-sha512 тела запроса c использованием secret в 16-ричном представлении)
+    Header["x_vendor_name"] = "example-parking-name"
+    vendor_name = 'example-parking-name'
+```
+
+Перечень ошибок при выполнении запросов к API вендора:
+Status 400
+```
+{
+    "error": "Signature is empty. [x-signature] header required"
+}
+```
+
+```
+{
+    "error": "The vendor name is empty. [X-VENDOR-UNIQUE-NAME] header required"
+}
+```
+
+```
+{
+    "error": "Vendor not found"
+}
+```
+
+```
+{
+    "error": "Invalid signature"
+}
+```
+

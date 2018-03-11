@@ -1,7 +1,10 @@
 # Python import
 import json
+import hashlib
+import hmac
 
 # Django import
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
@@ -10,6 +13,7 @@ from django.http import JsonResponse
 # App import
 from base.exceptions import ValidationException, AuthException
 from base.validators import ValidatePostParametersMixin
+from parkings.models import Vendor
 
 
 class APIView(View, ValidatePostParametersMixin):
@@ -17,7 +21,7 @@ class APIView(View, ValidatePostParametersMixin):
     def dispatch(self, request, *args, **kwargs):
 
         # Only application/json Content-type allow
-        if request.META['CONTENT_TYPE'] != "application/json":
+        if request.META.get('CONTENT_TYPE', None) != "application/json":
             return JsonResponse({
                 "error":"HTTP Status 415 - Unsupported Media Type"
             }, status=415)
@@ -39,6 +43,42 @@ class APIView(View, ValidatePostParametersMixin):
                     return exception_response
 
         return super(APIView, self).dispatch(request, *args, **kwargs)
+
+
+class SignedRequestAPIView(APIView):
+    @method_decorator(csrf_exempt)
+    def dispatch(self, request, *args, **kwargs):
+        if not request.META.get('HTTP_X_SIGNATURE', None):
+            return JsonResponse({
+                "error": "Signature is empty. [x-signature] header required"
+            }, status=400)
+
+        if not request.META.get('HTTP_X_VENDOR_NAME', None):
+            return JsonResponse({
+                "error": "The vendor name is empty. [X-VENDOR-UNIQUE-NAME] header required"
+            }, status=400)
+
+        print "Sing: %s, Vendor: %s" % (
+            request.META["HTTP_X_SIGNATURE"],
+            request.META["HTTP_X_VENDOR_NAME"]
+        )
+        try:
+            request.vendor = Vendor.objects.get(
+                name=str(request.META["HTTP_X_VENDOR_NAME"])
+            )
+
+        except ObjectDoesNotExist:
+            return JsonResponse({
+                "error": "Vendor not found"
+            }, status=400)
+        signature = hmac.new(str(request.vendor.secret), request.body, hashlib.sha512)
+
+        if signature.hexdigest() != request.META["HTTP_X_SIGNATURE"].lower():
+            return JsonResponse({
+                "error": "Invalid signature"
+            }, status=400)
+
+        return super(SignedRequestAPIView, self).dispatch(request, *args, **kwargs)
 
 
 class LoginRequiredAPIView(APIView):

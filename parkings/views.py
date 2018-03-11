@@ -4,12 +4,12 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
+from accounts.models import Account
 from base.exceptions import ValidationException
-from base.views import LoginRequiredAPIView, APIView
+from base.views import LoginRequiredAPIView, APIView, SignedRequestAPIView
 from parkings.models import Parking, ParkingSession
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
-    CancelParkingSessionValidator, UpdateParkingSessionValidator, UpdateParkingValidator, \
-    CompleteParkingSessionValidator
+    UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator
 
 
 class GetParkingView(LoginRequiredAPIView):
@@ -70,13 +70,13 @@ class GetParkingViewList(LoginRequiredAPIView):
         return JsonResponse(response_dict, status=200)
 
 
-class UpdateParkingView(APIView):
+class UpdateParkingView(SignedRequestAPIView):
     validator_class = UpdateParkingValidator
 
     def post(self, request):
         parking_id = int(request.data["parking_id"])
         free_places = int(request.data["free_places"])
-        # TODO check signature or hmac
+
         try:
             parking = Parking.objects.get(id=parking_id)
             parking.free_places = free_places
@@ -91,7 +91,7 @@ class UpdateParkingView(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
 
-class CreateParkingSessionView(APIView):
+class CreateParkingSessionView(SignedRequestAPIView):
     validator_class = CreateParkingSessionValidator
 
     def post(self, request):
@@ -136,7 +136,7 @@ class CreateParkingSessionView(APIView):
         return JsonResponse({}, status=200)
 
 
-class UpdateParkingSessionView(APIView):
+class UpdateParkingSessionView(SignedRequestAPIView):
     validator_class = UpdateParkingSessionValidator
 
     def post(self, request):
@@ -164,7 +164,7 @@ class UpdateParkingSessionView(APIView):
         return JsonResponse({}, status=200)
 
 
-class CompleteParkingSessionView(APIView):
+class CompleteParkingSessionView(SignedRequestAPIView):
     validator_class = CompleteParkingSessionValidator
 
     def post(self, request):
@@ -191,29 +191,13 @@ class CompleteParkingSessionView(APIView):
         return JsonResponse({}, status=200)
 
 
-"""
-class ParkingSessionCancelView(APIView):
-    validator_class = CancelParkingSessionValidator
+class ParkingSessionListUpdateView(SignedRequestAPIView):
 
-    def post(self, request):
-        session_id = request.data["session_id"]
-        try:
-            session = ParkingSession.objects.get(id=session_id)
-            session.delete()
-            return JsonResponse({}, 200)
-
-        except ObjectDoesNotExist:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "Session does not exists"
-            )
-            return JsonResponse(e.serialize(), 400)
-
-        return JsonResponse({}, 200)
-
-
-class ParkingSessionListUpdateView(APIView):
     def post(self, request):
         sessions = request.data["sessions"]
+        timestamp = request.data["timestamp"]
+
+        for session in sessions:
+            pass
+
         return JsonResponse({}, 200)
-"""
