@@ -11,7 +11,7 @@ from django.views.generic import View
 from django.http import JsonResponse
 
 # App import
-from base.exceptions import ValidationException, AuthException
+from base.exceptions import ValidationException, AuthException, PermissionException
 from base.validators import ValidatePostParametersMixin
 from parkings.models import Vendor
 
@@ -49,34 +49,43 @@ class SignedRequestAPIView(APIView):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
         if not request.META.get('HTTP_X_SIGNATURE', None):
-            return JsonResponse({
-                "error": "Signature is empty. [x-signature] header required"
-            }, status=400)
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Signature is empty. [x-signature] header required"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
         if not request.META.get('HTTP_X_VENDOR_NAME', None):
-            return JsonResponse({
-                "error": "The vendor name is empty. [X-VENDOR-UNIQUE-NAME] header required"
-            }, status=400)
-
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "The vendor name is empty. [x-vendor-name] header required"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        """
         print "Sing: %s, Vendor: %s" % (
             request.META["HTTP_X_SIGNATURE"],
             request.META["HTTP_X_VENDOR_NAME"]
         )
+        """
         try:
             request.vendor = Vendor.objects.get(
                 name=str(request.META["HTTP_X_VENDOR_NAME"])
             )
-
         except ObjectDoesNotExist:
-            return JsonResponse({
-                "error": "Vendor not found"
-            }, status=400)
+            e = PermissionException(
+                PermissionException.VENDOR_NOT_FOUND,
+                "Vendor does not exist"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
         signature = hmac.new(str(request.vendor.secret), request.body, hashlib.sha512)
 
         if signature.hexdigest() != request.META["HTTP_X_SIGNATURE"].lower():
-            return JsonResponse({
-                "error": "Invalid signature"
-            }, status=400)
+            e = PermissionException(
+                PermissionException.SIGNATURE_INVALID,
+                "Invalid signature"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
         return super(SignedRequestAPIView, self).dispatch(request, *args, **kwargs)
 
