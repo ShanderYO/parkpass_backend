@@ -79,7 +79,7 @@ class AccountSession(models.Model):
         ordering = ["-expired_at"]
 
     def __unicode__(self):
-        return "Session for %s %s" % (self.account.fistname, self.account.lastname)
+        return "Session for %s %s" % (self.account.first_name, self.account.last_name)
 
     @classmethod
     def get_account_by_token(cls, token):

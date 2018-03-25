@@ -48,12 +48,16 @@ PAYMENT_STATUSES = (
     (PAYMENT_STATUS_REJECTED, 'Rejected'),
     (PAYMENT_STATUS_AUTH_FAIL, 'Auth fail'),
     (PAYMENT_STATUS_AUTHORIZED, 'Authorized'),
+    (PAYMENT_STATUS_CONFIRMED, 'Confirmed'),
 )
 
 class TinkoffPayment(models.Model):
     payment_id = models.BigIntegerField(unique=True, blank=True, null=True)
     status = models.SmallIntegerField(choices=PAYMENT_STATUSES, default=PAYMENT_STATUS_INIT)
     rebill_id = models.BigIntegerField(unique=True, blank=True, null=True)
+    card_id = models.BigIntegerField(unique=True, blank=True, null=True)
+    pan = models.CharField(max_length=31, blank=True, null=True)
+
     error_code = models.IntegerField(default=-1)
     error_message = models.CharField(max_length=127, blank=True, null=True)
     error_description = models.TextField(max_length=511, blank=True, null=True)
@@ -86,3 +90,21 @@ class TinkoffPayment(models.Model):
             "PaymentId":str(self.payment_id)
         }
         return data
+
+    def set_new_status(self, new_status):
+        if new_status == u'CANCEL':
+            self.status = PAYMENT_STATUS_CANCEL
+
+        elif new_status == u'AUTHORIZED' and self.status != PAYMENT_STATUS_CONFIRMED:
+            self.status = PAYMENT_STATUS_AUTHORIZED
+
+        elif new_status == u'CONFIRMED':
+            self.status = PAYMENT_STATUS_CONFIRMED
+
+        elif new_status == u'REJECTED':
+            self.status = PAYMENT_STATUS_REJECTED
+
+        elif new_status == u'AUTH_FAIL':
+            self.status = PAYMENT_STATUS_AUTH_FAIL
+
+        self.save()

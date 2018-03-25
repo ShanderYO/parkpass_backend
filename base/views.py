@@ -20,9 +20,8 @@ from parkings.models import Vendor
 class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-        get_logger().info("APIView dispatch invoke")
         # Only application/json Content-type allow
-        if request.META.get('CONTENT_TYPE', None) != "application/json":
+        if not request.META['CONTENT_TYPE'].startswith("application/json"):
             return JsonResponse({
                 "error":"HTTP Status 415 - Unsupported Media Type"
             }, status=415)

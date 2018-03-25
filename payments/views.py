@@ -90,7 +90,25 @@ class TinkoffCallbackView(APIView):
     #validator_class = TinkoffCallbackValidator
 
     def post(self, request, *args, **kwargs):
+        get_logger().info("Callback payments invoke")
         get_logger().info(request.data)
+        """
+        Sample data
+        {
+            u'OrderId': u'7',
+            u'Status': u'CONFIRMED',
+            u'Success': True,
+            u'RebillId': 1521972571962,
+            u'Token': u'6fcb8e5e0980a5810f22845886b7d8cc06130019dbe40b2c8b2c0fd46a9d9dd5',
+            u'ExpDate': u'1122',
+            u'ErrorCode': u'0',
+            u'Amount': 100,
+            u'TerminalKey': u'1516954410942DEMO',
+            u'CardId': 3582969,
+            u'PaymentId': 16993956,
+            u'Pan': u'430000******0777'
+        }
+        """
 
         # TODO validate token or place to Validator
         token = request.data["Token"]
@@ -115,34 +133,39 @@ class TinkoffCallbackView(APIView):
             status = PAYMENT_STATUS_REJECTED
 
         if status < 0:
-            # TODO add log
+            get_logger().error("status 400: Unknown status -> %s" % raw_status)
             return HttpResponse(status=400)
 
+        card_id = int(request.data["CardId"])
+        pan = request.data["Pan"]
+        exp_date = request.data["ExpDate"]
+
+        rebill_id = -1
         if request.data.get("Success", False):
-            card_id = int(request.data["CardId"])
-            pan = request.data["Pan"]
-            exp_date = request.data["ExpDate"]
             rebill_id = int(request.data.get("RebillId", -1))
 
-            try:
-                tinkoffPayment = TinkoffPayment.objects.get(payment_id=payment_id)
-                tinkoffPayment.card_id = card_id
-                tinkoffPayment.pan = pan
-                tinkoffPayment.exp_date = exp_date
-                if rebill_id:
-                    tinkoffPayment.rebill_id = rebill_id
-                tinkoffPayment.set_new_status(status)
-                tinkoffPayment.save()
+        code = -1
+        if int(request.data.get("ErrorCode", -1)) > 0:
+            code = int(request.data["ErrorCode"])
 
-            except ObjectDoesNotExist:
-                # TODO add log
-                return HttpResponse(status=400)
+        try:
+            tinkoffPayment = TinkoffPayment.objects.get(payment_id=payment_id)
+            tinkoffPayment.card_id = card_id
+            tinkoffPayment.pan = pan
+            tinkoffPayment.exp_date = exp_date
+            if rebill_id > 0:
+                tinkoffPayment.rebill_id = rebill_id
+            if code > 0:
+                tinkoffPayment.error_code = code
 
-        elif int(request.data.get("ErrorCode", -1)):
-            code = request.data["ErrorCode"]
-            # TODO add code error in log
+            tinkoffPayment.set_new_status(status)
+            tinkoffPayment.save()
+
+        except ObjectDoesNotExist:
+            get_logger().error("status 400: Don't found payment")
             return HttpResponse(status=400)
 
+        get_logger().info("status 200: OK")
         return HttpResponse("OK", status=200)
 
 
