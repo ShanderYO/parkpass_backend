@@ -70,8 +70,9 @@ class GetInitPaymentUrl(LoginRequiredAPIView):
         # Payment exception
         elif int(result.get("ErrorCode", -1)) > 0:
             error_code = int(result["ErrorCode"])
-            #error_message = result.get("Message", "")
-            #error_details = request.get("Details", "")
+            error_message = result.get("Message", "")
+            error_details = request.get("Details", "")
+            get_logger().warning("Init exception: "+error_code+" : "+error_message+" : "+error_details)
 
             exception_adapter = TinkoffExceptionAdapter(error_code)
             e = exception_adapter.get_api_exeption()

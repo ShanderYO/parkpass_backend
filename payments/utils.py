@@ -40,6 +40,6 @@ class TinkoffExceptionAdapter(object):
             )
         # default
         return PaymentException(
-            PaymentException.TINKOFF_EXCEPTION_INTERNAL_ERROR,
+            PaymentException.EXCEPTION_INTERNAL_ERROR,
             "Внутренняя ошибка системы"
         )
