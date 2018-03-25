@@ -27,3 +27,62 @@ class CreditCard(models.Model):
     @classmethod
     def get_card_by_account(cls, account):
         return CreditCard.objects.filter(account=account)
+
+PAYMENT_STATUS_INIT = 0
+PAYMENT_STATUS_NEW = 1
+PAYMENT_STATUS_CANCEL = 2
+PAYMENT_STATUS_FORMSHOWED = 3
+PAYMENT_STATUS_REJECTED = 4
+PAYMENT_STATUS_AUTH_FAIL = 5
+PAYMENT_STATUS_AUTHORIZED = 6
+PAYMENT_STATUS_CONFIRMED = 7
+PAYMENT_STATUS_REVERSED = 8
+PAYMENT_STATUS_REFUNDED = 9
+PAYMENT_STATUS_PARTIAL_REFUNDED = 10
+
+PAYMENT_STATUSES = (
+    (PAYMENT_STATUS_INIT, 'Init'),
+    (PAYMENT_STATUS_NEW, 'New'),
+    (PAYMENT_STATUS_CANCEL, 'Cancel'),
+    (PAYMENT_STATUS_FORMSHOWED, 'Form showed'),
+    (PAYMENT_STATUS_REJECTED, 'Rejected'),
+    (PAYMENT_STATUS_AUTH_FAIL, 'Auth fail'),
+    (PAYMENT_STATUS_AUTHORIZED, 'Authorized'),
+)
+
+class TinkoffPayment(models.Model):
+    payment_id = models.BigIntegerField(unique=True, blank=True, null=True)
+    status = models.SmallIntegerField(choices=PAYMENT_STATUSES, default=PAYMENT_STATUS_INIT)
+    rebill_id = models.BigIntegerField(unique=True, blank=True, null=True)
+    error_code = models.IntegerField(default=-1)
+    error_message = models.CharField(max_length=127, blank=True, null=True)
+    error_description = models.TextField(max_length=511, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = 'Tinkoff Payment'
+        verbose_name_plural = 'Tinkoff Payments'
+
+    def build_init_request_data(self):
+        data = {
+            "Amount": str(100),  # 1RUB
+            "OrderId": str(self.id),
+            "Description": "initial_payment",
+            "Recurrent": "Y"
+        }
+        return data
+
+    def build_charge_request_data(self):
+        data = {
+            "PaymentId":str(self.payment_id),
+            "RebillId": str(self.rebill_id),
+        }
+        return data
+
+    def build_cancel_request_data(self):
+        data = {
+            "PaymentId":str(self.payment_id)
+        }
+        return data

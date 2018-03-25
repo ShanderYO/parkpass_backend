@@ -66,3 +66,20 @@ class ValidationException(ApiException):
     def __init__(self, code, message):
         super(ValidationException, self).__init__(message)
         self.code = code
+
+class PaymentException(ApiException):
+    """
+        Payment gateway exceptions
+    """
+    BAD_PAYMENT_GATEWAY = 600
+    EXCEPTION_3DS_NOT_AUTH = 601
+    EXCEPTION_DENIED_FROD_MONITOR = 602
+    EXCEPTION_DENIED_INVALID_CARD = 603
+    EXCEPTION_INVALID_REPEAT_LATER = 604
+    EXCEPTION_BANK_OPERATION_DENIED = 605
+    EXCEPTION_MANY_MONEY = 606
+    EXCEPTION_INTERNAL_ERROR = 607
+
+    def __init__(self, code, message):
+        super(PaymentException, self).__init__(message)
+        self.code = code

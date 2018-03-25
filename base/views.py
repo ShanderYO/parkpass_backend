@@ -12,6 +12,7 @@ from django.http import JsonResponse
 
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException
+from base.utils import get_logger
 from base.validators import ValidatePostParametersMixin
 from parkings.models import Vendor
 
@@ -19,7 +20,7 @@ from parkings.models import Vendor
 class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-
+        get_logger().info("APIView dispatch invoke")
         # Only application/json Content-type allow
         if request.META.get('CONTENT_TYPE', None) != "application/json":
             return JsonResponse({
