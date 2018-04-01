@@ -42,6 +42,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'autotask',
     'base',
     'accounts',
     'payments',
@@ -179,3 +180,7 @@ LOGGING = {
         },
     }
 }
+
+AUTOTASK_IS_ACTIVE = True
+AUTOTASK_WORKER_MONITOR_INTERVALL = 60
+AUTOTASK_HANDLE_TASK_IDLE_TIME = 10

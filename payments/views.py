@@ -6,7 +6,7 @@ from base.utils import get_logger
 from base.views import LoginRequiredAPIView, APIView
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_NEW, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
-    PAYMENT_STATUS_PARTIAL_REFUNDED
+    PAYMENT_STATUS_PARTIAL_REFUNDED, Order
 
 from payments.payment_api import TinkoffAPI
 from payments.utils import TinkoffExceptionAdapter
@@ -34,7 +34,7 @@ class GetInitPaymentUrl(LoginRequiredAPIView):
             TinkoffAPI.INIT, request_data
         )
         # Payment gateway error
-        if not request:
+        if not result:
             e = PaymentException(
                 PaymentException.BAD_PAYMENT_GATEWAY,
                 "Payment gateway temporary not available"
@@ -71,8 +71,8 @@ class GetInitPaymentUrl(LoginRequiredAPIView):
         elif int(result.get("ErrorCode", -1)) > 0:
             error_code = int(result["ErrorCode"])
             error_message = result.get("Message", "")
-            error_details = request.get("Details", "")
-            get_logger().warning("Init exception: "+error_code+" : "+error_message+" : "+error_details)
+            error_details = result.get("Details", "")
+            get_logger().warning("Init exception: "+str(error_code)+" : "+error_message+" : "+error_details)
 
             exception_adapter = TinkoffExceptionAdapter(error_code)
             e = exception_adapter.get_api_exeption()
@@ -85,7 +85,6 @@ class GetInitPaymentUrl(LoginRequiredAPIView):
                 "Payment exception does not contained Success or ErrorCode keys"
             )
             return JsonResponse(e.to_dict(), status=400)
-
 
 class TinkoffCallbackView(APIView):
     #validator_class = TinkoffCallbackValidator
@@ -149,24 +148,63 @@ class TinkoffCallbackView(APIView):
         if int(request.data.get("ErrorCode", -1)) > 0:
             code = int(request.data["ErrorCode"])
 
+        # Get order and payment
         try:
-            tinkoffPayment = TinkoffPayment.objects.get(payment_id=payment_id)
-            tinkoffPayment.card_id = card_id
-            tinkoffPayment.pan = pan
-            tinkoffPayment.exp_date = exp_date
-            if rebill_id > 0:
-                tinkoffPayment.rebill_id = rebill_id
+            # Change order
+            order = Order.objects.get(id=order_id)
+            order.paid = float(amount/100)
+            order.save()
+
+            #Change payment
+            payment = TinkoffPayment.objects.get(payment_id=payment_id)
+            payment.set_new_status(status)
             if code > 0:
-                tinkoffPayment.error_code = code
+                payment.error_code = code
+            payment.save()
 
-            tinkoffPayment.set_new_status(status)
-            tinkoffPayment.save()
+            #Change card or rebill_id
+            if CreditCard.objects.filter(id=card_id).exists():
+                credit_card = CreditCard.objects.filter(id=card_id)[0]
+                credit_card.rebill_id = rebill_id
+                credit_card.save()
+            else:
+                credit_card = CreditCard(id=card_id, pan=pan,
+                                         exp_date=exp_date, rebill_id=rebill_id)
+                credit_card.account = order.session.client
+                credit_card.save()
 
-        except ObjectDoesNotExist:
-            get_logger().error("status 400: Don't found payment")
-            return HttpResponse(status=400)
+        except ObjectDoesNotExist as e:
+            get_logger().info(e.message)
 
         get_logger().info("status 200: OK")
+        return HttpResponse("OK", status=200)
+
+
+class CancelPayment(APIView):
+    def post(self, request):
+        payment = 16998111
+        new_payment = TinkoffPayment.objects.create()
+        new_payment.payment_id = payment
+        new_payment.save()
+
+        request_data = new_payment.build_cancel_request_data()
+        result = TinkoffAPI().sync_call(
+            TinkoffAPI.CANCEL, request_data
+        )
+        print result
+        """
+        {
+            u'Status': u'REFUNDED',
+            u'OrderId': u'8',
+            u'Success': True,
+            u'NewAmount': 0,
+            u'ErrorCode': u'0',
+            u'TerminalKey': u'1516954410942DEMO',
+            u'OriginalAmount': 100,
+            u'PaymentId': u'16998111'
+        }
+        """
+
         return HttpResponse("OK", status=200)
 
 
@@ -204,39 +242,3 @@ class SetDefaultCardView(LoginRequiredAPIView):
             e = ValidationException(ValidationException.RESOURCE_NOT_FOUND, "Your card with such id is not found")
             return JsonResponse(e.to_dict(), status=400)
         return JsonResponse({}, status=200)
-
-
-"""
-import re
-import datetime
-
-from django.core.exceptions import ValidationError
-
-from base.exceptions import ValidationException
-from django.core.validators import validate_email, BaseValidator
-
-class CreditCardParamValidator(BaseValidator):
-    def is_valid(self):
-        card_number = self.request.data.get("card_number", None)
-        card_owner = self.request.data.get("card_owner", None)
-        expiry_date = self.request.data.get("expiry_date", None)
-        card_code = self.request.data.get("card_code", None)
-
-        name_on_card = forms.CharField(max_length=50, required=True)
-        card_number = CreditCardField(required=True)
-        expiry_date = ExpiryDateField(required=True)
-        card_code = VerificationValueField(required=True)
-
-
-        if not phone:
-            self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Phone is required"
-            return False
-        try:
-            validate_phone_number(phone)
-        except ValidationError as e:
-            self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
-            return False
-        return True
-"""

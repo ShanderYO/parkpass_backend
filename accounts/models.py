@@ -55,7 +55,7 @@ class Account(models.Model):
         self.save()
 
     def create_sms_code(self):
-        self.sms_code = "".join([str(random.randrange(1,9)) for x in xrange(6)])
+        self.sms_code = "".join([str(random.randrange(1,9)) for x in xrange(5)])
 
     def get_session(self):
         return AccountSession.objects.get(account=self)
@@ -73,7 +73,7 @@ class AccountSession(models.Model):
     token = models.CharField(max_length=63)
     expired_at = models.DateTimeField()
     created_at = models.DateField(auto_now_add=True)
-    account = models.ForeignKey(Account, unique=True)
+    account = models.OneToOneField(Account)
 
     class Meta:
         ordering = ["-expired_at"]
@@ -109,18 +109,3 @@ class AccountSession(models.Model):
     def is_expired(self):
         print self.expired_at
         return timezone.now() >= self.expired_at
-
-
-class PaidDebt(models.Model):
-    paid_debt = models.DecimalField(max_digits=7, decimal_places=2)
-    linked_session_id = models.CharField(max_length=128)
-    parking = models.ForeignKey(Parking, null=True, blank=True)
-    is_completed = models.BooleanField(default=False)
-    account = models.ForeignKey(Account)
-    created_at = models.DateField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __unicode__(self):
-        return "Park session: %s" % self.linked_session_id

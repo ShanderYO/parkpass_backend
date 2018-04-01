@@ -1,6 +1,7 @@
 import binascii
 import os
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
 
@@ -60,6 +61,7 @@ class ParkingSession(models.Model):
     STATE_SESSION_STARTED = 0
     STATE_SESSION_UPDATED = 1
     STATE_SESSION_COMPLETED = 2
+    STATE_SESSION_CLOSED = 3
 
     SESSION_STATES = [
         STATE_SESSION_CANCELED, STATE_SESSION_STARTED, STATE_SESSION_UPDATED, STATE_SESSION_COMPLETED
@@ -69,7 +71,8 @@ class ParkingSession(models.Model):
         (STATE_SESSION_CANCELED, 'Canceled'),
         (STATE_SESSION_STARTED, 'Started'),
         (STATE_SESSION_UPDATED, 'Updated'),
-        (STATE_SESSION_COMPLETED, 'Completed'),  # extensible.
+        (STATE_SESSION_COMPLETED, 'Completed'),
+        (STATE_SESSION_CLOSED, 'Closed'),
     )
 
     id = models.AutoField(unique=True, primary_key=True)
@@ -97,3 +100,10 @@ class ParkingSession(models.Model):
 
     def __unicode__(self):
         return "%s [%s]" % (self.parking.id, self.client.id)
+
+    @classmethod
+    def get_session_by_id(cls, id):
+        try:
+            return ParkingSession.objects.get(id=id)
+        except ObjectDoesNotExist:
+            return None

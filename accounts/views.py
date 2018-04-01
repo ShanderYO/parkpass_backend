@@ -5,7 +5,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
-from accounts.models import Account, AccountParkingSession, PaidDebt
+from accounts.models import Account, AccountParkingSession
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     CardParamValidator
@@ -69,7 +69,7 @@ class AccountView(LoginRequiredAPIView):
     def get(self, request):
         account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code"))
         card_list = CreditCard.get_card_by_account(request.account)
-        account_dict["cards"] = serializer(card_list, include_attr=("id", "number", "is_default"))
+        account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "is_default"))
         return JsonResponse(account_dict, status=200)
 
     def post(self, request):
@@ -185,10 +185,6 @@ class StartParkingSession(LoginRequiredAPIView):
         request.account.parking_session = account_parking_session
         request.account.save()
 
-        PaidDebt.objects.create(
-            account=request.account,
-            linked_session_id=session_id
-        )
         return JsonResponse({"id":account_parking_session.pk}, status=200)
 
 
