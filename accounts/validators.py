@@ -73,21 +73,6 @@ class AccountParamValidator(BaseValidator):
         return True
 
 
-class CardParamValidator(BaseValidator):
-    def is_valid(self):
-        number = self.request.data.get("number", None)
-        owner = self.request.data.get("owner", None)
-        expiration_date_month = self.request.data.get("expiration_date_month", None)
-        expiration_date_year = self.request.data.get("expiration_date_year", None)
-
-        if not number and not owner and not expiration_date_month and expiration_date_year:
-            self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Number, owner, expiration_date_month and expiration_date_year are required"
-            return False
-        # TODO add validation
-        return True
-
-
 def validate_email_format(value):
     validate_email(value)
 

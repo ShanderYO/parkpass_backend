@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
 # Create your models here.
@@ -14,10 +15,11 @@ class CreditCard(models.Model):
     is_default = models.BooleanField(default=False)
     rebill_id = models.BigIntegerField(unique=True, blank=True, null=True)
     created_at = models.DateField(auto_now_add=True)
-    account = models.ForeignKey(Account, related_name = "credit_cards")
+    account = models.ForeignKey(Account, related_name="credit_cards")
 
     def __unicode__(self):
-        return u"%s / %s" % (self.number, "")# self.owner)
+        return u"Card: %s (%s %s)" % (self.pan,
+                             self.account.first_name, self.account.last_name)
 
     class Meta:
         ordering = ["-id"]
@@ -27,6 +29,58 @@ class CreditCard(models.Model):
     @classmethod
     def get_card_by_account(cls, account):
         return CreditCard.objects.filter(account=account)
+
+    @classmethod
+    def bind_request(cls, account):
+        # add Init Order
+        init_order = Order.objects.create(sum=1, account=account)
+        init_payment = TinkoffPayment.objects.create(order=init_order)
+        request_data = init_payment.build_init_request_data()
+
+        result = TinkoffAPI().sync_call(
+            TinkoffAPI.INIT, request_data
+        )
+
+        # Payment success
+        if result.get("Success", False):
+            order_id = int(result["OrderId"])
+            payment_id = int(result["PaymentId"])
+            payment_url = result["PaymentURL"]
+
+            raw_status = result["Status"]
+            status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
+                else PAYMENT_STATUS_REJECTED
+
+            try:
+                payment = TinkoffPayment.objects.get(id=order_id)
+                payment.payment_id = payment_id
+                payment.status = status
+                payment.save()
+
+            except ObjectDoesNotExist:
+                TinkoffPayment.objects.create(payment_id=payment_id, status=status)
+
+            finally:
+                return {
+                    "payment_url": payment_url
+                }
+
+        # Payment exception
+        elif int(result.get("ErrorCode", -1)) > 0:
+            error_code = int(result["ErrorCode"])
+            error_message = result.get("Message", "")
+            error_details = result.get("Details", "")
+            # TODO add to table errors data
+
+            return {
+                "exception": {
+                    "error_code":error_code,
+                    "error_message":error_message,
+                    "error_details":error_details
+                }
+            }
+
+        return None
 
 
 class Order(models.Model):

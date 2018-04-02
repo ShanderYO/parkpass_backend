@@ -7,12 +7,13 @@ from dss.Serializer import serializer
 
 from accounts.models import Account, AccountParkingSession
 from accounts.sms_gateway import SMSGateway
-from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
-    CardParamValidator
-from base.exceptions import AuthException, ValidationException, PermissionException
+from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator
+from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
+from base.utils import get_logger
 from base.views import APIView, LoginRequiredAPIView
 from parkings.models import ParkingSession
 from payments.models import CreditCard
+from payments.utils import TinkoffExceptionAdapter
 
 
 class LoginView(APIView):
@@ -84,25 +85,47 @@ class AccountView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class CreateCardView(LoginRequiredAPIView):
-    validator_class = CardParamValidator
-
+class AddCardView(LoginRequiredAPIView):
     def post(self, request):
-        number = self.request.data["number"]
-        owner = self.request.data["owner"]
-        expiration_date_month = self.request.data["expiration_date_month"]
-        expiration_date_year = self.request.data["expiration_date_year"]
-        #TODO check card in bank
-        # TODO check exist
+        """
+        Success response
+        {
+            u'Status': u'NEW',
+            u'OrderId': u'2',
+            u'Success': True,
+            u'PaymentURL': u'https://securepay.tinkoff.ru/5YDUkv',
+            u'ErrorCode': u'0',
+            u'Amount': 100,
+            u'TerminalKey': u'1516954410942DEMO',
+            u'PaymentId': u'16630446'
+        }
+        """
+        result_dict = CreditCard.bind_request(request.account)
 
-        card_by_default = False
-        if not CreditCard.objects.filter(account=request.account).exists():
-            card_by_default = True
+        # If error request
+        if not result_dict:
+            e = PaymentException(
+                PaymentException.BAD_PAYMENT_GATEWAY,
+                "Payment gateway temporary not available"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
-        card = CreditCard(number=number, account=request.account, is_default=card_by_default)
-        card.save()
+        # If exception occurs
+        if result_dict.get("exception", None):
+            exception = result_dict["exception"]
+            error_code = int(exception.get("error_code", 0))
+            error_message = exception.get("error_message", "")
+            error_details = exception.get("error_details", "")
+            get_logger().warning("Init exception: " + str(error_code) + " : " + error_message + " : " + error_details)
 
-        return JsonResponse({}, status=200)
+            exception_adapter = TinkoffExceptionAdapter(error_code)
+            e = exception_adapter.get_api_exeption()
+            return JsonResponse(e.to_dict(), status=400)
+
+        # Success result
+        return JsonResponse({
+            "payment_url": result_dict["payment_url"]
+        }, status=200)
 
 
 class DeleteCardView(LoginRequiredAPIView):

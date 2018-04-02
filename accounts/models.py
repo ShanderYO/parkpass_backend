@@ -8,8 +8,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils import timezone
 
-from parkings.models import Parking
-
 
 class AccountParkingSession(models.Model):
     start_at = models.DateTimeField()

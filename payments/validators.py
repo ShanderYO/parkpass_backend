@@ -1,4 +1,3 @@
-from base.exceptions import ValidationException
 from base.validators import BaseValidator
 
 
