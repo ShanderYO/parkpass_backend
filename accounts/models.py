@@ -13,7 +13,6 @@ class AccountParkingSession(models.Model):
     start_at = models.DateTimeField()
     completed_at = models.DateTimeField(null=True, blank=True)
     canceled_at = models.DateTimeField(null=True, blank=True)
-
     linked_session_id = models.CharField(max_length=128)
     parking_id = models.IntegerField(null=True, blank=True) #TODO delete
     created_at = models.DateField(auto_now_add=True)

@@ -40,14 +40,22 @@ class CreditCard(models.Model):
             TinkoffAPI.INIT, request_data
         )
 
+        # Tink-off gateway not responded
+        if not result:
+            return None
+
         # Payment success
         if result.get("Success", False):
+            order_id = int(result["OrderId"])
             payment_id = int(result["PaymentId"])
             payment_url = result["PaymentURL"]
 
             raw_status = result["Status"]
             status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
                 else PAYMENT_STATUS_REJECTED
+
+            if init_payment.order.id != order_id:
+                return None
 
             init_payment.payment_id = payment_id
             init_payment.status = status

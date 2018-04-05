@@ -87,19 +87,6 @@ class AccountView(LoginRequiredAPIView):
 
 class AddCardView(LoginRequiredAPIView):
     def post(self, request):
-        """
-        Success response
-        {
-            u'Status': u'NEW',
-            u'OrderId': u'2',
-            u'Success': True,
-            u'PaymentURL': u'https://securepay.tinkoff.ru/5YDUkv',
-            u'ErrorCode': u'0',
-            u'Amount': 100,
-            u'TerminalKey': u'1516954410942DEMO',
-            u'PaymentId': u'16630446'
-        }
-        """
         result_dict = CreditCard.bind_request(request.account)
 
         # If error request
@@ -116,7 +103,9 @@ class AddCardView(LoginRequiredAPIView):
             error_code = int(exception.get("error_code", 0))
             error_message = exception.get("error_message", "")
             error_details = exception.get("error_details", "")
-            get_logger().warning("Init exception: " + str(error_code) + " : " + error_message + " : " + error_details)
+
+            get_logger().warning("Init exception: " + str(error_code) +
+                                 " : " + error_message + " : " + error_details)
 
             exception_adapter = TinkoffExceptionAdapter(error_code)
             e = exception_adapter.get_api_exeption()
@@ -142,7 +131,6 @@ class DeleteCardView(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         if CreditCard.objects.filter(account=request.account).count() > 1:
-            # TODO make added operation
             if not card.is_default:
                 card.delete()
             else:
@@ -153,7 +141,7 @@ class DeleteCardView(LoginRequiredAPIView):
         else:
             e = PermissionException(
                 PermissionException.ONLY_ONE_CARD,
-                "Impossible to delete card"
+                "Impossible to delete single card"
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -182,8 +170,27 @@ class SetDefaultCardView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class StartParkingSession(LoginRequiredAPIView):
+class DebtParkingSessionView(LoginRequiredAPIView):
+    def get(self, request):
+        current_parking_session = request.account.parking_session
+        if current_parking_session:
+            try:
+                parking_session_id = current_parking_session.linked_session_id
+                parking_session = ParkingSession.objects.get(id=parking_session_id)
+                debt_dict = serializer(parking_session, include_attr=("debt", "started_at", "updated_at"))
+                debt_dict["paid_debt"] = current_parking_session.paid_debt
+                return JsonResponse(debt_dict, status=200)
 
+            except ObjectDoesNotExist:
+                e = ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "ParkingSession not found")
+                return JsonResponse(e.to_dict(), status=400)
+        else:
+            return JsonResponse({}, status=200)
+
+
+class StartParkingSession(LoginRequiredAPIView):
     def post(self, request):
         session_id = request.data["session_id"]
         client_id = int(request.data["client_id"])
@@ -275,26 +282,3 @@ class CompleteParkingSession(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, status=200)
-
-
-class DebtParkingSessionView(LoginRequiredAPIView):
-    def get(self, request):
-        account_parking_session = request.account.parking_session
-
-        if account_parking_session:
-            try:
-                parking_session = ParkingSession.objects.get(
-                    session_id=account_parking_session.linked_session_id,
-                    parking_id=account_parking_session.parking.id)
-
-                debt_dict = serializer(parking_session, include_attr=("debt", "started_at", "updated_at"))
-                debt_dict["paid_debt"] = account_parking_session.paid_debt
-                return JsonResponse(debt_dict, status=200)
-
-            except ObjectDoesNotExist:
-                e = ValidationException(
-                    ValidationException.RESOURCE_NOT_FOUND,
-                    "ParkingSession not found")
-                return JsonResponse(e.to_dict(), status=400)
-        else:
-            return JsonResponse({}, status=200)
