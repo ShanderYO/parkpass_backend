@@ -9,6 +9,7 @@ from accounts.models import Account
 from base.exceptions import ValidationException
 from base.views import LoginRequiredAPIView, SignedRequestAPIView
 from parkings.models import Parking, ParkingSession
+from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator
@@ -209,33 +210,15 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
     validator_class = UpdateListParkingSessionValidator
 
     def post(self, request):
+        parking_id = int(request.data["parking_id"])
         sessions = request.data["sessions"]
-
-        for session in sessions:
-            session_id = session["session_id"]
-            session_status = session["status"]
-
-            if session_status == "create":
-                parking_id = int(session["parking_id"])
-                client_id = int(session["client_id"])
-                started_at = int(session["started_at"])
-                # TODO add to db
-
-            elif session_status == "update":
-                debt = int(session["debt"])
-                session = int(session["updated_at"])
-                # TODO add to db
-
-            elif session_status == "complete":
-                debt = int(session["debt"])
-                session = int(session["completed_at"])
-                # TODO add to db
-
-            else:
-                e = ValidationException(
-                    ValidationException.VALIDATION_ERROR,
-                    "Session objects has invalid status"
-                )
-                return JsonResponse(e.to_dict(), status=400)
-
-        return JsonResponse({}, 200)
+        try:
+            parking = Parking.objects.get(id=parking_id, vendor=request.vendor)
+            process_updated_sessions(parking, sessions)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking with id %s for vendor %s does not exists" % (parking_id, request.vendor.name)
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        return JsonResponse({}, 202)

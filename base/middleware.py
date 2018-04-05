@@ -1,4 +1,3 @@
-from django.core.exceptions import ObjectDoesNotExist
 from django.utils.functional import SimpleLazyObject
 from django.utils.six import text_type
 
@@ -27,16 +26,13 @@ def get_account(request):
         return None
 
     if len(auth) == 1:
-        #get_logger().warning("Incorrect format token")
         return None
 
     if len(auth) > 2:
-        #get_logger().warning("Incorrect format token: > 2")
         return None
     try:
         token = auth[1].decode()
     except UnicodeError:
-        #get_logger().warning("Invalid token encoding")
         return None
 
     return AccountSession.get_account_by_token(token)

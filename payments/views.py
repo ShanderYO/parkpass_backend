@@ -9,7 +9,6 @@ from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_NEW, PAYM
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order
 
 from payments.payment_api import TinkoffAPI
-from payments.utils import TinkoffExceptionAdapter
 
 
 class TinkoffCallbackView(APIView):

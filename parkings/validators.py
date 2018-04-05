@@ -33,7 +33,6 @@ class UpdateParkingValidator(BaseValidator):
         try:
             int(parking_id)
             int(free_places)
-
         except Exception:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Invalid format free_places. Int required"
@@ -109,19 +108,54 @@ class CancelParkingSessionValidator(BaseValidator):
         session_id = self.request.data.get("session_id", None)
         if not session_id:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Session id is required"
+            self.message = "session_id is required"
             return False
-
-        # TODO add validation
         return True
 
 
 class UpdateListParkingSessionValidator(BaseValidator):
     def is_valid(self):
+        parking_id = self.request.data.get("parking_id", None)
         sessions = self.request.data.get("sessions", None)
+
+        if not parking_id:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key parking_id is required"
+            return False
+
         if not sessions:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Sessions is required"
+            self.message = "Key sessions is required"
             return False
-        # TODO check format bulk update
+
+        try:
+            int(parking_id)
+        except Exception:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Invalid parking_id value format. Must be long type"
+            return False
+
+        if type(sessions) != type([]):
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Session value must be list"
+            return False
+
+        for session_dict in sessions:
+            session_id = session_dict.get("session_id", None)
+            debt = session_dict.get("debt", None)
+            updated_at = session_dict.get("updated_at", None)
+
+            if not session_id or not debt or not updated_at:
+                self.code = ValidationException.VALIDATION_ERROR
+                self.message = "All item of sessions must have session_id, debt and updated_at kyes"
+                return False
+            try:
+                float(debt)
+                int(updated_at)
+
+            except Exception:
+                self.code = ValidationException.VALIDATION_ERROR
+                self.message = "Invalid format debt or updated_at. Keys debt float required and updated_at int required"
+                return False
+
         return True
