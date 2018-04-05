@@ -32,7 +32,6 @@ class CreditCard(models.Model):
 
     @classmethod
     def bind_request(cls, account):
-        # add Init Order
         init_order = Order.objects.create(sum=1, account=account)
         init_payment = TinkoffPayment.objects.create(order=init_order)
         request_data = init_payment.build_init_request_data()
@@ -43,7 +42,6 @@ class CreditCard(models.Model):
 
         # Payment success
         if result.get("Success", False):
-            order_id = int(result["OrderId"])
             payment_id = int(result["PaymentId"])
             payment_url = result["PaymentURL"]
 
@@ -51,26 +49,28 @@ class CreditCard(models.Model):
             status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
                 else PAYMENT_STATUS_REJECTED
 
-            try:
-                payment = TinkoffPayment.objects.get(id=order_id)
-                payment.payment_id = payment_id
-                payment.status = status
-                payment.save()
+            init_payment.payment_id = payment_id
+            init_payment.status = status
+            init_payment.save()
 
-            except ObjectDoesNotExist:
-                TinkoffPayment.objects.create(payment_id=payment_id, status=status)
+            if status == PAYMENT_STATUS_REJECTED:
+                return None
 
-            finally:
-                return {
-                    "payment_url": payment_url
-                }
+            # Send url to user
+            return {
+                "payment_url": payment_url
+            }
 
         # Payment exception
         elif int(result.get("ErrorCode", -1)) > 0:
             error_code = int(result["ErrorCode"])
             error_message = result.get("Message", "")
             error_details = result.get("Details", "")
-            # TODO add to table errors data
+
+            init_payment.error_code = error_code
+            init_payment.error_message = error_message
+            init_payment.error_description = error_details
+            init_payment.save()
 
             return {
                 "exception": {
@@ -79,7 +79,6 @@ class CreditCard(models.Model):
                     "error_details":error_details
                 }
             }
-
         return None
 
 
@@ -91,6 +90,8 @@ class Order(models.Model):
     payment_attempts = models.PositiveSmallIntegerField(default=1)
     paid = models.BooleanField(default=False)
     session = models.ForeignKey(ParkingSession, null=True, blank=True)
+    # for init payment order
+    account = models.ForeignKey(Account, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -101,11 +102,11 @@ class Order(models.Model):
     @classmethod
     def get_ordered_sum_by_session(cls, session):
         sessions = Order.objects.filter(session=session)
-        sum = 0
+        result_sum = 0
         if sessions.exists():
             for session in sessions:
-                sum = sum + session.sum
-        return sum
+                result_sum = result_sum + session.sum
+        return result_sum
 
     def get_order_description(self):
         if not self.session:
@@ -116,7 +117,7 @@ class Order(models.Model):
 
     def try_pay(self):
         get_logger().info("Try make payment #%s", self.id)
-        #self.create_payment()
+        self.create_payment()
 
     def get_payment_amount(self):
         return int(self.sum * 100)
@@ -177,7 +178,7 @@ class TinkoffPayment(models.Model):
     def build_init_request_data(self):
         data = {
             "Amount": str(100),  # 1RUB
-            "OrderId": str(self.id),
+            "OrderId": str(self.order.id),
             "Description": "initial_payment",
             "Recurrent": "Y"
         }
@@ -186,7 +187,7 @@ class TinkoffPayment(models.Model):
     def build_transaction_data(self, amount):
         data = {
             "Amount": str(amount),
-            "OrderId": str(self.id),
+            "OrderId": str(self.order.id),
             "Description": "Payment #xxx",
             "Recurrent": "Y"
         }

@@ -1,12 +1,13 @@
 import datetime
 import pytz
+
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account
 from base.exceptions import ValidationException
-from base.views import LoginRequiredAPIView, APIView, SignedRequestAPIView
+from base.views import LoginRequiredAPIView, SignedRequestAPIView
 from parkings.models import Parking, ParkingSession
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
@@ -87,7 +88,7 @@ class UpdateParkingView(SignedRequestAPIView):
         free_places = int(request.data["free_places"])
 
         try:
-            parking = Parking.objects.get(id=parking_id)
+            parking = Parking.objects.get(id=parking_id, vendor=request.vendor)
             parking.free_places = free_places
             parking.save()
             return JsonResponse({}, status=200)
@@ -95,7 +96,7 @@ class UpdateParkingView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with such id not found"
+                "Parking with such id for vendor %s not found" % request.vendor.name
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -110,12 +111,12 @@ class CreateParkingSessionView(SignedRequestAPIView):
         started_at = int(request.data["started_at"])
 
         try:
-            parking = Parking.objects.get(id=parking_id)
+            parking = Parking.objects.get(id=parking_id, vendor=request.vendor)
 
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with such id not found"
+                "Parking with such id for vendor %s not found" % request.vendor.name
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -157,7 +158,9 @@ class UpdateParkingSessionView(SignedRequestAPIView):
         updated_at_date_tz = pytz.utc.localize(updated_at_date)
 
         try:
-            session = ParkingSession.objects.get(session_id=session_id)
+            session = ParkingSession.objects.get(
+                session_id=session_id, parking__vendor=request.vendor
+            )
             session.debt = debt
             session.updated_at = updated_at_date_tz
             session.state = ParkingSession.STATE_SESSION_UPDATED
@@ -166,7 +169,7 @@ class UpdateParkingSessionView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Session does not exists"
+                "Session for vendor %s does not exists" % request.vendor.name
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -185,7 +188,9 @@ class CompleteParkingSessionView(SignedRequestAPIView):
         completed_at_date_tz = pytz.utc.localize(completed_at_date)
 
         try:
-            session = ParkingSession.objects.get(session_id=session_id)
+            session = ParkingSession.objects.get(
+                session_id=session_id, parking__vendor=request.vendor
+            )
             session.debt = debt
             session.completed_at = completed_at_date_tz
             session.save()
@@ -193,7 +198,7 @@ class CompleteParkingSessionView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Session does not exists"
+                "Session for vendor %s does not exists" % request.vendor.name
             )
             return JsonResponse(e.to_dict(), status=400)
 

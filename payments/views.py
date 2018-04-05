@@ -27,12 +27,14 @@ class GetInitPaymentUrl(LoginRequiredAPIView):
             u'PaymentId': u'16630446'
         }
         """
-        new_payment = TinkoffPayment.objects.create()
+        init_order = Order.objects.create(sum=1, account=request.account)
+        new_payment = TinkoffPayment.objects.create(order=init_order)
         request_data = new_payment.build_init_request_data()
 
         result = TinkoffAPI().sync_call(
             TinkoffAPI.INIT, request_data
         )
+
         # Payment gateway error
         if not result:
             e = PaymentException(
@@ -62,17 +64,18 @@ class GetInitPaymentUrl(LoginRequiredAPIView):
                 }, status=200)
 
             except ObjectDoesNotExist:
-                TinkoffPayment.objects.create(payment_id=payment_id, status=status)
-                return JsonResponse({
-                    "payment_url": payment_url
-                }, status=200)
+                e = PaymentException(
+                    PaymentException.EXCEPTION_INTERNAL_ERROR,
+                    "Error occurs at payment process"
+                )
+                return JsonResponse(e.to_dict(), status=400)
 
         # Payment exception
         elif int(result.get("ErrorCode", -1)) > 0:
             error_code = int(result["ErrorCode"])
             error_message = result.get("Message", "")
             error_details = result.get("Details", "")
-            get_logger().warning("Init exception: "+str(error_code)+" : "+error_message+" : "+error_details)
+            get_logger().warn("Init exception error: "+str(error_code)+" : "+error_message+" : "+error_details)
 
             exception_adapter = TinkoffExceptionAdapter(error_code)
             e = exception_adapter.get_api_exeption()
@@ -86,11 +89,12 @@ class GetInitPaymentUrl(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
+
 class TinkoffCallbackView(APIView):
     #validator_class = TinkoffCallbackValidator
 
     def post(self, request, *args, **kwargs):
-        get_logger().info("Callback payments invoke")
+        get_logger().info("Callback payments invoke:")
         get_logger().info(request.data)
         """
         Sample data
@@ -152,17 +156,17 @@ class TinkoffCallbackView(APIView):
         try:
             # Change order
             order = Order.objects.get(id=order_id)
-            order.paid = float(amount/100)
+            order.paid = float(amount)/100
             order.save()
 
-            #Change payment
+            # Change state payment
             payment = TinkoffPayment.objects.get(payment_id=payment_id)
             payment.set_new_status(status)
             if code > 0:
                 payment.error_code = code
             payment.save()
 
-            #Change card or rebill_id
+            # Change card or rebill_id
             if CreditCard.objects.filter(id=card_id).exists():
                 credit_card = CreditCard.objects.filter(id=card_id)[0]
                 credit_card.rebill_id = rebill_id
@@ -170,11 +174,15 @@ class TinkoffCallbackView(APIView):
             else:
                 credit_card = CreditCard(id=card_id, pan=pan,
                                          exp_date=exp_date, rebill_id=rebill_id)
-                credit_card.account = order.session.client
-                credit_card.save()
+                if order.account:
+                    credit_card.account = order.account
+                    credit_card.save()
+                else:
+                    get_logger().warn("Order does not contained account. " +
+                                      "Please check payment initialization")
 
         except ObjectDoesNotExist as e:
-            get_logger().info(e.message)
+            get_logger().warn(e.message)
 
         get_logger().info("status 200: OK")
         return HttpResponse("OK", status=200)

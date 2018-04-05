@@ -26,6 +26,13 @@ class Vendor(models.Model):
     def generate_secret(self):
         self.secret = binascii.hexlify(os.urandom(32)).decode()
 
+class ParkingManger(models.Manager):
+    def find_between_point(self, lt_point, rb_point):
+        return Parking.objects.filter(
+            latitude__range=[rb_point[0], lt_point[0]],
+            longitude__range=[lt_point[1], rb_point[1]],
+            enabled=True
+        )
 
 class Parking(models.Model):
     id = models.AutoField(primary_key=True)
@@ -36,7 +43,10 @@ class Parking(models.Model):
     longitude = models.DecimalField(max_digits=11, decimal_places=8)
     enabled = models.BooleanField(default=True)
     free_places = models.IntegerField()
+    vendor = models.ForeignKey(Vendor, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
+
+    parking_manager = ParkingManger()
 
     class Meta:
         ordering = ["-id"]
@@ -46,6 +56,7 @@ class Parking(models.Model):
     def __unicode__(self):
         return "%s [%s]" % (self.name, self.id)
 
+    # TODO remove from here
     @classmethod
     def find_between_point(cls, lt_point, rb_point):
         result = Parking.objects.filter(
