@@ -1,14 +1,15 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse, HttpResponse
 
-from base.exceptions import ValidationException, PaymentException
+from base.exceptions import ValidationException
 from base.utils import get_logger
 from base.views import LoginRequiredAPIView, APIView
-from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_NEW, PAYMENT_STATUS_REJECTED, \
+from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order
 
 from payments.payment_api import TinkoffAPI
+from payments.tasks import start_cancel_request
 
 
 class TinkoffCallbackView(APIView):

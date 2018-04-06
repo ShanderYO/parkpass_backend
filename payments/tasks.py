@@ -4,7 +4,7 @@ from base.utils import get_logger
 from payments.payment_api import TinkoffAPI
 
 
-@delayed_task
+@delayed_task(delay=0)
 def start_cancel_request(payment):
     request_data = payment.build_cancel_request_data()
     result = TinkoffAPI().sync_call(
