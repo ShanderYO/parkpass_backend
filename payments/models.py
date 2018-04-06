@@ -1,4 +1,3 @@
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
 # Create your models here.
@@ -91,7 +90,7 @@ class CreditCard(models.Model):
 
 
 class Order(models.Model):
-    DEFAULT_WITHDRAWAL_AMOUNT = 100  # RUB
+    DEFAULT_WITHDRAWAL_AMOUNT = 100  # RUB TODO add unique for parking
 
     id = models.AutoField(primary_key=True)
     sum = models.DecimalField(max_digits=7, decimal_places=2)

@@ -5,7 +5,7 @@ from parkings.models import ParkingSession
 from payments.models import Order
 
 
-@periodic_task(seconds=20)
+@periodic_task(seconds=30)
 def generate_orders_and_pay():
 
     # TODO check canceled sessions

@@ -33,7 +33,7 @@ class UpdateParkingValidator(BaseValidator):
         try:
             int(parking_id)
             int(free_places)
-        except Exception:
+        except ValueError:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Invalid format free_places. Int required"
             return False
@@ -71,7 +71,7 @@ class UpdateParkingSessionValidator(BaseValidator):
             float(debt)
             int(updated_at)
 
-        except Exception:
+        except ValueError:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Invalid format debt or updated_at. Debt float required, Updated at int required"
             return False
@@ -94,7 +94,7 @@ class CompleteParkingSessionValidator(BaseValidator):
             float(debt)
             int(completed_at)
 
-        except Exception:
+        except ValueError:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Invalid format debt or completed_at. Debt float required, Completed at int required"
             return False
@@ -127,10 +127,10 @@ class UpdateListParkingSessionValidator(BaseValidator):
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Key sessions is required"
             return False
-
         try:
             int(parking_id)
-        except Exception:
+
+        except ValueError:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Invalid parking_id value format. Must be long type"
             return False
@@ -153,7 +153,7 @@ class UpdateListParkingSessionValidator(BaseValidator):
                 float(debt)
                 int(updated_at)
 
-            except Exception:
+            except ValueError:
                 self.code = ValidationException.VALIDATION_ERROR
                 self.message = "Invalid format debt or updated_at. Keys debt float required and updated_at int required"
                 return False
