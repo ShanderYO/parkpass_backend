@@ -82,7 +82,8 @@ class TinkoffCallbackView(APIView):
 
             # Change state payment
             payment = TinkoffPayment.objects.get(payment_id=payment_id)
-            payment.set_new_status(status)
+            # TODO check status order
+            payment.status = status
             if code > 0:
                 payment.error_code = code
             payment.save()
@@ -97,11 +98,15 @@ class TinkoffCallbackView(APIView):
                                          exp_date=exp_date, rebill_id=rebill_id)
                 if order.account:
                     credit_card.account = order.account
+                    credit_card.is_default = False \
+                        if CreditCard.objects.filter(account=order.account).exists() else True
                     credit_card.save()
                 else:
                     get_logger().warn("Order does not contained account. " +
                                       "Please check payment initialization")
-
+            # If init payment
+            if order.account:
+                start_cancel_request()
         except ObjectDoesNotExist as e:
             get_logger().warn(e.message)
 

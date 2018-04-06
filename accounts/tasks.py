@@ -33,7 +33,7 @@ def generate_orders_and_pay():
                     order = Order(
                         sum=Order.DEFAULT_WITHDRAWAL_AMOUNT, session=session
                     )
-                order.save()
+                    order.save()
             if order:
                 order.try_pay()
         else:

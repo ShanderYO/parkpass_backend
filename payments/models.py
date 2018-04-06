@@ -130,12 +130,53 @@ class Order(models.Model):
         return int(self.sum * 100)
 
     def create_payment(self):
-        new_payment = TinkoffPayment.objects.create()
+        new_payment = TinkoffPayment.objects.create(order=self)
         request_data = new_payment.build_transaction_data(self.get_payment_amount())
         result = TinkoffAPI().sync_call(
             TinkoffAPI.INIT, request_data
         )
-        get_logger().info("Init payment:"+result)
+        get_logger().info("Init payment response: ")
+        get_logger().info(str(result))
+
+        # Tink-off gateway not responded
+        if not result:
+            return None
+
+        # Payment success
+        if result.get("Success", False):
+            payment_id = int(result["PaymentId"])
+
+            raw_status = result["Status"]
+            status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
+                else PAYMENT_STATUS_REJECTED
+
+            new_payment.payment_id = payment_id
+            new_payment.status = status
+            new_payment.save()
+
+            # Charge operation:
+            get_logger().info("Make charge: ")
+            default_account_credit_card = CreditCard.objects.get(account=self.session.client, is_default=True)
+            request_data = new_payment.build_charge_request_data(
+                payment_id, default_account_credit_card.rebill_id
+            )
+            result = TinkoffAPI().sync_call(
+                TinkoffAPI.CHARGE, request_data
+            )
+            get_logger().info("Charge payment response: ")
+            get_logger().info(str(result))
+
+
+        # Payment exception
+        elif int(result.get("ErrorCode", -1)) > 0:
+            error_code = int(result["ErrorCode"])
+            error_message = result.get("Message", "")
+            error_details = result.get("Details", "")
+
+            new_payment.error_code = error_code
+            new_payment.error_message = error_message
+            new_payment.error_description = error_details
+            new_payment.save()
 
 
 PAYMENT_STATUS_INIT = 0
@@ -186,7 +227,7 @@ class TinkoffPayment(models.Model):
         data = {
             "Amount": str(100),  # 1RUB
             "OrderId": str(self.order.id),
-            "Description": "initial_payment",
+            "Description": "Initial payment",
             "Recurrent": "Y"
         }
         return data
@@ -195,7 +236,7 @@ class TinkoffPayment(models.Model):
         data = {
             "Amount": str(amount),
             "OrderId": str(self.order.id),
-            "Description": "Payment #xxx",
+            "Description": "Payment for order #%s" % str(self.order.id),
             "Recurrent": "Y"
         }
         return data
