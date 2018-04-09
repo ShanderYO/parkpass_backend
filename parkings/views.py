@@ -64,7 +64,7 @@ class GetParkingViewList(LoginRequiredAPIView):
         lt_point = (left_top_latitude, left_top_longitude)
         rb_point = (right_bottom_latitude, right_bottom_longitude)
 
-        parking_list = Parking.find_between_point(lt_point, rb_point)
+        parking_list = Parking.parking_manager.find_between_point(lt_point, rb_point)
 
         response_dict = dict()
         response_dict["result"] = serializer(

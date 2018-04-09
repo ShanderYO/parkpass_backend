@@ -90,7 +90,6 @@ class CreditCard(models.Model):
 
 
 class Order(models.Model):
-    DEFAULT_WITHDRAWAL_AMOUNT = 100  # RUB TODO add unique for parking
 
     id = models.AutoField(primary_key=True)
     sum = models.DecimalField(max_digits=7, decimal_places=2)
@@ -118,7 +117,7 @@ class Order(models.Model):
     def get_order_description(self):
         if not self.session:
             return "Init payment"
-        if self.sum == Order.DEFAULT_WITHDRAWAL_AMOUNT:
+        if self.sum == self.session.parking.max_client_debt:
             return "Intermediate payment"
         return "Completed payment"
 
@@ -149,7 +148,7 @@ class Order(models.Model):
             raw_status = result["Status"]
             status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
                 else PAYMENT_STATUS_REJECTED
-
+            get_logger().info("Init status: "+ raw_status)
             new_payment.payment_id = payment_id
             new_payment.status = status
             new_payment.save()
@@ -160,6 +159,7 @@ class Order(models.Model):
             request_data = new_payment.build_charge_request_data(
                 payment_id, default_account_credit_card.rebill_id
             )
+            get_logger().info(request_data)
             result = TinkoffAPI().sync_call(
                 TinkoffAPI.CHARGE, request_data
             )

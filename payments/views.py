@@ -1,9 +1,8 @@
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponse
 
-from base.exceptions import ValidationException
 from base.utils import get_logger
-from base.views import LoginRequiredAPIView, APIView
+from base.views import APIView
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order
@@ -102,12 +101,10 @@ class TinkoffCallbackView(APIView):
                     credit_card.is_default = False \
                         if CreditCard.objects.filter(account=order.account).exists() else True
                     credit_card.save()
+                    start_cancel_request(payment)
                 else:
                     get_logger().warn("Order does not contained account. " +
                                       "Please check payment initialization")
-            # If init payment
-            if order.account:
-                start_cancel_request()
         except ObjectDoesNotExist as e:
             get_logger().warn(e.message)
 
@@ -141,39 +138,3 @@ class CancelPayment(APIView):
         """
 
         return HttpResponse("OK", status=200)
-
-
-class AddCardView(LoginRequiredAPIView):
-    def post(self, request):
-        number = "00000000"
-        if CreditCard.exists(number):
-            e = ValidationException(ValidationException.ALREADY_EXISTS, "Card with such number alredy exists")
-            return JsonResponse(e.to_dict(), status=400)
-        credit_card = CreditCard(account=request.account)
-        credit_card.save()
-        return JsonResponse({}, status=200)
-
-
-class DeleteCardView(LoginRequiredAPIView):
-    def post(self, request):
-        card_id = request.data.get("id", 0)
-        try:
-            card = CreditCard.objects.get(id=card_id, account=request.account)
-            card.delete()
-        except ObjectDoesNotExist:
-            e = ValidationException(ValidationException.RESOURCE_NOT_FOUND, "Your card with such id is not found")
-            return JsonResponse(e.to_dict(), status=400)
-        return JsonResponse({}, status=200)
-
-
-class SetDefaultCardView(LoginRequiredAPIView):
-    def post(self, request):
-        card_id = request.data.get("id", 0)
-        try:
-            card = CreditCard.objects.get(id=card_id, account=request.account)
-            card.is_default = True
-            card.save()
-        except ObjectDoesNotExist:
-            e = ValidationException(ValidationException.RESOURCE_NOT_FOUND, "Your card with such id is not found")
-            return JsonResponse(e.to_dict(), status=400)
-        return JsonResponse({}, status=200)

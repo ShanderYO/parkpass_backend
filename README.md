@@ -627,7 +627,7 @@ Status 400
 ```
 
 
-```- POST /parking/v1/session/list/``` (Обновление списка сессий от вендора)
+```- POST /parking/v1/session/update/``` (Обновление списка сессий от вендора)
 
 Тело
 ```

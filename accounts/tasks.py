@@ -29,9 +29,9 @@ def generate_orders_and_pay():
                 order.save()
             else:
                 current_account_debt = session.debt - ordered_sum
-                if current_account_debt >= Order.DEFAULT_WITHDRAWAL_AMOUNT:
+                if current_account_debt >= session.parking.max_client_debt:
                     order = Order(
-                        sum=Order.DEFAULT_WITHDRAWAL_AMOUNT, session=session
+                        sum=session.parking.max_client_debt, session=session
                     )
                     order.save()
             if order:
