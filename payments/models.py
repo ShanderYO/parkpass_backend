@@ -33,8 +33,9 @@ class CreditCard(models.Model):
     def bind_request(cls, account):
         init_order = Order.objects.create(sum=1, account=account)
         init_payment = TinkoffPayment.objects.create(order=init_order)
-        request_data = init_payment.build_init_request_data()
-
+        request_data = init_payment.build_init_request_data(account.id)
+        get_logger().info("Init request:")
+        get_logger().info(request_data)
         result = TinkoffAPI().sync_call(
             TinkoffAPI.INIT, request_data
         )
@@ -223,12 +224,13 @@ class TinkoffPayment(models.Model):
         verbose_name = 'Tinkoff Payment'
         verbose_name_plural = 'Tinkoff Payments'
 
-    def build_init_request_data(self):
+    def build_init_request_data(self, customer_key):
         data = {
             "Amount": str(100),  # 1RUB
             "OrderId": str(self.order.id),
             "Description": "Initial payment",
-            "Recurrent": "Y"
+            "Recurrent": "Y",
+            "CustomerKey": customer_key
         }
         return data
 
