@@ -2,12 +2,13 @@ import datetime
 import pytz
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import IntegrityError
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account
 from base.exceptions import ValidationException
-from base.views import LoginRequiredAPIView, SignedRequestAPIView
+from base.views import LoginRequiredAPIView, SignedRequestAPIView, APIView
 from parkings.models import Parking, ParkingSession
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
@@ -25,7 +26,7 @@ class GetParkingView(LoginRequiredAPIView):
                 "Target parking with such id not found"
             )
             return JsonResponse(e.to_dict())
-        result_dict = serializer(parking, exclude_attr=("created_at","enabled",))
+        result_dict = serializer(parking, exclude_attr=("created_at","enabled","max_client_debt",))
         return JsonResponse(result_dict, status=200)
 
 
@@ -97,7 +98,7 @@ class UpdateParkingView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with such id for vendor %s not found" % request.vendor.name
+                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.name)
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -106,7 +107,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
     validator_class = CreateParkingSessionValidator
 
     def post(self, request):
-        session_id = request.data["session_id"]
+        session_id = str(request.data["session_id"])
         parking_id = int(request.data["parking_id"])
         client_id = int(request.data["client_id"])
         started_at = int(request.data["started_at"])
@@ -117,7 +118,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with such id for vendor %s not found" % request.vendor.name
+                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.name)
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -126,10 +127,11 @@ class CreateParkingSessionView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Account with such id not found"
+                "Client with such id not found"
             )
             return JsonResponse(e.to_dict(), status=400)
 
+        # TODO convert time stamp in utils
         started_at_date = datetime.datetime.fromtimestamp(int(started_at))
         started_at_date_tz = pytz.utc.localize(started_at_date)
 
@@ -137,10 +139,10 @@ class CreateParkingSessionView(SignedRequestAPIView):
                                  parking=parking, started_at=started_at_date_tz)
         try:
             session.save()
-        except Exception as e:
+        except IntegrityError as e:
             e = ValidationException(
                 ValidationException.ALREADY_EXISTS,
-                "Parking Session with such id for this parking is found"
+                "'session_id' value %s for 'parking_id' %s is already exist" % (session_id, parking_id)
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -151,7 +153,8 @@ class UpdateParkingSessionView(SignedRequestAPIView):
     validator_class = UpdateParkingSessionValidator
 
     def post(self, request):
-        session_id = request.data["session_id"]
+        session_id = str(request.data["session_id"])
+        parking_id = int(request.data["parking_id"])
         debt = float(request.data["debt"])
         updated_at = int(request.data["updated_at"])
 
@@ -160,8 +163,16 @@ class UpdateParkingSessionView(SignedRequestAPIView):
 
         try:
             session = ParkingSession.objects.get(
-                session_id=session_id, parking__vendor=request.vendor
+                session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
             )
+            # Check if session was already completed
+            if session.state == ParkingSession.STATE_SESSION_COMPLETED:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Parking session with session_id %s for parking %s is completed" % (session_id, parking_id)
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
             session.debt = debt
             session.updated_at = updated_at_date_tz
             session.state = ParkingSession.STATE_SESSION_UPDATED
@@ -170,7 +181,7 @@ class UpdateParkingSessionView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Session for vendor %s does not exists" % request.vendor.name
+                "Parking session with session_id %s for parking %s does not exist" % (session_id, parking_id)
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -181,8 +192,9 @@ class CompleteParkingSessionView(SignedRequestAPIView):
     validator_class = CompleteParkingSessionValidator
 
     def post(self, request):
-        session_id = request.data["session_id"]
-        debt = int(request.data["debt"])
+        session_id = str(request.data["session_id"])
+        parking_id = int(request.data["parking_id"])
+        debt = float(request.data["debt"])
         completed_at = int(request.data["completed_at"])
 
         completed_at_date = datetime.datetime.fromtimestamp(int(completed_at))
@@ -190,8 +202,16 @@ class CompleteParkingSessionView(SignedRequestAPIView):
 
         try:
             session = ParkingSession.objects.get(
-                session_id=session_id, parking__vendor=request.vendor
+                session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
             )
+            # Check if session was already completed
+            if session.state == ParkingSession.STATE_SESSION_COMPLETED:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Parking session with session_id %s for parking %s is completed" % (session_id, parking_id)
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
             session.debt = debt
             session.completed_at = completed_at_date_tz
             session.save()
@@ -199,7 +219,7 @@ class CompleteParkingSessionView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Session for vendor %s does not exists" % request.vendor.name
+                "Parking session with session_id %s for parking %s does not exist" % (session_id, parking_id)
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -218,7 +238,7 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with id %s for vendor %s does not exists" % (parking_id, request.vendor.name)
+                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.name)
             )
             return JsonResponse(e.to_dict(), status=400)
-        return JsonResponse({}, 202)
+        return JsonResponse({}, status=202)

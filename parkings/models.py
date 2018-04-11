@@ -20,14 +20,17 @@ class Vendor(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk:
-            self.generate_secret()
-        super(Vendor, self).save(args, kwargs)
+            if not kwargs.get("not_generate_secret", False):
+                self.generate_secret()
+            else:
+                del kwargs["not_generate_secret"]
+        super(Vendor, self).save(*args, **kwargs)
 
     def generate_secret(self):
         self.secret = binascii.hexlify(os.urandom(32)).decode()
 
 
-class ParkingManger(models.Manager):
+class ParkingManager(models.Manager):
     def find_between_point(self, lt_point, rb_point):
         return self.filter(
             latitude__range=[rb_point[0], lt_point[0]],
@@ -48,7 +51,8 @@ class Parking(models.Model):
     vendor = models.ForeignKey(Vendor, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
 
-    parking_manager = ParkingManger()
+    objects = models.Manager()
+    parking_manager = ParkingManager()
 
     class Meta:
         ordering = ["-id"]
@@ -79,7 +83,7 @@ class ParkingSession(models.Model):
     )
 
     id = models.AutoField(unique=True, primary_key=True)
-    session_id = models.CharField(max_length=64)
+    session_id = models.CharField(max_length=128)
 
     client = models.ForeignKey('accounts.Account')
     parking = models.ForeignKey(Parking)

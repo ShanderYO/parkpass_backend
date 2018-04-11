@@ -9,10 +9,10 @@ urlpatterns = [
     url(r'^list/$', GetParkingViewList.as_view()),
 
     url(r'^v1/test/$', TestSignedRequestView.as_view()),
-    url(r'^v1/session/create/$', CreateParkingSessionView.as_view()),
     url(r'^v1/update/$', UpdateParkingView.as_view()),
+    url(r'^v1/session/create/$', CreateParkingSessionView.as_view()),
+    url(r'^v1/session/update/$', UpdateParkingSessionView.as_view()),
     url(r'^v1/session/complete/$', CompleteParkingSessionView.as_view()),
-
     url(r'^v1/session/list/update/$', ParkingSessionListUpdateView.as_view()),
 ]
 

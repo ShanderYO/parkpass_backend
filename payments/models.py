@@ -230,7 +230,7 @@ class TinkoffPayment(models.Model):
             "OrderId": str(self.order.id),
             "Description": "Initial payment",
             "Recurrent": "Y",
-            "CustomerKey": customer_key
+            "CustomerKey": str(customer_key)
         }
         return data
 
@@ -238,8 +238,7 @@ class TinkoffPayment(models.Model):
         data = {
             "Amount": str(amount),
             "OrderId": str(self.order.id),
-            "Description": "Payment for order #%s" % str(self.order.id),
-            "Recurrent": "Y"
+            "Description": "Payment for order #%s" % str(self.order.id)
         }
         return data
 
@@ -276,9 +275,3 @@ class TinkoffPayment(models.Model):
             self.status = PAYMENT_STATUS_REFUNDED
 
         self.save()
-
-    def charge_payment(self, rebill_id):
-        request_data = self.build_charge_request_data(self.payment_id, rebill_id)
-        result = TinkoffAPI().sync_call(
-            TinkoffAPI.CHARGE, request_data
-        )

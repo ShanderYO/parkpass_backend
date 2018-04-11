@@ -12,7 +12,6 @@ from django.http import JsonResponse
 
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException
-from base.utils import get_logger
 from base.validators import ValidatePostParametersMixin
 from parkings.models import Vendor
 
@@ -61,12 +60,14 @@ class SignedRequestAPIView(APIView):
                 "The vendor name is empty. [x-vendor-name] header required"
             )
             return JsonResponse(e.to_dict(), status=400)
+
         """
         print "Sing: %s, Vendor: %s" % (
             request.META["HTTP_X_SIGNATURE"],
             request.META["HTTP_X_VENDOR_NAME"]
         )
         """
+
         try:
             request.vendor = Vendor.objects.get(
                 name=str(request.META["HTTP_X_VENDOR_NAME"])
@@ -85,6 +86,7 @@ class SignedRequestAPIView(APIView):
                 PermissionException.SIGNATURE_INVALID,
                 "Invalid signature"
             )
+            print signature.hexdigest()
             return JsonResponse(e.to_dict(), status=400)
 
         return super(SignedRequestAPIView, self).dispatch(request, *args, **kwargs)

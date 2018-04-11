@@ -23,6 +23,7 @@ class IdValidator(BaseValidator):
             return False
         return True
 
+
 class LoginParamValidator(BaseValidator):
     def is_valid(self):
         phone = self.request.data.get("phone", None)

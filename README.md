@@ -508,7 +508,7 @@ Status 400
 Тело
 ```
 {
-    "session_id":2, (Session id from vendor storage)
+    "session_id":"2", (String, session id from vendor storage)
     "parking_id":1,
     "client_id":1,
     "started_at":1518952262 ( Unix-timestamp )
@@ -522,7 +522,15 @@ Status 400
 {
     "exception": "ValidationException",
     "code": 400,
-    "message": "Session id, parking id, client id and started at are required"
+    "message": "Keys 'session_id', 'parking_id', 'client_id' and 'started_at' are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys session_id / parking_id / client_id / started_at has invalid format"
 }
 ```
 
@@ -530,7 +538,7 @@ Status 400
 {
     "exception": "ValidationException",
     "code": 402,
-    "message": "Parking with such id not found"
+    "message": "Parking with such id for vendor [val] not found"
 }
 ```
 
@@ -538,7 +546,7 @@ Status 400
 {
     "exception": "ValidationException",
     "code": 402,
-    "message": "Account with such id not found"
+    "message": "Client with such id not found"
 }
 ```
 
@@ -546,7 +554,7 @@ Status 400
 {
     "exception": "ValidationException",
     "code": 403,
-    "message": "Parking Session with such id for this parking is found"
+    "message": "'session_id' value [val] for 'parking_id' [val] is already exist"
 }
 ```
 
@@ -627,46 +635,43 @@ Status 400
 ```
 
 
-```- POST /parking/v1/session/update/``` (Обновление списка сессий от вендора)
+```- POST /parking/v1/session/list/update/``` (Обновление списка сессий от вендора)
 
 Тело
 ```
 {
+    "parking_id":1,
     "sessions":[
         {
-            "session_id":4, (Session id from vendor storage)
-            "parking_id":1,
-            "client_id":1,
-            "status": "create",
-            "started_at":1518952262 ( Unix-timestamp )
-        },
-        ....
-        {
-            "session_id":2, (Session id from vendor storage)
+            "session_id":"2", (Session id from vendor storage)
             "debt":0.1,
-            "status": "update"
             "updated_at":1518953262"
         },
-        ....
         {
-            "session_id":1, (Session id from vendor storage)
-            "debt":0.1,
-            "status": "complete"
-            "completed_at":1518953262"
+            "session_id":"5", (Session id from vendor storage)
+            "debt":10.5,
+            "updated_at":1518953280"
         },
-        ...
+        ....
     ]
 }
 ```
 
-Status 200 (ОK)
+Status 202 (ОK) (Запрос принят на ассинхронную обработку)
 
 Status 400
 ```
 {
     "exception": "ValidationException",
     "code": 400,
-    "message": "Invalid format"
+    "message": "Key 'parking_id' and 'sessions' are required"
 }
 ```
 
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Key 'parking_id' and 'sessions' are required"
+}
+```
