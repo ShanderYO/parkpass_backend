@@ -108,6 +108,6 @@ def validate_mail_code(value):
 
 
 def validate_sms_code(value):
-    regex = '^[0-9]{6}$'
+    regex = '^[0-9]{5}$'
     if not re.match(regex, value):
         raise ValidationError("Phone code has invalidate format")
