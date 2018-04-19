@@ -8,22 +8,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils import timezone
 
-
-class AccountParkingSession(models.Model):
-    start_at = models.DateTimeField()
-    completed_at = models.DateTimeField(null=True, blank=True)
-    canceled_at = models.DateTimeField(null=True, blank=True)
-    linked_session_id = models.CharField(max_length=128)
-    parking_id = models.IntegerField(null=True, blank=True) #TODO delete
-    created_at = models.DateField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __unicode__(self):
-        return "Park session: %s" % self.linked_session_id
-
-
 class Account(models.Model):
     id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=63, null=True, blank=True)
@@ -32,7 +16,6 @@ class Account(models.Model):
     sms_code = models.CharField(max_length=6, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
-    parking_session = models.ForeignKey(AccountParkingSession, null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]

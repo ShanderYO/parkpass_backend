@@ -3,7 +3,7 @@
 ### Описание:
 
 Webserver API представляет собой реализацию пользовательского API с использованием фрейворка [Django](https://www.djangoproject.com/start/).
-Текущая версия приложения работает на http://176.9.158.147:5000/
+Текущая версия приложения работает на http://parkpass.ru/
 
 ### Использование: ###
 Внутри есть конфигурации для развертывания внутри Docker-контейнера и через Docker-compose
@@ -57,7 +57,7 @@ Status: 400 (Ошибка)
 Тело:
 ```
 {
-    "sms_code":"XXXXXX", (String 6-signs)
+    "sms_code":"XXXXX", (String 5-signs)
 }
 ```
 
@@ -112,10 +112,10 @@ Status: 200 (Успешно)
     "phone": "(+7)9092661898", (Required)
     "cards": [
         {
-            "id": 1,
+            "id": 3932023,
             "is_default": true,
-            "number":"0987" (Last 4-sign of number)
-           }
+            "pan": "415482******6447" (Number of card)
+        }
     ]
 }
 ```
@@ -149,29 +149,22 @@ Status: 400 (Ошибка)
 ```- POST /account/card/add/``` (Добавление карты)
 Тело:
 ```
-{
-    "number": "XXXXX", (Card number [String])
-    "owner": "FIRSTNAME LASTNAME",
-    "expiration_date_month": 12, (1-12)
-    "expiration_date_year": 2019
-}
+{} # Empty
 ```
 Status: 200 (Успешно)
+```
+{
+    "payment_url": "https://securepay.tinkoff.ru/pU9Nmt" # Link for first payment
+}
+```
+
 
 Status: 400 (Ошибка)
 ```
 {
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Number, owner, expiration_date_month and
-        expiration_date_year are required"
-}
-```
-```
-{
-    "exception": "ValidationException",
-    "code": 400,
-    "message": "Invalid first_name/last_name"
+    "exception": "PaymentException",
+    "code": 600 - 607,
+    "message": "Message description"
 }
 ```
 
@@ -179,7 +172,7 @@ Status: 400 (Ошибка)
 Тело:
 ```
 {
-    "id": 1, (Long integer)
+    "id": 3932023, (Long integer)
 }
 ```
 
@@ -213,7 +206,7 @@ Status: 400 (Ошибка)
 Тело:
 ```
 {
-    "id": 1, (Long integer)
+    "id": 3932023, (Long integer)
 }
 ```
 Status: 200 (Успешно)
@@ -244,7 +237,7 @@ Status: 400 (Ошибка)
 {
     "exception": "PermissionException",
     "code": 302,
-    "message": "Impossible to delete card"
+    "message": "Impossible to delete card" (Maybe only one card)
 }
 ```
 
@@ -300,15 +293,13 @@ Status 400
 ```
 
 
-
 ```- POST /account/session/create/``` (Создание сессии от пользователя. Требует токен сессии)
 
 Тело
 ```
 {
-    "session_id":2, (Session id from vendor storage)
+    "session_id":"2", (Session id from vendor storage) String
     "parking_id":1,
-    "client_id":1,
     "started_at":1518952262 ( Unix-timestamp )
 }
 ```
@@ -371,8 +362,16 @@ Status 400
 }
 ```
 
+```- GET /account/session/list/``` (Получение списка сессий пользователя. Требует токен сессии)
 
-```- POST /account/debt/current/``` (Получени задолжности по текущей сессии. Требует токен сессии)
+Status 200 (OK)
+```
+{
+    TODO ////
+}
+```
+
+```- GET /account/session/debt/``` (Получениe задолжности по текущей сессии. Требует токен сессии)
 
 Status 200 (OK)
 ```
@@ -391,6 +390,24 @@ Status 400
     "exception": "ValidationException",
     "code": 400,
     "message": "Error"
+}
+```
+
+```- POST /account/session/pay/``` (Запрос на оплату всей задолжности пользователя. Требует токен сессии)
+
+Status 200 (OK)
+```
+{
+    "id": 1 (Long integer, Id-сессии по которой необходимо списать задолженность)
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking session with id %s does not exist"
 }
 ```
 

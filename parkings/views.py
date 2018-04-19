@@ -8,6 +8,7 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 from base.exceptions import ValidationException
+from base.utils import datetime_from_unix_timestamp_tz
 from base.views import LoginRequiredAPIView, SignedRequestAPIView, APIView
 from parkings.models import Parking, ParkingSession
 from parkings.tasks import process_updated_sessions
@@ -26,7 +27,7 @@ class GetParkingView(LoginRequiredAPIView):
                 "Target parking with such id not found"
             )
             return JsonResponse(e.to_dict())
-        result_dict = serializer(parking, exclude_attr=("created_at","enabled","max_client_debt",))
+        result_dict = serializer(parking, exclude_attr=("created_at","enabled","vendor_id","max_client_debt",))
         return JsonResponse(result_dict, status=200)
 
 
@@ -131,18 +132,52 @@ class CreateParkingSessionView(SignedRequestAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        # TODO convert time stamp in utils
-        started_at_date = datetime.datetime.fromtimestamp(int(started_at))
-        started_at_date_tz = pytz.utc.localize(started_at_date)
-
-        session = ParkingSession(session_id=session_id, client=account,
-                                 parking=parking, started_at=started_at_date_tz)
+        started_at = datetime_from_unix_timestamp_tz(started_at)
+        session = None
         try:
-            session.save()
+            session = ParkingSession.objects.get(session_id=session_id, parking=parking)
+        except ObjectDoesNotExist:
+            session = ParkingSession(session_id=session_id, client=account,
+                                     parking=parking, started_at=started_at)
+        session.add_vendor_start_mark()
+        try:
+            session.save() # TODO Check this login and add log
         except IntegrityError as e:
             e = ValidationException(
                 ValidationException.ALREADY_EXISTS,
                 "'session_id' value %s for 'parking_id' %s is already exist" % (session_id, parking_id)
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        return JsonResponse({}, status=200)
+
+
+class CancelParkingSessionView(SignedRequestAPIView):
+    validator_class = UpdateParkingSessionValidator
+
+    def post(self, request):
+        session_id = str(request.data["session_id"])
+        parking_id = int(request.data["parking_id"])
+
+        try:
+            session = ParkingSession.objects.get(
+                session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
+            )
+            # Check if session is is_cancelable
+            if not session.is_cancelable():
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Parking session cancele error. Current state: %s" % self.state
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            session.state = ParkingSession.STATE_SESSION_CANCELED
+            session.save()
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking session with session_id %s for parking %s does not exist" % (session_id, parking_id)
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -158,24 +193,22 @@ class UpdateParkingSessionView(SignedRequestAPIView):
         debt = float(request.data["debt"])
         updated_at = int(request.data["updated_at"])
 
-        updated_at_date = datetime.datetime.fromtimestamp(int(updated_at))
-        updated_at_date_tz = pytz.utc.localize(updated_at_date)
+        updated_at = datetime_from_unix_timestamp_tz(updated_at)
 
         try:
             session = ParkingSession.objects.get(
                 session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
             )
-            # Check if session was already completed
-            if session.state == ParkingSession.STATE_SESSION_COMPLETED:
+            # Check if session is canceled
+            if not session.is_available_for_vendor_update():
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
-                    "Parking session with session_id %s for parking %s is completed" % (session_id, parking_id)
+                    "Parking session has not canceled state"
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
             session.debt = debt
-            session.updated_at = updated_at_date_tz
-            session.state = ParkingSession.STATE_SESSION_UPDATED
+            session.updated_at = updated_at
             session.save()
 
         except ObjectDoesNotExist:
@@ -197,15 +230,14 @@ class CompleteParkingSessionView(SignedRequestAPIView):
         debt = float(request.data["debt"])
         completed_at = int(request.data["completed_at"])
 
-        completed_at_date = datetime.datetime.fromtimestamp(int(completed_at))
-        completed_at_date_tz = pytz.utc.localize(completed_at_date)
+        completed_at = datetime_from_unix_timestamp_tz(completed_at)
 
         try:
             session = ParkingSession.objects.get(
                 session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
             )
-            # Check if session was already completed
-            if session.state == ParkingSession.STATE_SESSION_COMPLETED:
+            # Check if session was already not active
+            if not session.is_active():
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
                     "Parking session with session_id %s for parking %s is completed" % (session_id, parking_id)
@@ -213,7 +245,8 @@ class CompleteParkingSessionView(SignedRequestAPIView):
                 return JsonResponse(e.to_dict(), status=400)
 
             session.debt = debt
-            session.completed_at = completed_at_date_tz
+            session.completed_at = completed_at
+            session.add_vendor_complete_mark()
             session.save()
 
         except ObjectDoesNotExist:

@@ -44,6 +44,7 @@ class PermissionException(ApiException):
     NO_PERMISSION = 301
     ONLY_ONE_CARD = 302
     VENDOR_NOT_FOUND = 303
+    ONLY_ONE_ACTIVE_SESSION_REQUIRED = 304
 
     def __init__(self, code, message):
         super(PermissionException, self).__init__(message)

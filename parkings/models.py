@@ -38,6 +38,7 @@ class ParkingManager(models.Manager):
             enabled=True
         )
 
+
 class Parking(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=63, null=True, blank=True)
@@ -65,19 +66,31 @@ class Parking(models.Model):
 
 class ParkingSession(models.Model):
     STATE_SESSION_CANCELED = -1
-    STATE_SESSION_STARTED = 0
-    STATE_SESSION_UPDATED = 1
-    STATE_SESSION_COMPLETED = 2
-    STATE_SESSION_CLOSED = 3
+    STATE_SESSION_CLOSED = 0
+
+    STATE_STARTED_BY_CLIENT = 1 << 0
+    STATE_STARTED_BY_VENDOR = 1 << 1
+
+    STATE_COMPLETED_BY_CLIENT = 2 << 0
+    STATE_COMPLETED_BY_VENDOR = 2 << 1
+
+    STATE_SESSION_STARTED = STATE_STARTED_BY_CLIENT + STATE_STARTED_BY_VENDOR
+    STATE_SESSION_COMPLETED = STATE_COMPLETED_BY_CLIENT + STATE_COMPLETED_BY_VENDOR
 
     SESSION_STATES = [
-        STATE_SESSION_CANCELED, STATE_SESSION_STARTED, STATE_SESSION_UPDATED, STATE_SESSION_COMPLETED
+        STATE_SESSION_CANCELED,
+        STATE_STARTED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_SESSION_STARTED,
+        STATE_COMPLETED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_SESSION_COMPLETED,
+        STATE_SESSION_CLOSED
     ]
 
     STATE_CHOICES = (
         (STATE_SESSION_CANCELED, 'Canceled'),
+        (STATE_STARTED_BY_CLIENT, 'Started by client'),
+        (STATE_STARTED_BY_VENDOR, 'Started by vendor'),
         (STATE_SESSION_STARTED, 'Started'),
-        (STATE_SESSION_UPDATED, 'Updated'),
+        (STATE_COMPLETED_BY_CLIENT, 'Completed by client'),
+        (STATE_COMPLETED_BY_VENDOR, 'Completed by vendor'),
         (STATE_SESSION_COMPLETED, 'Completed'),
         (STATE_SESSION_CLOSED, 'Closed'),
     )
@@ -88,14 +101,15 @@ class ParkingSession(models.Model):
     client = models.ForeignKey('accounts.Account')
     parking = models.ForeignKey(Parking)
 
-    is_paused = models.BooleanField(default=False)
-
     debt = models.DecimalField(max_digits=7, decimal_places=2, default=0)
-    state = models.IntegerField(choices=STATE_CHOICES, default=STATE_SESSION_STARTED)
+    state = models.IntegerField(choices=STATE_CHOICES)
 
     started_at = models.DateTimeField()
     updated_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+
+    is_suspended = models.BooleanField(default=False)
+    suspended_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateField(auto_now_add=True)
 
@@ -114,3 +128,41 @@ class ParkingSession(models.Model):
             return ParkingSession.objects.get(id=id)
         except ObjectDoesNotExist:
             return None
+
+    def add_client_start_mark(self):
+        self.state = self.state + (self.state ^ self.STATE_STARTED_BY_CLIENT)
+
+    def add_vendor_start_mark(self):
+        self.state = self.state + (self.state ^ self.STATE_STARTED_BY_VENDOR)
+
+    def add_client_complete_mark(self):
+        self.state = self.state + (self.state ^ self.STATE_COMPLETED_BY_CLIENT)
+
+    def add_vendor_complete_mark(self):
+        self.state = self.state + (self.state ^ self.STATE_COMPLETED_BY_VENDOR)
+
+    def is_closed_by_vendor(self):
+        return bool(self.state & self.STATE_STARTED_BY_VENDOR)
+
+    def is_closed_by_client(self):
+        return bool(self.state & self.STATE_STARTED_BY_CLIENT)
+
+    def is_closed(self):
+        return self.state == self.STATE_SESSION_CLOSED
+
+    def is_active(self):
+        return self.state not in [
+            self.STATE_SESSION_CANCELED,
+            self.STATE_SESSION_COMPLETED,
+            self.STATE_SESSION_CLOSED,
+        ]
+
+    def is_available_for_vendor_update(self):
+        return self.state not in [self.STATE_SESSION_CANCELED]
+
+    def is_cancelable(self):
+        return self.state in [
+            self.STATE_STARTED_BY_CLIENT,
+            self.STATE_STARTED_BY_VENDOR,
+            self.STATE_SESSION_STARTED
+        ]
