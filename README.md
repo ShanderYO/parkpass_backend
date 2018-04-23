@@ -115,6 +115,7 @@ Status: 200 (Успешно)
             "id": 3932023,
             "is_default": true,
             "pan": "415482******6447" (Number of card)
+            "exp_date":"1122" (Month and year of card expiration)
         }
     ]
 }
@@ -202,7 +203,7 @@ Status: 400 (Ошибка)
 ```
 
 
-```- POST /account/card/delete/``` (Добавление карты)
+```- POST /account/card/delete/``` (Удаление карты)
 Тело:
 ```
 {
@@ -362,12 +363,22 @@ Status 400
 }
 ```
 
-```- GET /account/session/list/``` (Получение списка сессий пользователя. Требует токен сессии)
+```- GET /account/session/list/``` (Получение истории сессий пользователя. Требует токен сессии)
 
 Status 200 (OK)
 ```
 {
-    TODO ////
+    "result": [
+        {
+            "id": 4,
+            "parking_id": 1,
+            "debt": 120.0,
+            "state": 0,
+            "is_suspended": false,
+            "completed_at": 1459814400.0, (Optional)
+            "started_at": 1459728000.0,
+        },
+        ...
 }
 ```
 
@@ -376,11 +387,28 @@ Status 200 (OK)
 Status 200 (OK)
 ```
 {
-    "session_id": "BCHHASAX..." (Account session id)
-    "debt":10.25,
-    "paid_debt":8.50,
-    "started_at":1518952262, ( Unix-timestamp )
-    "updated_at":1518952452 ( Unix-timestamp )
+    'id': 15
+    'parking_id': 1,
+    'debt': 120.0,
+    'state': 6,
+    'started_at': 1481587200.0,
+    'updated_at': 1481673600.0, (Optional)
+    'is_suspended': False,
+    'suspended_at': None, (Optional)
+    'completed_at': None, (Optional)
+    'orders': [ (Optional list)
+        {
+            'id': 2,
+            'sum': 20.0,
+            'paid': False
+        },
+        {
+            'id': 1,
+            'sum': 20.0,
+            'paid': True
+        },
+        ...
+    ]
 }
 ```
 

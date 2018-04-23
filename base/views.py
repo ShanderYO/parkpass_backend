@@ -20,7 +20,7 @@ class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
         # Only application/json Content-type allow
-        if not request.META['CONTENT_TYPE'].startswith("application/json"):
+        if not request.META.get('CONTENT_TYPE', "").startswith("application/json") and request.POST:
             return JsonResponse({
                 "error":"HTTP Status 415 - Unsupported Media Type"
             }, status=415)
@@ -60,13 +60,6 @@ class SignedRequestAPIView(APIView):
                 "The vendor name is empty. [x-vendor-name] header required"
             )
             return JsonResponse(e.to_dict(), status=400)
-
-        """
-        print "Sing: %s, Vendor: %s" % (
-            request.META["HTTP_X_SIGNATURE"],
-            request.META["HTTP_X_VENDOR_NAME"]
-        )
-        """
 
         try:
             request.vendor = Vendor.objects.get(

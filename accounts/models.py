@@ -8,6 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils import timezone
 
+
 class Account(models.Model):
     id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=63, null=True, blank=True)
@@ -75,9 +76,12 @@ class AccountSession(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk:
-            self.generate_token()
+            if not kwargs.get("not_generate_token", False):
+                self.generate_token()
+            else:
+                del kwargs["not_generate_token"]
             self.set_expire_date()
-        super(AccountSession, self).save(args, kwargs)
+        super(AccountSession, self).save(*args, **kwargs)
 
     def generate_token(self):
         self.token = binascii.hexlify(os.urandom(20)).decode()

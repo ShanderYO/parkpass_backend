@@ -129,6 +129,13 @@ class ParkingSession(models.Model):
         except ObjectDoesNotExist:
             return None
 
+    @classmethod
+    def get_active_session(cls, account):
+        try:
+            return ParkingSession.objects.get(client=account, state__gt=0)
+        except ObjectDoesNotExist:
+            return None
+
     def add_client_start_mark(self):
         self.state = self.state + (self.state ^ self.STATE_STARTED_BY_CLIENT)
 

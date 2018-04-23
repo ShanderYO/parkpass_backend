@@ -1,5 +1,4 @@
 import datetime
-import pytz
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
@@ -12,7 +11,7 @@ from base.exceptions import AuthException, ValidationException, PermissionExcept
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
-from payments.models import CreditCard
+from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 
 
@@ -70,7 +69,7 @@ class AccountView(LoginRequiredAPIView):
     def get(self, request):
         account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code"))
         card_list = CreditCard.get_card_by_account(request.account)
-        account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "is_default"))
+        account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "exp_date", "is_default"))
         return JsonResponse(account_dict, status=200)
 
     def post(self, request):
@@ -86,7 +85,7 @@ class AccountView(LoginRequiredAPIView):
 
 
 class AccountParkingListView(LoginRequiredAPIView):
-    max_paginate_length = 10
+    max_paginate_length = 5
 
     def get(self, request, *args, **kwargs):
         page = parse_int(request.GET.get("page", None))
@@ -96,12 +95,44 @@ class AccountParkingListView(LoginRequiredAPIView):
             result_query = result_query.filter(pk__lt=id).order_by("-id")
 
         object_list = result_query[:self.max_paginate_length]
-        data = serializer(object_list, foreign=False, exclude_attr=("session_id"))
+        data = serializer(object_list, foreign=False, exclude_attr=("session_id", "client_id",
+                                                                    "suspended_at", "created_at"))
 
         response = {"result":data}
         if len(data) == self.max_paginate_length:
-            response["next"] = str(int(data[self.max_paginate_length - 1]["id"]))
+            response["next"] = str(data[self.max_paginate_length - 1]["id"])
         return JsonResponse(response)
+
+
+class DebtParkingSessionView(LoginRequiredAPIView):
+    def get(self, request):
+        current_parking_session = ParkingSession.get_active_session(request.account)
+        if current_parking_session:
+            debt_dict = serializer(current_parking_session, exclude_attr=("session_id", "client_id", "created_at",))
+            orders = Order.objects.filter(session=current_parking_session)
+            orders_dict = serializer(orders, foreign=False, include_attr=("id", "sum", "paid"))
+            debt_dict["orders"] = orders_dict
+            return JsonResponse(debt_dict, status=200)
+        else:
+            return JsonResponse({}, status=200)
+
+
+class ForcePayView(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        id = int(request.data["id"])
+        try:
+            parking_session = ParkingSession.objects.get(id=id)
+            # TODO create payment orders
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking session with id %s does not exist" % id)
+            return JsonResponse(e.to_dict(), status=400)
+
+        return JsonResponse({}, status=200)
 
 
 class AddCardView(LoginRequiredAPIView):
@@ -187,44 +218,6 @@ class SetDefaultCardView(LoginRequiredAPIView):
         card.is_default = True
         card.save()
         return JsonResponse({}, status=200)
-
-
-class ForcePayView(LoginRequiredAPIView):
-    validator_class = IdValidator
-
-    def post(self, request):
-        id = int(request.data["id"])
-        try:
-            parking_session = ParkingSession.objects.get(id=id)
-            # TODO create payment orders
-
-        except ObjectDoesNotExist:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "Parking session with id %s does not exist" % id)
-            return JsonResponse(e.to_dict(), status=400)
-
-        return JsonResponse({}, status=200)
-
-
-class DebtParkingSessionView(LoginRequiredAPIView):
-    def get(self, request):
-        current_parking_session = request.account.parking_session
-        if current_parking_session:
-            try:
-                parking_session_id = current_parking_session.linked_session_id
-                parking_session = ParkingSession.objects.get(id=parking_session_id)
-                debt_dict = serializer(parking_session, include_attr=("debt", "started_at", "updated_at"))
-                debt_dict["paid_debt"] = current_parking_session.paid_debt
-                return JsonResponse(debt_dict, status=200)
-
-            except ObjectDoesNotExist:
-                e = ValidationException(
-                    ValidationException.RESOURCE_NOT_FOUND,
-                    "ParkingSession not found")
-                return JsonResponse(e.to_dict(), status=400)
-        else:
-            return JsonResponse({}, status=200)
 
 
 class StartParkingSession(LoginRequiredAPIView):
