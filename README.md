@@ -344,7 +344,7 @@ Status 400
 Status 200
 
 
-```- POST /account/session/cancel/``` (Отмена сессии от пользователя. Требует токен сессии)
+```- POST /account/session/stop/``` (Приостановление текущей сессии пользователем. Требует токен сессии)
 
 Тело
 ```
@@ -358,10 +358,32 @@ Status 400
 ```
 {
     "exception": "ValidationException",
-    "code": 400,
-    "message": "Error"
+    "code": 402,
+    "message": "ParkingSession with id not found"
 }
 ```
+
+
+
+```- POST /account/session/resume/``` (Восстановление текущей сессии пользователем. Требует токен сессии)
+
+Тело
+```
+{
+    "id":2 (Session id)
+}
+```
+Status 200 (OK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "ParkingSession with id not found"
+}
+```
+
 
 ```- GET /account/session/list/``` (Получение истории сессий пользователя. Требует токен сессии)
 
