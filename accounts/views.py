@@ -7,7 +7,7 @@ from dss.Serializer import serializer
 from accounts.models import Account
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
-    StartParkingSessionValidator
+    StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
@@ -222,7 +222,7 @@ class SetDefaultCardView(LoginRequiredAPIView):
 
 
 class StartParkingSession(LoginRequiredAPIView):
-    validator_class = StartParkingSessionValidator
+    validator_class = StartAccountParkingSessionValidator
 
     def post(self, request):
         session_id = request.data["session_id"]
@@ -317,7 +317,7 @@ class ResumeParkingSession(LoginRequiredAPIView):
 
 
 class CompleteParkingSession(LoginRequiredAPIView):
-    validator_class = IdValidator
+    validator_class = CompleteAccountParkingSessionValidator
 
     def post(self, request):
         session_id = request.data["session_id"]

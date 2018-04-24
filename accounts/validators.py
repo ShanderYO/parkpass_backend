@@ -73,7 +73,7 @@ class AccountParamValidator(BaseValidator):
         return True
 
 
-class StartParkingSessionValidator(BaseValidator):
+class StartAccountParkingSessionValidator(BaseValidator):
     def is_valid(self):
         session_id = self.request.data.get("session_id", None)
         parking_id = self.request.data.get("parking_id", None)
@@ -86,6 +86,26 @@ class StartParkingSessionValidator(BaseValidator):
         try:
             validate_id(parking_id, "parking_id")
             validate_unix_timestamp(started_at, "started_at")
+        except Exception as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e)
+            return False
+        return True
+
+
+class CompleteAccountParkingSessionValidator(BaseValidator):
+    def is_valid(self):
+        session_id = self.request.data.get("session_id", None)
+        parking_id = self.request.data.get("parking_id", None)
+        completed_at = self.request.data.get("completed_at", None)
+
+        if not session_id or not parking_id or not completed_at:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys 'session_id', 'parking_id' and 'completed_at' is required"
+            return False
+        try:
+            validate_id(parking_id, "parking_id")
+            validate_unix_timestamp(completed_at, "completed_at")
         except Exception as e:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e)
