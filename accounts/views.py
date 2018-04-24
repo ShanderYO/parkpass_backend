@@ -6,7 +6,8 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 from accounts.sms_gateway import SMSGateway
-from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator
+from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
+    StartParkingSessionValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
@@ -221,6 +222,8 @@ class SetDefaultCardView(LoginRequiredAPIView):
 
 
 class StartParkingSession(LoginRequiredAPIView):
+    validator_class = StartParkingSessionValidator
+
     def post(self, request):
         session_id = request.data["session_id"]
         parking_id = int(request.data["parking_id"])
@@ -237,9 +240,14 @@ class StartParkingSession(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         try:
+            # TODO check double open session
             parking_session = ParkingSession.objects.get(
                 session_id=session_id, parking_id=parking_id
             )
+            parking_session.add_client_start_mark()
+            parking_session.save()
+            return JsonResponse({"id": parking_session.id}, status=200)
+
         except ObjectDoesNotExist:
             try:
                 parking = Parking.objects.get(id=parking_id)
@@ -253,12 +261,12 @@ class StartParkingSession(LoginRequiredAPIView):
                 session_id=session_id,
                 client=request.account,
                 parking=parking,
+                state=ParkingSession.STATE_STARTED_BY_CLIENT,
                 started_at=started_at
             )
-        finally:
             parking_session.add_client_start_mark()
             parking_session.save()
-            return JsonResponse({"id":parking_session.id}, status=200)
+            return JsonResponse({"id": parking_session.id}, status=200)
 
 
 class ForceStopParkingSession(LoginRequiredAPIView):

@@ -23,7 +23,6 @@ class IdValidator(BaseValidator):
             return False
         return True
 
-
 class LoginParamValidator(BaseValidator):
     def is_valid(self):
         phone = self.request.data.get("phone", None)
@@ -72,6 +71,49 @@ class AccountParamValidator(BaseValidator):
             self.message = str(e.message)
             return False
         return True
+
+
+class StartParkingSessionValidator(BaseValidator):
+    def is_valid(self):
+        session_id = self.request.data.get("session_id", None)
+        parking_id = self.request.data.get("parking_id", None)
+        started_at = self.request.data.get("started_at", None)
+
+        if not session_id or not parking_id or not started_at:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys 'session_id', 'parking_id' and 'started_at' is required"
+            return False
+        try:
+            validate_id(parking_id, "parking_id")
+            validate_unix_timestamp(started_at, "started_at")
+        except Exception as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e)
+            return False
+        return True
+
+
+def validate_id(value, key_name):
+    try:
+        int_value = int(value)
+        if int_value < 1:
+            raise ValidationError("Key '%s' requires positive value" % key_name)
+
+        float_value = float(value)
+        if int_value != float_value:
+            raise ValidationError("Key '%s' has invalid format. Must be unsigned Int64 type" % key_name)
+
+    except (ValueError, TypeError):
+        raise ValidationError("Key '%s' has invalid format. Must be unsigned Int64 type" % key_name)
+
+
+def validate_unix_timestamp(value, key_name):
+    try:
+        if int(value) >= 0:
+            return True
+    except (ValueError, TypeError):
+        raise ValidationError("Key '%s' has invalid format. Must be unsigned Int type" % key_name)
+    raise ValidationError("Key '%s' has invalid format. Must be unsigned Int type" % key_name)
 
 
 def validate_email_format(value):
