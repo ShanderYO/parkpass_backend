@@ -329,6 +329,22 @@ Status 400
 }
 ```
 
+```
+{
+    "exception": "PermissionException",
+    "code": 304,
+    "message": "It's impossible to create second active session"
+}
+```
+
+```
+{
+    "exception": "PermissionException",
+    "code": 305,
+    "message": "It's impossible to create session without credit card"
+}
+```
+
 ```- POST /account/session/complete/``` (Завершение сессии от пользователя. Требует токен сессии)
 
 Тело
@@ -701,6 +717,51 @@ Status 400
 }
 ```
 
+```- POST /parking/v1/session/cancel/``` (Отмена сессии от вендора)
+
+Тело
+```
+{
+    "session_id":"2", (String, session id from vendor storage)
+    "parking_id":1
+}
+```
+
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'session_id' and 'parking_id' are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys session_id / parking_id / has invalid format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking with such id for vendor [val] not found"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Session does not exists"
+}
+```
+
 
 ```- POST /parking/v1/session/list/update/``` (Обновление списка сессий от вендора)
 
@@ -740,5 +801,223 @@ Status 400
     "exception": "ValidationException",
     "code": 400,
     "message": "Key 'parking_id' and 'sessions' are required"
+}
+```
+
+### Описание API для RPS ###
+
+```- POST /parking/v1/session/create/``` (Новая сессия)
+
+Тело
+```
+{
+    "client_id":1,
+    "started_at":1518952262, ( Unix-timestamp )
+    "parking_id":1
+}
+```
+
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'parking_id', 'client_id' and 'started_at' are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys parking_id / client_id / started_at has invalid format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking with such id for vendor [val] not found"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Client with such id not found"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 403,
+    "message": "'session_id' value [val] for 'parking_id' [val] is already exist"
+    (В случае, если комбинация (client_id + started_at) уже была добавлена ранее для parking_id
+}
+```
+
+```- POST /parking/v1/session/update/``` (Обновление статуса по сессии)
+
+Тело
+```
+{
+    "client_id":1,
+    "started_at":1518952262, ( Unix-timestamp )
+    "parking_id":1,
+    "debt":0.1,
+    "updated_at":1518953262
+}
+```
+
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'parking_id', 'client_id', 'started_at', 'debt' and 'updated_at' are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys parking_id / client_id / started_at / debt / updated_at has invalid format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Session [client_id+started_at] does not exists"
+}
+```
+
+```- POST /parking/v1/session/complete/``` (Завершение сессии)
+
+Тело
+```
+{
+    "client_id":1,
+    "started_at":1518952262, ( Unix-timestamp )
+    "parking_id":1,
+    "debt":0.1,
+    "completed_at":1518953262
+}
+```
+
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'parking_id', 'client_id', 'started_at', 'debt' and 'completed_at' are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message":  "Keys parking_id / client_id / started_at / debt / completed_at has invalid format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Session [client_id+started_at] does not exists"
+}
+```
+
+```- POST /parking/v1/session/cancel/``` (Отмена сессии)
+
+Тело
+```
+{
+    "client_id":1,
+    "started_at":1518952262, ( Unix-timestamp )
+    "parking_id":1
+}
+```
+Status 200 (ОK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'parking_id', 'client_id' and 'started_at' are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys parking_id / client_id / started_at has invalid format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Session [client_id+started_at] does not exists"
+}
+```
+
+
+```- POST /parking/v1/session/list/update/``` (Обновление списка сессий от вендора)
+
+Тело
+```
+{
+    "parking_id":1,
+    "sessions":[
+        {
+            "client_id":1,
+            "started_at":1518952262, ( Unix-timestamp )
+            "debt":0.1,
+            "updated_at":1518953262"
+        },
+        {
+            "client_id":1,
+            "started_at":1518952262, ( Unix-timestamp )
+            "debt":10.5,
+            "updated_at":1518953280"
+        },
+        ....
+    ]
+}
+```
+
+Status 202 (ОK) (Запрос принят на ассинхронную обработку)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Key 'parking_id' and 'sessions' are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid [Key] Item [number]"
 }
 ```

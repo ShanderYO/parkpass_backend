@@ -111,7 +111,7 @@ class TinkoffCallbackView(APIView):
         get_logger().info("status 200: OK")
         return HttpResponse("OK", status=200)
 
-
+"""
 class CancelPayment(APIView):
     def post(self, request):
         payment = 16998111
@@ -124,7 +124,7 @@ class CancelPayment(APIView):
             TinkoffAPI.CANCEL, request_data
         )
         print result
-        """
+        '
         {
             u'Status': u'REFUNDED',
             u'OrderId': u'8',
@@ -135,6 +135,7 @@ class CancelPayment(APIView):
             u'OriginalAmount': 100,
             u'PaymentId': u'16998111'
         }
-        """
+        '
 
         return HttpResponse("OK", status=200)
+"""

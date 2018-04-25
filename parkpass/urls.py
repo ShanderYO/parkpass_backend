@@ -14,10 +14,22 @@ Including another URLconf
 """
 from django.conf.urls import include, url
 from django.contrib import admin
+from django.conf.urls.static import static
+
+from parkpass import settings
 
 urlpatterns = [
+    url(r'^admin_tools/', include('admin_tools.urls')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^account/', include("accounts.urls")),
     url(r'^parking/', include("parkings.urls")),
     url(r'^payments/', include("payments.urls")),
+
+    # Vendor extensions
+    url(r'^parking/', include("rps_vendor.urls")),
 ]
+"""
+if settings.DEBUG:
+    urlpatterns.append(url(r'^media/(?P<path>.*)$', 'django.views.static.serve', {'document_root': settings.MEDIA_ROOT}))
+    urlpatterns + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+"""

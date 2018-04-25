@@ -1,8 +1,26 @@
-from autotask.tasks import periodic_task
+from autotask.tasks import periodic_task, delayed_task
+from django.core.exceptions import ObjectDoesNotExist
 
 from base.utils import get_logger
 from parkings.models import ParkingSession
 from payments.models import Order
+
+
+@delayed_task()
+def generate_current_debt_order(parking_session_id):
+    try:
+        active_session = ParkingSession.objects.get(id=parking_session_id)
+        ordered_sum = Order.get_ordered_sum_by_session(active_session)
+        new_order_sum = active_session.debt - ordered_sum
+        if new_order_sum > 0:
+            new_order = Order.objects.create(
+                session=active_session,
+                account=active_session.client,
+                sum=new_order_sum)
+            new_order.try_pay()
+
+    except ObjectDoesNotExist:
+        pass
 
 
 @periodic_task(seconds=30)

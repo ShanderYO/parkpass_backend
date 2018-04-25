@@ -36,8 +36,12 @@ TINKOFF_TERMINAL_PASSWORD = "dybcdp86npi8s9fv"
 # Application definition
 
 INSTALLED_APPS = (
-    'django.contrib.admin',
+    'admin_tools',
+    'admin_tools.theming',
+    'admin_tools.menu',
+    'admin_tools.dashboard',
     'django.contrib.auth',
+    'django.contrib.admin',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -47,6 +51,7 @@ INSTALLED_APPS = (
     'accounts',
     'payments',
     'parkings',
+    'rps_vendor',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -66,8 +71,8 @@ ROOT_URLCONF = 'parkpass.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
+        'DIRS': [os.path.join(BASE_DIR, "templates")],
+        'APP_DIRS': False,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
@@ -75,7 +80,13 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            'loaders': [
+                'django.template.loaders.filesystem.Loader',
+                'django.template.loaders.app_directories.Loader',
+                'admin_tools.template_loaders.Loader',
+            ]
         },
+
     },
 ]
 
@@ -184,3 +195,20 @@ LOGGING = {
 AUTOTASK_IS_ACTIVE = True
 AUTOTASK_WORKER_MONITOR_INTERVALL = 60
 AUTOTASK_HANDLE_TASK_IDLE_TIME = 10
+
+
+STATICFILES_FINDERS = (
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+)
+"""
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static"),
+]
+"""
+
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
+STATIC_URL = '/static/'
+
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = '/media/'

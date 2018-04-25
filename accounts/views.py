@@ -6,6 +6,7 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 from accounts.sms_gateway import SMSGateway
+from accounts.tasks import generate_current_debt_order
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
@@ -98,8 +99,9 @@ class AccountParkingListView(LoginRequiredAPIView):
         object_list = result_query[:self.max_paginate_length]
         data = serializer(object_list, foreign=False, exclude_attr=("session_id", "client_id",
                                                                     "suspended_at", "created_at"))
-
-        response = {"result":data}
+        response = {
+            "result":data
+        }
         if len(data) == self.max_paginate_length:
             response["next"] = str(data[self.max_paginate_length - 1]["id"])
         return JsonResponse(response)
@@ -125,7 +127,8 @@ class ForcePayView(LoginRequiredAPIView):
         id = int(request.data["id"])
         try:
             parking_session = ParkingSession.objects.get(id=id)
-            # TODO create payment orders
+            # Create payment order and pay
+            generate_current_debt_order(id)
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -239,6 +242,13 @@ class StartParkingSession(LoginRequiredAPIView):
                 "It's impossible to create second active session")
             return JsonResponse(e.to_dict(), status=400)
 
+        if not request.account.has_card():
+            e = PermissionException(
+                PermissionException.CREDIT_CARD_REQUIRED,
+                "It's impossible to create session without credit card"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
         try:
             # TODO check double open session
             parking_session = ParkingSession.objects.get(
@@ -281,6 +291,9 @@ class ForceStopParkingSession(LoginRequiredAPIView):
                 parking_session.is_suspended = True
                 parking_session.suspended_at = datetime.datetime.now()
                 parking_session.save()
+
+                # Create payment order and pay
+                generate_current_debt_order(id)
 
         except ObjectDoesNotExist:
             e = ValidationException(

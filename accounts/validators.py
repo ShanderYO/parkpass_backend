@@ -139,10 +139,11 @@ def validate_unix_timestamp(value, key_name):
 def validate_email_format(value):
     validate_email(value)
 
+
 def validate_name(value):
     # TODO implement
     pass
-#---------------------------------------------------------------------------------------------------------
+
 
 def validate_phone_number(value):
     # Format (+code1) code2+number
