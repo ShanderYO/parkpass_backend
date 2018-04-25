@@ -806,7 +806,7 @@ Status 400
 
 ### Описание API для RPS ###
 
-```- POST /parking/v1/session/create/``` (Новая сессия)
+```- POST /parking/rps/session/create/``` (Новая сессия)
 
 Тело
 ```
@@ -861,7 +861,7 @@ Status 400
 }
 ```
 
-```- POST /parking/v1/session/update/``` (Обновление статуса по сессии)
+```- POST /parking/rps/session/update/``` (Обновление статуса по сессии)
 
 Тело
 ```
@@ -901,7 +901,7 @@ Status 400
 }
 ```
 
-```- POST /parking/v1/session/complete/``` (Завершение сессии)
+```- POST /parking/rps/session/complete/``` (Завершение сессии)
 
 Тело
 ```
@@ -941,7 +941,7 @@ Status 400
 }
 ```
 
-```- POST /parking/v1/session/cancel/``` (Отмена сессии)
+```- POST /parking/rps/session/cancel/``` (Отмена сессии)
 
 Тело
 ```
@@ -979,7 +979,7 @@ Status 400
 ```
 
 
-```- POST /parking/v1/session/list/update/``` (Обновление списка сессий от вендора)
+```- POST /parking/rps/session/list/update/``` (Обновление списка сессий от вендора)
 
 Тело
 ```
