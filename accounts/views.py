@@ -91,14 +91,21 @@ class AccountParkingListView(LoginRequiredAPIView):
 
     def get(self, request, *args, **kwargs):
         page = parse_int(request.GET.get("page", None))
-        result_query = ParkingSession.objects.filter(client_id=request.account.id)
+        result_query = ParkingSession.objects.filter(client_id=request.account.id, state__lte=0).select_related("parking")
         if page:
             id = int(page)
             result_query = result_query.filter(pk__lt=id).order_by("-id")
 
         object_list = result_query[:self.max_paginate_length]
-        data = serializer(object_list, foreign=False, exclude_attr=("session_id", "client_id",
+        data = serializer(object_list, foreign=False, exclude_attr=("session_id", "client_id", "parking_id",
                                                                     "suspended_at", "created_at"))
+        for index, obj in enumerate(object_list):
+            parking_dict = {
+                "id":obj.parking.id,
+                "name":obj.parking.name
+            }
+            data[index]["parking"] = parking_dict
+
         response = {
             "result":data
         }

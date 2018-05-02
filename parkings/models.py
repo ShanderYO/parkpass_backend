@@ -68,14 +68,14 @@ class ParkingSession(models.Model):
     STATE_SESSION_CANCELED = -1
     STATE_SESSION_CLOSED = 0
 
-    STATE_STARTED_BY_CLIENT = 1 << 0
-    STATE_STARTED_BY_VENDOR = 1 << 1
+    STATE_STARTED_BY_CLIENT = 1 << 0 # 1
+    STATE_STARTED_BY_VENDOR = 1 << 1 # 2
 
-    STATE_COMPLETED_BY_CLIENT = 2 << 0
-    STATE_COMPLETED_BY_VENDOR = 2 << 1
+    STATE_COMPLETED_BY_CLIENT = 1 << 2 # 4
+    STATE_COMPLETED_BY_VENDOR = 1 << 3 # 8
 
     STATE_SESSION_STARTED = STATE_STARTED_BY_CLIENT + STATE_STARTED_BY_VENDOR
-    STATE_SESSION_COMPLETED = STATE_COMPLETED_BY_CLIENT + STATE_COMPLETED_BY_VENDOR
+    STATE_SESSION_COMPLETED = STATE_SESSION_STARTED + STATE_COMPLETED_BY_CLIENT + STATE_COMPLETED_BY_VENDOR
 
     SESSION_STATES = [
         STATE_SESSION_CANCELED,
@@ -137,16 +137,16 @@ class ParkingSession(models.Model):
             return None
 
     def add_client_start_mark(self):
-        self.state = self.state + (self.state ^ self.STATE_STARTED_BY_CLIENT)
+        self.state = self.state + self.STATE_STARTED_BY_CLIENT if not (self.state & self.STATE_STARTED_BY_CLIENT) else self.state
 
     def add_vendor_start_mark(self):
-        self.state = self.state + (self.state ^ self.STATE_STARTED_BY_VENDOR)
+        self.state = self.state + self.STATE_STARTED_BY_VENDOR if not (self.state & self.STATE_STARTED_BY_VENDOR) else self.state
 
     def add_client_complete_mark(self):
-        self.state = self.state + (self.state ^ self.STATE_COMPLETED_BY_CLIENT)
+        self.state = self.state + self.STATE_COMPLETED_BY_CLIENT if not (self.state & self.STATE_COMPLETED_BY_CLIENT) else self.state
 
     def add_vendor_complete_mark(self):
-        self.state = self.state + (self.state ^ self.STATE_COMPLETED_BY_VENDOR)
+        self.state = self.state + self.STATE_COMPLETED_BY_VENDOR if not (self.state & self.STATE_COMPLETED_BY_VENDOR) else self.state
 
     def is_closed_by_vendor(self):
         return bool(self.state & self.STATE_STARTED_BY_VENDOR)
