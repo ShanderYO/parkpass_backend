@@ -229,6 +229,7 @@ class CreateSessionParkingTestCase(TestCase):
             session_id="exist-session-id",
             client=account,
             parking=parking_1,
+            state=ParkingSession.STATE_STARTED,
             started_at=datetime.datetime.now()
         )
 
@@ -371,7 +372,7 @@ class CreateSessionParkingTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
-        self.assertEqual(error_code, ValidationException.ALREADY_EXISTS)
+        self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
 
@@ -387,8 +388,6 @@ class CreateSessionParkingTestCase(TestCase):
         })
         response = self._make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
-
-
 
 
 class UpdateSessionParkingTestCase(TestCase):
@@ -429,6 +428,7 @@ class UpdateSessionParkingTestCase(TestCase):
             session_id="exist-session-id",
             client=account,
             parking=parking_1,
+            state=ParkingSession.STATE_COMPLETED,
             started_at=datetime.datetime.now()
         )
 
@@ -436,7 +436,7 @@ class UpdateSessionParkingTestCase(TestCase):
             session_id="exist-session-id-completed",
             client=account,
             parking=parking_1,
-            state=ParkingSession.STATE_SESSION_COMPLETED,
+            state=ParkingSession.STATE_COMPLETED,
             started_at=datetime.datetime.now()
         )
 
@@ -584,10 +584,11 @@ class UpdateSessionParkingTestCase(TestCase):
         response = self._make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
-        error_code = json.loads(response.content)["code"]
-        self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
+        print "test_update_already_completed"
         print response.content
 
+        error_code = json.loads(response.content)["code"]
+        self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
 
     def test_update_session_valid(self):
         url = '/parking/v1/session/update/'
@@ -600,7 +601,8 @@ class UpdateSessionParkingTestCase(TestCase):
             "updated_at": 1000000
         })
         response = self._make_signed_json_post(url, body)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
+        # VAlidation error
         print response.content
 
 
@@ -642,6 +644,7 @@ class CompleteSessionParkingTestCase(TestCase):
             session_id="exist-session-id",
             client=account,
             parking=parking_1,
+            state=ParkingSession.STATE_STARTED,
             started_at=datetime.datetime.now()
         )
 
@@ -649,7 +652,7 @@ class CompleteSessionParkingTestCase(TestCase):
             session_id="exist-session-id-completed",
             client=account,
             parking=parking_1,
-            state=ParkingSession.STATE_SESSION_COMPLETED,
+            state=ParkingSession.STATE_COMPLETED,
             started_at=datetime.datetime.now()
         )
 

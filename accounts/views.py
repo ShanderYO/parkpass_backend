@@ -249,7 +249,7 @@ class StartParkingSession(LoginRequiredAPIView):
                 "It's impossible to create second active session")
             return JsonResponse(e.to_dict(), status=400)
 
-        if not request.account.has_card():
+        if not CreditCard.objects.filter(account=request.account).exists():
             e = PermissionException(
                 PermissionException.CREDIT_CARD_REQUIRED,
                 "It's impossible to create session without credit card"
@@ -257,7 +257,6 @@ class StartParkingSession(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         try:
-            # TODO check double open session
             parking_session = ParkingSession.objects.get(
                 session_id=session_id, parking_id=parking_id
             )
@@ -281,7 +280,6 @@ class StartParkingSession(LoginRequiredAPIView):
                 state=ParkingSession.STATE_STARTED_BY_CLIENT,
                 started_at=started_at
             )
-            parking_session.add_client_start_mark()
             parking_session.save()
             return JsonResponse({"id": parking_session.id}, status=200)
 
@@ -324,7 +322,10 @@ class ResumeParkingSession(LoginRequiredAPIView):
                 parking_session.is_suspended = False
                 parking_session.suspended_at = None
                 parking_session.save()
-                # TODO make async payments
+
+                if parking_session.is_started_by_vendor():
+                    pass
+                    # TODO make async payments
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -353,7 +354,16 @@ class CompleteParkingSession(LoginRequiredAPIView):
                 parking_id=parking_id,
                 client=request.account
             )
-            if not parking_session.is_closed_by_vendor():
+
+            # If session start is not confirm from vendor
+            if not parking_session.is_started_by_vendor():
+                parking_session.is_suspended = True
+                parking_session.suspended_at = completed_at
+                parking_session.save()
+                return JsonResponse({}, status=200)
+
+            # Set up completed time if not specified by vendor
+            if not parking_session.is_completed_by_vendor():
                 parking_session.completed_at = completed_at
 
             parking_session.add_client_complete_mark()

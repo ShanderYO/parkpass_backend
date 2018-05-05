@@ -65,34 +65,49 @@ class Parking(models.Model):
 
 
 class ParkingSession(models.Model):
-    STATE_SESSION_CANCELED = -1
-    STATE_SESSION_CLOSED = 0
 
-    STATE_STARTED_BY_CLIENT = 1 << 0 # 1
-    STATE_STARTED_BY_VENDOR = 1 << 1 # 2
+    # States mask
+    STARTED_BY_CLIENT_MASK = 1 << 0 # 1
+    STARTED_BY_VENDOR_MASK = 1 << 1 # 2
+    COMPLETED_BY_CLIENT_MASK = 1 << 2 # 4
+    COMPLETED_BY_VENDOR_MASK = 1 << 3 # 8
 
-    STATE_COMPLETED_BY_CLIENT = 1 << 2 # 4
-    STATE_COMPLETED_BY_VENDOR = 1 << 3 # 8
+    # States
+    STATE_CANCELED = -1
+    STATE_CLOSED = 0
+    STATE_STARTED_BY_CLIENT = 1
+    STATE_STARTED_BY_VENDOR = 2
+    STATE_STARTED = 3 # (STARTED_BY_CLIENT_MASK + STARTED_BY_VENDOR_MASK)
 
-    STATE_SESSION_STARTED = STATE_STARTED_BY_CLIENT + STATE_STARTED_BY_VENDOR
-    STATE_SESSION_COMPLETED = STATE_SESSION_STARTED + STATE_COMPLETED_BY_CLIENT + STATE_COMPLETED_BY_VENDOR
+    STATE_COMPLETED_BY_CLIENT = 6 # (STATE_STARTED_BY_VENDOR + COMPLETED_BY_CLIENT_MASK)
+    STATE_COMPLETED_BY_CLIENT_FULLY = 7 # (STATE_STARTED + COMPLETED_BY_CLIENT_MASK)
+
+    STATE_COMPLETED_BY_VENDOR = 10 # (STATE_STARTED_BY_VENDOR + COMPLETED_BY_VENDOR_MASK)
+    STATE_COMPLETED_BY_VENDOR_FULLY = 11 # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK)
+
+    STATE_COMPLETED = 14 # (STARTED_BY_VENDOR_MASK + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
+    STATE_COMPLETED_FULLY = 15  # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
 
     SESSION_STATES = [
-        STATE_SESSION_CANCELED,
-        STATE_STARTED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_SESSION_STARTED,
-        STATE_COMPLETED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_SESSION_COMPLETED,
-        STATE_SESSION_CLOSED
+        STATE_CANCELED,
+        STATE_STARTED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_STARTED, # Stage 1
+        STATE_COMPLETED_BY_CLIENT, STATE_COMPLETED_BY_CLIENT_FULLY, # Stage 2
+        STATE_COMPLETED_BY_VENDOR, STATE_COMPLETED_BY_VENDOR_FULLY, # Stage 2
+        STATE_COMPLETED, STATE_COMPLETED_FULLY, # Stage 3
+        STATE_CLOSED # Stage 4
     ]
 
     STATE_CHOICES = (
-        (STATE_SESSION_CANCELED, 'Canceled'),
-        (STATE_STARTED_BY_CLIENT, 'Started by client'),
-        (STATE_STARTED_BY_VENDOR, 'Started by vendor'),
-        (STATE_SESSION_STARTED, 'Started'),
-        (STATE_COMPLETED_BY_CLIENT, 'Completed by client'),
-        (STATE_COMPLETED_BY_VENDOR, 'Completed by vendor'),
-        (STATE_SESSION_COMPLETED, 'Completed'),
-        (STATE_SESSION_CLOSED, 'Closed'),
+        (STATE_CANCELED, 'Canceled'),
+        (STATE_STARTED_BY_CLIENT, 'Started_by_client'),
+        (STATE_STARTED_BY_VENDOR, 'Started_by_vendor'),
+        (STATE_STARTED, 'Started'),
+        (STATE_COMPLETED_BY_CLIENT, 'Completed_by_client'),
+        (STATE_COMPLETED_BY_VENDOR, 'Completed_by_client_fully'),
+        (STATE_COMPLETED_BY_CLIENT, 'Completed_by_vendor'),
+        (STATE_COMPLETED_BY_VENDOR, 'Completed_by_vendor_fully'),
+        (STATE_COMPLETED, 'Completed'),
+        (STATE_CLOSED, 'Closed'),
     )
 
     id = models.AutoField(unique=True, primary_key=True)
@@ -137,39 +152,46 @@ class ParkingSession(models.Model):
             return None
 
     def add_client_start_mark(self):
-        self.state = self.state + self.STATE_STARTED_BY_CLIENT if not (self.state & self.STATE_STARTED_BY_CLIENT) else self.state
+        self.state = self.state + self.STARTED_BY_CLIENT_MASK \
+            if not (self.state & self.STARTED_BY_CLIENT_MASK) else self.state
 
     def add_vendor_start_mark(self):
-        self.state = self.state + self.STATE_STARTED_BY_VENDOR if not (self.state & self.STATE_STARTED_BY_VENDOR) else self.state
+        self.state = self.state + self.STARTED_BY_VENDOR_MASK \
+            if not (self.state & self.STATE_STARTED_BY_VENDOR) else self.state
 
     def add_client_complete_mark(self):
-        self.state = self.state + self.STATE_COMPLETED_BY_CLIENT if not (self.state & self.STATE_COMPLETED_BY_CLIENT) else self.state
+        self.state = self.state + self.COMPLETED_BY_CLIENT_MASK \
+            if not (self.state & self.COMPLETED_BY_CLIENT_MASK) else self.state
 
     def add_vendor_complete_mark(self):
-        self.state = self.state + self.STATE_COMPLETED_BY_VENDOR if not (self.state & self.STATE_COMPLETED_BY_VENDOR) else self.state
+        self.state = self.state + self.COMPLETED_BY_VENDOR_MASK \
+            if not (self.state & self.COMPLETED_BY_VENDOR_MASK) else self.state
 
-    def is_closed_by_vendor(self):
-        return bool(self.state & self.STATE_STARTED_BY_VENDOR)
+    def is_started_by_vendor(self):
+        return bool(self.state & self.STARTED_BY_VENDOR_MASK)
 
-    def is_closed_by_client(self):
-        return bool(self.state & self.STATE_STARTED_BY_CLIENT)
+    def is_completed_by_vendor(self):
+        return bool(self.state & self.COMPLETED_BY_VENDOR_MASK)
+
+    def is_completed_by_client(self):
+        return bool(self.state & self.COMPLETED_BY_CLIENT_MASK)
 
     def is_closed(self):
-        return self.state == self.STATE_SESSION_CLOSED
+        return self.state == self.STATE_CLOSED
 
     def is_active(self):
         return self.state not in [
-            self.STATE_SESSION_CANCELED,
-            self.STATE_SESSION_COMPLETED,
-            self.STATE_SESSION_CLOSED,
+            self.STATE_CANCELED,
+            self.STATE_COMPLETED,
+            self.STATE_CLOSED,
         ]
 
     def is_available_for_vendor_update(self):
-        return self.state not in [self.STATE_SESSION_CANCELED]
+        return self.state not in [self.STATE_CANCELED, self.STATE_COMPLETED, self.STATE_CLOSED]
 
     def is_cancelable(self):
         return self.state in [
             self.STATE_STARTED_BY_CLIENT,
             self.STATE_STARTED_BY_VENDOR,
-            self.STATE_SESSION_STARTED
+            self.STATE_STARTED
         ]

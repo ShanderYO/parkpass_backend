@@ -6,7 +6,6 @@ from django.test import Client
 
 # Create your tests here.
 from accounts.models import Account, AccountSession
-from base.exceptions import ValidationException, AuthException
 from parkings.models import Vendor, Parking, ParkingSession
 from payments.models import CreditCard, Order
 
@@ -280,7 +279,7 @@ class AccountSessionsTestCase(TestCase):
             client=account,
             parking=parking,
             debt=100,
-            state=ParkingSession.STATE_SESSION_CLOSED,
+            state=ParkingSession.STATE_CLOSED,
             started_at=datetime.datetime(2016, 12, 14),
             updated_at=datetime.datetime(2016, 12, 14),
             completed_at=datetime.datetime(2016, 12, 15),
@@ -292,7 +291,7 @@ class AccountSessionsTestCase(TestCase):
             client=account,
             parking=parking,
             debt=120,
-            state=ParkingSession.STATE_SESSION_CLOSED,
+            state=ParkingSession.STATE_CLOSED,
             started_at=datetime.datetime(2016, 12, 13),
             updated_at=datetime.datetime(2016, 12, 13),
             completed_at=datetime.datetime(2016, 12, 14),
@@ -305,7 +304,7 @@ class AccountSessionsTestCase(TestCase):
                 client=account,
                 parking=parking,
                 debt=120,
-                state=ParkingSession.STATE_SESSION_CLOSED,
+                state=ParkingSession.STATE_CLOSED,
                 started_at=datetime.datetime(2016, i, i),
                 updated_at=datetime.datetime(2016, i, i+1),
                 completed_at=datetime.datetime(2016, i, i+1),
@@ -318,7 +317,7 @@ class AccountSessionsTestCase(TestCase):
             client=account,
             parking=parking,
             debt=120,
-            state=ParkingSession.STATE_SESSION_COMPLETED,
+            state=ParkingSession.STATE_COMPLETED,
             started_at=datetime.datetime(2016, 12, 13),
             updated_at=datetime.datetime(2016, 12, 14)
         )
@@ -427,7 +426,7 @@ class StartAccountTestCaseWithDebt(TestCase):
             client=account,
             parking=parking,
             debt=120,
-            state=ParkingSession.STATE_SESSION_CLOSED,
+            state=ParkingSession.STATE_CLOSED,
             started_at=datetime.datetime(2016, 12, 12),
             updated_at=datetime.datetime(2016, 12, 13)
         )
@@ -439,7 +438,7 @@ class StartAccountTestCaseWithDebt(TestCase):
             client=account,
             parking=parking,
             debt=120,
-            state=ParkingSession.STATE_SESSION_COMPLETED,
+            state=ParkingSession.STATE_COMPLETED,
             started_at=datetime.datetime(2016, 12, 13),
             updated_at=datetime.datetime(2016, 12, 14)
         )

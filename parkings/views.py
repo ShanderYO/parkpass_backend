@@ -1,6 +1,3 @@
-import datetime
-import pytz
-
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
 from django.http import JsonResponse
@@ -136,12 +133,24 @@ class CreateParkingSessionView(SignedRequestAPIView):
         session = None
         try:
             session = ParkingSession.objects.get(session_id=session_id, parking=parking)
+            if session.is_started_by_vendor():
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Session has already started by vendor"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+            session.add_vendor_start_mark()
+
         except ObjectDoesNotExist:
-            session = ParkingSession(session_id=session_id, client=account,
-                                     parking=parking, started_at=started_at)
-        session.add_vendor_start_mark()
+            session = ParkingSession(
+                session_id=session_id,
+                client=account,
+                parking=parking,
+                state=ParkingSession.STATE_STARTED_BY_VENDOR,
+                started_at=started_at
+            )
         try:
-            session.save() # TODO Check this login and add log
+            session.save()
         except IntegrityError as e:
             e = ValidationException(
                 ValidationException.ALREADY_EXISTS,
@@ -161,7 +170,9 @@ class CancelParkingSessionView(SignedRequestAPIView):
 
         try:
             session = ParkingSession.objects.get(
-                session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
+                session_id=session_id,
+                parking__id=parking_id,
+                parking__vendor=request.vendor
             )
             # Check if session is is_cancelable
             if not session.is_cancelable():
@@ -171,7 +182,7 @@ class CancelParkingSessionView(SignedRequestAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-            session.state = ParkingSession.STATE_SESSION_CANCELED
+            session.state = ParkingSession.STATE_CANCELED
             session.save()
 
         except ObjectDoesNotExist:
@@ -199,11 +210,18 @@ class UpdateParkingSessionView(SignedRequestAPIView):
             session = ParkingSession.objects.get(
                 session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
             )
+            if not session.is_started_by_vendor():
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Parking session is not started by vendor. Please create session"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
             # Check if session is canceled
             if not session.is_available_for_vendor_update():
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
-                    "Parking session has not canceled state"
+                    "Parking session has canceled or completed state"
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
@@ -234,7 +252,9 @@ class CompleteParkingSessionView(SignedRequestAPIView):
 
         try:
             session = ParkingSession.objects.get(
-                session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
+                session_id=session_id,
+                parking__id=parking_id,
+                parking__vendor=request.vendor
             )
             # Check if session was already not active
             if not session.is_active():
