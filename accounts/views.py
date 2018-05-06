@@ -16,6 +16,7 @@ from parkings.models import ParkingSession, Parking
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 
+from django.db.models import Q
 
 class LoginView(APIView):
     validator_class = LoginParamValidator
@@ -91,7 +92,9 @@ class AccountParkingListView(LoginRequiredAPIView):
 
     def get(self, request, *args, **kwargs):
         page = parse_int(request.GET.get("page", None))
-        result_query = ParkingSession.objects.filter(client_id=request.account.id, state__lte=0).select_related("parking")
+        result_query = ParkingSession.objects.filter(
+            Q(client_id=request.account.id, state__lte=0) | Q(client_id=request.account.id, is_suspended=True))\
+            .select_related("parking")
         if page:
             id = int(page)
             result_query = result_query.filter(pk__lt=id).order_by("-id")
