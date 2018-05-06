@@ -436,7 +436,7 @@ Status 400
 ```
 
 
-```- GET /account/session/list/``` (Получение истории сессий пользователя. Требует токен сессии)
+```- GET /account/session/list/?page=<next>``` (Получение истории сессий пользователя. Требует токен сессии)
 
 Status 200 (OK)
 ```
@@ -444,7 +444,10 @@ Status 200 (OK)
     "result": [
         {
             "id": 4,
-            "parking_id": 1,
+            "parking": {
+                "id":1,
+                "name":"Parking name"
+            }
             "debt": 120.0,
             "state": 0,
             "is_suspended": false,
@@ -452,6 +455,8 @@ Status 200 (OK)
             "started_at": 1459728000.0,
         },
         ...
+    ],
+    "next":"324123342"
 }
 ```
 

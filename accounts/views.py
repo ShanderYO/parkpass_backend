@@ -88,7 +88,7 @@ class AccountView(LoginRequiredAPIView):
 
 
 class AccountParkingListView(LoginRequiredAPIView):
-    max_paginate_length = 5
+    max_paginate_length = 10
 
     def get(self, request, *args, **kwargs):
         page = parse_int(request.GET.get("page", None))
