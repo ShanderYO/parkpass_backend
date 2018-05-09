@@ -6,11 +6,12 @@ from datetime import datetime, timedelta
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.db.models import BigAutoField
 from django.utils import timezone
 
 
 class Account(models.Model):
-    id = models.AutoField(primary_key=True)
+    id = BigAutoField(primary_key=True)
     first_name = models.CharField(max_length=63, null=True, blank=True)
     last_name = models.CharField(max_length=63, null=True, blank=True)
     phone = models.CharField(max_length=15)
@@ -49,7 +50,6 @@ class Account(models.Model):
 
 class AccountSession(models.Model):
     ACCESS_TOKEN_EXPIRE_SECONDS = 60 * 60 * 24 * 180
-
     id = models.AutoField(primary_key=True)
     token = models.CharField(max_length=63)
     expired_at = models.DateTimeField()
