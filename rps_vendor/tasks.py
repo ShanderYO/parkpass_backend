@@ -40,7 +40,7 @@ def request_rps_session_update():
 
         # Return if request_update_url is not specified
         if not rps_parking.request_update_url or not rps_parking.polling_enabled:
-            return
+            continue
 
         active_sessions = ParkingSession.objects.filter(
             parking=rps_parking.parking,
@@ -48,11 +48,9 @@ def request_rps_session_update():
             is_suspended=False,
         )
         if active_sessions.count() == 0:
-            print "List is empty"
-            return
-        print "Active sessions > 0"
+            continue
+
         payload = _get_payload_from_session_queryset(active_sessions)
-        print payload
         _make_http_request(rps_parking.request_update_url, payload, rps_parking)
 
 
