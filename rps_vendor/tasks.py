@@ -39,7 +39,7 @@ def request_rps_session_update():
     for rps_parking in RpsParking.objects.all().select_related("parking"):
 
         # Return if request_update_url is not specified
-        if not rps_parking.request_update_url or not rps_parking.enable:
+        if not rps_parking.request_update_url or not rps_parking.enabled:
             return
 
         active_sessions = ParkingSession.objects.filter(

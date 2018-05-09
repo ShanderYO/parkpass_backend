@@ -28,9 +28,10 @@ def generate_orders_and_pay():
 
     # TODO check canceled sessions
     active_sessions = ParkingSession.objects.filter(
-        state__in=[ParkingSession.STATE_SESSION_STARTED,
-                   ParkingSession.STATE_SESSION_UPDATED,
-                   ParkingSession.STATE_SESSION_COMPLETED]
+        state__in=[ParkingSession.STATE_STARTED,
+                   ParkingSession.STATE_STARTED_BY_VENDOR,
+                   ParkingSession.STATE_COMPLETED_BY_VENDOR,
+                   ParkingSession.STATE_COMPLETED]
     )
     get_logger().info("start generate_dept_orders task: active sessions")
 
@@ -39,7 +40,7 @@ def generate_orders_and_pay():
 
         if ordered_sum < session.debt:
             order = None
-            if session.state == ParkingSession.STATE_SESSION_COMPLETED:
+            if session.state == ParkingSession.STATE_COMPLETED or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR:
                 current_account_debt = session.debt - ordered_sum
                 order = Order(
                     sum=current_account_debt, session=session
@@ -55,8 +56,8 @@ def generate_orders_and_pay():
             if order:
                 order.try_pay()
         else:
-            if session.state == ParkingSession.STATE_SESSION_COMPLETED:
-                session.state = ParkingSession.STATE_SESSION_CLOSED
+            if session.state == ParkingSession.STATE_COMPLETED:
+                session.state = ParkingSession.STATE_CLOSED
                 session.save()
 
     get_logger().info("generate_dept_orders task was executed")
