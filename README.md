@@ -66,6 +66,10 @@ parkpass=# use parkpass
 parkpass-# \d+ accounts_account
 parkpass=# ALTER SEQUENCE accounts_account_id_seq RESTART WITH 100000000000000001;
 ```
+Изменение типов данных для столбцов foreign key (например в таблице ```payments_creditcard```):
+```
+    alter table payments_creditcard alter column account_id type bigint using account_id::bigint;
+```
 
 ## Описание API ##
 Все методы принимают и возвращают (Content-type: application/json), если не указан другой тип

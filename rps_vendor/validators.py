@@ -213,9 +213,9 @@ class RpsUpdateListParkingSessionValidator(BaseValidator):
             debt = session_dict.get("debt", None)
             updated_at = session_dict.get("updated_at", None)
 
-            if not client_id or not started_at or not debt or not updated_at:
+            if not client_id or not started_at or debt is None or not updated_at:
                 self.code = ValidationException.VALIDATION_ERROR
-                self.message = "Items of session element %s must have 'session_id', 'debt' and 'updated_at' keys" % index
+                self.message = "Items of session element %s must have 'client_id', 'started_at', 'debt' and 'updated_at' keys" % index
                 return False
 
             try:
@@ -227,11 +227,11 @@ class RpsUpdateListParkingSessionValidator(BaseValidator):
 
             try:
                 float_debt = float(debt)
-                if float_debt <= 0:
+                if float_debt < 0:
                     raise TypeError()
             except (ValueError, TypeError):
                 self.code = ValidationException.VALIDATION_ERROR
-                self.message = "Key 'debt' in session item %s has invalid format. Must be positive decimal value" % index
+                self.message = "Key 'debt' in session item %s has invalid format. Must be positive or zero decimal value" % index
                 return False
 
             try:
