@@ -114,13 +114,13 @@ class CompleteAccountParkingSessionValidator(BaseValidator):
 
 
 def validate_id(value, key_name):
+
     try:
         int_value = int(value)
         if int_value < 1:
             raise ValidationError("Key '%s' requires positive value" % key_name)
 
-        float_value = float(value)
-        if int_value != float_value:
+        if isinstance(value, str) or isinstance(value, unicode):
             raise ValidationError("Key '%s' has invalid format. Must be unsigned Int64 type" % key_name)
 
     except (ValueError, TypeError):

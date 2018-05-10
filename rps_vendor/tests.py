@@ -61,7 +61,7 @@ class UpdateParkingTestCase(TestCase):
             "parking_id":1,
             "sessions":[
                 {
-                    "client_id":1,
+                    "client_id":100000000000000001,
                     "started_at":1,
                     "debt":1.903,
                     "updated_at":1
@@ -69,4 +69,5 @@ class UpdateParkingTestCase(TestCase):
             ]
         })
         response = self._make_signed_json_post(url, body)
+        print response
         self.assertEqual(response.status_code, 202)
