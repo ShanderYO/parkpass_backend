@@ -1,13 +1,51 @@
 import random
 import binascii
 import os
+import uuid
 
 from datetime import datetime, timedelta
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
 from django.db import models
 from django.db.models import BigAutoField
+from django.template.loader import render_to_string
 from django.utils import timezone
+
+from parkpass.settings import EMAIL_HOST_USER
+
+
+class EmailConfirmation(models.Model):
+    TOKEN_EXIPATION_TIMEDELTA_IN_SECONDS = 60 * 60 * 24 * 30 # One mounth
+
+    email = models.EmailField()
+    code = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __unicode__(self):
+        return "Code %s [%s]" %(self.code, self.email)
+
+    def create_code(self):
+        self.code = str(uuid.uuid4()).replace('-', '')
+
+    def is_expired(self):
+        created_at = (self.created_at +
+                      timedelta(0, self.TOKEN_EXIPATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
+        return datetime.now() > created_at
+
+    # TODO make async
+    def send_confirm_mail(self):
+        render_data = {
+            "emails": self.email,
+            "confirmation_href": self._generate_confirmation_link()
+        }
+        msg_html = render_to_string('emails/email_confirm_mail.html',
+                                    render_data)
+        send_mail('Request to bind mail', "", EMAIL_HOST_USER,
+                  ['%s' % str(self.email)], html_message=msg_html)
+
+    def _generate_confirmation_link(self):
+        return "http://parkpass.ru/account/email/confirm/"+self.code
 
 
 class Account(models.Model):
@@ -17,6 +55,8 @@ class Account(models.Model):
     phone = models.CharField(max_length=15)
     sms_code = models.CharField(max_length=6, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
+    email_confirmation = models.ForeignKey(EmailConfirmation, null=True,
+                                     blank=True, on_delete=models.CASCADE)
     created_at = models.DateField(auto_now_add=True)
 
     class Meta:

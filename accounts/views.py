@@ -2,13 +2,14 @@ import datetime
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
+from django.views import View
 from dss.Serializer import serializer
 
-from accounts.models import Account
+from accounts.models import Account, EmailConfirmation
 from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
-    StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator
+    StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
@@ -100,8 +101,8 @@ class AccountParkingListView(LoginRequiredAPIView):
             result_query = result_query.filter(pk__lt=id).order_by("-id")
 
         object_list = result_query[:self.max_paginate_length]
-        data = serializer(object_list, foreign=False, exclude_attr=("session_id", "client_id", "parking_id",
-                                                                    "suspended_at", "created_at"))
+        data = serializer(object_list, foreign=False, exclude_attr=("session_id", "client_id",
+                                                                    "parking_id", "created_at"))
         for index, obj in enumerate(object_list):
             parking_dict = {
                 "id":obj.parking.id,
@@ -128,6 +129,109 @@ class DebtParkingSessionView(LoginRequiredAPIView):
             return JsonResponse(debt_dict, status=200)
         else:
             return JsonResponse({}, status=200)
+
+
+class GetReceiptView(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        id = int(request.data["id"])
+        try:
+            parking_session = ParkingSession.objects.get(id=id)
+            orders = Order.objects.filter(session=parking_session, paid=True)
+
+            response = {"result": []}
+            for order in orders:
+                response["result"].append(order.get_order_with_fiscal_dict())
+            return JsonResponse(response, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking session with id %s does not exist" % id)
+            return JsonResponse(e.to_dict(), status=400)
+
+
+class SendReceiptToEmailView(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        id = int(request.data["id"])
+        if request.account.email is None:
+            e = PermissionException(
+                PermissionException.EMAIL_REQUIRED,
+                "Your account doesn't have binded email"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        try:
+            parking_session = ParkingSession.objects.get(id=id)
+            parking_session.send_receipt_to_email()
+            return JsonResponse({}, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking session with id %s does not exist" % id)
+            return JsonResponse(e.to_dict(), status=400)
+
+
+class ChangeEmailView(LoginRequiredAPIView):
+    validator_class = EmailValidator
+
+    def post(self, request):
+        email = str(request.data["email"])
+        current_account = request.account
+        email_confirmation = None
+
+        # check already added email
+        if current_account.email == email:
+            e = ValidationException(
+                ValidationException.ALREADY_EXISTS,
+                "Such email is already binded to account"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        # get if already exists
+        email_confirmation_list = EmailConfirmation.objects.filter(email=email)
+        if email_confirmation_list.exists():
+            email_confirmation = email_confirmation_list[0]
+
+        # create new confirmation
+        if email_confirmation is None:
+            email_confirmation = EmailConfirmation(email=email)
+
+        email_confirmation.create_code()
+        email_confirmation.save()
+
+        current_account.email_confirmation = email_confirmation
+        current_account.save()
+
+        email_confirmation.send_confirm_mail()
+        return JsonResponse({}, status=200)
+
+
+class EmailConfirmationView(View):
+    def get(self, request, *args, **kwargs):
+        confirmations = EmailConfirmation.objects.filter(code=kwargs["code"])
+        if confirmations.exists():
+            confirmation = confirmations[0]
+            if confirmation.is_expired():
+                return JsonResponse({"error":"Link is expired"}, status=200)
+            else:
+                try:
+                    account = Account.objects.get(email_confirmation=confirmation)
+                    account.email = confirmation.email
+                    account.email_confirmation = None
+                    account.save()
+                    confirmation.delete()
+                    return JsonResponse({"message": "Email is activated successfully"})
+
+                except ObjectDoesNotExist:
+                    return JsonResponse({"error":"Invalid link. Account does not found"}, status=200)
+
+        else:
+            return JsonResponse({"error":"Invalid link"}, status=200)
 
 
 class ForcePayView(LoginRequiredAPIView):
@@ -344,7 +448,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
     validator_class = CompleteAccountParkingSessionValidator
 
     def post(self, request):
-        session_id = request.data["session_id"]
+        session_id = request.data["id"]
         parking_id = int(request.data["parking_id"])
         completed_at = int(request.data["completed_at"])
 

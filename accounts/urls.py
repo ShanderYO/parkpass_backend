@@ -3,7 +3,8 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from accounts.views import LoginView, LogoutView, AccountView, ConfirmLoginView, AddCardView, DeleteCardView, SetDefaultCardView, \
     DebtParkingSessionView, StartParkingSession, CompleteParkingSession, ForceStopParkingSession, ForcePayView, \
-    ResumeParkingSession, AccountParkingListView
+    ResumeParkingSession, AccountParkingListView, GetReceiptView, ChangeEmailView, EmailConfirmationView, \
+    SendReceiptToEmailView
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -15,10 +16,16 @@ urlpatterns = [
     url(r'^card/delete/$', DeleteCardView.as_view()),
     url(r'^card/default/$', SetDefaultCardView.as_view()),
 
+    url(r'^email/add/$', ChangeEmailView.as_view()),
+    url(r'^email/confirm/(?P<code>\w+)/$', EmailConfirmationView.as_view()),
+
     url(r'^session/create/$', StartParkingSession.as_view()),
     url(r'^session/complete/$', CompleteParkingSession.as_view()),
     url(r'^session/stop/$', ForceStopParkingSession.as_view()),
     url(r'^session/resume/$', ResumeParkingSession.as_view()),
+    url(r'^session/receipt/get/$', GetReceiptView.as_view()),
+    url(r'^session/receipt/send/$', SendReceiptToEmailView.as_view()),
+
 
     url(r'^session/list/$', AccountParkingListView.as_view()),
     url(r'^session/debt/$', DebtParkingSessionView.as_view()),

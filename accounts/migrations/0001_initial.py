@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                 ('last_name', models.CharField(max_length=63, null=True, blank=True)),
                 ('phone', models.CharField(max_length=15)),
                 ('sms_code', models.CharField(max_length=6)),
-                ('email', models.EmailField(max_length=254, null=True, blank=True)),
+                ('emails', models.EmailField(max_length=254, null=True, blank=True)),
                 ('created_at', models.DateField(auto_now_add=True)),
             ],
             options={

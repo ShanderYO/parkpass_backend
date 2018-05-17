@@ -269,3 +269,31 @@ class UpdateListParkingSessionValidator(BaseValidator):
                 self.message = str(e.message)+"Item %s" % index
                 return False
         return True
+
+
+class ComplainSessionValidator(BaseValidator):
+    def is_valid(self):
+        complain_type = self.request.data.get("type", 0)
+        message = self.request.data.get("message", None)
+        session_id = self.request.data.get("session_id", 0)
+
+        if not complain_type or not message or not session_id:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys 'type', 'session_id' and 'message' are required"
+            return False
+
+        try:
+            validate_id(session_id, "session_id")
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+
+        # TODO add type list validator and message requirements lenght
+
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+
+        return True

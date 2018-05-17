@@ -1,10 +1,35 @@
 from django.db import models
 
 # Create your models here.
+from dss.Serializer import serializer
+
 from accounts.models import Account
 from base.utils import get_logger
 from parkings.models import ParkingSession
 from payments.payment_api import TinkoffAPI
+
+
+class FiskalNotification(models.Model):
+    fiscal_number = models.IntegerField()
+    shift_number = models.IntegerField()
+    receipt_datetime = models.DateTimeField()
+    fn_number = models.CharField(max_length=20)
+    ecr_reg_number = models.CharField(max_length=20)
+    fiscal_document_number = models.IntegerField()
+    fiscal_document_attribute = models.IntegerField()
+    token = models.TextField()
+    ofd = models.TextField(null=True, blank=True)
+    url = models.TextField(null=True, blank=True)
+    qr_code_url = models.URLField(null=True, blank=True)
+    receipt = models.TextField()
+    type = models.CharField(max_length=15)
+
+    def __unicode__(self):
+        return u"Fiskal notification: %s (%s %s)" \
+               % (self.fiscal_number, self.shift_number)
+
+    class Meta:
+        ordering = ["-receipt_datetime"]
 
 
 class CreditCard(models.Model):
@@ -32,7 +57,8 @@ class CreditCard(models.Model):
     @classmethod
     def bind_request(cls, account):
         init_order = Order.objects.create(sum=1, account=account)
-        init_payment = TinkoffPayment.objects.create(order=init_order)
+        receipt_data = init_order.generate_receipt_data()
+        init_payment = TinkoffPayment.objects.create(order=init_order, receipt_data=receipt_data)
         request_data = init_payment.build_init_request_data(account.id)
         get_logger().info("Init request:")
         get_logger().info(request_data)
@@ -99,6 +125,7 @@ class Order(models.Model):
     session = models.ForeignKey(ParkingSession, null=True, blank=True)
     # for init payment order
     account = models.ForeignKey(Account, null=True, blank=True)
+    fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -114,6 +141,41 @@ class Order(models.Model):
             for session in sessions:
                 result_sum = result_sum + session.sum
         return result_sum
+
+    def generate_receipt_data(self):
+        if self.account.email is None or len(self.account.email) == 0:
+            return None
+
+        # Init payment receipt
+        if self.session is None:
+            return dict(
+                Email=self.account.email,
+                Phone=self.account.phone,
+                Taxation="osn",
+                Items=[{
+                    "Name": "Binding card",
+                    "Price": 100,
+                    "Quantity": 1.00,
+                    "Amount": 100,
+                    "Tax": "vat10",
+                    "Ean13": "0123456789"
+                    }]
+            )
+
+        # session payment receipt
+        return dict(
+            Email=self.account.email,
+            Phone=self.account.phone,
+            Taxation="osn",
+            Items=[{
+                "Name": "Payment for parking session # %s" % self.session.id,
+                "Price": self.sum,
+                "Quantity": 1.00,
+                "Amount": self.sum,
+                "Tax": "vat10",
+                "Ean13": "0123456789"
+            }]
+        )
 
     def get_order_description(self):
         if not self.session:
@@ -179,6 +241,20 @@ class Order(models.Model):
             new_payment.error_description = error_details
             new_payment.save()
 
+    def get_order_with_fiscal_dict(self):
+        order = dict(
+            id=self.id,
+            sum=float(self.sum)
+        )
+
+        fiscal = None
+        if self.fiscal_notification:
+            fiscal = serializer(self.fiscal_notification)
+
+        return dict(
+            order=order,
+            fiscal=fiscal
+        )
 
 PAYMENT_STATUS_INIT = 0
 PAYMENT_STATUS_NEW = 1
@@ -210,6 +286,7 @@ class TinkoffPayment(models.Model):
     payment_id = models.BigIntegerField(unique=True, blank=True, null=True)
     status = models.SmallIntegerField(choices=PAYMENT_STATUSES, default=PAYMENT_STATUS_INIT)
     order = models.ForeignKey(Order, null=True, blank=True) # TODO DELETE FROM THIS
+    receipt_data = models.TextField(null=True, blank=True)
 
     # Fields for debug
     error_code = models.IntegerField(default=-1)
@@ -232,6 +309,8 @@ class TinkoffPayment(models.Model):
             "Recurrent": "Y",
             "CustomerKey": str(customer_key)
         }
+        if self.receipt_data:
+            data["Receipt"] = self.receipt_data
         return data
 
     def build_transaction_data(self, amount):
@@ -240,6 +319,8 @@ class TinkoffPayment(models.Model):
             "OrderId": str(self.order.id),
             "Description": "Payment for order #%s" % str(self.order.id)
         }
+        if self.receipt_data:
+            data["Receipt"] = self.receipt_data
         return data
 
     def build_charge_request_data(self, payment_id, rebill_id):

@@ -46,6 +46,7 @@ class PermissionException(ApiException):
     VENDOR_NOT_FOUND = 303
     ONLY_ONE_ACTIVE_SESSION_REQUIRED = 304
     CREDIT_CARD_REQUIRED = 305
+    EMAIL_REQUIRED = 306
 
     def __init__(self, code, message):
         super(PermissionException, self).__init__(message)

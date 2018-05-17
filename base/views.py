@@ -19,7 +19,7 @@ from parkings.models import Vendor
 class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-        print "dispatch"
+
         # Only application/json Content-type allow
         if not request.META.get('CONTENT_TYPE', "").startswith("application/json") and request.POST:
             return JsonResponse({

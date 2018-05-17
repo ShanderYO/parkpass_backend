@@ -6,7 +6,7 @@ import datetime
 from django.test import TestCase
 from django.test import Client
 
-from accounts.models import Account
+from accounts.models import Account, AccountSession
 from base.exceptions import ValidationException
 from parkings.models import Vendor, Parking, ParkingSession
 
@@ -851,4 +851,92 @@ class UpdateListSessionParkingTestCase(TestCase):
         })
         response = self._make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 202)
+        print response.content
+
+
+
+class ComplainTestCase(TestCase):
+    """
+        Test for /parking/complain/ API
+    """
+    def setUp(self):
+        vendor = Vendor(
+            name="test-parking-vendor",
+            secret="12345678"
+        )
+        vendor.save(not_generate_secret=True)
+
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            free_places=5,
+            vendor=vendor
+        )
+
+        account = Account.objects.create(
+            first_name="Test first_name",
+            last_name="Test last_name",
+            phone="+7(909)1239889",
+        )
+
+        account_session = AccountSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            account=account
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
+
+        ParkingSession.objects.create(
+            session_id="exist-session-id",
+            client=account,
+            parking=parking_1,
+            state=ParkingSession.STATE_STARTED,
+            started_at=datetime.datetime.now()
+        )
+        self.client = Client()
+
+    def complain_invalid_session_test(self):
+        url = '/parking/complain/'
+        body = json.dumps({
+            "session_id": 2,
+            "type": 1,
+            "message": "bla-bla"
+        })
+        response = self.client.post(url, body,
+                                    **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        self.assertEqual(response.status_code, 200)
+
+        error_code = json.loads(response.content)["code"]
+        self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
+        print response.content
+
+    def complain_type_session_test(self):
+        url = '/parking/complain/'
+        body = json.dumps({
+            "session_id": 2,
+            "type": 10,
+            "message": "bla-bla"
+        })
+        response = self.client.post(url, body,
+                                    **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        self.assertEqual(response.status_code, 200)
+
+        error_code = json.loads(response.content)["code"]
+        self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
+        print response.content
+
+    def complain_valid_test(self):
+        url = '/parking/complain/'
+        body = json.dumps({
+            "session_id":1,
+            "type":1,
+            "message":"bla-bla"
+        })
+        response = self.client.post(url, body, **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        self.assertEqual(response.status_code, 200)
+
+        error_code = json.loads(response.content)["code"]
+        self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content

@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from models import Parking, ParkingSession, Vendor
+from models import Parking, ParkingSession, Vendor, ComplainSession
 
 
 @admin.register(Parking)
@@ -14,4 +14,8 @@ class ParkingSessionAdmin(admin.ModelAdmin):
 
 @admin.register(Vendor)
 class VendorAdmin(admin.ModelAdmin):
+    pass
+
+@admin.register(ComplainSession)
+class ComplainSessionAdmin(admin.ModelAdmin):
     pass

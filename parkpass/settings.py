@@ -117,10 +117,11 @@ else:
     }
 
 # Email configs
-EMAIL_HOST = 'smtp.yandex.ru'
+# TODO change SMTP parameters
+EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'example@pebby.com'
-EMAIL_HOST_PASSWORD = 'azaza'
+EMAIL_HOST_USER = 'noreply@parkpass.ru'
+EMAIL_HOST_PASSWORD = 'noreplyParol'
 EMAIL_USE_TLS = True
 
 # Internationalization

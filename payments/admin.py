@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from models import CreditCard, TinkoffPayment, Order
+from models import CreditCard, TinkoffPayment, Order, FiskalNotification
 
 
 @admin.register(CreditCard)
@@ -14,4 +14,8 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(TinkoffPayment)
 class TinkoffPaymentAdmin(admin.ModelAdmin):
+    pass
+
+@admin.register(FiskalNotification)
+class FiskalNotificationAdmin(admin.ModelAdmin):
     pass

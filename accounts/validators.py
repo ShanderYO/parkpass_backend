@@ -23,6 +23,23 @@ class IdValidator(BaseValidator):
             return False
         return True
 
+
+class EmailValidator(BaseValidator):
+    def is_valid(self):
+        email = self.request.data.get("email", None)
+        if not email:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Email is required"
+            return False
+        try:
+            validate_email(email)
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+        return True
+
+
 class LoginParamValidator(BaseValidator):
     def is_valid(self):
         phone = self.request.data.get("phone", None)
@@ -95,7 +112,7 @@ class StartAccountParkingSessionValidator(BaseValidator):
 
 class CompleteAccountParkingSessionValidator(BaseValidator):
     def is_valid(self):
-        session_id = self.request.data.get("session_id", None)
+        session_id = self.request.data.get("id", None)
         parking_id = self.request.data.get("parking_id", None)
         completed_at = self.request.data.get("completed_at", None)
 
@@ -167,7 +184,7 @@ def validate_account_name(value, field_name="NonameField"):
 def validate_mail_code(value):
     regex = '^[0-9a-f]{32}$'
     if not re.match(regex, value):
-        raise ValidationError("Invalid activation email code format")
+        raise ValidationError("Invalid activation emails code format")
 
 
 def validate_sms_code(value):

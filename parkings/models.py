@@ -2,7 +2,11 @@ import binascii
 import os
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
 from django.db import models
+from django.template.loader import render_to_string
+
+from parkpass.settings import EMAIL_HOST_USER
 
 
 class Vendor(models.Model):
@@ -195,3 +199,27 @@ class ParkingSession(models.Model):
             self.STATE_STARTED_BY_VENDOR,
             self.STATE_STARTED
         ]
+
+
+    # TODO make async
+    def send_receipt_to_email(self):
+        email = self.client.email
+        render_data = {
+        }
+        msg_html = render_to_string('emails/fiscal_template_mail.html', render_data)
+        send_mail('Fiscal report', "", EMAIL_HOST_USER,
+                  ['%s' % str(email)], html_message=msg_html)
+
+
+class ComplainSession(models.Model):
+    COMPLAIN_TYPE_CHOICES = (
+        (1, 'Complain_1'),
+        (2, 'Complaint_2'),
+        (3, 'Complain_3'),
+        (4, 'Complain_4'),
+        (5, 'Complain_5'),
+    )
+    type = models.PositiveSmallIntegerField(choices=COMPLAIN_TYPE_CHOICES)
+    message = models.TextField(max_length=1023)
+    session = models.ForeignKey(ParkingSession)
+    account = models.ForeignKey('accounts.Account')

@@ -7,7 +7,7 @@ from django.test import Client
 # Create your tests here.
 from accounts.models import Account, AccountSession
 from parkings.models import Vendor, Parking, ParkingSession
-from payments.models import CreditCard, Order
+from payments.models import CreditCard, Order, FiskalNotification
 
 
 class AccountBaseTestCase(TestCase):
@@ -349,7 +349,7 @@ class AccountSessionsTestCase(TestCase):
 
         # Check pagination
         response_dict = json.loads(response.content)
-        page_token = response_dict["next"]
+        page_token = response_dict.get("next", None)
 
         url = "/account/session/list/?page=%s" % page_token
         response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
@@ -535,3 +535,116 @@ class StartAccountTestCase(TestCase):
         self.client = Client()
 
 
+
+
+class ReceiptTestCase(TestCase):
+    """
+        Test for session/receipt/get/
+    """
+
+    def setUp(self):
+        vendor = Vendor(
+            name="test-parking-vendor",
+            secret="12345678"
+        )
+        vendor.save(not_generate_secret=True)
+
+        parking = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            free_places=5,
+            vendor=vendor
+        )
+
+        account = Account.objects.create(
+            id=1,
+            first_name="Test1",
+            phone="+7(910)8271910",
+        )
+
+        account_session = AccountSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            account=account
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
+
+        parking_session = ParkingSession.objects.create(
+            id=1,
+            session_id="session_1",
+            client=account,
+            parking=parking,
+            debt=100,
+            state=ParkingSession.STATE_CLOSED,
+            started_at=datetime.datetime(2016, 12, 14),
+            updated_at=datetime.datetime(2016, 12, 14),
+            completed_at=datetime.datetime(2016, 12, 15),
+        )
+
+        fiskal = FiskalNotification.objects.create(
+            fiscal_number=100,
+            shift_number=101,
+            receipt_datetime = datetime.datetime.now(),
+            fn_number="fn_number_sample",
+            ecr_reg_number="ecr_reg_number_sample",
+            fiscal_document_number=102,
+            fiscal_document_attribute=103,
+            token="token_sample",
+            ofd="ofd",
+            url="http://yandex.ru",
+            qr_code_url="http://qr_code_url.ru",
+            receipt="recept_text",
+            type="type_of_notification"
+        )
+
+        order = Order.objects.create(
+            id=1,
+            sum=150,
+            payment_attempts=1,
+            paid=True,
+            session=parking_session,
+            account=account,
+            fiscal_notification=fiskal
+        )
+
+
+        self.client = Client()
+
+    def test_not_exists_parking(self):
+        url = "/account/session/receipt/get/"
+
+        body = json.dumps({
+            "id": 3
+        })
+
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+    def test_valid_receipt(self):
+        url = "/account/session/receipt/get/"
+
+        body = json.dumps({
+            "id": 1
+        })
+
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 200)
+        print response.content
+
+
+    def test_send_receipt_to_mail(self):
+        url = "/account/session/receipt/send/"
+        body = json.dumps({
+            "id": 1
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 200)

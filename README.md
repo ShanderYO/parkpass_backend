@@ -462,7 +462,8 @@ Status 200 (OK)
             }
             "debt": 120.0,
             "state": 0,
-            "is_suspended": false,
+            "is_suspended": true,
+            "suspended_at": 1459814400.0, (Optional)
             "completed_at": 1459814400.0, (Optional)
             "started_at": 1459728000.0,
         },
@@ -521,6 +522,172 @@ Status 200 (OK)
 ```
 
 Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking session with id %s does not exist"
+}
+```
+
+```- POST account/email/add/``` (Привязка почты к аккаунту. Требует токен сессии)
+
+Тело:
+```
+{
+    "email": "my-email@gmail.com",
+}
+```
+
+Status 200 (OK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Key 'email' is required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid email format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 403,
+    "message": "Such email is already binded to account"
+}
+```
+
+```- POST account/email/confirm/<activate_code>``` (Подтверждение почты из email)
+
+```
+{
+    "status": "Success| Error",
+}
+```
+
+```- POST account/session/receipt/``` (Получение чеков по заказам. Требует токен сессии)
+
+Тело:
+```
+{
+    "id": 2,
+}
+```
+
+Status 200 (OK)
+```
+{
+    "result": [
+        {
+            "order": {
+                "id": 1,
+                "sum": 150.0
+            },
+            "fiscal":
+            {
+                "fiscal_document_number": 102,
+                "ofd": "ofd",
+                "ecr_reg_number": "ecr_reg_number_sample",
+                "url": "http://yandex.ru",
+                "receipt": "recept_text",
+                "shift_number": 101,
+                "token": "token_sample",
+                "receipt_datetime": 1526591673.0, # Unix-timestamp
+                "fiscal_document_attribute": 103,
+                "qr_code_url": "http://qr_code_url.ru",
+                "type": "type_of_notification",
+                "fn_number": "fn_number_sample",
+                "fiscal_number": 100
+            },
+          },
+          ....
+    ]
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Key 'id' is required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking session with id # does not exist"
+}
+```
+
+```- POST account/session/receipt/send/``` (Отправика чеков на почту. Требует токен сессии)
+
+Тело:
+```
+{
+    "id": 1
+}
+```
+Status 200 (Успешно)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Key 'id' is required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "Parking session with id # does not exist"
+}
+```
+
+```
+{
+    "exception": "PermissionException",
+    "code": 306,
+    "message": "Your account doesn't have binded email"
+}
+```
+
+```- POST /parking/complain/``` (Отправка жалобы. Требует токен сессии)
+
+Тело:
+```
+{
+    "id": 1, (Id сессии в системе parkpass)
+    "type": (1-5) тип жалобы
+    "message": "Complain description"
+}
+```
+
+Status 200 (OK)
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'type', 'session_id' and 'message' are required"
+}
+```
+
 ```
 {
     "exception": "ValidationException",

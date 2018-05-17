@@ -37,7 +37,8 @@ class TinkoffAPI():
     def get_token(self, params):
         concat_str = ""
         for key in params:
-            concat_str += params[key]
+            concat_str += str(params[key])
+            print str(params[key])
         return hashlib.sha256(concat_str).hexdigest()
 
     def get_response(self, url, payload):

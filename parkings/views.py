@@ -6,12 +6,12 @@ from dss.Serializer import serializer
 from accounts.models import Account
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
-from base.views import LoginRequiredAPIView, SignedRequestAPIView, APIView
-from parkings.models import Parking, ParkingSession
+from base.views import LoginRequiredAPIView, SignedRequestAPIView
+from parkings.models import Parking, ParkingSession, ComplainSession
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
-    UpdateListParkingSessionValidator
+    UpdateListParkingSessionValidator, ComplainSessionValidator
 
 
 class GetParkingView(LoginRequiredAPIView):
@@ -295,3 +295,29 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         return JsonResponse({}, status=202)
+
+
+class ComplainSessionView(LoginRequiredAPIView):
+    validator_class = ComplainSessionValidator
+
+    def post(self, request, *args, **kwargs):
+        complain_type = int(request.data["type"])
+        message = request.data["message"]
+        session_id = int(request.data["session_id"])
+
+        try:
+            parking_session = ParkingSession.objects.get(id=session_id)
+            ComplainSession.objects.create(
+                type=complain_type,
+                message=message,
+                account=request.account,
+                session=parking_session,
+            )
+            return JsonResponse({}, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking session with id %s does not exist" % session_id
+            )
+            return JsonResponse(e.to_dict(), status=400)
