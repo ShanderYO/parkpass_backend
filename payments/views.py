@@ -80,21 +80,28 @@ class TinkoffCallbackView(APIView):
             order.paid = float(amount)/100
             order.save()
 
+            account = order.account if order.account else order.session.client
+
             # Change state payment
             payment = TinkoffPayment.objects.get(payment_id=payment_id)
-            # TODO check status order
+
             payment.status = status
             if code > 0:
                 payment.error_code = code
             payment.save()
 
+            if code > 0:
+                get_logger().info("Callback notification code > 0. Return status 200: OK")
+                return HttpResponse("OK", status=200)
+
             # Change card or rebill_id
-            if CreditCard.objects.filter(id=card_id).exists():
-                credit_card = CreditCard.objects.filter(id=card_id)[0]
+            if CreditCard.objects.filter(card_id=card_id, account=account).exists():
+                credit_card = CreditCard.objects.get(card_id=card_id, account=account)
                 credit_card.rebill_id = rebill_id
                 credit_card.save()
+
             else:
-                credit_card = CreditCard(id=card_id, pan=pan,
+                credit_card = CreditCard(card_id=card_id, pan=pan,
                                          exp_date=exp_date, rebill_id=rebill_id)
                 if order.account:
                     credit_card.account = order.account
@@ -107,6 +114,7 @@ class TinkoffCallbackView(APIView):
                                       "Please check payment initialization")
         except ObjectDoesNotExist as e:
             get_logger().warn(e.message)
+            return HttpResponse("OK", status=200)
 
         get_logger().info("status 200: OK")
         return HttpResponse("OK", status=200)

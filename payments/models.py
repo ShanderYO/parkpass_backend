@@ -33,11 +33,12 @@ class FiskalNotification(models.Model):
 
 
 class CreditCard(models.Model):
-    id = models.IntegerField(primary_key=True)
+    id = models.AutoField(primary_key=True)
+    card_id = models.IntegerField(default=1)
     pan = models.CharField(blank=True, max_length=31)
     exp_date = models.CharField(blank=True, max_length=61)
     is_default = models.BooleanField(default=False)
-    rebill_id = models.BigIntegerField(unique=True, blank=True, null=True)
+    rebill_id = models.BigIntegerField(blank=True, null=True)
     created_at = models.DateField(auto_now_add=True)
     account = models.ForeignKey(Account, related_name="credit_cards")
 
