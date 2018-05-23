@@ -16,7 +16,7 @@ from rps_vendor.models import RpsParking
 def rps_process_updated_sessions(parking, sessions):
     for session in sessions:
         client_id = session["client_id"]
-        started_at = session["stated_at"]
+        started_at = session["started_at"]
         session_id = str(client_id) + "&" + str(started_at)
 
         debt = int(session["debt"])
