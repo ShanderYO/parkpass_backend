@@ -25,15 +25,14 @@ def rps_process_updated_sessions(parking, sessions):
 
         if parking_sessions.count() > 0:
             parking_session = parking_sessions[0]
-            if parking_session.is_completed_by_vendor():
-                return
-            parking_session.debt = debt
+            if not parking_session.is_completed_by_vendor():
+                parking_session.debt = debt
 
-            completed_at_date = datetime.datetime.fromtimestamp(int(updated_at))
-            completed_at_date_tz = pytz.utc.localize(completed_at_date)
-            parking_session.updated_at = completed_at_date_tz
+                updated_at_date = datetime.datetime.fromtimestamp(int(updated_at))
+                updated_at_date_tz = pytz.utc.localize(updated_at_date)
+                parking_session.updated_at = updated_at_date_tz
 
-            parking_session.save()
+                parking_session.save()
 
 
 @periodic_task(seconds=30)
