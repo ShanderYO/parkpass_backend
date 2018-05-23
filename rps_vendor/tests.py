@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import time
 
 from django.test import TestCase
 
@@ -10,8 +11,7 @@ from django.test import Client
 
 # Create your tests here.
 from accounts.models import Account
-from base.exceptions import ValidationException
-from parkings.models import Vendor, Parking
+from parkings.models import Vendor, Parking, ParkingSession
 from rps_vendor.models import RpsParking
 
 
@@ -39,11 +39,39 @@ class UpdateParkingTestCase(TestCase):
             parking=parking1
         )
 
-        Account.objects.create(
+        account = Account.objects.create(
             first_name="Test first_name",
             last_name="Test last_name",
             phone="+7(909)1239889",
         )
+
+        session = ParkingSession.objects.create(
+            session_id="100000000000000001&1",
+            parking=parking1,
+            client=account,
+            debt=190,
+            state = ParkingSession.STATE_STARTED,
+            started_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now(),
+            completed_at=datetime.datetime.now()
+        )
+        session.add_vendor_start_mark()
+        session.add_vendor_complete_mark()
+        session.save()
+
+        session2 = ParkingSession.objects.create(
+            session_id="100000000000000001&2",
+            parking=parking1,
+            client=account,
+            debt=190,
+            state=ParkingSession.STATE_STARTED,
+            started_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now(),
+            completed_at=datetime.datetime.now()
+        )
+        session2.add_vendor_start_mark()
+        session2.save()
+
         self.client = Client()
 
 
@@ -54,6 +82,24 @@ class UpdateParkingTestCase(TestCase):
                                        'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
         return response
 
+
+    def test_rps_update_closed_session(self):
+        url = '/parking/rps/session/list/update/'
+        body = json.dumps({
+            "parking_id": 1,
+            "sessions": [
+                {
+                    "client_id": 100000000000000001,
+                    "started_at": 2,
+                    "debt": 1.903,
+                    "updated_at": 1
+                }
+            ]
+        })
+        response = self._make_signed_json_post(url, body)
+        print response
+        time.sleep(10)
+        self.assertEqual(response.status_code, 202)
 
     def test_rps_update_valid_body(self):
         url = '/parking/rps/session/list/update/'
@@ -70,4 +116,5 @@ class UpdateParkingTestCase(TestCase):
         })
         response = self._make_signed_json_post(url, body)
         print response
+        time.sleep(10)
         self.assertEqual(response.status_code, 202)

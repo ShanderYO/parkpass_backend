@@ -19,13 +19,15 @@ def rps_process_updated_sessions(parking, sessions):
         started_at = session["started_at"]
         session_id = str(client_id) + "&" + str(started_at)
 
-        debt = int(session["debt"])
+        debt = float(session["debt"])
         updated_at = int(session["updated_at"])
         parking_sessions = ParkingSession.objects.filter(session_id=session_id, parking=parking)
 
         if parking_sessions.count() > 0:
             parking_session = parking_sessions[0]
-            parking_session.parking_session = debt
+            if parking_session.is_completed_by_vendor():
+                return
+            parking_session.debt = debt
 
             completed_at_date = datetime.datetime.fromtimestamp(int(updated_at))
             completed_at_date_tz = pytz.utc.localize(completed_at_date)
