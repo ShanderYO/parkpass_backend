@@ -9,7 +9,8 @@ from accounts.models import Account, EmailConfirmation
 from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
-    StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator
+    StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
+    EmailAndPasswordValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
@@ -41,6 +42,36 @@ class LoginView(APIView):
            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
 
         return JsonResponse({}, status=success_status)
+
+class LoginWithEmailView(APIView):
+    validator_class = EmailAndPasswordValidator
+
+    def post(self, request):
+        raw_email = request.data["email"]
+        password = request.data["password"]
+        email = raw_email.lower()
+
+        try:
+            account = Account.objects.get(email=email)
+            if account.check_password(raw_password=password):
+                # TODO get session
+                #session = AccountSession.objects.get
+                #session.save()
+                #response_dict = serializer(session)
+                #return JsonResponse(response_dict)
+                return JsonResponse({}, status=200)
+            else:
+                e = AuthException(
+                    AuthException.INVALID_PASSWORD,
+                    "Invalid password"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        except ObjectDoesNotExist:
+            e = AuthException(
+                AuthException.NOT_FOUND_CODE,
+                "User with such email not found")
+            return JsonResponse(e.to_dict(), status=400)
 
 
 class ConfirmLoginView(APIView):
@@ -90,13 +121,40 @@ class AccountView(LoginRequiredAPIView):
 
 class AccountParkingListView(LoginRequiredAPIView):
     max_paginate_length = 10
+    max_select_time_interval = 366 * 24 * 60 * 60 # 1 year
 
     def get(self, request, *args, **kwargs):
         page = parse_int(request.GET.get("page", None))
+        from_date = parse_int(request.GET.get("from_date", None))
+        to_date = parse_int(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if not from_date or to_date:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        if (from_date - to_date) > self.max_select_time_interval:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Max time interval exceeded. Max value %s, accepted %s" % (self.max_select_time_interval, from_date - to_date)
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
         result_query = ParkingSession.objects.filter(
             Q(client_id=request.account.id, state__lte=0) | Q(client_id=request.account.id, is_suspended=True))\
             .select_related("parking")
-        if page:
+
+        if from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+
+            result_query = result_query.filter(
+                created_at__lt=from_date_datetime, created_at__gt=to_date_datetime).order_by("-id")
+
+        elif page:
             id = int(page)
             result_query = result_query.filter(pk__lt=id).order_by("-id")
 

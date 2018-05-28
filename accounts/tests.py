@@ -356,6 +356,35 @@ class AccountSessionsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         print response.content
 
+
+    def test_parking_session_interval_invalid_params_view(self):
+        url = "/account/session/list/?from_date=11"
+        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+        url = "/account/session/list/?to_date=11"
+        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        self.assertEqual(response.status_code, 200)
+        print response.content
+
+        url = "/account/session/list/?from_date=11&to_date=12"
+        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+        url = "/account/session/list/?to_date=11&to_date=Privet"
+        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        self.assertEqual(response.status_code, 200)
+        print response.content
+
+    def test_parking_session_interval_valid_view(self):
+        url = "/account/session/list/?to_date=11&to_date=10"
+        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        self.assertEqual(response.status_code, 200)
+        print response.content
+
+
     def test_get_debt_request(self):
         url = "/account/session/debt/"
 

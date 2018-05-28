@@ -4,10 +4,11 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from accounts.views import LoginView, LogoutView, AccountView, ConfirmLoginView, AddCardView, DeleteCardView, SetDefaultCardView, \
     DebtParkingSessionView, StartParkingSession, CompleteParkingSession, ForceStopParkingSession, ForcePayView, \
     ResumeParkingSession, AccountParkingListView, GetReceiptView, ChangeEmailView, EmailConfirmationView, \
-    SendReceiptToEmailView
+    SendReceiptToEmailView, LoginWithEmailView
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
+    url(r'^login/email/$', LoginWithEmailView.as_view()),
     url(r'^login/confirm/$', ConfirmLoginView.as_view()),
     url(r'^logout/$', LogoutView.as_view()),
     url(r'^me/$', AccountView.as_view()),

@@ -71,6 +71,23 @@ class ConfirmLoginParamValidator(BaseValidator):
             return False
         return True
 
+class EmailAndPasswordValidator(BaseValidator):
+    def is_valid(self):
+        email = self.request.data.get("email", None)
+        password = self.request.data.get("password", None)
+        if not email or not password:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Login and password are required"
+            return False
+        try:
+            validate_email_format(email)
+            validate_password_format(password)
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+        return True
+
 
 class AccountParamValidator(BaseValidator):
     def is_valid(self):
@@ -191,3 +208,8 @@ def validate_sms_code(value):
     regex = '^[0-9]{5}$'
     if not re.match(regex, value):
         raise ValidationError("Phone code has invalidate format")
+
+def validate_password_format(value):
+    # Format more than 5
+    if len(str(value)) < 6:
+        raise ValidationError("Too short password. Must be 6 or more symbols")

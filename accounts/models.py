@@ -5,6 +5,8 @@ import uuid
 
 from datetime import datetime, timedelta
 
+from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.db import models
@@ -55,6 +57,7 @@ class Account(models.Model):
     phone = models.CharField(max_length=15)
     sms_code = models.CharField(max_length=6, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
+    password = models.CharField(max_length=255)
     email_confirmation = models.ForeignKey(EmailConfirmation, null=True,
                                      blank=True, on_delete=models.CASCADE)
     created_at = models.DateField(auto_now_add=True)
@@ -75,6 +78,22 @@ class Account(models.Model):
         new_session.save()
         self.sms_code = None
         self.save()
+
+    def check_password(self, raw_password):
+        def setter(r_password):
+            self.set_password(r_password)
+        return check_password(raw_password, self.password, setter)
+
+    def set_password(self, raw_password):
+        self.password = make_password(raw_password)
+
+    def make_hashed_password(self):
+        raw_password = self.password
+        self.password = make_password(raw_password)
+
+    def generate_random_password(self):
+        raw_password = User.objects.make_random_password(8)
+        return raw_password
 
     def create_sms_code(self):
         self.sms_code = "".join([str(random.randrange(1,9)) for x in xrange(5)])
