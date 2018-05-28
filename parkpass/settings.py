@@ -169,10 +169,11 @@ LOGGING = {
         },
         'file': {
             'level': 'DEBUG',
-            'class': 'logging.FileHandler',
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': 'parkpass.log',
-            'formatter':'verbose'
-
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'verbose'
         },
         'console': {
             'level': 'DEBUG',
@@ -182,14 +183,14 @@ LOGGING = {
     },
     'loggers': {
         'django.request': {
-            'handlers': ['mail_admins'],
-            'level': 'ERROR',
+            'handlers': ['file'],
+            'level': 'DEBUG',
             'propagate': True,
         },
         'parkpass': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
-        },
+        }
     }
 }
 

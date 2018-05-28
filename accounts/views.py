@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views import View
 from dss.Serializer import serializer
 
-from accounts.models import Account, EmailConfirmation
+from accounts.models import Account, EmailConfirmation, AccountSession
 from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
@@ -19,6 +19,7 @@ from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 
 from django.db.models import Q
+
 
 class LoginView(APIView):
     validator_class = LoginParamValidator
@@ -43,36 +44,6 @@ class LoginView(APIView):
 
         return JsonResponse({}, status=success_status)
 
-class LoginWithEmailView(APIView):
-    validator_class = EmailAndPasswordValidator
-
-    def post(self, request):
-        raw_email = request.data["email"]
-        password = request.data["password"]
-        email = raw_email.lower()
-
-        try:
-            account = Account.objects.get(email=email)
-            if account.check_password(raw_password=password):
-                # TODO get session
-                #session = AccountSession.objects.get
-                #session.save()
-                #response_dict = serializer(session)
-                #return JsonResponse(response_dict)
-                return JsonResponse({}, status=200)
-            else:
-                e = AuthException(
-                    AuthException.INVALID_PASSWORD,
-                    "Invalid password"
-                )
-                return JsonResponse(e.to_dict(), status=400)
-
-        except ObjectDoesNotExist:
-            e = AuthException(
-                AuthException.NOT_FOUND_CODE,
-                "User with such email not found")
-            return JsonResponse(e.to_dict(), status=400)
-
 
 class ConfirmLoginView(APIView):
     validator_class = ConfirmLoginParamValidator
@@ -92,6 +63,41 @@ class ConfirmLoginView(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
 
+class LoginWithEmailView(APIView):
+    validator_class = EmailAndPasswordValidator
+
+    def post(self, request):
+        raw_email = request.data["email"]
+        password = request.data["password"]
+        email = raw_email.lower()
+
+        try:
+            account = Account.objects.get(email=email)
+            if account.check_password(raw_password=password):
+                if AccountSession.objects.filter(account=account).exists():
+                    session = AccountSession.objects.filter(account=account).order_by('-created_at')[0]
+                    response_dict = serializer(session)
+                    return JsonResponse(response_dict)
+                else:
+                    e = AuthException(
+                        AuthException.INVALID_SESSION,
+                        "Invalid session. Login with phone required"
+                    )
+                    return JsonResponse(e.to_dict(), status=400)
+            else:
+                e = AuthException(
+                    AuthException.INVALID_PASSWORD,
+                    "Invalid password"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        except ObjectDoesNotExist:
+            e = AuthException(
+                AuthException.NOT_FOUND_CODE,
+                "User with such email not found")
+            return JsonResponse(e.to_dict(), status=400)
+
+
 class LogoutView(LoginRequiredAPIView):
     def post(self, request):
         request.account.clean_session()
@@ -102,7 +108,7 @@ class AccountView(LoginRequiredAPIView):
     validator_class = AccountParamValidator
 
     def get(self, request):
-        account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code"))
+        account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code", "password"))
         card_list = CreditCard.get_card_by_account(request.account)
         account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "exp_date", "is_default"))
         return JsonResponse(account_dict, status=200)
@@ -129,19 +135,26 @@ class AccountParkingListView(LoginRequiredAPIView):
         to_date = parse_int(request.GET.get("to_date", None))
 
         if from_date or to_date:
-            if not from_date or to_date:
+            if from_date is None or to_date is None:
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
                     "from_date and to_date unix-timestamps are required"
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-        if (from_date - to_date) > self.max_select_time_interval:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                "Max time interval exceeded. Max value %s, accepted %s" % (self.max_select_time_interval, from_date - to_date)
-            )
-            return JsonResponse(e.to_dict(), status=400)
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) > self.max_select_time_interval:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Max time interval exceeded. Max value %s, accepted %s" % (self.max_select_time_interval, (to_date-from_date))
+                )
+                return JsonResponse(e.to_dict(), status=400)
 
         result_query = ParkingSession.objects.filter(
             Q(client_id=request.account.id, state__lte=0) | Q(client_id=request.account.id, is_suspended=True))\
@@ -152,7 +165,7 @@ class AccountParkingListView(LoginRequiredAPIView):
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
 
             result_query = result_query.filter(
-                created_at__lt=from_date_datetime, created_at__gt=to_date_datetime).order_by("-id")
+                created_at__gt=from_date_datetime, created_at__lt=to_date_datetime).order_by("-id")
 
         elif page:
             id = int(page)
@@ -283,6 +296,7 @@ class EmailConfirmationView(View):
                     account.email_confirmation = None
                     account.save()
                     confirmation.delete()
+                    account.create_password_and_send()
                     return JsonResponse({"message": "Email is activated successfully"})
 
                 except ObjectDoesNotExist:

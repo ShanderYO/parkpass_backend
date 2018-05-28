@@ -9,11 +9,8 @@ from accounts.models import Account, AccountSession
 from parkings.models import Vendor, Parking, ParkingSession
 from payments.models import CreditCard, Order, FiskalNotification
 
-
+"""
 class AccountBaseTestCase(TestCase):
-    """
-        Test for /account/me API method request without user
-    """
 
     def setUp(self):
         account = Account.objects.create(
@@ -40,7 +37,6 @@ class AccountBaseTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
-    """
     def test_empty_body_request(self):
         url = "/account/login/"
 
@@ -80,20 +76,144 @@ class AccountBaseTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, AuthException.NOT_FOUND_CODE)
-    """
+"""
+
+
+class LoginEmail1TestCase(TestCase):
+
+    def setUp(self):
+        account = Account.objects.create(
+            id=1,
+            first_name="Test1",
+            phone="+7(910)8271910",
+            email="diman-mich@yandex.ru"
+        )
+        account.set_password("qwerty")
+        account.save()
+
+        account_session = AccountSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            account=account
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
+
+        self.client = Client()
+
+    def test_invalid_email_login_with_email(self):
+        url = "/account/login/email/"
+
+        body = json.dumps({
+            "email": "diman1-mich@yandex.ru",
+            "password":"qwerty",
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+    def test_invalid_email_login_with_email(self):
+        url = "/account/login/email/"
+
+        body = json.dumps({
+            "email": "diman1-mich@yandex.ru",
+            "password": "qwerty",
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+    def test_invalid_password_login_with_email(self):
+        url = "/account/login/email/"
+
+        body = json.dumps({
+            "email": "diman-mich@yandex.ru",
+            "password": "qwerty1",
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+    def test_valid_login_with_email(self):
+        url = "/account/login/email/"
+
+        body = json.dumps({
+            "email": "diman-mich@yandex.ru",
+            "password":"qwerty",
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 200)
+        print response.content
+
+
+class LoginEmail2TestCase(TestCase):
+
+    def setUp(self):
+        account = Account.objects.create(
+            id=1,
+            first_name="Test1",
+            phone="+7(910)8271910"
+        )
+        account.set_password("qwerty")
+        account.save()
+
+        account_session = AccountSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            account=account
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
+
+        self.client = Client()
+
+    def test_invalid_email_login_with_email(self):
+        url = "/account/login/email/"
+
+        body = json.dumps({
+            "email": "diman1-mich@yandex.ru",
+            "password":"qwerty",
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+    def test_invalid_email_login_with_email(self):
+        url = "/account/login/email/"
+
+        body = json.dumps({
+            "email": "diman1-mich@yandex.ru",
+            "password": "qwerty",
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+    def test_valid_login_with_email(self):
+        url = "/account/login/email/"
+
+        body = json.dumps({
+            "email": "diman-mich@yandex.ru",
+            "password":"qwerty",
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
 
 """
-class LoginTestCase(TestCase):
-
-    def test_content_type_url(self):
-        url = "/account/login/"
-
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, 415)
-        response = self.client.post(url, content_type="application/json")
-        self.assertEqual(response.status_code, 400)
-
-
 class LogoutTestCase(TestCase):
 
     def test_content_type_url(self):
@@ -318,8 +438,8 @@ class AccountSessionsTestCase(TestCase):
             parking=parking,
             debt=120,
             state=ParkingSession.STATE_COMPLETED,
-            started_at=datetime.datetime(2016, 12, 13),
-            updated_at=datetime.datetime(2016, 12, 14)
+            started_at=datetime.datetime(2017, 12, 13),
+            updated_at=datetime.datetime(2017, 12, 14)
         )
 
         # Create order for account session
@@ -358,32 +478,42 @@ class AccountSessionsTestCase(TestCase):
 
 
     def test_parking_session_interval_invalid_params_view(self):
+
+        # skip from_date=11
         url = "/account/session/list/?from_date=11"
         response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
         self.assertEqual(response.status_code, 400)
         print response.content
 
+        # skip to_date=11
         url = "/account/session/list/?to_date=11"
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
-        self.assertEqual(response.status_code, 200)
-        print response.content
-
-        url = "/account/session/list/?from_date=11&to_date=12"
         response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
         self.assertEqual(response.status_code, 400)
         print response.content
 
+        url = "/account/session/list/?from_date=11&to_date=12"
+        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        self.assertEqual(response.status_code, 200)
+        print response.content
+
+        # skip to_date=Privet
         url = "/account/session/list/?to_date=11&to_date=Privet"
         response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
         self.assertEqual(response.status_code, 200)
         print response.content
 
-    def test_parking_session_interval_valid_view(self):
-        url = "/account/session/list/?to_date=11&to_date=10"
+    def test_parking_session_interval_too_big_period_view(self):
+        url = "/account/session/list/?from_date=0&to_date=1527539422"
         response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         print response.content
 
+    def test_parking_session_interval_valid_view(self):
+        url = "/account/session/list/?from_date=1510000000&to_date=1537539422"
+        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        print "ddd1"
+        print response.content
+        self.assertEqual(response.status_code, 200)
 
     def test_get_debt_request(self):
         url = "/account/session/debt/"
@@ -406,7 +536,7 @@ class AccountSessionsTestCase(TestCase):
         url = "/account/session/pay/"
 
         body = json.dumps({
-            "id": 15  # not exists
+            "id": 15
         })
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
@@ -415,9 +545,6 @@ class AccountSessionsTestCase(TestCase):
 
 
 class StartAccountTestCaseWithDebt(TestCase):
-    """
-        Test for /account/session/start
-    """
 
     def setUp(self):
         vendor = Vendor(
@@ -528,9 +655,6 @@ class StartAccountTestCaseWithDebt(TestCase):
 
 
 class StartAccountTestCase(TestCase):
-    """
-        Test for /account/session/start
-    """
 
     def setUp(self):
         vendor = Vendor(
@@ -567,9 +691,6 @@ class StartAccountTestCase(TestCase):
 
 
 class ReceiptTestCase(TestCase):
-    """
-        Test for session/receipt/get/
-    """
 
     def setUp(self):
         vendor = Vendor(
@@ -668,7 +789,7 @@ class ReceiptTestCase(TestCase):
         print response.content
 
 
-    def test_send_receipt_to_mail(self):
+    def test_send_receipt_to_unbinded_mail(self):
         url = "/account/session/receipt/send/"
         body = json.dumps({
             "id": 1
@@ -676,4 +797,5 @@ class ReceiptTestCase(TestCase):
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
+        print response.content

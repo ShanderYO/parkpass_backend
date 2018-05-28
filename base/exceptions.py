@@ -17,6 +17,7 @@ class AuthException(ApiException):
     NOT_FOUND_CODE = 100
     INVALID_PASSWORD = 101
     INVALID_TOKEN = 102
+    INVALID_SESSION = 103
 
     def __init__(self, code, message):
         super(AuthException, self).__init__(message)

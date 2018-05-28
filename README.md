@@ -168,6 +168,82 @@ Status: 200 (Успешно)
 }
 ```
 
+```- POST /account/login/email/``` (Получение сессии по паре email/password)
+Тело:
+```
+{
+    "email":"myemail@gmail.com",
+    "password":"qwerty"
+}
+```
+
+Status: 200 (Успешно)
+```
+{
+    "account_id":1, (Long integer)
+    "token":"XXXX***", (String 40-signs),
+    "expired_at": 1516476342.7 (Linux timestamp)
+}
+```
+
+Status 400 (Ошибка)
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Email and password are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Invalid email format"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "To short password. Must be 6 or more symbols"
+}
+```
+
+```
+{
+    "exception": "AuthException",
+    "code": 100,
+    "message": "User with such email not found"
+}
+```
+
+```
+{
+    "exception": "AuthException",
+    "code": 100,
+    "message": "User with such email not found"
+}
+```
+
+```
+{
+    "exception": "AuthException",
+    "code": 101,
+    "message": "Invalid password"
+}
+```
+
+```
+{
+    "exception": "AuthException",
+    "code": 103,
+    "message": "Invalid session. Login with phone required"
+}
+```
+
+
 ```- POST /account/me/``` (Изменение информации об аккаунте)
 Тело:
 ```
@@ -448,9 +524,9 @@ Status 400
 ```
 
 
-```- GET /account/session/list/?page=<next>``` (Получение истории сессий пользователя. Требует токен сессии)
+```- GET /account/session/list/?page=<next>&from_date=<timestamp>&to_date=<timestamp>``` (Получение истории сессий пользователя. Требует токен сессии)
 
-Status 200 (OK)
+Status 200 (OK) (В случае интервала next=None)
 ```
 {
     "result": [
@@ -472,6 +548,32 @@ Status 200 (OK)
     "next":"324123342"
 }
 ```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "from_date and to_date unix-timestamps are required"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Key 'to_date' must be more than 'from_date' key"
+}
+```
+
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Max time interval exceeded. Max value %s, accepted %s"
+}
+```
+
 
 ```- GET /account/session/debt/``` (Получениe задолжности по текущей сессии. Требует токен сессии)
 
