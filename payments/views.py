@@ -101,7 +101,7 @@ class TinkoffCallbackView(APIView):
                 return HttpResponse("OK", status=200)
 
             if order.account is None:
-                not_paid_orders = Order.objecsts.filter(session=order.session, paid=False)
+                not_paid_orders = Order.objects.filter(session=order.session, paid=False)
                 if not not_paid_orders.exists():
                     get_logger().info("not_paid_orders more")
                     if order.session.is_completed_by_vendor():
