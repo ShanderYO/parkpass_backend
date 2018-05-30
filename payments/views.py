@@ -3,6 +3,7 @@ from django.http import HttpResponse
 
 from base.utils import get_logger
 from base.views import APIView
+from parkings.models import ParkingSession
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order
@@ -34,6 +35,11 @@ class TinkoffCallbackView(APIView):
             u'Pan': u'430000******0777'
         }
         """
+
+        {u'OrderId': u'580', u'Status': u'CONFIRMED', u'Success': True, u'RebillId': 1527066699680,
+         u'Token': u'cd137597450591d46f7e5e0089b40cb69b9659a14be2b8dd90fdd60249d2db52', u'ExpDate': u'1122',
+         u'ErrorCode': u'0', u'Amount': 10000, u'TerminalKey': u'1516954410942DEMO', u'CardId': 3592968,
+         u'PaymentId': 22017647, u'Pan': u'400000******0333'}
 
         # TODO validate token or place to Validator
         token = request.data["Token"]
@@ -77,7 +83,7 @@ class TinkoffCallbackView(APIView):
         try:
             # Change order
             order = Order.objects.get(id=order_id)
-            order.paid = float(amount)/100
+            order.paid = True
             order.save()
 
             account = order.account if order.account else order.session.client
@@ -93,6 +99,15 @@ class TinkoffCallbackView(APIView):
             if code > 0:
                 get_logger().info("Callback notification code > 0. Return status 200: OK")
                 return HttpResponse("OK", status=200)
+
+            if order.account is None:
+                not_paid_orders = Order.objecsts.filter(session=order.session, paid=False)
+                if not not_paid_orders.exists():
+                    get_logger().info("not_paid_orders more")
+                    if order.session.is_completed_by_vendor():
+                        get_logger().info("order.session.is_completed_by_vendor()")
+                        order.session.state == ParkingSession.STATE_CLOSED
+                        order.session.save()
 
             # Change card or rebill_id
             if CreditCard.objects.filter(card_id=card_id, account=account).exists():

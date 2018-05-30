@@ -2,11 +2,13 @@ from django.core.exceptions import ValidationError
 
 from accounts.validators import validate_id, validate_unix_timestamp
 from base.exceptions import ValidationException
+from base.utils import get_logger
 from base.validators import BaseValidator
 
 
 class RpsCreateParkingSessionValidator(BaseValidator):
     def is_valid(self):
+        get_logger().info("RpsCreateParkingSessionValidator: "+str(self.request.data))
         client_id = self.request.data.get("client_id", None)
         started_at = self.request.data.get("started_at", None)
 
@@ -43,6 +45,7 @@ class RpsCreateParkingSessionValidator(BaseValidator):
 
 class RpsUpdateParkingSessionValidator(BaseValidator):
     def is_valid(self):
+        get_logger().info("RpsCreateParkingSessionValidator: " + str(self.request.data))
         client_id = self.request.data.get("client_id", None)
         started_at = self.request.data.get("started_at", None)
 
@@ -97,6 +100,7 @@ class RpsUpdateParkingSessionValidator(BaseValidator):
 
 class RpsCancelParkingSessionValidator(BaseValidator):
     def is_valid(self):
+        get_logger().info("RpsCreateParkingSessionValidator: " + str(self.request.data))
         client_id = self.request.data.get("client_id", None)
         started_at = self.request.data.get("started_at", None)
 
@@ -133,6 +137,7 @@ class RpsCancelParkingSessionValidator(BaseValidator):
 
 class RpsCompleteParkingSessionValidator(BaseValidator):
     def is_valid(self):
+        get_logger().info("RpsCreateParkingSessionValidator: " + str(self.request.data))
         client_id = self.request.data.get("client_id", None)
         started_at = self.request.data.get("started_at", None)
 
@@ -187,6 +192,7 @@ class RpsCompleteParkingSessionValidator(BaseValidator):
 
 class RpsUpdateListParkingSessionValidator(BaseValidator):
     def is_valid(self):
+        get_logger().info("RpsCreateParkingSessionValidator: " + str(self.request.data))
         parking_id = self.request.data.get("parking_id", None)
         sessions = self.request.data.get("sessions", None)
 

@@ -10,6 +10,11 @@ from payments.models import Order
 def generate_current_debt_order(parking_session_id):
     try:
         active_session = ParkingSession.objects.get(id=parking_session_id)
+        not_paid_orders = Order.objects.filter(session=active_session, paid=False)
+        if not_paid_orders.exists():
+            for order in not_paid_orders:
+                order.try_pay()
+
         ordered_sum = Order.get_ordered_sum_by_session(active_session)
         new_order_sum = active_session.debt - ordered_sum
         if new_order_sum > 0:
@@ -18,6 +23,7 @@ def generate_current_debt_order(parking_session_id):
                 account=active_session.client,
                 sum=new_order_sum)
             new_order.try_pay()
+
 
     except ObjectDoesNotExist:
         pass
