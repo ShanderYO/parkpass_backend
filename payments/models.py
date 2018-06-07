@@ -124,8 +124,11 @@ class Order(models.Model):
     payment_attempts = models.PositiveSmallIntegerField(default=1)
     paid = models.BooleanField(default=False)
     session = models.ForeignKey(ParkingSession, null=True, blank=True)
+    refunded = models.BooleanField(default=False)
+    refunded_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     # for init payment order
     account = models.ForeignKey(Account, null=True, blank=True)
+
     fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -217,19 +220,18 @@ class Order(models.Model):
             new_payment.status = status
             new_payment.save()
 
-            # Charge operation:
-            get_logger().info("Make charge: ")
-            default_account_credit_card = CreditCard.objects.get(account=self.session.client, is_default=True)
-            request_data = new_payment.build_charge_request_data(
-                payment_id, default_account_credit_card.rebill_id
-            )
-            get_logger().info(request_data)
-            result = TinkoffAPI().sync_call(
-                TinkoffAPI.CHARGE, request_data
-            )
-            get_logger().info("Charge payment response: ")
-            get_logger().info(str(result))
+            # Credit card bind
+            if self.session is None:
+                self.charge_payment(new_payment)
+                return
 
+            # If parking session is completed by Vendor
+            if not self.session is None and self.session.is_completed_by_vendor():
+                orders = Order.objects.filter(session=self.session, paid=False)
+                for order in orders:
+                    payment = TinkoffPayment.objects.filter(order=order)
+                    if payment.exists():
+                        order.charge_payment(payment[0])
 
         # Payment exception
         elif int(result.get("ErrorCode", -1)) > 0:
@@ -241,6 +243,20 @@ class Order(models.Model):
             new_payment.error_message = error_message
             new_payment.error_description = error_details
             new_payment.save()
+
+
+    def charge_payment(self, payment):
+        get_logger().info("Make charge: ")
+        default_account_credit_card = CreditCard.objects.get(account=self.session.client, is_default=True)
+        request_data = payment.build_charge_request_data(
+            payment.payment_id, default_account_credit_card.rebill_id
+        )
+        get_logger().info(request_data)
+        result = TinkoffAPI().sync_call(
+            TinkoffAPI.CHARGE, request_data
+        )
+        get_logger().info(str(result))
+
 
     def get_order_with_fiscal_dict(self):
         order = dict(
@@ -328,6 +344,13 @@ class TinkoffPayment(models.Model):
         data = {
             "PaymentId":str(payment_id),
             "RebillId": str(rebill_id),
+        }
+        return data
+
+    def build_confirm_request_data(self, payment_id, amount):
+        data = {
+            "PaymentId": str(payment_id),
+            "Amount": str(amount),
         }
         return data
 

@@ -79,6 +79,16 @@ class TinkoffCallbackView(APIView):
         if int(request.data.get("ErrorCode", -1)) > 0:
             code = int(request.data["ErrorCode"])
 
+        if status == PAYMENT_STATUS_REFUNDED or status == PAYMENT_STATUS_PARTIAL_REFUNDED:
+            try:
+                order = Order.objects.get(id=order_id)
+                order.refunded = True
+                order.save()
+
+            except ObjectDoesNotExist as e:
+                get_logger().warn(e.message)
+                return HttpResponse("OK", status=200)
+
         # Get order and payment
         try:
             # Change order
@@ -103,11 +113,12 @@ class TinkoffCallbackView(APIView):
             if order.account is None:
                 not_paid_orders = Order.objects.filter(session=order.session, paid=False)
                 if not not_paid_orders.exists():
+                    parking_session = order.session
                     get_logger().info("not_paid_orders more")
-                    if order.session.is_completed_by_vendor():
+                    if parking_session.is_completed_by_vendor():
                         get_logger().info("order.session.is_completed_by_vendor()")
-                        order.session.state == ParkingSession.STATE_CLOSED
-                        order.session.save()
+                        parking_session.state = ParkingSession.STATE_CLOSED
+                        parking_session.save()
 
             # Change card or rebill_id
             if CreditCard.objects.filter(card_id=card_id, account=account).exists():

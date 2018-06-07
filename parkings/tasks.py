@@ -5,7 +5,6 @@ from autotask.tasks import delayed_task
 
 from parkings.models import ParkingSession
 
-
 @delayed_task()
 def process_updated_sessions(parking, sessions):
     for session in sessions:

@@ -3,7 +3,8 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from base.utils import get_logger
 from parkings.models import ParkingSession
-from payments.models import Order
+from payments.models import Order, TinkoffPayment
+from payments.payment_api import TinkoffAPI
 
 
 @delayed_task()
@@ -24,13 +25,18 @@ def generate_current_debt_order(parking_session_id):
                 sum=new_order_sum)
             new_order.try_pay()
 
-
     except ObjectDoesNotExist:
         pass
 
 
 @periodic_task(seconds=30)
 def generate_orders_and_pay():
+
+    # Check refund request
+    refund_required_sessions = ParkingSession.objects.filter(try_refund=True)
+    if refund_required_sessions.exists():
+        for session in refund_required_sessions:
+            _init_refund(session)
 
     # TODO check canceled sessions
     active_sessions = ParkingSession.objects.filter(
@@ -67,3 +73,33 @@ def generate_orders_and_pay():
                 session.save()
 
     get_logger().info("generate_dept_orders task was executed")
+
+
+def _init_refund(parking_session):
+    if parking_session.target_refund_sum <= parking_session.current_refund_sum:
+        return
+
+    orders = Order.objects.filter(session=parking_session, paid=True)
+    for order in orders:
+        payment = TinkoffPayment.objects.get(order=order)
+        request_data = payment.build_cancel_request_data()
+        result = TinkoffAPI().sync_call(
+            TinkoffAPI.CANCEL, request_data
+        )
+        print result
+        if result.get("Status") == u'REFUNDED':
+            order.refunded_sum = float(result.get("OriginalAmount",0))/100
+            order.save()
+        elif result.get("Status") == u'PARTIAL_REFUNDED':
+            order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
+            order.save()
+        else:
+            pass
+
+    current_refunded_sum = 0
+    for order in orders:
+        current_refunded_sum = current_refunded_sum + order.refunded_sum
+
+    parking_session.current_refund_sum = current_refunded_sum
+    parking_session.try_refund = False
+    parking_session.save()

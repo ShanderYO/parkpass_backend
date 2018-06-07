@@ -130,6 +130,10 @@ class ParkingSession(models.Model):
     is_suspended = models.BooleanField(default=False)
     suspended_at = models.DateTimeField(null=True, blank=True)
 
+    try_refund = models.BooleanField(default=False)
+    target_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    current_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+
     created_at = models.DateField(auto_now_add=True)
 
     class Meta:
@@ -140,6 +144,13 @@ class ParkingSession(models.Model):
 
     def __unicode__(self):
         return "%s [%s]" % (self.parking.id, self.client.id)
+    """
+    def save(self, *args, **kwargs):
+        if self.try_refund:
+            self.start_refund_process()
+            self.try_refund = False
+        return super(ParkingSession, self).save(*args, **kwargs)
+    """
 
     @classmethod
     def get_session_by_id(cls, id):
@@ -199,7 +210,6 @@ class ParkingSession(models.Model):
             self.STATE_STARTED_BY_VENDOR,
             self.STATE_STARTED
         ]
-
 
     # TODO make async
     def send_receipt_to_email(self):
