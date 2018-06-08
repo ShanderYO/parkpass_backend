@@ -354,10 +354,12 @@ class TinkoffPayment(models.Model):
         }
         return data
 
-    def build_cancel_request_data(self):
+    def build_cancel_request_data(self, refund_amount=None):
         data = {
             "PaymentId":str(self.payment_id)
         }
+        if refund_amount:
+            data["Amount"] = str(refund_amount)
         return data
 
     def set_new_status(self, new_status):
