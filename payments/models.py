@@ -124,7 +124,7 @@ class Order(models.Model):
     payment_attempts = models.PositiveSmallIntegerField(default=1)
     paid = models.BooleanField(default=False)
     session = models.ForeignKey(ParkingSession, null=True, blank=True)
-    refunded = models.BooleanField(default=False)
+    refund_request = models.BooleanField(default=False)
     refunded_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     # for init payment order
     account = models.ForeignKey(Account, null=True, blank=True)

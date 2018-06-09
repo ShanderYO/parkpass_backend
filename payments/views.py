@@ -82,7 +82,8 @@ class TinkoffCallbackView(APIView):
         if status == PAYMENT_STATUS_REFUNDED or status == PAYMENT_STATUS_PARTIAL_REFUNDED:
             try:
                 order = Order.objects.get(id=order_id)
-                order.refunded = True
+                order.refund_request = False
+                # TODO add refunded sum
                 order.save()
 
             except ObjectDoesNotExist as e:

@@ -79,9 +79,13 @@ def _init_refund(parking_session):
     if parking_session.target_refund_sum <= parking_session.current_refund_sum:
         return
 
+    # Save for stop update again
+    parking_session.try_refund=False
+    parking_session.save()
+
     remaining_sum = parking_session.target_refund_sum - parking_session.current_refund_sum
 
-    orders = Order.objects.filter(session=parking_session, paid=True, refunded=False)
+    orders = Order.objects.filter(session=parking_session, paid=True, refund_request=False)
     for order in orders:
         refund = min(remaining_sum, order.sum)
         remaining_sum = remaining_sum - refund
@@ -90,15 +94,18 @@ def _init_refund(parking_session):
         result = TinkoffAPI().sync_call(
             TinkoffAPI.CANCEL, request_data
         )
-        print result
+        get_logger().info(result)
+
         if result.get("Status") == u'REFUNDED':
             order.refunded_sum = float(result.get("OriginalAmount",0))/100
+            get_logger().info('REFUNDED: %s' % order.refunded_sum)
             order.save()
         elif result.get("Status") == u'PARTIAL_REFUNDED':
             order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
+            get_logger().info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
             order.save()
         else:
-            pass
+            get_logger().warn('Refund undefined status')
 
     current_refunded_sum = 0
     for order in orders:
