@@ -4,6 +4,7 @@ import json
 
 import requests
 
+from base.utils import get_logger
 from parkpass import settings
 
 class TinkoffApiException:
@@ -38,7 +39,6 @@ class TinkoffAPI():
         concat_str = ""
         for key in params:
             concat_str += str(params[key])
-            print str(params[key])
         return hashlib.sha256(concat_str).hexdigest()
 
     def get_response(self, url, payload):
@@ -46,6 +46,7 @@ class TinkoffAPI():
 
         headers = {'Content-Type': 'application/json'}
         json_data = json.dumps(payload)
+        get_logger().info(json_data)
 
         try:
             r = requests.post(url, data=json_data, headers=headers,

@@ -87,10 +87,12 @@ def _init_refund(parking_session):
 
     orders = Order.objects.filter(session=parking_session, paid=True, refund_request=False)
     for order in orders:
+        if order.is_refunded():
+            continue
         refund = min(remaining_sum, order.sum)
         remaining_sum = remaining_sum - refund
         payment = TinkoffPayment.objects.get(order=order)
-        request_data = payment.build_cancel_request_data(refund)
+        request_data = payment.build_cancel_request_data(int(refund*100))
         result = TinkoffAPI().sync_call(
             TinkoffAPI.CANCEL, request_data
         )

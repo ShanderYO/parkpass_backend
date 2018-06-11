@@ -181,6 +181,9 @@ class Order(models.Model):
             }]
         )
 
+    def is_refunded(self):
+        return self.refunded_sum == self.sum
+
     def get_order_description(self):
         if not self.session:
             return "Init payment"
@@ -221,17 +224,7 @@ class Order(models.Model):
             new_payment.save()
 
             # Credit card bind
-            if self.session is None:
-                self.charge_payment(new_payment)
-                return
-
-            # If parking session is completed by Vendor
-            if not self.session is None and self.session.is_completed_by_vendor():
-                orders = Order.objects.filter(session=self.session, paid=False)
-                for order in orders:
-                    payment = TinkoffPayment.objects.filter(order=order)
-                    if payment.exists():
-                        order.charge_payment(payment[0])
+            self.charge_payment(new_payment)
 
         # Payment exception
         elif int(result.get("ErrorCode", -1)) > 0:

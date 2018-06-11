@@ -121,11 +121,13 @@ class TinkoffCallbackView(APIView):
                         parking_session.state = ParkingSession.STATE_CLOSED
                         parking_session.save()
 
+
             # Change card or rebill_id
             if CreditCard.objects.filter(card_id=card_id, account=account).exists():
                 credit_card = CreditCard.objects.get(card_id=card_id, account=account)
-                credit_card.rebill_id = rebill_id
-                credit_card.save()
+                if rebill_id != -1:
+                    credit_card.rebill_id = rebill_id
+                    credit_card.save()
 
             else:
                 credit_card = CreditCard(card_id=card_id, pan=pan,
@@ -145,32 +147,3 @@ class TinkoffCallbackView(APIView):
 
         get_logger().info("status 200: OK")
         return HttpResponse("OK", status=200)
-
-"""
-class CancelPayment(APIView):
-    def post(self, request):
-        payment = 16998111
-        new_payment = TinkoffPayment.objects.create()
-        new_payment.payment_id = payment
-        new_payment.save()
-
-        request_data = new_payment.build_cancel_request_data()
-        result = TinkoffAPI().sync_call(
-            TinkoffAPI.CANCEL, request_data
-        )
-        print result
-        '
-        {
-            u'Status': u'REFUNDED',
-            u'OrderId': u'8',
-            u'Success': True,
-            u'NewAmount': 0,
-            u'ErrorCode': u'0',
-            u'TerminalKey': u'1516954410942DEMO',
-            u'OriginalAmount': 100,
-            u'PaymentId': u'16998111'
-        }
-        '
-
-        return HttpResponse("OK", status=200)
-"""
