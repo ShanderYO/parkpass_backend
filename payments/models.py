@@ -147,13 +147,15 @@ class Order(models.Model):
         return result_sum
 
     def generate_receipt_data(self):
+        """
         if self.account.email is None or len(self.account.email) == 0:
             return None
+        """
 
         # Init payment receipt
         if self.session is None:
             return dict(
-                Email=self.account.email,
+                Email=self.account.email if self.account.email else None,
                 Phone=self.account.phone,
                 Taxation="osn",
                 Items=[{
@@ -168,7 +170,7 @@ class Order(models.Model):
 
         # session payment receipt
         return dict(
-            Email=self.account.email,
+            Email=self.account.email if self.account.email else None,
             Phone=self.account.phone,
             Taxation="osn",
             Items=[{
@@ -199,7 +201,8 @@ class Order(models.Model):
         return int(self.sum * 100)
 
     def create_payment(self):
-        new_payment = TinkoffPayment.objects.create(order=self)
+        receipt_data = self.generate_receipt_data()
+        new_payment = TinkoffPayment.objects.create(order=self, receipt_data=receipt_data)
         request_data = new_payment.build_transaction_data(self.get_payment_amount())
         result = TinkoffAPI().sync_call(
             TinkoffAPI.INIT, request_data
