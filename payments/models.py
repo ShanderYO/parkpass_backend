@@ -16,7 +16,7 @@ class FiskalNotification(models.Model):
     fn_number = models.CharField(max_length=20)
     ecr_reg_number = models.CharField(max_length=20)
     fiscal_document_number = models.IntegerField()
-    fiscal_document_attribute = models.IntegerField()
+    fiscal_document_attribute = models.BigIntegerField()
     token = models.TextField()
     ofd = models.TextField(null=True, blank=True)
     url = models.TextField(null=True, blank=True)
@@ -25,7 +25,7 @@ class FiskalNotification(models.Model):
     type = models.CharField(max_length=15)
 
     def __unicode__(self):
-        return u"Fiskal notification: %s (%s %s)" \
+        return u"Fiskal notification: %s (%s)" \
                % (self.fiscal_number, self.shift_number)
 
     class Meta:

@@ -71,7 +71,7 @@ class TinkoffCallbackView(APIView):
             return HttpResponse(status=400)
 
         # Check RECEIPT
-        if status == PAYMENT_STATUS_RECEIPT and int(request.data.get("ErrorCode", -1)) > 0:
+        if status == PAYMENT_STATUS_RECEIPT and int(request.data.get("ErrorCode", -1)) < 0:
             """{u'OrderId': u'636', u'Status': u'RECEIPT',
             u'Type': u'IncomeReturn', u'FiscalDocumentAttribute': 173423614,
             u'Success': True, u'ReceiptDatetime': u'2018-06-18T12:27:00+03:00',
@@ -93,7 +93,7 @@ class TinkoffCallbackView(APIView):
                 datetime_object = datetime.datetime.strptime(
                     receipt_datetime_str.split("+")[0], "%Y-%m-%dT%H:%M:%S")
                 try:
-                    order = Order.objects.filter(id=long(request.data("OrderId", -1)))
+                    order = Order.objects.get(id=long(request.data("OrderId", -1)))
                 except ObjectDoesNotExist as e:
                     get_logger().warn(e.message)
                     return HttpResponse("OK", status=200)
@@ -111,13 +111,14 @@ class TinkoffCallbackView(APIView):
                 )
                 order.fiscal_notification = fiskal
                 order.save()
-                return HttpResponse("OK", status=200)
+            return HttpResponse("OK", status=200)
 
         card_id = int(request.data["CardId"])
         pan = request.data["Pan"]
         exp_date = request.data["ExpDate"]
 
         rebill_id = -1
+        #
         if request.data.get("Success", False):
             rebill_id = int(request.data.get("RebillId", -1))
 
