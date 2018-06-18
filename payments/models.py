@@ -17,7 +17,6 @@ class FiskalNotification(models.Model):
     ecr_reg_number = models.CharField(max_length=20)
     fiscal_document_number = models.IntegerField()
     fiscal_document_attribute = models.BigIntegerField()
-    token = models.TextField()
     ofd = models.TextField(null=True, blank=True)
     url = models.TextField(null=True, blank=True)
     qr_code_url = models.URLField(null=True, blank=True)
