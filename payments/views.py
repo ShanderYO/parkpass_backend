@@ -64,25 +64,14 @@ class TinkoffCallbackView(APIView):
         elif raw_status == "REJECTED":
             status = PAYMENT_STATUS_REJECTED
         elif raw_status == "RECEIPT":
-            status == PAYMENT_STATUS_RECEIPT
+            status = PAYMENT_STATUS_RECEIPT
 
         if status < 0:
             get_logger().error("status 400: Unknown status -> %s" % raw_status)
             return HttpResponse(status=400)
 
-        card_id = int(request.data["CardId"])
-        pan = request.data["Pan"]
-        exp_date = request.data["ExpDate"]
-
-        rebill_id = -1
-        if request.data.get("Success", False):
-            rebill_id = int(request.data.get("RebillId", -1))
-
-        code = -1
-        if int(request.data.get("ErrorCode", -1)) > 0:
-            code = int(request.data["ErrorCode"])
-
-        if status == PAYMENT_STATUS_RECEIPT:
+        # Check RECEIPT
+        if status == PAYMENT_STATUS_RECEIPT and int(request.data.get("ErrorCode", -1)) > 0:
             """{u'OrderId': u'636', u'Status': u'RECEIPT',
             u'Type': u'IncomeReturn', u'FiscalDocumentAttribute': 173423614,
             u'Success': True, u'ReceiptDatetime': u'2018-06-18T12:27:00+03:00',
@@ -102,7 +91,7 @@ class TinkoffCallbackView(APIView):
                 receipt_datetime_str = request.data["ReceiptDatetime"]
                 # TODO add timezone
                 datetime_object = datetime.datetime.strptime(
-                    receipt_datetime_str.split("+")[0],"%Y-%m-%dT%H:%M:%S")
+                    receipt_datetime_str.split("+")[0], "%Y-%m-%dT%H:%M:%S")
                 try:
                     order = Order.objects.filter(id=long(request.data("OrderId", -1)))
                 except ObjectDoesNotExist as e:
@@ -123,6 +112,18 @@ class TinkoffCallbackView(APIView):
                 order.fiscal_notification = fiskal
                 order.save()
                 return HttpResponse("OK", status=200)
+
+        card_id = int(request.data["CardId"])
+        pan = request.data["Pan"]
+        exp_date = request.data["ExpDate"]
+
+        rebill_id = -1
+        if request.data.get("Success", False):
+            rebill_id = int(request.data.get("RebillId", -1))
+
+        code = -1
+        if int(request.data.get("ErrorCode", -1)) > 0:
+            code = int(request.data["ErrorCode"])
 
         if status == PAYMENT_STATUS_REFUNDED or status == PAYMENT_STATUS_PARTIAL_REFUNDED:
             try:
