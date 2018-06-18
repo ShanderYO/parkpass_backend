@@ -170,14 +170,14 @@ class Order(models.Model):
 
         # session payment receipt
         return dict(
-            Email=self.account.email if self.account.email else None,
-            Phone=self.account.phone,
+            Email=str(self.session.client.email) if self.session.client.email else None,
+            Phone=str(self.session.client.phone),
             Taxation="osn",
             Items=[{
                 "Name": "Payment for parking session # %s" % self.session.id,
-                "Price": self.sum,
+                "Price": str(int(self.sum*100)),
                 "Quantity": 1.00,
-                "Amount": self.sum,
+                "Amount": str(int(self.sum*100)),
                 "Tax": "vat10",
                 "Ean13": "0123456789"
             }]
@@ -240,7 +240,6 @@ class Order(models.Model):
             new_payment.error_description = error_details
             new_payment.save()
 
-
     def charge_payment(self, payment):
         get_logger().info("Make charge: ")
         default_account_credit_card = CreditCard.objects.get(account=self.session.client, is_default=True)
@@ -280,6 +279,7 @@ PAYMENT_STATUS_CONFIRMED = 7
 PAYMENT_STATUS_REVERSED = 8
 PAYMENT_STATUS_REFUNDED = 9
 PAYMENT_STATUS_PARTIAL_REFUNDED = 10
+PAYMENT_STATUS_RECEIPT = 11
 
 PAYMENT_STATUSES = (
     (PAYMENT_STATUS_INIT, 'Init'),

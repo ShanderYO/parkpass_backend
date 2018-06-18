@@ -1,3 +1,4 @@
+import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 
@@ -6,7 +7,7 @@ from base.views import APIView
 from parkings.models import ParkingSession
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
-    PAYMENT_STATUS_PARTIAL_REFUNDED, Order
+    PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification
 
 from payments.payment_api import TinkoffAPI
 from payments.tasks import start_cancel_request
@@ -62,6 +63,8 @@ class TinkoffCallbackView(APIView):
             status = PAYMENT_STATUS_PARTIAL_REFUNDED
         elif raw_status == "REJECTED":
             status = PAYMENT_STATUS_REJECTED
+        elif raw_status == "RECEIPT":
+            status == PAYMENT_STATUS_RECEIPT
 
         if status < 0:
             get_logger().error("status 400: Unknown status -> %s" % raw_status)
@@ -78,6 +81,48 @@ class TinkoffCallbackView(APIView):
         code = -1
         if int(request.data.get("ErrorCode", -1)) > 0:
             code = int(request.data["ErrorCode"])
+
+        if status == PAYMENT_STATUS_RECEIPT:
+            """{u'OrderId': u'636', u'Status': u'RECEIPT',
+            u'Type': u'IncomeReturn', u'FiscalDocumentAttribute': 173423614,
+            u'Success': True, u'ReceiptDatetime': u'2018-06-18T12:27:00+03:00',
+            u'FiscalNumber': 2, u'Receipt': {
+                u'Items': [{u'Tax': u'vat10', u'Price': 4000,
+                u'Amount': 4000, u'Name': u'Payment for parking session # 45', u'Quantity': 1
+                }],
+                u'Taxation': u'osn',
+                u'Email': u'strevg@yandex.ru',
+                u'Phone': u'(+7)9852413193'
+            }, u'Token': u'853b3d4808f0fad89759e9d80f16210f4499216787dd71453c8d594c7e74659e',
+            u'FiscalDocumentNumber': 118, u'FnNumber': u'8710000101855975',
+            u'ErrorCode': u'0', u'Amount': 4000, u'TerminalKey': u'1516954410942',
+            u'PaymentId': 23735099, u'EcrRegNumber': u'0001785103056432', u'ShiftNumber': 56}
+            """
+            if request.data.get("Success", False):
+                receipt_datetime_str = request.data["ReceiptDatetime"]
+                # TODO add timezone
+                datetime_object = datetime.datetime.strptime(
+                    receipt_datetime_str.split("+")[0],"%Y-%m-%dT%H:%M:%S")
+                try:
+                    order = Order.objects.filter(id=long(request.data("OrderId", -1)))
+                except ObjectDoesNotExist as e:
+                    get_logger().warn(e.message)
+                    return HttpResponse("OK", status=200)
+
+                fiskal = FiskalNotification.objects.create(
+                    fiscal_number=request.data.get("FiscalNumber", -1),
+                    type=request.data.get("Type", "Unknown"),
+                    shift_number=request.data.get("ShiftNumber", -1),
+                    receipt_datetime=datetime_object,
+                    fn_number=request.data.get("FnNumber", "?"),
+                    ecr_reg_number=request.data.get("EcrRegNumber", "?"),
+                    fiscal_document_number=request.data.get("FiscalDocumentNumber", -1),
+                    fiscal_document_attribute=request.data.get("FiscalDocumentAttribute", -1),
+                    receipt=str(request.data.get("Receipt", "[]"))
+                )
+                order.fiscal_notification = fiskal
+                order.save()
+                return HttpResponse("OK", status=200)
 
         if status == PAYMENT_STATUS_REFUNDED or status == PAYMENT_STATUS_PARTIAL_REFUNDED:
             try:
