@@ -122,12 +122,12 @@ class Order(models.Model):
     sum = models.DecimalField(max_digits=7, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
     paid = models.BooleanField(default=False)
+    paid_card_pan = models.CharField(blank=True,null=True, max_length=31)
     session = models.ForeignKey(ParkingSession, null=True, blank=True)
     refund_request = models.BooleanField(default=False)
     refunded_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     # for init payment order
     account = models.ForeignKey(Account, null=True, blank=True)
-
     fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

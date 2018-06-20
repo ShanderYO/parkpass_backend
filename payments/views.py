@@ -142,6 +142,7 @@ class TinkoffCallbackView(APIView):
             # Change order
             order = Order.objects.get(id=order_id)
             order.paid = True
+            order.paid_card_pan = request.data.get("Pan", "-")
             order.save()
 
             account = order.account if order.account else order.session.client

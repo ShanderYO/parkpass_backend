@@ -16,6 +16,8 @@ from django.conf.urls import include, url
 from django.contrib import admin
 from django.conf.urls.static import static
 
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+
 from parkpass import settings
 
 urlpatterns = [
@@ -27,9 +29,6 @@ urlpatterns = [
 
     # Vendor extensions
     url(r'^parking/', include("rps_vendor.urls")),
+    + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 ]
-"""
-if settings.DEBUG:
-    urlpatterns.append(url(r'^media/(?P<path>.*)$', 'django.views.static.serve', {'document_root': settings.MEDIA_ROOT}))
-    urlpatterns + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-"""
+urlpatterns += staticfiles_urlpatterns()
