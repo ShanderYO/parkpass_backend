@@ -21,6 +21,7 @@ class FiskalNotification(models.Model):
     url = models.TextField(null=True, blank=True)
     qr_code_url = models.URLField(null=True, blank=True)
     receipt = models.TextField()
+    card_pan = models.CharField(max_length=31)
     type = models.CharField(max_length=15)
 
     def __unicode__(self):
