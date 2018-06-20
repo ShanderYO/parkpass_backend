@@ -29,6 +29,6 @@ urlpatterns = [
 
     # Vendor extensions
     url(r'^parking/', include("rps_vendor.urls")),
-    + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-]
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
 urlpatterns += staticfiles_urlpatterns()
