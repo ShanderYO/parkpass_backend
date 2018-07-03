@@ -40,7 +40,7 @@ class LoginView(APIView):
         sms_gateway = SMSGateway()
         sms_gateway.send_sms(account.phone, account.sms_code)
         if sms_gateway.exception:
-           return JsonResponse(sms_gateway.exception.to_dict(), status=400)
+            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
 
         return JsonResponse({}, status=success_status)
 
@@ -60,6 +60,31 @@ class ConfirmLoginView(APIView):
             e = AuthException(
                 AuthException.NOT_FOUND_CODE,
                 "Account with pending sms-code not found")
+            return JsonResponse(e.to_dict(), status=400)
+
+
+class PasswordRestoreView(APIView):
+    """
+    API View for url /login/restore
+    In: POST with json { email: "my@mail.ru" (String) }
+    Out:
+      200 {}, sending an email with new pw
+      400 { AuthException User with such email not found }
+    """
+    validator_class = EmailValidator
+
+    def post(self, request):
+        email = request.data["email"].lower()
+
+        try:
+            account = Account.objects.get(email=email)
+            account.create_password_and_send()
+            return JsonResponse({}, status=200)
+        except ObjectDoesNotExist:
+            e = AuthException(
+                AuthException.NOT_FOUND_CODE,
+                "User with such email not found"
+            )
             return JsonResponse(e.to_dict(), status=400)
 
 
@@ -152,7 +177,8 @@ class AccountParkingListView(LoginRequiredAPIView):
             if (to_date - from_date) > self.max_select_time_interval:
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
-                    "Max time interval exceeded. Max value %s, accepted %s" % (self.max_select_time_interval, (to_date-from_date))
+                    "Max time interval exceeded. Max value %s, accepted %s" % (self.max_select_time_interval,
+                                                                               (to_date-from_date))
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
