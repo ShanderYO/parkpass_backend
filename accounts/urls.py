@@ -1,10 +1,28 @@
 from django.conf.urls import url
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
-from accounts.views import LoginView, LogoutView, AccountView, ConfirmLoginView, AddCardView, DeleteCardView, SetDefaultCardView, \
-    DebtParkingSessionView, StartParkingSession, CompleteParkingSession, ForceStopParkingSession, ForcePayView, \
-    ResumeParkingSession, AccountParkingListView, GetReceiptView, ChangeEmailView, EmailConfirmationView, \
-    SendReceiptToEmailView, LoginWithEmailView, PasswordRestoreView
+from accounts.views import (LoginView,
+                            LogoutView,
+                            AccountView,
+                            ConfirmLoginView,
+                            AddCardView,
+                            DeleteCardView,
+                            SetDefaultCardView,
+                            DebtParkingSessionView,
+                            StartParkingSession,
+                            CompleteParkingSession,
+                            ForceStopParkingSession,
+                            ForcePayView,
+                            ResumeParkingSession,
+                            AccountParkingListView,
+                            GetReceiptView,
+                            ChangeEmailView,
+                            EmailConfirmationView,
+                            SendReceiptToEmailView,
+                            LoginWithEmailView,
+                            PasswordRestoreView,
+                            PasswordChangeView,
+                            DeactivateAccountView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -12,7 +30,10 @@ urlpatterns = [
     url(r'^login/confirm/$', ConfirmLoginView.as_view()),
     url(r'^logout/$', LogoutView.as_view()),
     url(r'^login/restore', PasswordRestoreView.as_view()),
+    url(r'^login/changepw', PasswordChangeView.as_view()),
     url(r'^me/$', AccountView.as_view()),
+
+    url(r'^deactivate/$', DeactivateAccountView.as_view()),
 
     url(r'^card/add/$', AddCardView.as_view()),
     url(r'^card/delete/$', DeleteCardView.as_view()),

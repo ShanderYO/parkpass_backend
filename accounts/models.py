@@ -1,8 +1,7 @@
-import random
 import binascii
 import os
+import random
 import uuid
-
 from datetime import datetime, timedelta
 
 from django.contrib.auth.hashers import make_password, check_password
@@ -18,21 +17,21 @@ from parkpass.settings import EMAIL_HOST_USER
 
 
 class EmailConfirmation(models.Model):
-    TOKEN_EXIPATION_TIMEDELTA_IN_SECONDS = 60 * 60 * 24 * 30 # One mounth
+    TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS = 60 * 60 * 24 * 30  # One month
 
     email = models.EmailField()
     code = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __unicode__(self):
-        return "Code %s [%s]" %(self.code, self.email)
+        return "Code %s [%s]" % (self.code, self.email)
 
     def create_code(self):
         self.code = str(uuid.uuid4()).replace('-', '')
 
     def is_expired(self):
         created_at = (self.created_at +
-                      timedelta(0, self.TOKEN_EXIPATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
+                      timedelta(0, self.TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
         return datetime.now() > created_at
 
     # TODO make async

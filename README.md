@@ -242,8 +242,43 @@ Status 400 (Ошибка)
     "message": "Invalid session. Login with phone required"
 }
 ```
-
-
+``` - POST /account/login/restore``` (Восстановление пароля по e-mail) Тело:
+```json
+{
+  "email": "abra@cadabra.com", (String)
+}
+```
+Status: 200 (Успешно)
+```json
+{}
+```
+Status: 400 (Ошибка)
+```json
+{
+  "exception": "AuthException",
+  "code": 100,
+  "message": "User with such email not found"
+}
+```
+```- POST /account/login/changepw``` (Смена пароля) Тело:
+```json
+{
+  "old": "old_password",
+  "new": "new_password"
+}
+```
+Status: 200 (Успешно)
+```json
+{}
+```
+Status: 400 (Ошибка: неправильный старый пароль)
+```json
+{
+  "exception": "AuthException",
+  "code": 101,
+  "message": "Invalid old password"
+}
+```
 ```- POST /account/me/``` (Изменение информации об аккаунте)
 Тело:
 ```
@@ -501,7 +536,9 @@ Status 400
     "message": "ParkingSession with id not found"
 }
 ```
+```- POST /account/deactivate/``` (Отвязать все карты и приостановить активную сессию) Тело: `{}`
 
+Status: 200 `{}`
 
 
 ```- POST /account/session/resume/``` (Восстановление текущей сессии пользователем. Требует токен сессии)

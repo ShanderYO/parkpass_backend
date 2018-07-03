@@ -1,8 +1,8 @@
+import datetime
 import json
 
-import datetime
-from django.test import TestCase
 from django.test import Client
+from django.test import TestCase
 
 # Create your tests here.
 from accounts.models import Account, AccountSession
@@ -106,6 +106,10 @@ class PasswordTestCase(TestCase):
         self.client = Client()
 
     def test_invalid_email_restore(self):
+        """
+        Testing case when invalid email is entered when attempting to restore password
+        :return:
+        """
         url = "/account/login/restore"
 
         body = json.dumps({
@@ -117,6 +121,9 @@ class PasswordTestCase(TestCase):
         print response.content
 
     def test_valid_email_restore(self):
+        """
+        Testing case when valid email is entered when attempting to restore password
+        """
         url = "/account/login/restore"
 
         body = json.dumps({
@@ -126,6 +133,40 @@ class PasswordTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         print response.content
+
+    def test_invalid_old_change(self):
+        """
+        Testing case when old password is invalid
+        """
+        url = "/account/login/changepw/"
+
+        body = json.dumps({
+            "old": "abracadabra",
+            "new": "12345"
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+    def test_valid_password_change(self):
+        """
+        Testing case when valid old pw entered when changing pw
+        """
+        url = "/account/login/changepw/"
+
+        body = json.dumps({
+            "old": "qwerty",
+            "new": "uiop"
+        })
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+
+        self.assertEqual(response.status_code, 200)
+        print response.content
+        # self.assertTrue(self.account.check_password("uiop"))     # New password should be valid
+        # self.assertFalse(self.account.check_password("qwerty"))  # Old password shouldn't
 
 
 class LoginEmail1TestCase(TestCase):
@@ -313,6 +354,86 @@ class AccountTestCase(TestCase):
     def test_new_session_without_card(self):
         # TODO check for creating
         pass
+
+
+class AccountDeactivateTestCase(AccountTestCase):
+    def setUp(self):
+        account = Account.objects.create(
+            id=1,
+            first_name="Test1",
+            phone="+7(123)4567890"
+        )
+        account_session = AccountSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            account=account
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
+        CreditCard.objects.create(
+            id=1,
+            pan="3242****3241",
+            exp_date="1118",
+            is_default=True,
+            account=account,
+        )
+
+        CreditCard.objects.create(
+            id=2,
+            pan="3242****3242",
+            exp_date="0916",
+            is_default=False,
+            account=account,
+        )
+
+        vendor = Vendor(
+            name="test-parking-vendor",
+            secret="12345678"
+        )
+        vendor.save(not_generate_secret=True)
+
+        parking = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            free_places=5,
+            vendor=vendor
+        )
+
+        ParkingSession.objects.create(
+            id=1,
+            session_id="session_1",
+            client=account,
+            parking=parking,
+            debt=100,
+            state=ParkingSession.STATE_CLOSED,
+            started_at=datetime.datetime(2016, 12, 14),
+            updated_at=datetime.datetime(2016, 12, 14),
+            completed_at=datetime.datetime(2016, 12, 15),
+        )
+
+        ParkingSession.objects.create(
+            id=2,
+            session_id="session_2",
+            client=account,
+            parking=parking,
+            debt=120,
+            state=ParkingSession.STATE_STARTED_BY_CLIENT,
+            started_at=datetime.datetime(2016, 12, 13),
+            updated_at=datetime.datetime(2016, 12, 13),
+            # completed_at=datetime.datetime(2016, 12, 14),
+        )
+        self.account = account
+        self.client = Client()
+
+    def test_deactivate_account(self):
+        url = "/account/deactivate/"
+        response = self.client.post(url, "{}", content_type="application/json",
+                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        print response.content
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(CreditCard.objects.all().count(), 0)
+        self.assertIsNone(ParkingSession.get_active_session(account=self.account))
 
 
 class AccountWithCardTestCase(AccountTestCase):
@@ -525,7 +646,6 @@ class AccountSessionsTestCase(TestCase):
         response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
         self.assertEqual(response.status_code, 200)
         print response.content
-
 
     def test_parking_session_interval_invalid_params_view(self):
 
