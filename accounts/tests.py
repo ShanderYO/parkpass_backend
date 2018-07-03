@@ -79,6 +79,55 @@ class AccountBaseTestCase(TestCase):
 """
 
 
+class PasswordTestCase(TestCase):
+    """
+    This test case if for testing /login/restore and /login/changepw
+    (Restoring a password by e-mail and changing it manually)
+    """
+
+    def setUp(self):
+        account = Account.objects.create(
+            id=1,
+            first_name="Test",
+            phone="+7(999)4108209",
+            email="pashawnn@yandex.ru"
+        )
+
+        account_session = AccountSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            account=account
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
+
+        account.set_password("qwerty")
+        account.save()
+
+        self.client = Client()
+
+    def test_invalid_email_restore(self):
+        url = "/account/login/restore"
+
+        body = json.dumps({
+            "email": "abra@cadabra.boom"
+        })
+        response = self.client.post(url, body, content_type="application/json")
+
+        self.assertEqual(response.status_code, 400)
+        print response.content
+
+    def test_valid_email_restore(self):
+        url = "/account/login/restore"
+
+        body = json.dumps({
+            "email": "pashawnn@yandex.ru"
+        })
+        response = self.client.post(url, body, content_type="application/json")
+
+        self.assertEqual(response.status_code, 200)
+        print response.content
+
+
 class LoginEmail1TestCase(TestCase):
 
     def setUp(self):
@@ -105,7 +154,7 @@ class LoginEmail1TestCase(TestCase):
 
         body = json.dumps({
             "email": "diman1-mich@yandex.ru",
-            "password":"qwerty",
+            "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
@@ -144,7 +193,7 @@ class LoginEmail1TestCase(TestCase):
 
         body = json.dumps({
             "email": "diman-mich@yandex.ru",
-            "password":"qwerty",
+            "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
@@ -204,7 +253,7 @@ class LoginEmail2TestCase(TestCase):
 
         body = json.dumps({
             "email": "diman-mich@yandex.ru",
-            "password":"qwerty",
+            "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
@@ -225,6 +274,7 @@ class LogoutTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
 """
+
 
 class AccountTestCase(TestCase):
     """
@@ -686,8 +736,6 @@ class StartAccountTestCase(TestCase):
         account_session.save(not_generate_token=True)
 
         self.client = Client()
-
-
 
 
 class ReceiptTestCase(TestCase):
