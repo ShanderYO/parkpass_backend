@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import datetime
+from hashlib import md5
+from os.path import isfile
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.views import View
 from dss.Serializer import serializer
 
@@ -18,6 +20,7 @@ from base.exceptions import AuthException, ValidationException, PermissionExcept
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
+from parkpass.settings import AVATARS_URL, DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 
@@ -177,6 +180,23 @@ class LogoutView(LoginRequiredAPIView):
     def post(self, request):
         request.account.clean_session()
         return JsonResponse({}, status=200)
+
+
+class SetAvatarView(LoginRequiredAPIView):
+    def post(self, request):
+        try:
+            request.account.update_avatar(request.FILES['file'])
+        except ValidationException, e:
+            return JsonResponse(e.to_dict(), status=400)
+        return JsonResponse({}, 200)
+
+
+class GetAvatarView(LoginRequiredAPIView):
+    def get(self, request):
+        path = AVATARS_URL + md5.new(self.phone).hexdigest()
+        if not isfile(path):
+            path = DEFAULT_AVATAR_URL
+            return HttpResponseRedirect(path)
 
 
 class AccountView(LoginRequiredAPIView):

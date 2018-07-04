@@ -1,5 +1,4 @@
 from django.db import models
-
 # Create your models here.
 from dss.Serializer import serializer
 
@@ -44,7 +43,8 @@ class CreditCard(models.Model):
 
     def __unicode__(self):
         return u"Card: %s (%s %s)" % (self.pan,
-                             self.account.first_name, self.account.last_name)
+                                      self.account.first_name,
+                                      self.account.last_name)
 
     class Meta:
         ordering = ["-id"]

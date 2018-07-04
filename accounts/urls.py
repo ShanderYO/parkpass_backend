@@ -22,7 +22,9 @@ from accounts.views import (LoginView,
                             LoginWithEmailView,
                             PasswordRestoreView,
                             PasswordChangeView,
-                            DeactivateAccountView)
+                            DeactivateAccountView,
+                            SetAvatarView,
+                            GetAvatarView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -49,6 +51,8 @@ urlpatterns = [
     url(r'^session/receipt/get/$', GetReceiptView.as_view()),
     url(r'^session/receipt/send/$', SendReceiptToEmailView.as_view()),
 
+    url(r'^avatar/set/$', SetAvatarView.as_view()),
+    url(r'^avatar/get/$', GetAvatarView.as_view()),
 
     url(r'^session/list/$', AccountParkingListView.as_view()),
     url(r'^session/debt/$', DebtParkingSessionView.as_view()),

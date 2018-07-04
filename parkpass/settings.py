@@ -33,6 +33,7 @@ SMS_SENDER_NAME = "PARKPASS"
 TINKOFF_TERMINAL_KEY = "1516954410942DEMO"
 TINKOFF_TERMINAL_PASSWORD = "dybcdp86npi8s9fv"
 
+
 # Application definition
 
 INSTALLED_APPS = (
@@ -213,3 +214,6 @@ STATIC_URL = '/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
+
+AVATARS_URL = MEDIA_URL + 'avatars/'
+DEFAULT_AVATAR_URL = AVATARS_URL + 'default'

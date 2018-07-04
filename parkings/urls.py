@@ -3,7 +3,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from parkings.views import GetParkingView, GetParkingViewList, UpdateParkingView, CreateParkingSessionView, \
     UpdateParkingSessionView, CompleteParkingSessionView, TestSignedRequestView, ParkingSessionListUpdateView, \
-    CancelParkingSessionView, ComplainSessionView
+    CancelParkingSessionView, ComplainSessionView, WantParkingView
 
 urlpatterns = [
     url(r'^get/(?P<pk>\d+)/$', GetParkingView.as_view()),
@@ -12,6 +12,7 @@ urlpatterns = [
 
     url(r'^v1/test/$', TestSignedRequestView.as_view()),
     url(r'^v1/update/$', UpdateParkingView.as_view()),
+    url(r'^v1/want_parking/(?P<parking>\d+)/$', WantParkingView.as_view()),
     url(r'^v1/session/create/$', CreateParkingSessionView.as_view()),
     url(r'^v1/session/cancel/$', CancelParkingSessionView.as_view()),
     url(r'^v1/session/update/$', UpdateParkingSessionView.as_view()),

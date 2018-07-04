@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
 
+from accounts.models import Account
 from parkpass.settings import EMAIL_HOST_USER
 
 
@@ -68,13 +69,26 @@ class Parking(models.Model):
         return "%s [%s]" % (self.name, self.id)
 
 
+class WantedParking(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    parking = models.ForeignKey(to=Parking, unique=True, default=None)
+    user = models.ForeignKey(to=Account, default=None)
+
+    def __unicode__(self):
+        return "[User %s wants %s parking]" % (self.user.phone, self.parking.name)
+
+    @classmethod
+    def get_wanted_count(cls, parking):
+        return len(cls.objects.all().filter(parking=parking))
+
+
 class ParkingSession(models.Model):
 
     # States mask
-    STARTED_BY_CLIENT_MASK = 1 << 0 # 1
-    STARTED_BY_VENDOR_MASK = 1 << 1 # 2
-    COMPLETED_BY_CLIENT_MASK = 1 << 2 # 4
-    COMPLETED_BY_VENDOR_MASK = 1 << 3 # 8
+    STARTED_BY_CLIENT_MASK = 1 << 0  # 1
+    STARTED_BY_VENDOR_MASK = 1 << 1  # 2
+    COMPLETED_BY_CLIENT_MASK = 1 << 2  # 4
+    COMPLETED_BY_VENDOR_MASK = 1 << 3  # 8
 
     # States
     STATE_CANCELED = -1

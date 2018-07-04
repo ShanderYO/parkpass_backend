@@ -7,7 +7,7 @@ from accounts.models import Account
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
 from base.views import LoginRequiredAPIView, SignedRequestAPIView
-from parkings.models import Parking, ParkingSession, ComplainSession
+from parkings.models import Parking, ParkingSession, ComplainSession, WantedParking
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
@@ -24,8 +24,30 @@ class GetParkingView(LoginRequiredAPIView):
                 "Target parking with such id not found"
             )
             return JsonResponse(e.to_dict())
-        result_dict = serializer(parking, exclude_attr=("created_at","enabled","vendor_id","max_client_debt",))
+        result_dict = serializer(parking, exclude_attr=("created_at", "enabled", "vendor_id", "max_client_debt",))
         return JsonResponse(result_dict, status=200)
+
+
+class WantParkingView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            parking = Parking.objects.get(id=int(kwargs['parking']))
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Target parking with such id not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if parking.enabled:
+            e = ValidationException(
+                ValidationException.ALREADY_EXISTS,
+                "This parking is already able to use"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        user = request.account
+        wp = WantedParking(parking=parking, user=user)
+        wp.save()
+        return JsonResponse({}, status=200)
 
 
 class GetParkingViewList(LoginRequiredAPIView):
