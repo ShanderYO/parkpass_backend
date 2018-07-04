@@ -6,77 +6,10 @@ from django.test import Client
 
 # Create your tests here.
 from accounts.models import Account, AccountSession
-from parkings.models import Vendor, Parking, ParkingSession
+from parkings.models import Parking, ParkingSession, WantedParking
+from vendors.models import Vendor
+from parkpass.settings import AVATARS_URL
 from payments.models import CreditCard, Order, FiskalNotification
-
-"""
-class AccountBaseTestCase(TestCase):
-
-    def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910",
-        )
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
-        self.client = Client()
-
-    def test_content_type_url(self):
-        url = "/account/login/"
-
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, 400)
-
-        response = self.client.post(url, content_type="application/json")
-        self.assertEqual(response.status_code, 400)
-
-
-    def test_empty_body_request(self):
-        url = "/account/login/"
-
-        response = self.client.post(url, content_type="application/json")
-        self.assertEqual(response.status_code, 400)
-        error_code = json.loads(response.content)["code"]
-        self.assertNotEqual(error_code, ValidationException.JSON_PARSE_ERROR)
-
-        body = {}
-        response = self.client.post(url, body, content_type="application/json")
-        self.assertEqual(response.status_code, 400)
-        error_code = json.loads(response.content)["code"]
-        self.assertEqual(error_code, AuthException.NOT_FOUND_CODE)
-
-
-    def test_no_json_body_request(self):
-        url = "/account/login/"
-
-        body = {
-            "foo":"bar"
-        }
-        response = self.client.post(url, body, content_type="application/json")
-        self.assertEqual(response.status_code, 400)
-
-        error_code = json.loads(response.content)["code"]
-        self.assertEqual(error_code, ValidationException.JSON_PARSE_ERROR)
-
-
-    def test_json_body_request(self):
-        url = "/account/login/"
-
-        body = json.dumps({
-            "foo": "bar"
-        })
-        response = self.client.post(url, body, content_type="application/json")
-        self.assertEqual(response.status_code, 400)
-
-        error_code = json.loads(response.content)["code"]
-        self.assertEqual(error_code, AuthException.NOT_FOUND_CODE)
-"""
 
 
 class PasswordTestCase(TestCase):
@@ -262,20 +195,6 @@ class LoginEmail2TestCase(TestCase):
         print response.content
 
 
-"""
-class LogoutTestCase(TestCase):
-
-    def test_content_type_url(self):
-        url = "/account/login/"
-
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, 415)
-        response = self.client.post(url, content_type="application/json")
-        self.assertEqual(response.status_code, 400)
-
-"""
-
-
 class AccountTestCase(TestCase):
     """
         Test for /account/me
@@ -344,15 +263,6 @@ class AccountWithCardTestCase(AccountTestCase):
             is_default=False,
             account=account,
         )
-    """
-    def test_add_card_request(self):
-        url = "/account/card/add/"
-
-        response = self.client.post(url, content_type="application/json",
-                                   **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
-        self.assertEqual(response.status_code, 200)
-        print response.content
-    """
 
     def test_set_default_not_exist_card(self):
         url = "/account/card/default/"
@@ -847,3 +757,96 @@ class ReceiptTestCase(TestCase):
 
         self.assertEqual(response.status_code, 400)
         print response.content
+
+                       
+class AccountAvatarTestCase(AccountTestCase):
+    def setUp(self):
+        account = Account.objects.create(
+            id=1,
+            first_name="Test1",
+            phone="+7(123)4567890"
+        )
+        self.client = Client()
+        account_session = AccountSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            account=account
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
+
+    def test_set_avatar(self):
+        url = "/account/avatar/set/"
+        with open("test.jpg", "r") as fp:
+            response = self.client.post(url, {'file': fp},
+                                        **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        print response.content
+        self.assertEqual(response.status_code, 200)
+        phone = "+7(123)4567890"
+        path = AVATARS_URL + hashlib.md5(phone).hexdigest()
+
+
+class WantedParkingsTestCase(TestCase):
+    def setUp(self):
+        account = Account.objects.create(
+            id=1,
+            first_name="Test1",
+            phone="+7(123)4567890"
+        )
+
+        account_session = AccountSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            account=account
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
+        vendor = Vendor(
+            name="test-parking-vendor",
+            secret="12345678"
+        )
+        vendor.save(not_generate_secret=True)
+        self.p1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            enabled=False,
+            longitude=1,
+            free_places=5,
+            vendor=vendor
+        )
+        self.p2 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            enabled=False,
+            longitude=1,
+            free_places=5,
+            vendor=vendor
+        )
+        self.p3 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            enabled=True,
+            latitude=1,
+            longitude=1,
+            free_places=5,
+            vendor=vendor
+        )
+        self.p1.save()
+        self.p2.save()
+        self.p3.save()
+        self.client = Client()
+
+    def test_adding_wannamarks(self):
+        print Parking.objects.all()
+        resp = []
+        for i in [1, 3, 5]:
+            url = "/parking/v1/want_parking/%d/" % i
+            resp.append(self.client.get(url,
+                                        HTTP_AUTHORIZATION='Token 0ff08840935eb00fad198ef5387423bc24cd15e1'))
+            print resp[-1].content
+        self.assertEqual(resp[0].status_code, 200)
+        self.assertEqual(resp[1].status_code, 400)
+        self.assertEqual(resp[2].status_code, 400)
+        self.assertEqual(WantedParking.get_wanted_count(self.p1), 1)
+        self.assertEqual(WantedParking.get_wanted_count(self.p2), 0)
+        self.assertEqual(WantedParking.get_wanted_count(self.p3), 0)

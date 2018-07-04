@@ -18,7 +18,7 @@ from django.db import models
 
 from django.utils import timezone
 
-from parkpass.settings import EMAIL_HOST_USER
+from parkpass.settings import EMAIL_HOST_USER, AVATARS_URL
 
 
 class Terminal(models.Model):
@@ -84,6 +84,7 @@ class BaseAccount(models.Model):
     sms_code = models.CharField(max_length=6, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     password = models.CharField(max_length=255, default="stub")
+    avatar = models.ImageField(upload_to=AVATARS_URL, default='default.jpg')
     email_confirmation = models.ForeignKey(EmailConfirmation, null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateField(auto_now_add=True)
 
@@ -104,6 +105,24 @@ class BaseAccount(models.Model):
         def setter(r_password):
             self.set_password(r_password)
         return check_password(raw_password, self.password, setter)
+
+    +
+
+    def update_avatar(self, f):
+       """
+       #base, sub = f.content_type.split("/")
+       #if base != "image" or sub not in ("jpeg", "pjpeg", "gif", "png"):
+       #    raise ValidationError("That's not image")
+       md5 = hashlib.md5()
+       with open(AVATARS_URL + md5(self.phone).hexdigest(), "w") as dest:
+           for chunk in f.chunks():
+               dest.write(chunk)
+       """
+
+       self.avatar = f
+
+    def get_avatar(self):
+        return self.avatar
 
     def set_password(self, raw_password):
         self.password = make_password(raw_password)

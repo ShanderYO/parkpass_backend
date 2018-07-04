@@ -8,6 +8,7 @@ from django.template.loader import render_to_string
 
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
+from accounts.models import Account
 
 
 class ParkingManager(models.Manager):
@@ -42,6 +43,19 @@ class Parking(models.Model):
 
     def __unicode__(self):
         return "%s [%s]" % (self.name, self.id)
+
+
+class WantedParking(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    parking = models.ForeignKey(to=Parking, unique=True, default=None)
+    user = models.ForeignKey(to=Account, default=None)
+
+    def __unicode__(self):
+        return "[User %s wants %s parking]" % (self.user.phone, self.parking.name)
+
+    @classmethod
+    def get_wanted_count(cls, parking):
+        return len(cls.objects.all().filter(parking=parking))
 
 
 class ParkingSession(models.Model):

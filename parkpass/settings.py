@@ -214,3 +214,6 @@ STATIC_URL = '/api/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
+
+AVATARS_URL = MEDIA_URL + 'avatars/'
+DEFAULT_AVATAR_URL = AVATARS_URL + 'default'

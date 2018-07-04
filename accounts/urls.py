@@ -4,7 +4,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from accounts.views import LoginView, LogoutView, AccountView, ConfirmLoginView, AddCardView, DeleteCardView, SetDefaultCardView, \
     DebtParkingSessionView, StartParkingSession, CompleteParkingSession, ForceStopParkingSession, ForcePayView, \
     ResumeParkingSession, AccountParkingListView, GetReceiptView, ChangeEmailView, EmailConfirmationView, \
-    SendReceiptToEmailView, LoginWithEmailView, PasswordRestoreView
+    SendReceiptToEmailView, LoginWithEmailView, PasswordRestoreView, SetAvatarView, GetAvatarView
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -13,7 +13,8 @@ urlpatterns = [
     url(r'^logout/$', LogoutView.as_view()),
     url(r'^login/restore', PasswordRestoreView.as_view()),
     url(r'^me/$', AccountView.as_view()),
-
+    url(r'^avatar/set/$', SetAvatarView.as_view()),
+    url(r'^avatar/get/$', GetAvatarView.as_view()),
     url(r'^card/add/$', AddCardView.as_view()),
     url(r'^card/delete/$', DeleteCardView.as_view()),
     url(r'^card/default/$', SetDefaultCardView.as_view()),

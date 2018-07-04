@@ -8,11 +8,33 @@ from accounts.tasks import generate_current_debt_order
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
 from base.views import LoginRequiredAPIView, SignedRequestAPIView
-from parkings.models import Parking, ParkingSession, ComplainSession
+from parkings.models import Parking, ParkingSession, ComplainSession, WantedParking
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator
+
+
+class WantParkingView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            parking = Parking.objects.get(id=int(kwargs['parking']))
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Target parking with such id not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if parking.enabled:
+            e = ValidationException(
+                ValidationException.ALREADY_EXISTS,
+                "This parking is already able to use"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        user = request.account
+        wp = WantedParking(parking=parking, user=user)
+        wp.save()
+        return JsonResponse({}, status=200)
 
 
 class GetParkingView(LoginRequiredAPIView):
