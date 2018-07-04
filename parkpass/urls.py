@@ -22,13 +22,13 @@ from parkpass import settings
 
 urlpatterns = [
     url(r'^admin_tools/', include('admin_tools.urls')),
-    url(r'^admin/', include(admin.site.urls)),
-    url(r'^account/', include("accounts.urls")),
-    url(r'^parking/', include("parkings.urls")),
-    url(r'^payments/', include("payments.urls")),
+    url(r'^api/admin/', include(admin.site.urls)),
+    url(r'^api/v1/account/', include("accounts.urls")),
+    url(r'^api/v1/parking/', include("parkings.urls")),
+    url(r'^api/v1/payments/', include("payments.urls")),
 
     # Vendor extensions
-    url(r'^parking/', include("rps_vendor.urls")),
+    url(r'^api/v1/parking/', include("rps_vendor.urls")),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 urlpatterns += staticfiles_urlpatterns()
