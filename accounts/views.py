@@ -1,12 +1,12 @@
 import datetime
-from hashlib import md5
+import base64
 from os.path import isfile
 import pytz
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse
 from django.views import View
 from dss.Serializer import serializer
-from parkpass.settings import AVATARS_URL, DEFAULT_AVATAR_URL
+from parkpass.settings import DEFAULT_AVATAR_URL
 from base.models import EmailConfirmation
 from accounts.models import Account, AccountSession
 from accounts.sms_gateway import SMSGateway
@@ -27,18 +27,25 @@ from django.db.models import Q
 class SetAvatarView(LoginRequiredAPIView):
     def post(self, request):
         try:
-            request.account.update_avatar(request.FILES['file'])
+            file = request.data.get("avatar", None)
+            if file is None:
+                raise ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "No file attached"
+                )
+            request.account.update_avatar(base64.b64decode(file))
         except ValidationException, e:
             return JsonResponse(e.to_dict(), status=400)
-        return JsonResponse({}, 200)
+        return JsonResponse({}, status=200)
 
 
 class GetAvatarView(LoginRequiredAPIView):
     def get(self, request):
-        path = AVATARS_URL + md5.new(self.phone).hexdigest()
-        if not isfile(path):
-            path = DEFAULT_AVATAR_URL
-            return HttpResponseRedirect(path)
+        path = DEFAULT_AVATAR_URL if not isfile(request.account.get_avatar_path()) else request.account.get_avatar_url()
+        body = {
+            'url': request.get_host() + path
+        }
+        return JsonResponse(body, status=200)
 
 
 class LoginView(APIView):

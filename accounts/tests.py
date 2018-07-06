@@ -3,12 +3,13 @@ import json
 import datetime
 from django.test import TestCase
 from django.test import Client
-
-# Create your tests here.
+from os.path import isfile
+from hashlib import md5
+import base64
 from accounts.models import Account, AccountSession
 from parkings.models import Parking, ParkingSession, WantedParking
 from vendors.models import Vendor
-from parkpass.settings import AVATARS_URL
+from parkpass.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
 
 
@@ -776,13 +777,25 @@ class AccountAvatarTestCase(AccountTestCase):
 
     def test_set_avatar(self):
         url = "/account/avatar/set/"
-        with open("test.jpg", "r") as fp:
-            response = self.client.post(url, {'file': fp},
+        with open("test.jpg", "rb") as fp:
+            body = json.dumps({
+                "avatar": base64.b64encode(fp.read()),
+            })
+            response = self.client.post(url, body, content_type="application/json",
                                         **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
         print response.content
         self.assertEqual(response.status_code, 200)
         phone = "+7(123)4567890"
-        path = AVATARS_URL + hashlib.md5(phone).hexdigest()
+        path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
+        self.assertTrue(isfile(path))
+        # remove(path)
+
+    def test_get_avatar(self):
+        url = "/account/avatar/get/"
+        response = self.client.get(url,
+                                   **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        print response.content
+        self.assertEqual(response.status_code, 200)
 
 
 class WantedParkingsTestCase(TestCase):

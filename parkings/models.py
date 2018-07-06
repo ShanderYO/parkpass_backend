@@ -47,7 +47,7 @@ class Parking(models.Model):
 
 class WantedParking(models.Model):
     id = models.BigAutoField(primary_key=True)
-    parking = models.ForeignKey(to=Parking, unique=True, default=None)
+    parking = models.OneToOneField(to=Parking)
     user = models.ForeignKey(to=Account, default=None)
 
     def __unicode__(self):

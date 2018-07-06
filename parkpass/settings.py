@@ -204,11 +204,11 @@ STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 )
-
+"""
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
-
+"""
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 STATIC_URL = '/api/static/'
 
@@ -216,4 +216,5 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
 
 AVATARS_URL = MEDIA_URL + 'avatars/'
-DEFAULT_AVATAR_URL = AVATARS_URL + 'default'
+AVATARS_ROOT = os.path.join(BASE_DIR, "media/avatars")
+DEFAULT_AVATAR_URL = MEDIA_URL + 'default'
