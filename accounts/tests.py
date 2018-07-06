@@ -1,5 +1,5 @@
 import json
-
+from os import remove
 import datetime
 from django.test import TestCase
 from django.test import Client
@@ -788,7 +788,7 @@ class AccountAvatarTestCase(AccountTestCase):
         phone = "+7(123)4567890"
         path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
         self.assertTrue(isfile(path))
-        # remove(path)
+        remove(path)
 
     def test_get_avatar(self):
         url = "/account/avatar/get/"

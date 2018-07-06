@@ -4,6 +4,9 @@ import os
 import uuid
 from hashlib import md5
 from datetime import datetime, timedelta
+from io import BytesIO
+from PIL import Image
+from base.exceptions import ValidationException
 
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.hashers import make_password
@@ -107,7 +110,16 @@ class BaseAccount(models.Model):
 
     def update_avatar(self, f):
         path = AVATARS_ROOT + '/' + md5(self.phone).hexdigest()
+        im = Image.open(BytesIO(f))
+        width, height = im.size
+        format = im.format
+        im.close()
 
+        if width > 300 or height > 300 or format != 'JPEG':
+            raise ValidationException(
+                    ValidationException.INVALID_IMAGE,
+                    "Image must be JPEG and not be larger than 300x300 px"
+                   )
         with open(path, "w") as dest:
             dest.write(f)
 
