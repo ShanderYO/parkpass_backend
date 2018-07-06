@@ -4,7 +4,9 @@ import random
 import uuid
 from datetime import datetime, timedelta
 from hashlib import md5
+from io import BytesIO
 
+from PIL import Image
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
@@ -14,6 +16,7 @@ from django.db.models import BigAutoField
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from base.exceptions import ValidationException
 from parkpass.settings import EMAIL_HOST_USER, AVATARS_ROOT, AVATARS_URL
 
 
@@ -86,6 +89,15 @@ class Account(models.Model):
 
     def update_avatar(self, f):
         path = AVATARS_ROOT + '/' + md5(self.phone).hexdigest()
+        im = Image.open(BytesIO(f))
+        width, height = im.size
+        format = im.format
+        im.close()
+        if width > 300 or height > 300 or format != 'JPEG':
+            raise ValidationException(
+                ValidationException.INVALID_IMAGE,
+                "Image must be JPEG and not be larger than 300x300 px"
+            )
         with open(path, "w") as dest:
             dest.write(f)
 

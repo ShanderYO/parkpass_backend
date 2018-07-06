@@ -555,6 +555,14 @@ Status 400
   "message": "No file attached"
 }
 ```
+Status 400
+```json
+{
+  "exception": "ValidationException",
+  "code": 404,
+  "message": "Image must be JPEG and not be larger than 300x300 px"
+}
+```
 Status 200, `{}`
 ```- GET /account/avatar/get/``` (Получить ссылку на аватар пользователя) 
 Status 200 (OK)
