@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import base64
 import datetime
-from hashlib import md5
 from os.path import isfile
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse
 from django.views import View
 from dss.Serializer import serializer
 
@@ -20,7 +20,7 @@ from base.exceptions import AuthException, ValidationException, PermissionExcept
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
-from parkpass.settings import AVATARS_URL, DEFAULT_AVATAR_URL
+from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 
@@ -185,18 +185,25 @@ class LogoutView(LoginRequiredAPIView):
 class SetAvatarView(LoginRequiredAPIView):
     def post(self, request):
         try:
-            request.account.update_avatar(request.FILES['file'])
+            file = request.data.get("avatar", None)
+            if file is None:
+                raise ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "No file attached"
+                )
+            request.account.update_avatar(base64.b64decode(file))
         except ValidationException, e:
             return JsonResponse(e.to_dict(), status=400)
-        return JsonResponse({}, 200)
+        return JsonResponse({}, status=200)
 
 
 class GetAvatarView(LoginRequiredAPIView):
     def get(self, request):
-        path = AVATARS_URL + md5.new(self.phone).hexdigest()
-        if not isfile(path):
-            path = DEFAULT_AVATAR_URL
-            return HttpResponseRedirect(path)
+        path = DEFAULT_AVATAR_URL if not isfile(request.account.get_avatar_path()) else request.account.get_avatar_url()
+        body = {
+            'url': request.get_host() + path
+        }
+        return JsonResponse(body, status=200)
 
 
 class AccountView(LoginRequiredAPIView):
@@ -272,8 +279,8 @@ class AccountParkingListView(LoginRequiredAPIView):
                                                                     "parking_id", "created_at"))
         for index, obj in enumerate(object_list):
             parking_dict = {
-                "id":obj.parking.id,
-                "name":obj.parking.name
+                "id": obj.parking.id,
+                "name": obj.parking.name
             }
             data[index]["parking"] = parking_dict
 

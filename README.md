@@ -540,9 +540,32 @@ Status 400
 
 Status: 200 `{}`
 
+```- POST /account/avatar/set/``` (Установить/сменить аватар пользователя) Тело:
+```json
+{
+  "avatar": "base64/jpeg" (String)
+}
+```
+В строку `avatar` нужно передать изображение JPEG, имеющее размер не более 300x300 и закодированное в base64
+Status 400
+```json
+{
+  "exception": "ValidationException",
+  "code": 402,
+  "message": "No file attached"
+}
+```
+Status 200, `{}`
+```- GET /account/avatar/get/``` (Получить ссылку на аватар пользователя) 
+Status 200 (OK)
+```json
+{
+  "url": "parkpass.ru/media/avatars/<filename>"
+}
+```
+Если у пользователя не указан аватар, будет передана ссылка на стандартный аватар.
 
 ```- POST /account/session/resume/``` (Восстановление текущей сессии пользователем. Требует токен сессии)
-
 Тело
 ```
 {
@@ -550,16 +573,24 @@ Status: 200 `{}`
 }
 ```
 Status 200 (OK)
-
+```- GET /parking/want_parking/<ID>/``` (Увеличение счётчика "Хочу эту парковку")
 Status 400
-```
+```json
 {
-    "exception": "ValidationException",
-    "code": 402,
-    "message": "ParkingSession with id not found"
+  "exception": "ValidationException",
+  "code": 402,
+  "message": "Target parking with such id not found"
 }
 ```
-
+Status 400
+```json
+{
+  "exception": "ValidationException",
+  "code": 403,
+  "message": "This parking is already able to use"
+}    
+```
+Status 200 `{}`
 
 ```- GET /account/session/list/?page=<next>&from_date=<timestamp>&to_date=<timestamp>``` (Получение истории сессий пользователя. Требует токен сессии)
 
