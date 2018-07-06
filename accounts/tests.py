@@ -777,7 +777,7 @@ class AccountAvatarTestCase(AccountTestCase):
 
     def test_set_avatar(self):
         url = "/account/avatar/set/"
-        with open("test.jpg", "rb") as fp:
+        with open("test1.jpg", "rb") as fp:
             body = json.dumps({
                 "avatar": base64.b64encode(fp.read()),
             })
@@ -789,6 +789,20 @@ class AccountAvatarTestCase(AccountTestCase):
         path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
         self.assertTrue(isfile(path))
         remove(path)
+
+    def test_set_large_avatar(self):
+        url = "/account/avatar/set/"
+        with open("test.jpg", "rb") as fp:
+            body = json.dumps({
+                "avatar": base64.b64encode(fp.read()),
+            })
+            response = self.client.post(url, body, content_type="application/json",
+                                        **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        print response.content
+        self.assertEqual(response.status_code, 400)
+        phone = "+7(123)4567890"
+        path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
+        self.assertFalse(isfile(path))
 
     def test_get_avatar(self):
         url = "/account/avatar/get/"
