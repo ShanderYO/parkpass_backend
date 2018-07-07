@@ -13,6 +13,46 @@ from parkings.models import Vendor, Parking, ParkingSession, WantedParking
 from parkpass.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
 
+TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token TOKEN'}
+TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
+
+
+def create_account(id=1, name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"):
+    account = Account.objects.create(
+        id=id,
+        first_name=name,
+        phone=phone,
+        email=email
+    )
+    account.set_password(password)
+    account_session = AccountSession(
+        token="TOKEN",
+        account=account
+    )
+    account_session.set_expire_date()
+    account_session.save(not_generate_token=True)
+    account.save()
+    return account, account_session
+
+
+def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678", park_enabled=True,
+                          park_name="parking-1", park_desc="default", park_lat=1, park_lon=1, park_places=5):
+    v = Vendor(
+        name=ven_name,
+        secret=ven_secret
+    )
+    v.save(not_generate_secret=True)
+    p = Parking.objects.create(
+        name=park_name,
+        description=park_desc,
+        latitude=park_lat,
+        enabled=park_enabled,
+        longitude=park_lon,
+        free_places=park_places,
+        vendor=v
+    )
+    return v, p
+
 
 class PasswordTestCase(TestCase):
     """
@@ -21,21 +61,7 @@ class PasswordTestCase(TestCase):
     """
 
     def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test",
-            phone="+7(999)4108209",
-            email="pashawnn@yandex.ru"
-        )
-
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
-        account.set_password("qwerty")
+        account, account_session = create_account()
         account.save()
 
         self.client = Client()
@@ -62,7 +88,7 @@ class PasswordTestCase(TestCase):
         url = "/account/login/restore"
 
         body = json.dumps({
-            "email": "pashawnn@yandex.ru"
+            "email": "test@testing.com"
         })
         response = self.client.post(url, body, content_type="application/json")
 
@@ -80,7 +106,7 @@ class PasswordTestCase(TestCase):
             "new": "12345"
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -96,7 +122,7 @@ class PasswordTestCase(TestCase):
             "new": "uiop"
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
         print response.content
@@ -107,22 +133,7 @@ class PasswordTestCase(TestCase):
 class LoginEmail1TestCase(TestCase):
 
     def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910",
-            email="diman-mich@yandex.ru"
-        )
-        account.set_password("qwerty")
-        account.save()
-
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
+        account, account_session = create_account(email="diman-mich@yandex.ru")
         self.client = Client()
 
     def test_invalid_email_login_with_email(self):
@@ -133,7 +144,7 @@ class LoginEmail1TestCase(TestCase):
             "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -146,7 +157,7 @@ class LoginEmail1TestCase(TestCase):
             "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -159,7 +170,7 @@ class LoginEmail1TestCase(TestCase):
             "password": "qwerty1",
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -172,7 +183,7 @@ class LoginEmail1TestCase(TestCase):
             "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
         print response.content
@@ -181,21 +192,7 @@ class LoginEmail1TestCase(TestCase):
 class LoginEmail2TestCase(TestCase):
 
     def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910"
-        )
-        account.set_password("qwerty")
-        account.save()
-
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
+        account = create_account()
         self.client = Client()
 
     def test_invalid_email_login_with_email(self):
@@ -203,10 +200,10 @@ class LoginEmail2TestCase(TestCase):
 
         body = json.dumps({
             "email": "diman1-mich@yandex.ru",
-            "password":"qwerty",
+            "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -219,7 +216,7 @@ class LoginEmail2TestCase(TestCase):
             "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -232,7 +229,7 @@ class LoginEmail2TestCase(TestCase):
             "password": "qwerty",
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -244,18 +241,8 @@ class AccountTestCase(TestCase):
     """
 
     def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910",
-        )
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
+        account, account_session = create_account()
+        vendor, parking = create_vendor_parking()
         self.client = Client()
 
     def test_invalid_token(self):
@@ -269,28 +256,29 @@ class AccountTestCase(TestCase):
     def test_valid_request(self):
         url = "/account/me/"
 
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        response = self.client.get(url, **{'HTTP_AUTHORIZATION': "Token TOKEN"})
         self.assertEqual(response.status_code, 200)
         print response.content
 
     def test_new_session_without_card(self):
-        # TODO check for creating
-        pass
+        url = "/account/session/create/"
+
+        body = json.dumps({
+            "session_id": "lala",
+            "parking_id": 1,
+            "started_at": 1467936000
+        })
+
+        response = self.client.post(url,
+                                    body, content_type="application/json",
+                                    **TOKEN_DICT)
+        self.assertNotEqual(response.status_code, 200)
+        print response.content
 
 
 class AccountDeactivateTestCase(AccountTestCase):
     def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(123)4567890"
-        )
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
+        account, account_session = create_account()
         CreditCard.objects.create(
             id=1,
             pan="3242****3241",
@@ -307,20 +295,7 @@ class AccountDeactivateTestCase(AccountTestCase):
             account=account,
         )
 
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
-        )
-        vendor.save(not_generate_secret=True)
-
-        parking = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=vendor
-        )
+        vendor, parking = create_vendor_parking()
 
         ParkingSession.objects.create(
             id=1,
@@ -351,7 +326,7 @@ class AccountDeactivateTestCase(AccountTestCase):
     def test_deactivate_account(self):
         url = "/account/deactivate/"
         response = self.client.post(url, "{}", content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
         print response.content
         self.assertEqual(response.status_code, 200)
         self.assertEqual(CreditCard.objects.all().count(), 0)
@@ -360,18 +335,7 @@ class AccountDeactivateTestCase(AccountTestCase):
 
 class AccountWithCardTestCase(AccountTestCase):
     def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910",
-        )
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
+        account, account_session = create_account()
         CreditCard.objects.create(
             id=1,
             pan="3242****3241",
@@ -392,7 +356,7 @@ class AccountWithCardTestCase(AccountTestCase):
         url = "/account/card/add/"
 
         response = self.client.post(url, content_type="application/json",
-                                   **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                   **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
     """
@@ -404,7 +368,7 @@ class AccountWithCardTestCase(AccountTestCase):
             "id": 3  # not exists
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -413,10 +377,10 @@ class AccountWithCardTestCase(AccountTestCase):
         url = "/account/card/default/"
 
         body = json.dumps({
-            "id": 1 # already by default
+            "id": 1  # already by default
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
         print response.content
@@ -428,7 +392,7 @@ class AccountWithCardTestCase(AccountTestCase):
             "id": 2
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
         print response.content
@@ -437,10 +401,10 @@ class AccountWithCardTestCase(AccountTestCase):
         url = "/account/card/delete/"
 
         body = json.dumps({
-            "id": 3 # not exists
+            "id": 3  # not exists
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -449,7 +413,7 @@ class AccountWithCardTestCase(AccountTestCase):
             "id": 1
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
         self.assertEquals(CreditCard.objects.all().count(), 1)
@@ -458,34 +422,8 @@ class AccountWithCardTestCase(AccountTestCase):
 
 class AccountSessionsTestCase(TestCase):
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
-        )
-        vendor.save(not_generate_secret=True)
-
-        parking = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=vendor
-        )
-
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910",
-        )
-
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
+        vendor, parking = create_vendor_parking()
+        account, account_session = create_account()
         ParkingSession.objects.create(
             id=1,
             session_id="session_1",
@@ -556,7 +494,7 @@ class AccountSessionsTestCase(TestCase):
     def test_parking_session_list_page(self):
         url = "/account/session/list/"
 
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
@@ -565,7 +503,7 @@ class AccountSessionsTestCase(TestCase):
         page_token = response_dict.get("next", None)
 
         url = "/account/session/list/?page=%s" % page_token
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
@@ -573,36 +511,36 @@ class AccountSessionsTestCase(TestCase):
 
         # skip from_date=11
         url = "/account/session/list/?from_date=11"
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         print response.content
 
         # skip to_date=11
         url = "/account/session/list/?to_date=11"
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         print response.content
 
         url = "/account/session/list/?from_date=11&to_date=12"
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
         # skip to_date=Privet
         url = "/account/session/list/?to_date=11&to_date=Privet"
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
     def test_parking_session_interval_too_big_period_view(self):
         url = "/account/session/list/?from_date=0&to_date=1527539422"
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         print response.content
 
     def test_parking_session_interval_valid_view(self):
         url = "/account/session/list/?from_date=1510000000&to_date=1537539422"
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         print "ddd1"
         print response.content
         self.assertEqual(response.status_code, 200)
@@ -610,7 +548,7 @@ class AccountSessionsTestCase(TestCase):
     def test_get_debt_request(self):
         url = "/account/session/debt/"
 
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
@@ -620,7 +558,7 @@ class AccountSessionsTestCase(TestCase):
             "id": 999  # not exists
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         print response.content
 
@@ -631,7 +569,7 @@ class AccountSessionsTestCase(TestCase):
             "id": 15
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
@@ -639,34 +577,8 @@ class AccountSessionsTestCase(TestCase):
 class StartAccountTestCaseWithDebt(TestCase):
 
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
-        )
-        vendor.save(not_generate_secret=True)
-
-        parking = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=vendor
-        )
-
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910",
-        )
-
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
+        vendor, parking = create_vendor_parking()
+        account, account_session = create_account()
         # Create active account session
         ParkingSession.objects.create(
             id=1,
@@ -695,13 +607,13 @@ class StartAccountTestCaseWithDebt(TestCase):
         url = "/account/session/create/"
 
         body = json.dumps({
-            "session_id":"lala",
-            "parking_id":1,
-            "started_at":1467936000
+            "session_id": "lala",
+            "parking_id": 1,
+            "started_at": 1467936000
         })
 
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         print response.content
 
@@ -713,7 +625,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         })
 
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
@@ -725,7 +637,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         })
 
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
@@ -737,80 +649,17 @@ class StartAccountTestCaseWithDebt(TestCase):
         })
 
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
         print response.content
-
-    def test_force_stop_and_start_new(self):
-        pass
-
-
-class StartAccountTestCase(TestCase):
-
-    def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
-        )
-        vendor.save(not_generate_secret=True)
-
-        Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=vendor
-        )
-
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910",
-        )
-
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
-        self.client = Client()
 
 
 class ReceiptTestCase(TestCase):
 
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
-        )
-        vendor.save(not_generate_secret=True)
-
-        parking = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=vendor
-        )
-
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(910)8271910",
-        )
-
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-
+        vendor, parking = create_vendor_parking()
+        account, account_session = create_account(email=None)
         parking_session = ParkingSession.objects.create(
             id=1,
             session_id="session_1",
@@ -831,7 +680,7 @@ class ReceiptTestCase(TestCase):
             ecr_reg_number="ecr_reg_number_sample",
             fiscal_document_number=102,
             fiscal_document_attribute=103,
-            token="token_sample",
+            # token="token_sample",
             ofd="ofd",
             url="http://yandex.ru",
             qr_code_url="http://qr_code_url.ru",
@@ -848,8 +697,6 @@ class ReceiptTestCase(TestCase):
             account=account,
             fiscal_notification=fiskal
         )
-
-
         self.client = Client()
 
     def test_not_exists_parking(self):
@@ -860,7 +707,7 @@ class ReceiptTestCase(TestCase):
         })
 
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -873,7 +720,7 @@ class ReceiptTestCase(TestCase):
         })
 
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
         print response.content
@@ -884,7 +731,7 @@ class ReceiptTestCase(TestCase):
             "id": 1
         })
         response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                    **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         print response.content
@@ -892,18 +739,8 @@ class ReceiptTestCase(TestCase):
 
 class AccountAvatarTestCase(AccountTestCase):
     def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(123)4567890"
-        )
+        account, account_session = create_account(phone="+7(123)4567890")
         self.client = Client()
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
 
     def test_set_avatar(self):
         url = "/account/avatar/set/"
@@ -912,7 +749,7 @@ class AccountAvatarTestCase(AccountTestCase):
                 "avatar": base64.b64encode(fp.read()),
             })
             response = self.client.post(url, body, content_type="application/json",
-                                        **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                        **TOKEN_DICT)
         print response.content
         self.assertEqual(response.status_code, 200)
         phone = "+7(123)4567890"
@@ -927,7 +764,7 @@ class AccountAvatarTestCase(AccountTestCase):
                 "avatar": base64.b64encode(fp.read()),
             })
             response = self.client.post(url, body, content_type="application/json",
-                                        **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                        **TOKEN_DICT)
         print response.content
         self.assertEqual(response.status_code, 400)
         phone = "+7(123)4567890"
@@ -937,40 +774,15 @@ class AccountAvatarTestCase(AccountTestCase):
     def test_get_avatar(self):
         url = "/account/avatar/get/"
         response = self.client.get(url,
-                                   **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'})
+                                   **TOKEN_DICT)
         print response.content
         self.assertEqual(response.status_code, 200)
 
 
-
 class WantedParkingsTestCase(TestCase):
     def setUp(self):
-        account = Account.objects.create(
-            id=1,
-            first_name="Test1",
-            phone="+7(123)4567890"
-        )
-
-        account_session = AccountSession(
-            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
-            account=account
-        )
-        account_session.set_expire_date()
-        account_session.save(not_generate_token=True)
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
-        )
-        vendor.save(not_generate_secret=True)
-        self.p1 = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            enabled=False,
-            longitude=1,
-            free_places=5,
-            vendor=vendor
-        )
+        account, account_session = create_account()
+        vendor, self.p1 = create_vendor_parking(park_enabled=False)
         self.p2 = Parking.objects.create(
             name="parking-1",
             description="default",
@@ -1000,7 +812,7 @@ class WantedParkingsTestCase(TestCase):
         for i in [1, 3, 5]:
             url = "/parking/v1/want_parking/%d/" % i
             resp.append(self.client.get(url,
-                                        HTTP_AUTHORIZATION='Token 0ff08840935eb00fad198ef5387423bc24cd15e1'))
+                                        HTTP_AUTHORIZATION='Token TOKEN'))
             print resp[-1].content
         self.assertEqual(resp[0].status_code, 200)
         self.assertEqual(resp[1].status_code, 400)
