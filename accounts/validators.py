@@ -1,10 +1,11 @@
-import re
+# -*- coding: utf-8 -*-
 import datetime
+import re
 
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 
 from base.exceptions import ValidationException
-from django.core.validators import validate_email
 from base.validators import BaseValidator
 
 
@@ -17,7 +18,7 @@ class IdValidator(BaseValidator):
             return False
         try:
             self.request.data["id"] = int(id)
-        except Exception:
+        except ValueError:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Id has invalid format"
             return False
@@ -70,6 +71,7 @@ class ConfirmLoginParamValidator(BaseValidator):
             self.message = str(e.message)
             return False
         return True
+
 
 class EmailAndPasswordValidator(BaseValidator):
     def is_valid(self):
@@ -175,15 +177,16 @@ def validate_email_format(value):
 
 
 def validate_name(value):
-    # TODO implement
-    pass
+    regex = r'[A-Za-zА-Яа-яЁё]{2,50}'
+    if not re.mathc(regex, value):
+        raise ValidationError("Name has invalid format. Please use only letters. Also, length must be <= 41 letters.")
 
 
 def validate_phone_number(value):
-    # Format (+code1) code2+number
-    regex = '^\(\+[0-9]{1,3}\)\s?[0-9]{9,13}$'
+    # Format +0 (123) 456-78-90 or 01234567890 or 0(123)456-78-90 etc.
+    regex = r'^\+?\d[\( ]?\d\d\d[\) ]?\d\d\d[ -]?\d\d[ -]?\d\d$'
     if not re.match(regex, value):
-        raise ValidationError("Phone number has invalid format. Please, send like something (+7)9091234332")
+        raise ValidationError("Phone number has invalid format. Please, send like something +7(909)1234332")
 
 
 def validate_account_birthday(value):
@@ -192,8 +195,7 @@ def validate_account_birthday(value):
 
 
 def validate_account_name(value, field_name="NonameField"):
-    #TODO add accepted regex!
-    regex = "^.*$"
+    regex = "^[A-Za-z0-9]{6,15}$"
     if not re.match(regex,value):
         raise ValidationError("%s has invalid format" % field_name)
 
@@ -201,13 +203,14 @@ def validate_account_name(value, field_name="NonameField"):
 def validate_mail_code(value):
     regex = '^[0-9a-f]{32}$'
     if not re.match(regex, value):
-        raise ValidationError("Invalid activation emails code format")
+        raise ValidationError("Invalid e-mail confirmation code format")
 
 
 def validate_sms_code(value):
     regex = '^[0-9]{5}$'
     if not re.match(regex, value):
         raise ValidationError("Phone code has invalidate format")
+
 
 def validate_password_format(value):
     # Format more than 5
