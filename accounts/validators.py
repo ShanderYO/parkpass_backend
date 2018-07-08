@@ -196,7 +196,7 @@ def validate_account_birthday(value):
 
 def validate_account_name(value, field_name="NonameField"):
     regex = "^[A-Za-z0-9]{6,15}$"
-    if not re.match(regex,value):
+    if not re.match(regex, value):
         raise ValidationError("%s has invalid format" % field_name)
 
 

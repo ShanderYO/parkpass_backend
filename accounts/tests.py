@@ -13,7 +13,7 @@ from parkings.models import Vendor, Parking, ParkingSession, WantedParking
 from parkpass.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
 
-TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token TOKEN'}
+TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'}
 TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
 
 
@@ -26,7 +26,7 @@ def create_account(id=1, name="Test", phone="+7(999)1234567", email="test@testin
     )
     account.set_password(password)
     account_session = AccountSession(
-        token="TOKEN",
+        token=TOKEN,
         account=account
     )
     account_session.set_expire_date()
