@@ -43,6 +43,7 @@ def generate_orders_and_pay():
         state__in=[ParkingSession.STATE_STARTED,
                    ParkingSession.STATE_STARTED_BY_VENDOR,
                    ParkingSession.STATE_COMPLETED_BY_VENDOR,
+                   ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY,
                    ParkingSession.STATE_COMPLETED]
     )
     get_logger().info("start generate_dept_orders task: active sessions")
@@ -68,7 +69,7 @@ def generate_orders_and_pay():
             if order:
                 order.try_pay()
         else:
-            if session.state == ParkingSession.STATE_COMPLETED:
+            if session.state >= ParkingSession.STATE_COMPLETED_BY_VENDOR:
                 session.state = ParkingSession.STATE_CLOSED
                 session.save()
 
