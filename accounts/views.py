@@ -1,5 +1,6 @@
 import datetime
 
+import pytz
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views import View
@@ -473,7 +474,7 @@ class ForceStopParkingSession(LoginRequiredAPIView):
             parking_session = ParkingSession.objects.get(id=id)
             if not parking_session.is_suspended:
                 parking_session.is_suspended = True
-                parking_session.suspended_at = datetime.datetime.now()
+                parking_session.suspended_at = pytz.utc.localize(datetime.datetime.now())
                 parking_session.save()
 
                 # Create payment order and pay

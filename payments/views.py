@@ -142,7 +142,10 @@ class TinkoffCallbackView(APIView):
         try:
             # Change order
             order = Order.objects.get(id=order_id)
-            order.paid = True
+
+            if status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
+
             order.paid_card_pan = request.data.get("Pan", "-")
             order.save()
 
