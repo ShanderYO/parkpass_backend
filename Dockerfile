@@ -42,7 +42,6 @@ WORKDIR /parkpass_backend/
 # Add service.conf
 ADD ./deploy/service.conf /parkpass_backend/
 RUN ln -s /parkpass_backend/service.conf /etc/nginx/conf.d/
-COPY ./deploy/ssl /etc/nginx/ssl
 
 # Add supervisor
 ADD ./deploy/supervisord.conf /parkpass_backend/
@@ -54,7 +53,6 @@ RUN apt-get install -y gunicorn
 
 # Expose port(s)
 EXPOSE 80
-EXPOSE 443
 
 ARG POSTGRES_DB_NAME="main"
 ARG POSTGRES_USER="parkpass"
