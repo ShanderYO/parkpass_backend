@@ -9,4 +9,3 @@ django-simple-serializer==2.0.7
 autotask==0.5.4
 pytz
 django-admin-tools
-pillow
