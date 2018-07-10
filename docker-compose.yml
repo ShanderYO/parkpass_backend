@@ -39,3 +39,4 @@ services:
             - POSTGRES_PASSWORD=parkpass
         ports:
             - "5000:80"
+            - "5000:443"
