@@ -123,14 +123,15 @@ class Order(models.Model):
     sum = models.DecimalField(max_digits=7, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
     paid = models.BooleanField(default=False)
-    paid_card_pan = models.CharField(blank=True,null=True, max_length=31)
+    paid_card_pan = models.CharField(blank=True, null=True, max_length=31)
     session = models.ForeignKey(ParkingSession, null=True, blank=True)
     refund_request = models.BooleanField(default=False)
     refunded_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
-    # for init payment order
-    account = models.ForeignKey(Account, null=True, blank=True)
     fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # for init payment order
+    account = models.ForeignKey(Account, null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -268,6 +269,7 @@ class Order(models.Model):
             fiscal=fiscal
         )
 
+PAYMENT_STATUS_UNKNOWN = -1
 PAYMENT_STATUS_INIT = 0
 PAYMENT_STATUS_NEW = 1
 PAYMENT_STATUS_CANCEL = 2
@@ -282,6 +284,7 @@ PAYMENT_STATUS_PARTIAL_REFUNDED = 10
 PAYMENT_STATUS_RECEIPT = 11
 
 PAYMENT_STATUSES = (
+    (PAYMENT_STATUS_UNKNOWN, 'Unknown'),
     (PAYMENT_STATUS_INIT, 'Init'),
     (PAYMENT_STATUS_NEW, 'New'),
     (PAYMENT_STATUS_CANCEL, 'Cancel'),
