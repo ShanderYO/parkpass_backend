@@ -178,13 +178,13 @@ def validate_email_format(value):
 
 def validate_name(value):
     regex = r'[A-Za-zА-Яа-яЁё]{2,50}'
-    if not re.mathc(regex, value):
+    if not re.match(regex, value):
         raise ValidationError("Name has invalid format. Please use only letters. Also, length must be <= 41 letters.")
 
 
 def validate_phone_number(value):
     # Format +0 (123) 456-78-90 or 01234567890 or 0(123)456-78-90 etc.
-    regex = r'^\+?\d[\( ]?\d\d\d[\) ]?\d\d\d[ -]?\d\d[ -]?\d\d$'
+    regex = r'^\+?\d[\( ]?\d\d\d[\) ]?-? ?\d\d\d[ -]?\d\d[ -]?\d\d$'
     if not re.match(regex, value):
         raise ValidationError("Phone number has invalid format. Please, send like something +7(909)1234332")
 
