@@ -183,7 +183,7 @@ def validate_name(value):
 
 def validate_phone_number(value):
     # Format (+code1) code2+number
-    regex = r'^\+?\d[\( ]?\d\d\d[\) ]?\d\d\d[ -]?\d\d[ -]?\d\d$'
+    regex = r'^\+?\d[\( ]?\d\d\d[\) ]?-? ?\d\d\d[ -]?\d\d[ -]?\d\d$'
     if not re.match(regex, value):
         raise ValidationError("Phone number has invalid format. Please, send like something +7(909)1234332")
 
