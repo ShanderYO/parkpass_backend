@@ -1,23 +1,25 @@
-import hashlib
 import json
-import hmac
 
 from django.test import TestCase
 from django.test import Client
 
-from accounts.models import Account, AccountSession
-from parkings.models import Vendor, Parking
+from accounts.models import Account, AccountSession, AccountTypes
+from parkings.models import Parking
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_NEW
 
 
 class PaymentCallbackTestCase(TestCase):
     """
-        Test for /payments/callback/ API
+        Test for /api/v1/payments/callback/ API
     """
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
+        vendor = Account.objects.create(
+            first_name="Fname",
+            phone="89991234567",
+            email="e@mail.com",
+            account_type=AccountTypes.VENDOR,
+            ven_name="vendor-1",
+            ven_secret="1234567"
         )
         vendor.save(not_generate_secret=True)
 
@@ -59,7 +61,7 @@ class PaymentCallbackTestCase(TestCase):
         self.client = Client()
 
     def test_rejected_callback(self):
-        url = '/payments/callback/'
+        url = '/api/v1/payments/callback/'
         body = json.dumps({
             u'OrderId': u'209',
             u'Status': u'REJECTED',
@@ -78,7 +80,7 @@ class PaymentCallbackTestCase(TestCase):
         print response
 
     def test_confirm_callback(self):
-        url = '/payments/callback/'
+        url = '/api/v1/payments/callback/'
         body = json.dumps({
             u'OrderId': u'209',
             u'Status': u'CONFIRMED',

@@ -10,19 +10,23 @@ from django.test import TestCase
 from django.test import Client
 
 # Create your tests here.
-from accounts.models import Account
-from parkings.models import Vendor, Parking, ParkingSession
+from accounts.models import Account, AccountTypes
+from parkings.models import Parking, ParkingSession
 from rps_vendor.models import RpsParking
 
 
 class UpdateParkingTestCase(TestCase):
     """
-        Test for /parking/v1/update/ API
+        Test for /api/v1/parking/v1/update/ API
     """
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
+        vendor = Account.objects.create(
+            first_name="Fname",
+            phone="89991234567",
+            email="e@mail.com",
+            account_type=AccountTypes.VENDOR,
+            ven_name="test-parking-vendor",
+            ven_secret="12345678"
         )
         vendor.save(not_generate_secret=True)
 
@@ -84,7 +88,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_rps_update_closed_session(self):
-        url = '/parking/rps/session/list/update/'
+        url = '/api/v1/parking/rps/session/list/update/'
         body = json.dumps({
             "parking_id": 1,
             "sessions": [
@@ -102,7 +106,7 @@ class UpdateParkingTestCase(TestCase):
         self.assertEqual(response.status_code, 202)
 
     def test_rps_update_valid_body(self):
-        url = '/parking/rps/session/list/update/'
+        url = '/api/v1/parking/rps/session/list/update/'
         body = json.dumps({
             "parking_id":1,
             "sessions":[

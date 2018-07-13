@@ -9,7 +9,7 @@ from django.template.loader import render_to_string
 from accounts.models import Account
 from parkpass.settings import EMAIL_HOST_USER
 
-
+"""
 class Vendor(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True)
@@ -33,6 +33,7 @@ class Vendor(models.Model):
 
     def generate_secret(self):
         self.secret = binascii.hexlify(os.urandom(32)).decode()
+"""
 
 
 class ParkingManager(models.Manager):
@@ -54,7 +55,7 @@ class Parking(models.Model):
     enabled = models.BooleanField(default=True)
     free_places = models.IntegerField()
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
-    vendor = models.ForeignKey(Vendor, null=True, blank=True)
+    vendor = models.ForeignKey(Account, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
 
     objects = models.Manager()

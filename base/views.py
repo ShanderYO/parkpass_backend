@@ -13,7 +13,7 @@ from django.http import JsonResponse
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException
 from base.validators import ValidatePostParametersMixin
-from parkings.models import Vendor
+from accounts.models import Account
 
 
 class APIView(View, ValidatePostParametersMixin):
@@ -63,8 +63,8 @@ class SignedRequestAPIView(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
         try:
-            request.vendor = Vendor.objects.get(
-                name=str(request.META["HTTP_X_VENDOR_NAME"])
+            request.vendor = Account.objects.get(
+                ven_name=str(request.META["HTTP_X_VENDOR_NAME"])
             )
         except ObjectDoesNotExist:
             e = PermissionException(
@@ -73,7 +73,7 @@ class SignedRequestAPIView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        signature = hmac.new(str(request.vendor.secret), request.body, hashlib.sha512)
+        signature = hmac.new(str(request.vendor.ven_secret), request.body, hashlib.sha512)
 
         if signature.hexdigest() != request.META["HTTP_X_SIGNATURE"].lower():
             e = PermissionException(

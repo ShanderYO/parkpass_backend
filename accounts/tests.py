@@ -8,8 +8,8 @@ from os.path import isfile
 from django.test import Client
 from django.test import TestCase
 
-from accounts.models import Account, AccountSession
-from parkings.models import Vendor, Parking, ParkingSession, WantedParking
+from accounts.models import Account, AccountSession, AccountTypes
+from parkings.models import Parking, ParkingSession, WantedParking
 from parkpass.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
 
@@ -37,9 +37,13 @@ def create_account(id=1, name="Test", phone="+7(999)1234567", email="test@testin
 
 def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678", park_enabled=True,
                           park_name="parking-1", park_desc="default", park_lat=1, park_lon=1, park_places=5):
-    v = Vendor(
-        name=ven_name,
-        secret=ven_secret
+    v = Account(
+        first_name="Fname",
+        phone="89991234567",
+        email="e@mail.com",
+        account_type=AccountTypes.VENDOR,
+        ven_name=ven_name,
+        ven_secret=ven_secret
     )
     v.save(not_generate_secret=True)
     p = Parking.objects.create(
@@ -764,7 +768,7 @@ class AccountAvatarTestCase(AccountTestCase):
                                         **TOKEN_DICT)
         print response.content
         self.assertEqual(response.status_code, 200)
-        phone = "+7(123)4567890"
+        phone = "71234567890"
         path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
         self.assertTrue(isfile(path))
         remove(path)

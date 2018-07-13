@@ -118,7 +118,7 @@ class UpdateParkingView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.name)
+                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.ven_name)
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -138,7 +138,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.name)
+                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.ven_name)
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -313,7 +313,7 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.name)
+                "Parking with id %s for vendor '%s' not found" % (parking_id, request.vendor.ven_name)
             )
             return JsonResponse(e.to_dict(), status=400)
         return JsonResponse({}, status=202)

@@ -6,19 +6,23 @@ import datetime
 from django.test import TestCase
 from django.test import Client
 
-from accounts.models import Account, AccountSession
+from accounts.models import Account, AccountSession, AccountTypes
 from base.exceptions import ValidationException
-from parkings.models import Vendor, Parking, ParkingSession
+from parkings.models import Parking, ParkingSession
 
 
 class UpdateParkingTestCase(TestCase):
     """
-        Test for /parking/v1/update/ API
+        Test for /api/v1/parking/update/ API
     """
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
+        vendor = Account.objects.create(
+            first_name="Fname",
+            phone="89991234567",
+            email="e@mail.com",
+            account_type=AccountTypes.VENDOR,
+            ven_name="vendor-1",
+            ven_secret="1234567"
         )
         vendor.save(not_generate_secret=True)
 
@@ -46,17 +50,15 @@ class UpdateParkingTestCase(TestCase):
         )
         self.client = Client()
 
-
     def _make_signed_json_post(self, url, body):
-        signature = hmac.new("12345678", body, hashlib.sha512)
+        signature = hmac.new("1234567", body, hashlib.sha512)
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
+                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
         return response
 
-
     def test_update_empty_body(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
         body = json.dumps({
         })
         response = self._make_signed_json_post(url, body)
@@ -68,7 +70,7 @@ class UpdateParkingTestCase(TestCase):
     
 
     def test_update_incomplete_body(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Not set up parking_id
         body = json.dumps({
@@ -94,7 +96,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_invalid_body(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Set parking_id not int
         body = json.dumps({
@@ -147,7 +149,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_undefined_parking(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -163,7 +165,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_forbidden_parking(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -177,9 +179,8 @@ class UpdateParkingTestCase(TestCase):
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
 
-
     def test_update_valid(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -187,18 +188,22 @@ class UpdateParkingTestCase(TestCase):
             "free_places": 10
         })
         response = self._make_signed_json_post(url, body)
-        self.assertEqual(response.status_code, 200)
         print response.content
+        self.assertEqual(response.status_code, 200)
 
 
 class CreateSessionParkingTestCase(TestCase):
     """
-        Test for /parking/v1/session/create/ API
+        Test for /api/v1/parking/session/create/ API
     """
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
+        vendor = Account.objects.create(
+            first_name="Fname",
+            phone="89991234567",
+            email="e@mail.com",
+            account_type=AccountTypes.VENDOR,
+            ven_name="vendor-1",
+            ven_secret="1234567"
         )
         vendor.save(not_generate_secret=True)
 
@@ -237,15 +242,15 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def _make_signed_json_post(self, url, body):
-        signature = hmac.new("12345678", body, hashlib.sha512)
+        signature = hmac.new("1234567", body, hashlib.sha512)
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
+                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
         return response
 
 
     def test_empty_body(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
         body = json.dumps({
         })
         response = self._make_signed_json_post(url, body)
@@ -257,7 +262,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_incomplete_body(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Not set up started_at
         body = json.dumps({
@@ -287,7 +292,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_session_id(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up session_id more 128 symbols
         body = json.dumps({
@@ -305,13 +310,13 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_client_id(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up not existing client_id
         body = json.dumps({
             "session_id": "".join(["x" for x in range(0,128)]),
             "parking_id": 1,
-            "client_id": 2,
+            "client_id": 25,
             "started_at": 1000000
         })
         response = self._make_signed_json_post(url, body)
@@ -323,7 +328,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_parking_id(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -341,7 +346,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_forbidden_parking(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up foreign parking_id
         body = json.dumps({
@@ -359,7 +364,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_already_exist_session_id(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up session_id is exist-session-id
         body = json.dumps({
@@ -377,7 +382,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_create_session_valid(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up session_id new value
         body = json.dumps({
@@ -392,12 +397,16 @@ class CreateSessionParkingTestCase(TestCase):
 
 class UpdateSessionParkingTestCase(TestCase):
     """
-        Test for /parking/v1/session/update/ API
+        Test for /api/v1/parking/session/update/ API
     """
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
+        vendor = Account.objects.create(
+            first_name="Fname",
+            phone="89991234567",
+            email="e@mail.com",
+            account_type=AccountTypes.VENDOR,
+            ven_name="vendor-1",
+            ven_secret="1234567"
         )
         vendor.save(not_generate_secret=True)
 
@@ -443,15 +452,15 @@ class UpdateSessionParkingTestCase(TestCase):
         self.client = Client()
 
     def _make_signed_json_post(self, url, body):
-        signature = hmac.new("12345678", body, hashlib.sha512)
+        signature = hmac.new("1234567", body, hashlib.sha512)
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
+                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
         return response
 
 
     def test_empty_body(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up empty body
         body = json.dumps({
@@ -465,7 +474,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_session_id(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up session_id more 128 symbols
         body = json.dumps({
@@ -483,7 +492,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_debt_negative_value(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up debt negative sign
         body = json.dumps({
@@ -501,7 +510,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_debt_string_value(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up debt string
         body = json.dumps({
@@ -519,7 +528,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_not_existing_session_id(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not existing session_id
         body = json.dumps({
@@ -537,7 +546,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_not_existing_parking_id(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -555,7 +564,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_not_forbidden_parking_id(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not forbidden parking_id
         body = json.dumps({
@@ -572,7 +581,7 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_update_already_completed(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not completed session_id
         body = json.dumps({
@@ -591,7 +600,7 @@ class UpdateSessionParkingTestCase(TestCase):
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
 
     def test_update_session_valid(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not completed session_id
         body = json.dumps({
@@ -608,12 +617,16 @@ class UpdateSessionParkingTestCase(TestCase):
 
 class CompleteSessionParkingTestCase(TestCase):
     """
-        Test for /parking/v1/session/complete/ API
+        Test for /api/v1/parking/session/complete/ API
     """
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
+        vendor = Account.objects.create(
+            first_name="Fname",
+            phone="89991234567",
+            email="e@mail.com",
+            account_type=AccountTypes.VENDOR,
+            ven_name="vendor-1",
+            ven_secret="1234567"
         )
         vendor.save(not_generate_secret=True)
 
@@ -659,16 +672,16 @@ class CompleteSessionParkingTestCase(TestCase):
         self.client = Client()
 
     def _make_signed_json_post(self, url, body):
-        signature = hmac.new("12345678", body, hashlib.sha512)
+        signature = hmac.new("1234567", body, hashlib.sha512)
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
+                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
         return response
 
     # TODO add need tests
 
     def test_completed_session_valid(self):
-        url = '/parking/v1/session/complete/'
+        url = '/api/v1/parking/session/complete/'
 
         # Set up not completed session_id
         body = json.dumps({
@@ -684,12 +697,16 @@ class CompleteSessionParkingTestCase(TestCase):
 
 class UpdateListSessionParkingTestCase(TestCase):
     """
-        Test for /parking/v1/session/list/update/ API
+        Test for /api/v1/parking/session/list/update/ API
     """
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
+        vendor = Account.objects.create(
+            first_name="Fname",
+            phone="89991234567",
+            email="e@mail.com",
+            account_type=AccountTypes.VENDOR,
+            ven_name="vendor-1",
+            ven_secret="1234567"
         )
         vendor.save(not_generate_secret=True)
 
@@ -714,14 +731,14 @@ class UpdateListSessionParkingTestCase(TestCase):
         self.client = Client()
 
     def _make_signed_json_post(self, url, body):
-        signature = hmac.new("12345678", body, hashlib.sha512)
+        signature = hmac.new("1234567", body, hashlib.sha512)
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
+                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
         return response
 
     def test_empty_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
 
         # Set up empty body
         body = json.dumps({
@@ -735,7 +752,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_empty_parking_id_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
         # Not set up parking_id
         body = json.dumps({
             "sessions": [
@@ -755,7 +772,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_empty_session_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
 
         # Not set up sessions
         body = json.dumps({
@@ -770,7 +787,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_invalid_sessions_type_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
         # Not set up sessions as string
         body = json.dumps({
             "parking_id": 1,
@@ -784,7 +801,7 @@ class UpdateListSessionParkingTestCase(TestCase):
         print response.content
 
     def test_invalid_inner_sessions_type_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
         # Not set up sessions as string
         body = json.dumps({
             "parking_id": 1,
@@ -804,7 +821,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_update_list_session_forbidden_parking(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
 
         # Set up forbidden parking_id
         body = json.dumps({
@@ -831,7 +848,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_update_list_session_valid(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
 
         # Set up valid sessions format
         body = json.dumps({
@@ -860,9 +877,13 @@ class ComplainTestCase(TestCase):
         Test for /parking/complain/ API
     """
     def setUp(self):
-        vendor = Vendor(
-            name="test-parking-vendor",
-            secret="12345678"
+        vendor = Account.objects.create(
+            first_name="Fname",
+            phone="89991234567",
+            email="e@mail.com",
+            account_type=AccountTypes.VENDOR,
+            ven_name="vendor-1",
+            ven_secret="1234567"
         )
         vendor.save(not_generate_secret=True)
 
