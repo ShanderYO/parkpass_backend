@@ -1,30 +1,54 @@
-import hashlib
-import json
-import hmac
-
 import datetime
-from django.test import TestCase
+import hashlib
+import hmac
+import json
+
 from django.test import Client
+from django.test import TestCase
 
 from accounts.models import Account, AccountSession, AccountTypes
+from accounts.tests import create_account
 from base.exceptions import ValidationException
 from parkings.models import Parking, ParkingSession
 
+
+class VendorFixture:
+    def __init__(self, first_name="Fname", phone="89991234567", email="e@mail.com",
+                 account_type=AccountTypes.VENDOR, ven_name="vendor-1", ven_secret="1234567"):
+        self.vendor = Account.objects.create(
+            first_name=first_name,
+            phone=phone,
+            email=email,
+            account_type=account_type,
+            ven_name=ven_name,
+            ven_secret=ven_secret
+        )
+        self.vendor.save(not_generate_secret=True)
+        self.ven_name = ven_name
+        self.ven_secret = ven_secret
+        self.client = Client()
+
+    def make_signed_json_post(self, url, body):
+        signature = hmac.new(self.ven_secret, body, hashlib.sha512)
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
+                                       'HTTP_X_VENDOR_NAME': self.ven_name})
+        return response
+        
 
 class UpdateParkingTestCase(TestCase):
     """
         Test for /api/v1/parking/update/ API
     """
     def setUp(self):
-        vendor = Account.objects.create(
-            first_name="Fname",
-            phone="89991234567",
-            email="e@mail.com",
-            account_type=AccountTypes.VENDOR,
-            ven_name="vendor-1",
-            ven_secret="1234567"
+        self.vendor = VendorFixture()
+        self.not_vendor = VendorFixture(
+            email="e@e.com",
+            phone="12345678900",
+            account_type=AccountTypes.USER,
+            ven_name="vendor-2",
+            ven_secret="12321321"
         )
-        vendor.save(not_generate_secret=True)
 
         Parking.objects.create(
             name="parking-1",
@@ -32,7 +56,7 @@ class UpdateParkingTestCase(TestCase):
             latitude=1,
             longitude=1,
             free_places=5,
-            vendor=vendor
+            vendor=self.vendor.vendor
         )
 
         Parking.objects.create(
@@ -50,18 +74,11 @@ class UpdateParkingTestCase(TestCase):
         )
         self.client = Client()
 
-    def _make_signed_json_post(self, url, body):
-        signature = hmac.new("1234567", body, hashlib.sha512)
-        response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
-        return response
-
     def test_update_empty_body(self):
         url = '/api/v1/parking/update/'
         body = json.dumps({
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -76,7 +93,7 @@ class UpdateParkingTestCase(TestCase):
         body = json.dumps({
             "free_places": "dimas@carabas.com"
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -87,7 +104,7 @@ class UpdateParkingTestCase(TestCase):
         body = json.dumps({
             "parking_id":1
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -103,7 +120,7 @@ class UpdateParkingTestCase(TestCase):
             "parking_id": "wrong_id",
             "free_places": 12
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -115,7 +132,7 @@ class UpdateParkingTestCase(TestCase):
             "parking_id": "-12",
             "free_places": 12
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -128,7 +145,7 @@ class UpdateParkingTestCase(TestCase):
             "free_places": "more"
         })
 
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -140,7 +157,7 @@ class UpdateParkingTestCase(TestCase):
             "parking_id": 1,
             "free_places": "-1"
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -156,7 +173,7 @@ class UpdateParkingTestCase(TestCase):
             "parking_id": 3,
             "free_places": 10
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -172,7 +189,7 @@ class UpdateParkingTestCase(TestCase):
             "parking_id": 2,
             "free_places": 10
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -187,9 +204,21 @@ class UpdateParkingTestCase(TestCase):
             "parking_id": 1,
             "free_places": 10
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         print response.content
         self.assertEqual(response.status_code, 200)
+
+    def test_update_unprivileged(self):
+        url = '/api/v1/parking/update/'
+
+        # Set up not existing parking_id
+        body = json.dumps({
+            "parking_id": 1,
+            "free_places": 10
+        })
+        response = self.not_vendor.make_signed_json_post(url, body)
+        print response.content
+        self.assertEqual(response.status_code, 400)
 
 
 class CreateSessionParkingTestCase(TestCase):
@@ -197,15 +226,7 @@ class CreateSessionParkingTestCase(TestCase):
         Test for /api/v1/parking/session/create/ API
     """
     def setUp(self):
-        vendor = Account.objects.create(
-            first_name="Fname",
-            phone="89991234567",
-            email="e@mail.com",
-            account_type=AccountTypes.VENDOR,
-            ven_name="vendor-1",
-            ven_secret="1234567"
-        )
-        vendor.save(not_generate_secret=True)
+        self.vendor = VendorFixture()
 
         parking_1 = Parking.objects.create(
             name="parking-1",
@@ -213,7 +234,7 @@ class CreateSessionParkingTestCase(TestCase):
             latitude=1,
             longitude=1,
             free_places=5,
-            vendor=vendor
+            vendor=self.vendor.vendor
         )
 
         Parking.objects.create(
@@ -241,19 +262,11 @@ class CreateSessionParkingTestCase(TestCase):
         self.client = Client()
 
 
-    def _make_signed_json_post(self, url, body):
-        signature = hmac.new("1234567", body, hashlib.sha512)
-        response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
-        return response
-
-
     def test_empty_body(self):
         url = '/api/v1/parking/session/create/'
         body = json.dumps({
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -270,7 +283,7 @@ class CreateSessionParkingTestCase(TestCase):
             "parking_id":1,
             "client_id":1
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -283,7 +296,7 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at":10000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -301,7 +314,7 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -319,7 +332,7 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 25,
             "started_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -337,7 +350,7 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -355,7 +368,7 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -373,7 +386,7 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -391,7 +404,7 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
 
 
@@ -400,15 +413,7 @@ class UpdateSessionParkingTestCase(TestCase):
         Test for /api/v1/parking/session/update/ API
     """
     def setUp(self):
-        vendor = Account.objects.create(
-            first_name="Fname",
-            phone="89991234567",
-            email="e@mail.com",
-            account_type=AccountTypes.VENDOR,
-            ven_name="vendor-1",
-            ven_secret="1234567"
-        )
-        vendor.save(not_generate_secret=True)
+        self.vendor = VendorFixture()
 
         parking_1 = Parking.objects.create(
             name="parking-1",
@@ -416,7 +421,7 @@ class UpdateSessionParkingTestCase(TestCase):
             latitude=1,
             longitude=1,
             free_places=5,
-            vendor=vendor
+            vendor=self.vendor.vendor
         )
 
         Parking.objects.create(
@@ -451,27 +456,18 @@ class UpdateSessionParkingTestCase(TestCase):
 
         self.client = Client()
 
-    def _make_signed_json_post(self, url, body):
-        signature = hmac.new("1234567", body, hashlib.sha512)
-        response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
-        return response
-
-
     def test_empty_body(self):
         url = '/api/v1/parking/session/update/'
 
         # Set up empty body
         body = json.dumps({
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
-
 
     def test_invalid_session_id(self):
         url = '/api/v1/parking/session/update/'
@@ -483,13 +479,12 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 2,
             "updated_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
-
 
     def test_invalid_debt_negative_value(self):
         url = '/api/v1/parking/session/update/'
@@ -501,13 +496,12 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": "-2",
             "updated_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
-
 
     def test_invalid_debt_string_value(self):
         url = '/api/v1/parking/session/update/'
@@ -519,13 +513,12 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": "test-string",
             "updated_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
-
 
     def test_not_existing_session_id(self):
         url = '/api/v1/parking/session/update/'
@@ -537,13 +530,12 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
-
 
     def test_not_existing_parking_id(self):
         url = '/api/v1/parking/session/update/'
@@ -555,13 +547,12 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
-
 
     def test_not_forbidden_parking_id(self):
         url = '/api/v1/parking/session/update/'
@@ -573,7 +564,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -590,7 +581,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         print "test_update_already_completed"
@@ -609,7 +600,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
         # VAlidation error
         print response.content
@@ -620,15 +611,7 @@ class CompleteSessionParkingTestCase(TestCase):
         Test for /api/v1/parking/session/complete/ API
     """
     def setUp(self):
-        vendor = Account.objects.create(
-            first_name="Fname",
-            phone="89991234567",
-            email="e@mail.com",
-            account_type=AccountTypes.VENDOR,
-            ven_name="vendor-1",
-            ven_secret="1234567"
-        )
-        vendor.save(not_generate_secret=True)
+        self.vendor = VendorFixture()
 
         parking_1 = Parking.objects.create(
             name="parking-1",
@@ -636,7 +619,7 @@ class CompleteSessionParkingTestCase(TestCase):
             latitude=1,
             longitude=1,
             free_places=5,
-            vendor=vendor
+            vendor=self.vendor.vendor
         )
 
         Parking.objects.create(
@@ -671,13 +654,6 @@ class CompleteSessionParkingTestCase(TestCase):
 
         self.client = Client()
 
-    def _make_signed_json_post(self, url, body):
-        signature = hmac.new("1234567", body, hashlib.sha512)
-        response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
-        return response
-
     # TODO add need tests
 
     def test_completed_session_valid(self):
@@ -690,7 +666,7 @@ class CompleteSessionParkingTestCase(TestCase):
             "debt": 100,
             "completed_at": 1000000
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
         print response.content
 
@@ -700,15 +676,7 @@ class UpdateListSessionParkingTestCase(TestCase):
         Test for /api/v1/parking/session/list/update/ API
     """
     def setUp(self):
-        vendor = Account.objects.create(
-            first_name="Fname",
-            phone="89991234567",
-            email="e@mail.com",
-            account_type=AccountTypes.VENDOR,
-            ven_name="vendor-1",
-            ven_secret="1234567"
-        )
-        vendor.save(not_generate_secret=True)
+        self.vendor = VendorFixture()
 
         Parking.objects.create(
             name="parking-1",
@@ -716,7 +684,7 @@ class UpdateListSessionParkingTestCase(TestCase):
             latitude=1,
             longitude=1,
             free_places=5,
-            vendor=vendor
+            vendor=self.vendor.vendor
         )
 
         Parking.objects.create(
@@ -730,20 +698,13 @@ class UpdateListSessionParkingTestCase(TestCase):
 
         self.client = Client()
 
-    def _make_signed_json_post(self, url, body):
-        signature = hmac.new("1234567", body, hashlib.sha512)
-        response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "vendor-1"})
-        return response
-
     def test_empty_body(self):
         url = '/api/v1/parking/session/list/update/'
 
         # Set up empty body
         body = json.dumps({
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -763,7 +724,7 @@ class UpdateListSessionParkingTestCase(TestCase):
                 },
             ]
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -778,7 +739,7 @@ class UpdateListSessionParkingTestCase(TestCase):
         body = json.dumps({
             "parking_id": 1
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -793,7 +754,7 @@ class UpdateListSessionParkingTestCase(TestCase):
             "parking_id": 1,
             "sessions": "session-string"
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -811,14 +772,12 @@ class UpdateListSessionParkingTestCase(TestCase):
                     "updated_at": 10000
                 }
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
-
-
 
     def test_update_list_session_forbidden_parking(self):
         url = '/api/v1/parking/session/list/update/'
@@ -839,7 +798,7 @@ class UpdateListSessionParkingTestCase(TestCase):
             ],
             "parking_id": 2,
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -866,10 +825,9 @@ class UpdateListSessionParkingTestCase(TestCase):
             ],
             "parking_id": 1,
         })
-        response = self._make_signed_json_post(url, body)
+        response = self.vendor.make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 202)
         print response.content
-
 
 
 class ComplainTestCase(TestCase):
@@ -877,15 +835,7 @@ class ComplainTestCase(TestCase):
         Test for /parking/complain/ API
     """
     def setUp(self):
-        vendor = Account.objects.create(
-            first_name="Fname",
-            phone="89991234567",
-            email="e@mail.com",
-            account_type=AccountTypes.VENDOR,
-            ven_name="vendor-1",
-            ven_secret="1234567"
-        )
-        vendor.save(not_generate_secret=True)
+        self.vendor = VendorFixture()
 
         parking_1 = Parking.objects.create(
             name="parking-1",
@@ -893,7 +843,7 @@ class ComplainTestCase(TestCase):
             latitude=1,
             longitude=1,
             free_places=5,
-            vendor=vendor
+            vendor=self.vendor.vendor
         )
 
         account = Account.objects.create(
@@ -961,3 +911,58 @@ class ComplainTestCase(TestCase):
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
+
+
+class StatisticsTestCase(TestCase):
+    def setUp(self):
+        self.vendor = VendorFixture(ven_name="ven", ven_secret="Victorias")
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            free_places=5,
+            vendor=self.vendor.vendor
+        )
+
+        account, acc_session = create_account()
+
+        for i in range(0, 100, 1):
+            ps = ParkingSession.objects.create(
+                session_id="exist-session-id%d" % i,
+                client=account,
+                parking=parking_1,
+                state=ParkingSession.STATE_COMPLETED,
+                started_at=datetime.datetime.fromtimestamp(i)
+            )
+            ps.save()
+
+    def test_parking_stats(self):
+        url = '/api/v1/parking/stats/parking/'
+
+        body = json.dumps({
+            'start': 10,
+            'end': 80,
+            'pk': 1,
+        })
+
+        response = self.vendor.make_signed_json_post(url, body)
+
+        print response.content
+        result = json.loads(response.content)['sessions']
+        self.assertEqual(len(result), 10)
+        starts = []
+        for i in result:
+            starts.append(i['started_at'])
+        self.assertFalse('90' in starts)
+
+    def test_without_time(self):
+        url = '/api/v1/parking/stats/parking/'
+
+        body = json.dumps({
+            'pk': 1,
+        })
+
+        response = self.vendor.make_signed_json_post(url, body)
+
+        self.assertEqual(200, response.status_code)

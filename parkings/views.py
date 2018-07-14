@@ -1,9 +1,14 @@
+from datetime import datetime, timedelta
+
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account
+from accounts.models import AccountTypes
+from accounts.views import only_for
+from base.exceptions import PermissionException
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
 from base.views import LoginRequiredAPIView, SignedRequestAPIView
@@ -12,6 +17,51 @@ from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator
+
+
+class ParkingStatisticsView(SignedRequestAPIView):
+    def post(self, request):
+        try:
+            id = int(request.data.get("pk", -1))
+            start_from = int(request.data.get("start", -1))
+            stop_at = int(request.data.get("end", -1))
+            page = int(request.data.get("page", 0))
+            count = int(request.data.get("count", 10))
+        except ValueError:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "All fields must be int"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if id < 0 or stop_at < start_from:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "One or more required parameters isn't specified correctly"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        try:
+            parking = Parking.objects.get(id=id, vendor=request.vendor)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Target parking with such id not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        stat = ParkingSession.objects.filter(
+            parking=parking,
+            started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
+            else datetime.now() - timedelta(days=31),
+            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now()
+        )
+        lst = []
+        length = len(stat)
+        if len(stat) > count:
+            stat = stat[page * count:(page + 1) * count]
+        for ps in stat:
+            lst.append(
+                serializer(ps)
+            )
+        return JsonResponse({'sessions': lst, 'count': length})
 
 
 class GetParkingView(LoginRequiredAPIView):
@@ -23,13 +73,18 @@ class GetParkingView(LoginRequiredAPIView):
                 ValidationException.RESOURCE_NOT_FOUND,
                 "Target parking with such id not found"
             )
-            return JsonResponse(e.to_dict())
+            return JsonResponse(e.to_dict(), status=400)
         result_dict = serializer(parking, exclude_attr=("created_at", "enabled", "vendor_id", "max_client_debt",))
         return JsonResponse(result_dict, status=200)
 
 
 class WantParkingView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         try:
             parking = Parking.objects.get(id=int(kwargs['parking']))
         except ObjectDoesNotExist:

@@ -57,7 +57,6 @@ urlpatterns = [
     url(r'^session/list/$', AccountParkingListView.as_view()),
     url(r'^session/debt/$', DebtParkingSessionView.as_view()),
     url(r'^session/pay/$', ForcePayView.as_view()),
-
 ]
 
 urlpatterns += staticfiles_urlpatterns()

@@ -1,19 +1,19 @@
 # Python import
-import json
 import hashlib
 import hmac
+import json
 
 # Django import
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from django.http import JsonResponse
 
+from accounts.models import Account, AccountTypes
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException
 from base.validators import ValidatePostParametersMixin
-from accounts.models import Account
 
 
 class APIView(View, ValidatePostParametersMixin):
@@ -64,8 +64,17 @@ class SignedRequestAPIView(APIView):
 
         try:
             request.vendor = Account.objects.get(
-                ven_name=str(request.META["HTTP_X_VENDOR_NAME"])
+                ven_name=str(request.META["HTTP_X_VENDOR_NAME"]),
+                account_type=AccountTypes.VENDOR
             )
+            """
+            if request.vendor.account_type != AccountTypes.VENDOR:
+                e = PermissionException(
+                    PermissionException.VENDOR_NOT_FOUND,
+                    "This account has no vendor privelegies"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+            """
         except ObjectDoesNotExist:
             e = PermissionException(
                 PermissionException.VENDOR_NOT_FOUND,

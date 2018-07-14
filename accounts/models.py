@@ -3,9 +3,10 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
+from enum import Enum
 from hashlib import md5
 from io import BytesIO
-from enum import Enum
+
 from PIL import Image
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.models import User
@@ -16,6 +17,7 @@ from django.db.models import BigAutoField
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from accounts.sms_gateway import SMSGateway
 from base.exceptions import ValidationException
 from parkpass.settings import EMAIL_HOST_USER, AVATARS_ROOT, AVATARS_URL
 
@@ -92,6 +94,9 @@ class Account(models.Model):
             else:
                 del kwargs["not_generate_secret"]
 
+        if self.password == "stub" and self.email != "":
+            self.create_password_and_send()
+
         def clear_number(num):
             return num.replace("+", "").replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
 
@@ -150,7 +155,10 @@ class Account(models.Model):
         raw_password = self.generate_random_password()
         self.set_password(raw_password)
         self.save()
-        self.send_password_mail(raw_password)
+        if self.email:
+            self.send_password_mail(raw_password)
+        else:
+            self.send_password_sms(raw_password)
 
     def send_password_mail(self, raw_password):
         render_data = {
@@ -160,6 +168,10 @@ class Account(models.Model):
                                     render_data)
         send_mail('Parkpass password', "", EMAIL_HOST_USER,
                   ['%s' % str(self.email)], html_message=msg_html)
+
+    def send_password_sms(self, raw_password):
+        sms_gateway = SMSGateway()
+        sms_gateway.send_sms(self.phone, raw_password)
 
     def generate_random_password(self):
         raw_password = User.objects.make_random_password(8)

@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from django.views import View
 from dss.Serializer import serializer
 
-from accounts.models import Account, EmailConfirmation, AccountSession
+from accounts.models import Account, EmailConfirmation, AccountSession, AccountTypes
 from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
@@ -23,6 +23,11 @@ from parkings.models import ParkingSession, Parking
 from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
+
+
+def only_for(account, account_type):
+    if account.account_type != account_type:
+        raise PermissionException(325, "You haven't privelegied to use this method")
 
 
 class LoginView(APIView):
@@ -65,6 +70,10 @@ class ConfirmLoginView(APIView):
                 AuthException.NOT_FOUND_CODE,
                 "Account with pending sms-code not found")
             return JsonResponse(e.to_dict(), status=400)
+
+
+class CreateUserView():
+    pass
 
 
 class PasswordRestoreView(APIView):
@@ -125,6 +134,11 @@ class DeactivateAccountView(LoginRequiredAPIView):
     """
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         account = request.account
         CreditCard.objects.filter(account=account).delete()
 
@@ -210,9 +224,11 @@ class AccountView(LoginRequiredAPIView):
     validator_class = AccountParamValidator
 
     def get(self, request):
-        account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code", "password"))
-        card_list = CreditCard.get_card_by_account(request.account)
-        account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "exp_date", "is_default"))
+        vendor_tuple = ("ven_name", "ven_secret") if request.account.account_type != AccountTypes.VENDOR else ()
+        account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code", "password") + vendor_tuple)
+        if request.account.account_type == AccountTypes.USER:
+            card_list = CreditCard.get_card_by_account(request.account)
+            account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "exp_date", "is_default"))
         return JsonResponse(account_dict, status=200)
 
     def post(self, request):
@@ -294,6 +310,11 @@ class AccountParkingListView(LoginRequiredAPIView):
 
 class DebtParkingSessionView(LoginRequiredAPIView):
     def get(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         current_parking_session = ParkingSession.get_active_session(request.account)
         if current_parking_session:
             debt_dict = serializer(current_parking_session, exclude_attr=("session_id", "client_id", "created_at",))
@@ -309,6 +330,11 @@ class GetReceiptView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         id = int(request.data["id"])
         try:
             parking_session = ParkingSession.objects.get(id=id)
@@ -330,6 +356,11 @@ class SendReceiptToEmailView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         id = int(request.data["id"])
         if request.account.email is None:
             e = PermissionException(
@@ -413,6 +444,11 @@ class ForcePayView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         id = int(request.data["id"])
         try:
             parking_session = ParkingSession.objects.get(id=id)
@@ -430,6 +466,11 @@ class ForcePayView(LoginRequiredAPIView):
 
 class AddCardView(LoginRequiredAPIView):
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         result_dict = CreditCard.bind_request(request.account)
 
         # If error request
@@ -464,6 +505,11 @@ class DeleteCardView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         card_id = request.data["id"]
         try:
             card = CreditCard.objects.get(id=card_id, account=request.account)
@@ -495,6 +541,11 @@ class SetDefaultCardView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         card_id = request.data["id"]
         try:
             card = CreditCard.objects.get(id=card_id, account=request.account)
@@ -517,6 +568,11 @@ class StartParkingSession(LoginRequiredAPIView):
     validator_class = StartAccountParkingSessionValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         session_id = request.data["session_id"]
         parking_id = int(request.data["parking_id"])
         started_at = int(request.data["started_at"])
@@ -570,6 +626,11 @@ class ForceStopParkingSession(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         id = int(request.data["id"])
 
         try:
@@ -596,6 +657,11 @@ class ResumeParkingSession(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         id = int(request.data["id"])
 
         try:
@@ -623,6 +689,11 @@ class CompleteParkingSession(LoginRequiredAPIView):
     validator_class = CompleteAccountParkingSessionValidator
 
     def post(self, request):
+        try:
+            only_for(request.account, AccountTypes.USER)
+        except PermissionException as e:
+            return JsonResponse(e.to_dict(), status=400)
+
         session_id = request.data["id"]
         parking_id = int(request.data["parking_id"])
         completed_at = int(request.data["completed_at"])

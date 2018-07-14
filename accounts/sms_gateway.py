@@ -53,7 +53,7 @@ class SMSGateway(object):
             )
 
     def _get_phone_format(self, phone):
-        return phone.replace('+', '').replace('(', '').replace(')', '').replace(' ', '')
+        return phone.replace('+', '').replace('(', '').replace(')', '').replace(' ', '').replace('-', '')
 
     def _get_sms_content(self, code):
         return "Secret+code+for+login+%s" % code

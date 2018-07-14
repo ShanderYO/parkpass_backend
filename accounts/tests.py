@@ -17,9 +17,8 @@ TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd1
 TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
 
 
-def create_account(id=1, name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"):
+def create_account(id=1, name="Test", phone="+7(999)0234567", email="test@testing.com", password="qwerty"):
     account = Account.objects.create(
-        id=id,
         first_name=name,
         phone=phone,
         email=email
@@ -274,7 +273,6 @@ class AccountTestCase(TestCase):
 
         response = self.client.post(url, body, content_type="application/json",
                                     **TOKEN_DICT)
-        print "!!!!!!!", response.content, response.status_code
 
     def test_new_session_without_card(self):
         url = "/api/v1/account/session/create/"
