@@ -9,6 +9,7 @@ from payments.models import TinkoffPayment
 def start_cancel_request(order):
     payments = TinkoffPayment.order.filter(order=order)
     if not payments.exists():
+        get_logger().info("Payments were not found: ")
         return None
     payment = payments[0]
 

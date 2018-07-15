@@ -99,6 +99,9 @@ class TinkoffCallbackView(APIView):
                 get_logger().warn("Unknown successefull operation")
 
             order.paid_card_pan = pan
+
+            if self.status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
             order.save()
 
         get_logger().info("status 200: OK")
