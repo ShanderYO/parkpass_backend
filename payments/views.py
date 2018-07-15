@@ -34,39 +34,35 @@ class TinkoffCallbackView(APIView):
             get_logger().error("status 400: Unknown status: -> %s" % request.data["Status"])
             return HttpResponse(status=400)
 
-
-        # Check RECEIPT
+        # Check if RECEIPT
         # TODO check if is_successful == False
         if self.status == PAYMENT_STATUS_RECEIPT:
             return self.create_fiskal_and_return_response(request.data)
 
+        # Read general params
         order_id = int(request.data["OrderId"])
         payment_id = int(request.data["PaymentId"])
-        amount = int(request.data["Amount"])
-        card_id = int(request.data["CardId"])
-        pan = request.data["Pan"]
-        exp_date = request.data["ExpDate"]
+        pan = request.data.get("Pan", "-")
+        rebill_id = int(request.data["RebillId"])
 
-        # Check PAYMENT REFUNDED
+        # Check if PAYMENT REFUNDED
         if self.status == PAYMENT_STATUS_REFUNDED or self.status == PAYMENT_STATUS_PARTIAL_REFUNDED:
-            self.refunded_order(order_id, self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
+            amount = int(request.data["Amount"])
+            self.refunded_order(order_id, amount, self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
             return HttpResponse("OK", status=200)
 
         # Get order and payment
         order = self.retrieve_order(order_id)
         if order:
-            # Check REJECTED
+            # Check if REJECTED
             if self.status == PAYMENT_STATUS_REJECTED:
                 self.update_payment_info(payment_id)
                 return HttpResponse("OK", status=200)
 
-            # Check AUTHORIZE and CONFIRMED
-            order.paid_card_pan = request.data.get("Pan", "-")
-            order.save()
-
-            rebill_id = int(request.data["RebillId"])
+            # Check if AUTHORIZE and CONFIRMED
 
             if self.is_regular_pay(order):
+                amount = int(request.data["Amount"])
                 # TODO delete
                 not_paid_orders = Order.objects.filter(session=order.session, paid=False)
                 if not not_paid_orders.exists():
@@ -78,6 +74,9 @@ class TinkoffCallbackView(APIView):
                         parking_session.save()
 
             if self.is_card_binding(order):
+                card_id = int(request.data["CardId"])
+                exp_date = request.data["ExpDate"]
+
                 # Change card or rebill_id
                 if self.is_card_exists(card_id, order.account):
                     self.update_rebill_id_if_needed(card_id, order.account, rebill_id)
@@ -94,10 +93,13 @@ class TinkoffCallbackView(APIView):
                     credit_card.is_default = False \
                             if CreditCard.objects.filter(account=order.account).exists() else True
                     credit_card.save()
-                    #start_cancel_request(payment)
+                    start_cancel_request(order)
 
             else:
                 get_logger().warn("Unknown successefull operation")
+
+            order.paid_card_pan = pan
+            order.save()
 
         get_logger().info("status 200: OK")
         return HttpResponse("OK", status=200)
@@ -189,7 +191,23 @@ class TinkoffCallbackView(APIView):
         return HttpResponse("OK", status=200)
 
 
-    def refunded_order(self, order_id, is_partial):
+    def refunded_order(self, order_id, refunded_amount, is_partial):
+        """
+            {
+                u'OrderId': u'18',
+                u'Status': u'REFUNDED',
+                u'Success': True,
+                u'Token': u'ced65967528612f4aa4a4890d59f44706c788e152c9dc4a4a73db331f2a99055',
+                u'ExpDate': u'1122',
+                u'ErrorCode': u'0',
+                u'Amount': 100,
+                u'TerminalKey': u'1516954410942DEMO',
+                u'CardId': 3582969,
+                u'PaymentId': 17881695,
+                u'Pan': u'430000******0777'
+            }
+        """
+
         order = self.retrieve_order(order_id)
         if order:
             order.refund_request = False
