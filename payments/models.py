@@ -59,7 +59,7 @@ class CreditCard(models.Model):
     def bind_request(cls, account):
         init_order = Order.objects.create(sum=1, account=account)
         receipt_data = init_order.generate_receipt_data()
-        init_payment = TinkoffPayment.objects.create(order=init_order)
+        init_payment = TinkoffPayment.objects.create(order=init_order, receipt_data=receipt_data)
         request_data = init_payment.build_init_request_data(account.id)
         get_logger().info("Init request:")
         get_logger().info(request_data)
@@ -147,15 +147,11 @@ class Order(models.Model):
         return result_sum
 
     def generate_receipt_data(self):
-        """
-        if self.account.email is None or len(self.account.email) == 0:
-            return None
-        """
 
         # Init payment receipt
         if self.session is None:
             return dict(
-                Email=self.account.email if self.account.email else None,
+                Email=None, # not send to email
                 Phone=self.account.phone,
                 Taxation="osn",
                 Items=[{
