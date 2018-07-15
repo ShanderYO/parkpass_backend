@@ -15,7 +15,7 @@ from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
-    EmailAndPasswordValidator
+    EmailAndPasswordValidator, LoginAndPasswordValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
@@ -26,8 +26,8 @@ from payments.utils import TinkoffExceptionAdapter
 
 
 def only_for(account, account_type):
-    if account.account_type != account_type:
-        raise PermissionException(325, "You haven't privelegied to use this method")
+    if account.account_type == account_type:
+        raise PermissionException(325, "You aren't privelegied to use this method")
 
 
 class LoginView(APIView):
@@ -153,6 +153,47 @@ class DeactivateAccountView(LoginRequiredAPIView):
 
 
 # TODO: Отрефакторить методы так, чтобы не было больших блоков кода в if-else конструкциях ( повышение читаемости кода )
+
+
+class VendorNameLoginView(APIView):
+    validator_class = LoginAndPasswordValidator
+
+    def post(self, request):
+        login = request.data["login"]
+        password = request.data["password"]
+
+        try:
+            account = Account.objects.get(ven_name=login)
+            print account.account_type, "~!~", login
+            if str(account.account_type) != str(AccountTypes.VENDOR):  # If not casting to `str` cond is True always
+                e = PermissionException(  # IDK why...
+                    PermissionException.VENDOR_NOT_FOUND,
+                    "This account has no vendor privelegies"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+            if account.check_password(raw_password=password):
+                if AccountSession.objects.filter(account=account).exists():
+                    session = AccountSession.objects.filter(account=account).order_by('-created_at')[0]
+                    response_dict = serializer(session)
+                    return JsonResponse(response_dict)
+                else:
+                    e = AuthException(
+                        AuthException.INVALID_SESSION,
+                        "Invalid session. Login with phone required"
+                    )
+                    return JsonResponse(e.to_dict(), status=400)
+            else:
+                e = AuthException(
+                    AuthException.INVALID_PASSWORD,
+                    "Invalid password"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        except ObjectDoesNotExist:
+            e = AuthException(
+                AuthException.NOT_FOUND_CODE,
+                "User with such login not found")
+            return JsonResponse(e.to_dict(), status=400)
 
 
 class LoginWithEmailView(APIView):

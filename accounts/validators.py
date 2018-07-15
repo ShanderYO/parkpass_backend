@@ -91,6 +91,24 @@ class EmailAndPasswordValidator(BaseValidator):
         return True
 
 
+class LoginAndPasswordValidator(BaseValidator):
+    def is_valid(self):
+        login = self.request.data.get("login", None)
+        password = self.request.data.get("password", None)
+        if not login or not password:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Login and password are required"
+            return False
+        try:
+            validate_account_name(login, "Login")
+            validate_password_format(password)
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+        return True
+
+
 class AccountParamValidator(BaseValidator):
     def is_valid(self):
         first_name = self.request.data.get("first_name", None)
@@ -195,7 +213,7 @@ def validate_account_birthday(value):
 
 
 def validate_account_name(value, field_name="NonameField"):
-    regex = "^[A-Za-z0-9]{6,15}$"
+    regex = "^[-.A-Za-z0-9]+$"
     if not re.match(regex, value):
         raise ValidationError("%s has invalid format" % field_name)
 

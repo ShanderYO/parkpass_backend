@@ -17,11 +17,13 @@ TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd1
 TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
 
 
-def create_account(id=1, name="Test", phone="+7(999)0234567", email="test@testing.com", password="qwerty"):
+def create_account(id=1, name="Test", phone="+7(999)0234567", email="test@testing.com", password="qwerty",
+                   type=AccountTypes.USER):
     account = Account.objects.create(
         first_name=name,
         phone=phone,
-        email=email
+        email=email,
+        account_type=type
     )
     account.set_password(password)
     account_session = AccountSession(
@@ -192,10 +194,57 @@ class LoginEmail1TestCase(TestCase):
         print response.content
 
 
+class VendorLoginTestCase(TestCase):
+
+    def setUp(self):
+        acc, accsession = create_account(
+            name="First",
+            phone="12345678900",
+            email="1@testing.com",
+        )
+        acc.ven_name = "notvendor"
+        acc.save()
+        acc, accsession = create_account(
+            name="Second",
+            phone="12345678901",
+            email="2@testing.com"
+        )
+        acc.account_type = AccountTypes.VENDOR
+        acc.ven_name = "vendor-1"
+        acc.save()
+
+    def test_vendor_login_valid(self):
+        url = '/api/v1/account/login/vendor/'
+
+        body = json.dumps({
+            'login': 'vendor-1',
+            'password': 'qwerty'
+        })
+
+        resp = self.client.post(url, body, content_type='application/json',
+                                **TOKEN_DICT)
+
+        print resp.content, "~~~"
+        self.assertEqual(200, resp.status_code)
+
+    def test_not_vendor_login_valid(self):
+        url = '/api/v1/account/login/vendor/'
+
+        body = json.dumps({
+            'login': 'notvendor',
+            'password': 'qwerty'
+        })
+
+        resp = self.client.post(url, body, content_type='application/json',
+                                **TOKEN_DICT)
+
+        self.assertEqual(400, resp.status_code)
+
+
 class LoginEmail2TestCase(TestCase):
 
     def setUp(self):
-        account = create_account()
+        account, account_session = create_account()
         self.client = Client()
 
     def test_invalid_email_login_with_email(self):
