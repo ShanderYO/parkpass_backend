@@ -93,7 +93,6 @@ class TinkoffCallbackView(APIView):
                     credit_card.is_default = False \
                             if CreditCard.objects.filter(account=order.account).exists() else True
                     credit_card.save()
-                    start_cancel_request(order)
 
             else:
                 get_logger().warn("Unknown successefull operation")
@@ -102,6 +101,7 @@ class TinkoffCallbackView(APIView):
 
             if self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
+                start_cancel_request(order)
             order.save()
 
         get_logger().info("status 200: OK")
