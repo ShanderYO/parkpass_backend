@@ -9,7 +9,6 @@ from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED,
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN
 
-from payments.payment_api import TinkoffAPI
 from payments.tasks import start_cancel_request
 
 
@@ -53,26 +52,30 @@ class TinkoffCallbackView(APIView):
         # Get order and payment
         order = self.retrieve_order(order_id)
         if order:
+            order.paid_card_pan = pan
+
             # Check if REJECTED
             if self.status == PAYMENT_STATUS_REJECTED:
                 self.update_payment_info(payment_id)
+                order.save()
                 return HttpResponse("OK", status=200)
 
             # Check if AUTHORIZE and CONFIRMED
 
             if self.is_regular_pay(order):
                 amount = int(request.data["Amount"])
-                # TODO delete
-                not_paid_orders = Order.objects.filter(session=order.session, paid=False)
-                if not not_paid_orders.exists():
-                    parking_session = order.session
-                    get_logger().info("not_paid_orders more")
-                    if parking_session.is_completed_by_vendor():
-                        get_logger().info("order.session.is_completed_by_vendor()")
-                        parking_session.state = ParkingSession.STATE_CLOSED
-                        parking_session.save()
 
-            if self.is_card_binding(order):
+                if self.status == PAYMENT_STATUS_CONFIRMED:
+                    order.paid = True
+                    order.save()
+                    self.close_parking_session_if_needed(order)
+
+                get_logger().info("status 200: OK")
+                return HttpResponse("OK", status=200)
+
+            # TODO what execute AUTHORIZE STATE
+
+            elif self.is_card_binding(order):
                 rebill_id = int(request.data["RebillId"])
                 card_id = int(request.data["CardId"])
                 exp_date = request.data["ExpDate"]
@@ -94,14 +97,12 @@ class TinkoffCallbackView(APIView):
                             if CreditCard.objects.filter(account=order.account).exists() else True
                     credit_card.save()
 
+                if self.status == PAYMENT_STATUS_CONFIRMED:
+                    order.paid = True
+                    start_cancel_request(order)
+
             else:
                 get_logger().warn("Unknown successefull operation")
-
-            order.paid_card_pan = pan
-
-            if self.status == PAYMENT_STATUS_CONFIRMED:
-                order.paid = True
-                start_cancel_request(order)
             order.save()
 
         get_logger().info("status 200: OK")
@@ -259,3 +260,16 @@ class TinkoffCallbackView(APIView):
             if credit_card.rebill_id != rebill_id:
                 credit_card.rebill_id = rebill_id
                 credit_card.save()
+
+
+    def close_parking_session_if_needed(self, order):
+        non_paid_orders = Order.objects.filter(
+            session=order.session,
+            paid=False
+        )
+        if not non_paid_orders.exists():
+            parking_session = order.session
+            if parking_session.is_completed_by_vendor():
+                get_logger().info("Close session... id=%s" % parking_session.id)
+                parking_session.state = ParkingSession.STATE_CLOSED
+                parking_session.save()

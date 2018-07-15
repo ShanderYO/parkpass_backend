@@ -11,10 +11,6 @@ from payments.payment_api import TinkoffAPI
 def generate_current_debt_order(parking_session_id):
     try:
         active_session = ParkingSession.objects.get(id=parking_session_id)
-        not_paid_orders = Order.objects.filter(session=active_session, paid=False)
-        if not_paid_orders.exists():
-            for order in not_paid_orders:
-                order.try_pay()
 
         ordered_sum = Order.get_ordered_sum_by_session(active_session)
         new_order_sum = active_session.debt - ordered_sum
@@ -24,6 +20,19 @@ def generate_current_debt_order(parking_session_id):
                 account=active_session.client,
                 sum=new_order_sum)
             new_order.try_pay()
+
+    except ObjectDoesNotExist:
+        pass
+
+
+@delayed_task()
+def force_pay(parking_session_id):
+    try:
+        active_session = ParkingSession.objects.get(id=parking_session_id)
+        not_paid_orders = Order.objects.filter(session=active_session, paid=False)
+        if not_paid_orders.exists():
+            for order in not_paid_orders:
+                order.try_pay()
 
     except ObjectDoesNotExist:
         pass
@@ -46,7 +55,7 @@ def generate_orders_and_pay():
                    ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY,
                    ParkingSession.STATE_COMPLETED]
     )
-    get_logger().info("start generate_dept_orders task: active sessions")
+    get_logger().info("start generate_dept_orders task: active sessions %s " % len(active_sessions))
 
     for session in active_sessions:
         ordered_sum = Order.get_ordered_sum_by_session(session)
@@ -68,10 +77,6 @@ def generate_orders_and_pay():
                     order.save()
             if order:
                 order.try_pay()
-        else:
-            if session.state >= ParkingSession.STATE_COMPLETED_BY_VENDOR:
-                session.state = ParkingSession.STATE_CLOSED
-                session.save()
 
     get_logger().info("generate_dept_orders task was executed")
 

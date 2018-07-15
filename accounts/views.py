@@ -8,7 +8,7 @@ from dss.Serializer import serializer
 
 from accounts.models import Account, EmailConfirmation, AccountSession
 from accounts.sms_gateway import SMSGateway
-from accounts.tasks import generate_current_debt_order
+from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
     EmailAndPasswordValidator
@@ -313,9 +313,9 @@ class ForcePayView(LoginRequiredAPIView):
     def post(self, request):
         id = int(request.data["id"])
         try:
-            parking_session = ParkingSession.objects.get(id=id)
+            ParkingSession.objects.get(id=id)
             # Create payment order and pay
-            generate_current_debt_order(id)
+            force_pay(id)
 
         except ObjectDoesNotExist:
             e = ValidationException(
