@@ -7,7 +7,7 @@ from payments.models import TinkoffPayment
 
 @delayed_task(delay=0)
 def start_cancel_request(order):
-    payments = TinkoffPayment.order.filter(order=order)
+    payments = TinkoffPayment.objects.filter(order=order)
     if not payments.exists():
         get_logger().info("Payments were not found: ")
         return None

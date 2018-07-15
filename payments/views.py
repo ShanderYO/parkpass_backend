@@ -43,7 +43,6 @@ class TinkoffCallbackView(APIView):
         order_id = int(request.data["OrderId"])
         payment_id = int(request.data["PaymentId"])
         pan = request.data.get("Pan", "-")
-        rebill_id = int(request.data["RebillId"])
 
         # Check if PAYMENT REFUNDED
         if self.status == PAYMENT_STATUS_REFUNDED or self.status == PAYMENT_STATUS_PARTIAL_REFUNDED:
@@ -74,6 +73,7 @@ class TinkoffCallbackView(APIView):
                         parking_session.save()
 
             if self.is_card_binding(order):
+                rebill_id = int(request.data["RebillId"])
                 card_id = int(request.data["CardId"])
                 exp_date = request.data["ExpDate"]
 

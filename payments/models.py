@@ -59,7 +59,7 @@ class CreditCard(models.Model):
     def bind_request(cls, account):
         init_order = Order.objects.create(sum=1, account=account)
         receipt_data = init_order.generate_receipt_data()
-        init_payment = TinkoffPayment.objects.create(order=init_order, receipt_data=receipt_data)
+        init_payment = TinkoffPayment.objects.create(order=init_order)
         request_data = init_payment.build_init_request_data(account.id)
         get_logger().info("Init request:")
         get_logger().info(request_data)
