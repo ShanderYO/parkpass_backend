@@ -165,7 +165,7 @@ class VendorNameLoginView(APIView):
 
         try:
             account = Account.objects.get(ven_name=login)
-            if str(account.account_type) != str(AccountTypes.VENDOR):  # If not casting to `str` cond is True always
+            if account.account_type != AccountTypes.VENDOR:  # If not casting to `str` cond is True always
                 e = PermissionException(  # IDK why...
                     PermissionException.VENDOR_NOT_FOUND,
                     "This account has no vendor privelegies"

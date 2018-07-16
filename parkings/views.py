@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -105,7 +106,8 @@ class AllParkingsStatisticsView(SignedRequestAPIView):
             avg_time = 0
             for session in ps:
                 order_sum += session.debt
-                avg_time += (session.completed_at - session.started_at).total_seconds()
+                avg_time += (
+                            session.completed_at - session.started_at).total_seconds()  # При переезде на новую версию Django: реализовать с помощью https://stackoverflow.com/questions/3131107/annotate-a-queryset-with-the-average-date-difference-django
             try:
                 avg_time = avg_time / sessions_count
             except ZeroDivisionError:

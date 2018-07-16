@@ -3,7 +3,6 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from enum import Enum
 from hashlib import md5
 from io import BytesIO
 
@@ -17,6 +16,7 @@ from django.db.models import BigAutoField
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+import AccountTypes
 from accounts.sms_gateway import SMSGateway
 from base.exceptions import ValidationException
 from parkpass.settings import EMAIL_HOST_USER, AVATARS_ROOT, AVATARS_URL
@@ -55,11 +55,6 @@ class EmailConfirmation(models.Model):
         return "http://parkpass.ru/account/email/confirm/"+self.code
 
 
-class AccountTypes(Enum):
-    USER = "User"
-    VENDOR = "Vendor"
-
-
 class Account(models.Model):
     id = BigAutoField(primary_key=True)
     first_name = models.CharField(max_length=63, null=True, blank=True,
@@ -73,10 +68,14 @@ class Account(models.Model):
     email_confirmation = models.ForeignKey(EmailConfirmation, null=True,
                                            blank=True, on_delete=models.CASCADE, editable=False)
     created_at = models.DateField(auto_now_add=True, null=True)
-    account_type = models.CharField(max_length=16, choices=[(tag, tag.value) for tag in AccountTypes],
-                                    default=AccountTypes.USER, verbose_name="Type of account")
+    account_type = models.CharField(
+        max_length=16,
+        choices=[("User", AccountTypes.USER), ("Vendor", AccountTypes.VENDOR)],
+        default=AccountTypes.USER,
+        verbose_name="Type of account")
     ven_name = models.CharField(max_length=255, unique=True, blank=True, null=True, verbose_name="Vendor name")
-    ven_secret = models.CharField(max_length=255, unique=True, blank=True, null=True, verbose_name="Vendor secret key")
+    ven_secret = models.CharField(max_length=255, blank=True, null=True, verbose_name="Vendor secret key",
+                                  editable=False)
 
     def __unicode__(self):
         return "[%s] %s %s ID: %d" % (self.account_type, self.first_name, self.last_name, self.id)
@@ -117,7 +116,7 @@ class Account(models.Model):
         self.save()
 
     def generate_secret(self):
-        self.secret = binascii.hexlify(os.urandom(32)).decode()
+        self.ven_secret = binascii.hexlify(os.urandom(32)).decode()
 
     def check_password(self, raw_password):
         def setter(r_password):
