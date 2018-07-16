@@ -2,6 +2,7 @@ import datetime
 import hashlib
 import hmac
 import json
+from random import randint
 
 from django.test import Client
 from django.test import TestCase
@@ -924,6 +925,14 @@ class StatisticsTestCase(TestCase):
             free_places=5,
             vendor=self.vendor.vendor
         )
+        parking_2 = Parking.objects.create(
+            name="parking-2",
+            description="second",
+            latitude=2,
+            longitude=3,
+            free_places=9,
+            vendor=self.vendor.vendor
+        )
 
         account, acc_session = create_account()
 
@@ -933,9 +942,27 @@ class StatisticsTestCase(TestCase):
                 client=account,
                 parking=parking_1,
                 state=ParkingSession.STATE_COMPLETED,
-                started_at=datetime.datetime.fromtimestamp(i)
+                started_at=datetime.datetime.fromtimestamp(i),
+                completed_at=datetime.datetime.fromtimestamp(i + randint(10, 100)),
+                debt=(randint(100, 2000))
             )
             ps.save()
+        pass
+
+    def test_summary_stats(self):
+        url = '/api/v1/parking/stats/summary/'
+
+        body = json.dumps({
+            'start': 0,
+            'end': 120,
+            'ids': '1, 2, 3, 4, 5',
+        })
+
+        response = self.vendor.make_signed_json_post(url, body)
+
+        print response.content
+
+        self.assertEqual(200, response.status_code)
 
     def test_parking_stats(self):
         url = '/api/v1/parking/stats/parking/'

@@ -48,7 +48,7 @@ class PermissionException(ApiException):
     ONLY_ONE_ACTIVE_SESSION_REQUIRED = 304
     CREDIT_CARD_REQUIRED = 305
     EMAIL_REQUIRED = 306
-
+    NOT_PRIVELEGIED = 307
     def __init__(self, code, message):
         super(PermissionException, self).__init__(message)
         self.code = code

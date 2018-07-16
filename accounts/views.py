@@ -27,7 +27,8 @@ from payments.utils import TinkoffExceptionAdapter
 
 def only_for(account, account_type):
     if account.account_type == account_type:
-        raise PermissionException(325, "You aren't privelegied to use this method")
+        raise PermissionException(PermissionException.NOT_PRIVELEGIED,
+                                  "You aren't privelegied to use this method")
 
 
 class LoginView(APIView):
@@ -164,7 +165,6 @@ class VendorNameLoginView(APIView):
 
         try:
             account = Account.objects.get(ven_name=login)
-            print account.account_type, "~!~", login
             if str(account.account_type) != str(AccountTypes.VENDOR):  # If not casting to `str` cond is True always
                 e = PermissionException(  # IDK why...
                     PermissionException.VENDOR_NOT_FOUND,
@@ -227,7 +227,7 @@ class LoginWithEmailView(APIView):
         except ObjectDoesNotExist:
             e = AuthException(
                 AuthException.NOT_FOUND_CODE,
-                "User with such email not found")
+                "User with such login not found")
             return JsonResponse(e.to_dict(), status=400)
 
 

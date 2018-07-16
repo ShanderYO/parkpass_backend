@@ -64,6 +64,66 @@ class ParkingStatisticsView(SignedRequestAPIView):
         return JsonResponse({'sessions': lst, 'count': length})
 
 
+class AllParkingsStatisticsView(SignedRequestAPIView):
+    def post(self, request):
+        try:
+            ids = map(int, request.data.get('ids', []).replace(' ', '').split(','))
+            start_from = int(request.data.get("start", -1))
+            stop_at = int(request.data.get("end", -1))
+            page = int(request.data.get("page", 0))
+            count = int(request.data.get("count", 10))
+        except ValueError:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "All fields must be int"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if stop_at < start_from:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "'stop' should be greater than 'start'"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        result = []
+
+        if ids:
+            pks = Parking.objects.filter(id__in=ids)
+        else:
+            pks = Parking.objects.all()
+
+        for pk in pks:
+            ps = ParkingSession.objects.filter(
+                parking=pk,
+                started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
+                else datetime.now() - timedelta(days=31),
+                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now(),
+                state__gt=3  # Only completed sessions
+            )
+
+            sessions_count = len(ps)
+            order_sum = 0
+            avg_time = 0
+            for session in ps:
+                order_sum += session.debt
+                avg_time += (session.completed_at - session.started_at).total_seconds()
+            try:
+                avg_time = avg_time / sessions_count
+            except ZeroDivisionError:
+                pass
+
+            result.append({
+                'parking_id': pk.id,
+                'parking_name': pk.name,
+                'sessions_count': sessions_count,
+                'avg_parking_time': avg_time,
+                'order_sum': order_sum,
+            })
+        length = len(result)
+        if len(result) > count:
+            result = result[page * count:(page + 1) * count]
+        return JsonResponse({'parkings': result, 'count': length}, status=200)
+
+
 class GetParkingView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         try:

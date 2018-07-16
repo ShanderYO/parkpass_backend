@@ -1,6 +1,3 @@
-import binascii
-import os
-
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.db import models
@@ -55,7 +52,11 @@ class Parking(models.Model):
     enabled = models.BooleanField(default=True)
     free_places = models.IntegerField()
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
-    vendor = models.ForeignKey(Account, null=True, blank=True)
+    vendor = models.ForeignKey(Account,
+                               null=True,
+                               blank=True,
+                               on_delete=models.CASCADE,
+                               limit_choices_to={'account_type': 'user'})
     created_at = models.DateField(auto_now_add=True)
 
     objects = models.Manager()
