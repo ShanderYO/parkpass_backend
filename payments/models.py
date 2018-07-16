@@ -354,8 +354,6 @@ class TinkoffPayment(models.Model):
         }
         if refund_amount:
             data["Amount"] = str(refund_amount)
-        if self.receipt_data:
-            data["Receipt"] = self.receipt_data
         return data
 
     def set_new_status(self, new_status):
