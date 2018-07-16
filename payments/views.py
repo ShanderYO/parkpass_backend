@@ -1,4 +1,6 @@
 import datetime
+from decimal import Decimal
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 
@@ -222,7 +224,7 @@ class TinkoffCallbackView(APIView):
 
             # Find parking session
             parking_session = order.session
-            parking_session.current_refund_sum = parking_session.current_refund_sum + float(refunded_amount/100)
+            parking_session.current_refund_sum = parking_session.current_refund_sum + Decimal(float(refunded_amount)/100)
             parking_session.save()
         else:
             return HttpResponse("OK", status=200)
