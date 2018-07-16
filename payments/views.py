@@ -217,15 +217,15 @@ class TinkoffCallbackView(APIView):
         order = self.retrieve_order(order_id)
         if order:
             order.refund_request = False
-
             # TODO check double refund
-            order.refunded_sum = order.refunded_sum + refunded_amount
+            order.refunded_sum = order.refunded_sum + Decimal(float(refunded_amount)/100)
             order.save()
 
-            # Find parking session
-            parking_session = order.session
-            parking_session.current_refund_sum = parking_session.current_refund_sum + Decimal(float(refunded_amount)/100)
-            parking_session.save()
+           # Find parking session
+           #parking_session = order.session
+           #parking_session.current_refund_sum = parking_session.current_refund_sum + Decimal(float(refunded_amount)/100)
+           #parking_session.save()
+
         else:
             return HttpResponse("OK", status=200)
 

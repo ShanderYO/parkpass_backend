@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from autotask.tasks import periodic_task, delayed_task
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -14,12 +16,25 @@ def generate_current_debt_order(parking_session_id):
 
         ordered_sum = Order.get_ordered_sum_by_session(active_session)
         new_order_sum = active_session.debt - ordered_sum
+
+        # if needs to create new order
         if new_order_sum > 0:
             new_order = Order.objects.create(
                 session=active_session,
                 account=active_session.client,
                 sum=new_order_sum)
             new_order.try_pay()
+
+        # if needs to check closing session
+        else:
+            orders = Order.objects.filter(session=active_session)
+            for order in orders:
+                if not order.paid:
+                    return
+
+            # Close session if all of orders have paid
+            active_session.state = ParkingSession.STATE_CLOSED
+            active_session.save()
 
     except ObjectDoesNotExist:
         pass
@@ -115,7 +130,7 @@ def _init_refund(parking_session):
         else:
             get_logger().warn('Refund undefined status')
 
-    current_refunded_sum = 0
+    current_refunded_sum = Decimal(0)
     for order in orders:
         current_refunded_sum = current_refunded_sum + order.refunded_sum
 
