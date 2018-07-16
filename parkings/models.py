@@ -3,6 +3,7 @@ from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
 
+from accounts import AccountTypes
 from accounts.models import Account
 from parkpass.settings import EMAIL_HOST_USER
 
@@ -56,7 +57,7 @@ class Parking(models.Model):
                                null=True,
                                blank=True,
                                on_delete=models.CASCADE,
-                               limit_choices_to={'account_type': 'user'})
+                               limit_choices_to={'account_type': AccountTypes.VENDOR})
     created_at = models.DateField(auto_now_add=True)
 
     objects = models.Manager()
