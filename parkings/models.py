@@ -7,31 +7,7 @@ from django.db import models
 from django.template.loader import render_to_string
 
 from parkpass.settings import EMAIL_HOST_USER
-
-
-class Vendor(models.Model):
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=255, unique=True)
-    secret = models.CharField(max_length=255, unique=True)
-
-    class Meta:
-        ordering = ["-id"]
-        verbose_name = 'Vendor'
-        verbose_name_plural = 'Vendors'
-
-    def __unicode__(self):
-        return "%s" % (self.name)
-
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            if not kwargs.get("not_generate_secret", False):
-                self.generate_secret()
-            else:
-                del kwargs["not_generate_secret"]
-        super(Vendor, self).save(*args, **kwargs)
-
-    def generate_secret(self):
-        self.secret = binascii.hexlify(os.urandom(32)).decode()
+from vendors.models import Vendor
 
 
 class ParkingManager(models.Manager):

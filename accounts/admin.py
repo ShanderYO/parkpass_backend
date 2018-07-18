@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from models import Account, AccountSession, EmailConfirmation
+from models import Account, AccountSession
 
 
 @admin.register(Account)
@@ -11,9 +11,4 @@ class AccountAdmin(admin.ModelAdmin):
 
 @admin.register(AccountSession)
 class AccountSessionAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(EmailConfirmation)
-class EmailConfirmationAdmin(admin.ModelAdmin):
     pass

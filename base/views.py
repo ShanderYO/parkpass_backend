@@ -13,7 +13,7 @@ from django.http import JsonResponse
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException
 from base.validators import ValidatePostParametersMixin
-from parkings.models import Vendor
+from vendors.models import Vendor
 
 
 class APIView(View, ValidatePostParametersMixin):

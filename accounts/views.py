@@ -6,7 +6,8 @@ from django.http import JsonResponse
 from django.views import View
 from dss.Serializer import serializer
 
-from accounts.models import Account, EmailConfirmation, AccountSession
+from base.models import EmailConfirmation
+from accounts.models import Account, AccountSession
 from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \

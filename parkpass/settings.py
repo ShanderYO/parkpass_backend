@@ -49,6 +49,7 @@ INSTALLED_APPS = (
     'autotask',
     'base',
     'accounts',
+    'vendors',
     'payments',
     'parkings',
     'rps_vendor',
@@ -194,7 +195,7 @@ LOGGING = {
     }
 }
 
-AUTOTASK_IS_ACTIVE = True
+AUTOTASK_IS_ACTIVE = False
 AUTOTASK_WORKER_MONITOR_INTERVALL = 60
 AUTOTASK_HANDLE_TASK_IDLE_TIME = 10
 
