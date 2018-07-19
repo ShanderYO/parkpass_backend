@@ -1,13 +1,14 @@
-import datetime
 import base64
+import datetime
 from os.path import isfile
+
 import pytz
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views import View
 from dss.Serializer import serializer
-from parkpass.settings import DEFAULT_AVATAR_URL
-from base.models import EmailConfirmation
+
 from accounts.models import Account, AccountSession
 from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order, force_pay
@@ -15,13 +16,13 @@ from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator,
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
     EmailAndPasswordValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
+from base.models import EmailConfirmation
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
+from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
-
-from django.db.models import Q
 
 
 class SetAvatarView(LoginRequiredAPIView):
@@ -46,6 +47,52 @@ class GetAvatarView(LoginRequiredAPIView):
             'url': request.get_host() + path
         }
         return JsonResponse(body, status=200)
+
+
+class PasswordChangeView(LoginRequiredAPIView):
+    """
+    API View for url /login/changepw
+    In: POST with json { old: "old_password", new: "new_password" }
+    Out:
+    200 {}
+
+    """
+
+    def post(self, request):
+        old_password = request.data["old"]
+        new_password = request.data["new"]
+
+        account = request.account
+
+        if not account.check_password(old_password):
+            e = AuthException(
+                AuthException.INVALID_PASSWORD,
+                "Invalid old password"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        account.set_password(new_password)
+        return JsonResponse({}, status=200)
+
+
+class DeactivateAccountView(LoginRequiredAPIView):
+    """
+    API View for url /account/deactivate
+    Clear card list and stop parking session
+    Out: {} 200
+    """
+
+    def post(self, request):
+        account = request.account
+        CreditCard.objects.filter(account=account).delete()
+
+        parking_session = ParkingSession.get_active_session(account)
+        if parking_session is None or not parking_session.is_suspended:
+            parking_session.is_suspended = True
+            parking_session.suspended_at = datetime.datetime.now()
+            parking_session.save()
+            # Create payment order and pay
+            generate_current_debt_order(parking_session.id)
+        return JsonResponse({}, status=200)
 
 
 class LoginView(APIView):

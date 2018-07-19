@@ -1,13 +1,11 @@
+import datetime
 import hashlib
 import hmac
 import json
 import time
 
-from django.test import TestCase
-
-import datetime
-from django.test import TestCase
 from django.test import Client
+from django.test import TestCase
 
 # Create your tests here.
 from accounts.models import Account
@@ -84,7 +82,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_rps_update_closed_session(self):
-        url = '/parking/rps/session/list/update/'
+        url = '/api/v1/parking/rps/session/list/update/'
         body = json.dumps({
             "parking_id": 1,
             "sessions": [
@@ -102,7 +100,7 @@ class UpdateParkingTestCase(TestCase):
         self.assertEqual(response.status_code, 202)
 
     def test_rps_update_valid_body(self):
-        url = '/parking/rps/session/list/update/'
+        url = '/api/v1/parking/rps/session/list/update/'
         body = json.dumps({
             "parking_id":1,
             "sessions":[

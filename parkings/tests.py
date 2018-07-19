@@ -1,10 +1,10 @@
-import hashlib
-import json
-import hmac
-
 import datetime
-from django.test import TestCase
+import hashlib
+import hmac
+import json
+
 from django.test import Client
+from django.test import TestCase
 
 from accounts.models import Account, AccountSession
 from base.exceptions import ValidationException
@@ -13,7 +13,7 @@ from parkings.models import Vendor, Parking, ParkingSession
 
 class UpdateParkingTestCase(TestCase):
     """
-        Test for /parking/v1/update/ API
+        Test for /api/v1/parking/update/ API
     """
     def setUp(self):
         vendor = Vendor(
@@ -46,7 +46,6 @@ class UpdateParkingTestCase(TestCase):
         )
         self.client = Client()
 
-
     def _make_signed_json_post(self, url, body):
         signature = hmac.new("12345678", body, hashlib.sha512)
         response = self.client.post(url, body, content_type="application/json",
@@ -56,7 +55,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_empty_body(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
         body = json.dumps({
         })
         response = self._make_signed_json_post(url, body)
@@ -68,7 +67,7 @@ class UpdateParkingTestCase(TestCase):
     
 
     def test_update_incomplete_body(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Not set up parking_id
         body = json.dumps({
@@ -94,7 +93,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_invalid_body(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Set parking_id not int
         body = json.dumps({
@@ -147,7 +146,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_undefined_parking(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -163,7 +162,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_forbidden_parking(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -179,7 +178,7 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_valid(self):
-        url = '/parking/v1/update/'
+        url = '/api/v1/parking/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -193,7 +192,7 @@ class UpdateParkingTestCase(TestCase):
 
 class CreateSessionParkingTestCase(TestCase):
     """
-        Test for /parking/v1/session/create/ API
+        Test for /api/v1/parking/session/create/ API
     """
     def setUp(self):
         vendor = Vendor(
@@ -245,7 +244,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_empty_body(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
         body = json.dumps({
         })
         response = self._make_signed_json_post(url, body)
@@ -257,7 +256,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_incomplete_body(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Not set up started_at
         body = json.dumps({
@@ -287,7 +286,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_session_id(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up session_id more 128 symbols
         body = json.dumps({
@@ -305,7 +304,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_client_id(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up not existing client_id
         body = json.dumps({
@@ -323,7 +322,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_parking_id(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -341,7 +340,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_forbidden_parking(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up foreign parking_id
         body = json.dumps({
@@ -359,7 +358,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_already_exist_session_id(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up session_id is exist-session-id
         body = json.dumps({
@@ -377,7 +376,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 
     def test_create_session_valid(self):
-        url = '/parking/v1/session/create/'
+        url = '/api/v1/parking/session/create/'
 
         # Set up session_id new value
         body = json.dumps({
@@ -392,7 +391,7 @@ class CreateSessionParkingTestCase(TestCase):
 
 class UpdateSessionParkingTestCase(TestCase):
     """
-        Test for /parking/v1/session/update/ API
+        Test for /api/v1/parking/session/update/ API
     """
     def setUp(self):
         vendor = Vendor(
@@ -451,7 +450,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_empty_body(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up empty body
         body = json.dumps({
@@ -465,7 +464,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_session_id(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up session_id more 128 symbols
         body = json.dumps({
@@ -483,7 +482,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_debt_negative_value(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up debt negative sign
         body = json.dumps({
@@ -501,7 +500,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_invalid_debt_string_value(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up debt string
         body = json.dumps({
@@ -519,7 +518,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_not_existing_session_id(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not existing session_id
         body = json.dumps({
@@ -537,7 +536,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_not_existing_parking_id(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -555,7 +554,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 
     def test_not_forbidden_parking_id(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not forbidden parking_id
         body = json.dumps({
@@ -572,7 +571,7 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_update_already_completed(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not completed session_id
         body = json.dumps({
@@ -591,7 +590,7 @@ class UpdateSessionParkingTestCase(TestCase):
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
 
     def test_update_session_valid(self):
-        url = '/parking/v1/session/update/'
+        url = '/api/v1/parking/session/update/'
 
         # Set up not completed session_id
         body = json.dumps({
@@ -608,7 +607,7 @@ class UpdateSessionParkingTestCase(TestCase):
 
 class CompleteSessionParkingTestCase(TestCase):
     """
-        Test for /parking/v1/session/complete/ API
+        Test for /api/v1/parking/session/complete/ API
     """
     def setUp(self):
         vendor = Vendor(
@@ -668,7 +667,7 @@ class CompleteSessionParkingTestCase(TestCase):
     # TODO add need tests
 
     def test_completed_session_valid(self):
-        url = '/parking/v1/session/complete/'
+        url = '/api/v1/parking/session/complete/'
 
         # Set up not completed session_id
         body = json.dumps({
@@ -684,7 +683,7 @@ class CompleteSessionParkingTestCase(TestCase):
 
 class UpdateListSessionParkingTestCase(TestCase):
     """
-        Test for /parking/v1/session/list/update/ API
+        Test for /api/v1/parking/session/list/update/ API
     """
     def setUp(self):
         vendor = Vendor(
@@ -721,7 +720,7 @@ class UpdateListSessionParkingTestCase(TestCase):
         return response
 
     def test_empty_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
 
         # Set up empty body
         body = json.dumps({
@@ -735,7 +734,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_empty_parking_id_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
         # Not set up parking_id
         body = json.dumps({
             "sessions": [
@@ -755,7 +754,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_empty_session_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
 
         # Not set up sessions
         body = json.dumps({
@@ -770,7 +769,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_invalid_sessions_type_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
         # Not set up sessions as string
         body = json.dumps({
             "parking_id": 1,
@@ -784,7 +783,7 @@ class UpdateListSessionParkingTestCase(TestCase):
         print response.content
 
     def test_invalid_inner_sessions_type_body(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
         # Not set up sessions as string
         body = json.dumps({
             "parking_id": 1,
@@ -804,7 +803,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_update_list_session_forbidden_parking(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
 
         # Set up forbidden parking_id
         body = json.dumps({
@@ -831,7 +830,7 @@ class UpdateListSessionParkingTestCase(TestCase):
 
 
     def test_update_list_session_valid(self):
-        url = '/parking/v1/session/list/update/'
+        url = '/api/v1/parking/session/list/update/'
 
         # Set up valid sessions format
         body = json.dumps({

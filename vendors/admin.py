@@ -6,7 +6,12 @@ from vendors.models import Vendor, VendorSession
 
 @admin.register(Vendor)
 class VendorAdmin(admin.ModelAdmin):
-    pass
+    def save_model(self, request, obj, form, change):
+        if obj.secret == 'stub':
+            obj.generate_secret()
+        if obj.password == 'stub':
+            obj.create_password_and_send()
+        super(VendorAdmin, self).save_model(request, obj, form, change)
 
 
 @admin.register(VendorSession)

@@ -12,7 +12,7 @@ from base.models import BaseAccount, BaseAccountSession
 class Vendor(BaseAccount):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True)
-    secret = models.CharField(max_length=255, unique=True)
+    secret = models.CharField(max_length=255, unique=True, default="stub")
 
     class Meta:
         ordering = ["-id"]

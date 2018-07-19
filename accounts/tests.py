@@ -1,16 +1,18 @@
-import json
-from os import remove
-import datetime
-from django.test import TestCase
-from django.test import Client
-from os.path import isfile
-from hashlib import md5
 import base64
+import datetime
+import json
+from hashlib import md5
+from os import remove
+from os.path import isfile
+
+from django.test import Client
+from django.test import TestCase
+
 from accounts.models import Account, AccountSession
 from parkings.models import Parking, ParkingSession, WantedParking
-from vendors.models import Vendor
 from parkpass.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
+from vendors.models import Vendor
 
 TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'}
 TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
@@ -70,7 +72,7 @@ class PasswordTestCase(TestCase):
         Testing case when invalid email is entered when attempting to restore password
         :return:
         """
-        url = "/account/login/restore"
+        url = "/api/v1/account/login/restore"
 
         body = json.dumps({
             "email": "abra@cadabra.boom"
@@ -84,7 +86,7 @@ class PasswordTestCase(TestCase):
         """
         Testing case when valid email is entered when attempting to restore password
         """
-        url = "/account/login/restore"
+        url = "/api/v1/account/login/restore"
 
         body = json.dumps({
             "email": "test@testing.com"
@@ -98,7 +100,7 @@ class PasswordTestCase(TestCase):
         """
         Testing case when old password is invalid
         """
-        url = "/account/login/changepw/"
+        url = "/api/v1/account/login/changepw/"
 
         body = json.dumps({
             "old": "abracadabra",
@@ -114,7 +116,7 @@ class PasswordTestCase(TestCase):
         """
         Testing case when valid old pw entered when changing pw
         """
-        url = "/account/login/changepw/"
+        url = "/api/v1/account/login/changepw/"
 
         body = json.dumps({
             "old": "qwerty",
@@ -136,7 +138,7 @@ class LoginEmail1TestCase(TestCase):
         self.client = Client()
 
     def test_invalid_email_login_with_email(self):
-        url = "/account/login/email/"
+        url = "/api/v1/account/login/email/"
 
         body = json.dumps({
             "email": "diman1-mich@yandex.ru",
@@ -149,7 +151,7 @@ class LoginEmail1TestCase(TestCase):
         print response.content
 
     def test_invalid_email_login_with_email(self):
-        url = "/account/login/email/"
+        url = "/api/v1/account/login/email/"
 
         body = json.dumps({
             "email": "diman1-mich@yandex.ru",
@@ -162,7 +164,7 @@ class LoginEmail1TestCase(TestCase):
         print response.content
 
     def test_invalid_password_login_with_email(self):
-        url = "/account/login/email/"
+        url = "/api/v1/account/login/email/"
 
         body = json.dumps({
             "email": "diman-mich@yandex.ru",
@@ -175,7 +177,7 @@ class LoginEmail1TestCase(TestCase):
         print response.content
 
     def test_valid_login_with_email(self):
-        url = "/account/login/email/"
+        url = "/api/v1/account/login/email/"
 
         body = json.dumps({
             "email": "diman-mich@yandex.ru",
@@ -195,7 +197,7 @@ class LoginEmail2TestCase(TestCase):
         self.client = Client()
 
     def test_invalid_email_login_with_email(self):
-        url = "/account/login/email/"
+        url = "/api/v1/account/login/email/"
 
         body = json.dumps({
             "email": "diman1-mich@yandex.ru",
@@ -208,7 +210,7 @@ class LoginEmail2TestCase(TestCase):
         print response.content
 
     def test_invalid_email_login_with_email(self):
-        url = "/account/login/email/"
+        url = "/api/v1/account/login/email/"
 
         body = json.dumps({
             "email": "diman1-mich@yandex.ru",
@@ -221,7 +223,7 @@ class LoginEmail2TestCase(TestCase):
         print response.content
 
     def test_valid_login_with_email(self):
-        url = "/account/login/email/"
+        url = "/api/v1/account/login/email/"
 
         body = json.dumps({
             "email": "diman-mich@yandex.ru",
@@ -236,7 +238,7 @@ class LoginEmail2TestCase(TestCase):
 
 class AccountTestCase(TestCase):
     """
-        Test for /account/me
+        Test for /api/v1/account/me
     """
 
     def setUp(self):
@@ -245,22 +247,22 @@ class AccountTestCase(TestCase):
         self.client = Client()
 
     def test_invalid_token(self):
-        url = "/account/me/"
+        url = "/api/v1/account/me/"
 
         response = self.client.get(url, content_type="application/json",
-                                   **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e0'})
+                                   **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd1523'})
         self.assertEqual(response.status_code, 401)
         print response.content
 
     def test_valid_request(self):
-        url = "/account/me/"
+        url = "/api/v1/account/me/"
 
-        response = self.client.get(url, **{'HTTP_AUTHORIZATION': "Token TOKEN"})
+        response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
     def test_new_session_without_card(self):
-        url = "/account/session/create/"
+        url = "/api/v1/account/session/create/"
 
         body = json.dumps({
             "session_id": "lala",
@@ -323,7 +325,7 @@ class AccountDeactivateTestCase(AccountTestCase):
         self.client = Client()
 
     def test_deactivate_account(self):
-        url = "/account/deactivate/"
+        url = "/api/v1/account/deactivate/"
         response = self.client.post(url, "{}", content_type="application/json",
                                     **TOKEN_DICT)
         print response.content
@@ -352,7 +354,7 @@ class AccountWithCardTestCase(AccountTestCase):
         )
     """
     def test_add_card_request(self):
-        url = "/account/card/add/"
+        url = "/api/v1/account/card/add/"
 
         response = self.client.post(url, content_type="application/json",
                                    **TOKEN_DICT)
@@ -361,7 +363,7 @@ class AccountWithCardTestCase(AccountTestCase):
     """
 
     def test_set_default_not_exist_card(self):
-        url = "/account/card/default/"
+        url = "/api/v1/account/card/default/"
 
         body = json.dumps({
             "id": 3  # not exists
@@ -373,7 +375,7 @@ class AccountWithCardTestCase(AccountTestCase):
         print response.content
 
     def test_change_default_card_repeat(self):
-        url = "/account/card/default/"
+        url = "/api/v1/account/card/default/"
 
         body = json.dumps({
             "id": 1  # already by default
@@ -385,7 +387,7 @@ class AccountWithCardTestCase(AccountTestCase):
         print response.content
 
     def test_change_default_card(self):
-        url = "/account/card/default/"
+        url = "/api/v1/account/card/default/"
 
         body = json.dumps({
             "id": 2
@@ -397,7 +399,7 @@ class AccountWithCardTestCase(AccountTestCase):
         print response.content
 
     def test_delete_card(self):
-        url = "/account/card/delete/"
+        url = "/api/v1/account/card/delete/"
 
         body = json.dumps({
             "id": 3  # not exists
@@ -491,7 +493,7 @@ class AccountSessionsTestCase(TestCase):
         )
 
     def test_parking_session_list_page(self):
-        url = "/account/session/list/"
+        url = "/api/v1/account/session/list/"
 
         response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
@@ -501,7 +503,7 @@ class AccountSessionsTestCase(TestCase):
         response_dict = json.loads(response.content)
         page_token = response_dict.get("next", None)
 
-        url = "/account/session/list/?page=%s" % page_token
+        url = "/api/v1/account/session/list/?page=%s" % page_token
         response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
@@ -509,50 +511,50 @@ class AccountSessionsTestCase(TestCase):
     def test_parking_session_interval_invalid_params_view(self):
 
         # skip from_date=11
-        url = "/account/session/list/?from_date=11"
+        url = "/api/v1/account/session/list/?from_date=11"
         response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         print response.content
 
         # skip to_date=11
-        url = "/account/session/list/?to_date=11"
+        url = "/api/v1/account/session/list/?to_date=11"
         response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         print response.content
 
-        url = "/account/session/list/?from_date=11&to_date=12"
+        url = "/api/v1/account/session/list/?from_date=11&to_date=12"
         response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
         # skip to_date=Privet
-        url = "/account/session/list/?to_date=11&to_date=Privet"
+        url = "/api/v1/account/session/list/?to_date=11&to_date=Privet"
         response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
     def test_parking_session_interval_too_big_period_view(self):
-        url = "/account/session/list/?from_date=0&to_date=1527539422"
+        url = "/api/v1/account/session/list/?from_date=0&to_date=1527539422"
         response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         print response.content
 
     def test_parking_session_interval_valid_view(self):
-        url = "/account/session/list/?from_date=1510000000&to_date=1537539422"
+        url = "/api/v1/account/session/list/?from_date=1510000000&to_date=1537539422"
         response = self.client.get(url, **TOKEN_DICT)
         print "ddd1"
         print response.content
         self.assertEqual(response.status_code, 200)
 
     def test_get_debt_request(self):
-        url = "/account/session/debt/"
+        url = "/api/v1/account/session/debt/"
 
         response = self.client.get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         print response.content
 
     def test_session_pay_invalid_id(self):
-        url = "/account/session/pay/"
+        url = "/api/v1/account/session/pay/"
         body = json.dumps({
             "id": 999  # not exists
         })
@@ -562,7 +564,7 @@ class AccountSessionsTestCase(TestCase):
         print response.content
 
     def test_session_pay(self):
-        url = "/account/session/pay/"
+        url = "/api/v1/account/session/pay/"
 
         body = json.dumps({
             "id": 15
@@ -603,7 +605,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         )
 
     def test_denied_start_session(self):
-        url = "/account/session/create/"
+        url = "/api/v1/account/session/create/"
 
         body = json.dumps({
             "session_id": "lala",
@@ -617,7 +619,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         print response.content
 
     def test_force_stop_session(self):
-        url = "/account/session/stop/"
+        url = "/api/v1/account/session/stop/"
 
         body = json.dumps({
             "id": 1
@@ -629,7 +631,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         print response.content
 
     def test_force_stop_session_invalid(self):
-        url = "/account/session/stop/"
+        url = "/api/v1/account/session/stop/"
 
         body = json.dumps({
             "id": 1
@@ -641,7 +643,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         print response.content
 
     def test_force_stop_and_resume_session(self):
-        url = "/account/session/stop/"
+        url = "/api/v1/account/session/stop/"
 
         body = json.dumps({
             "id": 1
@@ -699,7 +701,7 @@ class ReceiptTestCase(TestCase):
         self.client = Client()
 
     def test_not_exists_parking(self):
-        url = "/account/session/receipt/get/"
+        url = "/api/v1/account/session/receipt/get/"
 
         body = json.dumps({
             "id": 3
@@ -712,7 +714,7 @@ class ReceiptTestCase(TestCase):
         print response.content
 
     def test_valid_receipt(self):
-        url = "/account/session/receipt/get/"
+        url = "/api/v1/account/session/receipt/get/"
 
         body = json.dumps({
             "id": 1
@@ -725,7 +727,7 @@ class ReceiptTestCase(TestCase):
         print response.content
 
     def test_send_receipt_to_unbinded_mail(self):
-        url = "/account/session/receipt/send/"
+        url = "/api/v1/account/session/receipt/send/"
         body = json.dumps({
             "id": 1
         })
@@ -742,7 +744,7 @@ class AccountAvatarTestCase(AccountTestCase):
         self.client = Client()
 
     def test_set_avatar(self):
-        url = "/account/avatar/set/"
+        url = "/api/v1/account/avatar/set/"
         with open("test1.jpg", "rb") as fp:
             body = json.dumps({
                 "avatar": base64.b64encode(fp.read()),
@@ -757,7 +759,7 @@ class AccountAvatarTestCase(AccountTestCase):
         remove(path)
 
     def test_set_large_avatar(self):
-        url = "/account/avatar/set/"
+        url = "/api/v1/account/avatar/set/"
         with open("test.jpg", "rb") as fp:
             body = json.dumps({
                 "avatar": base64.b64encode(fp.read()),
@@ -771,7 +773,7 @@ class AccountAvatarTestCase(AccountTestCase):
         self.assertFalse(isfile(path))
 
     def test_get_avatar(self):
-        url = "/account/avatar/get/"
+        url = "/api/v1/account/avatar/get/"
         response = self.client.get(url,
                                    **TOKEN_DICT)
         print response.content
@@ -809,9 +811,9 @@ class WantedParkingsTestCase(TestCase):
         print Parking.objects.all()
         resp = []
         for i in [1, 3, 5]:
-            url = "/parking/v1/want_parking/%d/" % i
+            url = "/api/v1/parking/want_parking/%d/" % i
             resp.append(self.client.get(url,
-                                        HTTP_AUTHORIZATION='Token TOKEN'))
+                                        **TOKEN_DICT))
             print resp[-1].content
         self.assertEqual(resp[0].status_code, 200)
         self.assertEqual(resp[1].status_code, 400)
