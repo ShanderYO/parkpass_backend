@@ -49,8 +49,8 @@ class ParkingStatisticsView(SignedRequestAPIView):
         stat = ParkingSession.objects.filter(
             parking=parking,
             started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-            else datetime.now() - timedelta(days=31),
-            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now()
+            else datetime.datetime.now() - timedelta(days=31),
+            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.datetime.now()
         )
         lst = []
         length = len(stat)

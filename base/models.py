@@ -199,7 +199,7 @@ class BaseAccountSession(models.Model):
             if session.is_expired():
                 session.delete()
                 return None
-            return session.vendor
+            return session.account
 
         except ObjectDoesNotExist:
             return None

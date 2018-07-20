@@ -8,7 +8,7 @@ from accounts.tasks import generate_current_debt_order
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
 from base.views import LoginRequiredAPIView, SignedRequestAPIView
-from parkings.models import Parking, ParkingSession, ComplainSession, WantedParking
+from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
@@ -32,7 +32,7 @@ class WantParkingView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         user = request.account
-        wp = WantedParking(parking=parking, user=user)
+        wp = Wish(parking=parking, user=user)
         wp.save()
         return JsonResponse({}, status=200)
 

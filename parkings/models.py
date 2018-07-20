@@ -1,14 +1,11 @@
-import binascii
-import os
-
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
 
+from accounts.models import Account
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
-from accounts.models import Account
 
 
 class ParkingManager(models.Manager):
@@ -45,7 +42,7 @@ class Parking(models.Model):
         return "%s [%s]" % (self.name, self.id)
 
 
-class WantedParking(models.Model):
+class Wish(models.Model):
     id = models.BigAutoField(primary_key=True)
     parking = models.OneToOneField(to=Parking)
     user = models.ForeignKey(to=Account, default=None)

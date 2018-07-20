@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import binascii
 import os
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
 # Create your models here.
@@ -36,3 +37,15 @@ class Vendor(BaseAccount):
 
 class VendorSession(BaseAccountSession):
     vendor = models.OneToOneField(Vendor)
+
+    @classmethod
+    def get_account_by_token(cls, token):
+        try:
+            session = cls.objects.get(token=token)
+            if session.is_expired():
+                session.delete()
+                return None
+            return session.vendor
+
+        except ObjectDoesNotExist:
+            return None

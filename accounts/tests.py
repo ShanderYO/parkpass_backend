@@ -9,7 +9,7 @@ from django.test import Client
 from django.test import TestCase
 
 from accounts.models import Account, AccountSession
-from parkings.models import Parking, ParkingSession, WantedParking
+from parkings.models import Parking, ParkingSession, Wish
 from parkpass.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
 from vendors.models import Vendor
@@ -805,6 +805,6 @@ class WantedParkingsTestCase(TestCase):
         self.assertEqual(resp[0].status_code, 200)
         self.assertEqual(resp[1].status_code, 400)
         self.assertEqual(resp[2].status_code, 400)
-        self.assertEqual(WantedParking.get_wanted_count(self.p1), 1)
-        self.assertEqual(WantedParking.get_wanted_count(self.p2), 0)
-        self.assertEqual(WantedParking.get_wanted_count(self.p3), 0)
+        self.assertEqual(Wish.get_wanted_count(self.p1), 1)
+        self.assertEqual(Wish.get_wanted_count(self.p2), 0)
+        self.assertEqual(Wish.get_wanted_count(self.p3), 0)
