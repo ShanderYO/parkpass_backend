@@ -1,26 +1,24 @@
-import random
 import binascii
 import os
+import random
 import uuid
-from hashlib import md5
 from datetime import datetime, timedelta
+from hashlib import md5
 from io import BytesIO
-from PIL import Image
-from base.exceptions import ValidationException
 
+from PIL import Image
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
+from django.db import models
 from django.db.models import BigAutoField
 from django.template.loader import render_to_string
-
-from parkpass import settings
-from django.db import models
-
 from django.utils import timezone
 
+from base.exceptions import ValidationException
+from parkpass import settings
 from parkpass.settings import EMAIL_HOST_USER, AVATARS_URL, AVATARS_ROOT
 
 
@@ -52,6 +50,10 @@ class EmailConfirmation(models.Model):
     email = models.EmailField()
     code = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
+    account_type = models.CharField(max_length=40,
+                                    default="account",
+                                    choices=(("User", "account"),
+                                             ("Vendor", "vendor")))
 
     def __unicode__(self):
         return "Code %s [%s]" %(self.code, self.email)
@@ -76,7 +78,7 @@ class EmailConfirmation(models.Model):
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def _generate_confirmation_link(self):
-        return "http://parkpass.ru/account/email/confirm/"+self.code
+        return ("http://parkpass.ru/%s/email/confirm/" % self.account_type) + self.code
 
 
 class BaseAccount(models.Model):

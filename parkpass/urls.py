@@ -13,9 +13,8 @@ Including another URLconf
     1. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
 from django.conf.urls import include, url
-from django.contrib import admin
 from django.conf.urls.static import static
-
+from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from parkpass import settings
@@ -29,6 +28,7 @@ urlpatterns = [
 
     # Vendor extensions
     url(r'^api/v1/parking/', include("rps_vendor.urls")),
+                  url(r'^api/v1/vendor/', include("vendors.urls"))
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static(settings.MEDIA_URL,
                                                                              document_root=settings.MEDIA_ROOT)
 

@@ -388,7 +388,7 @@ class EmailConfirmationView(View):
         if confirmations.exists():
             confirmation = confirmations[0]
             if confirmation.is_expired():
-                return JsonResponse({"error":"Link is expired"}, status=200)
+                return JsonResponse({"error": "Link is expired"}, status=200)
             else:
                 try:
                     account = Account.objects.get(email_confirmation=confirmation)
@@ -400,10 +400,10 @@ class EmailConfirmationView(View):
                     return JsonResponse({"message": "Email is activated successfully"})
 
                 except ObjectDoesNotExist:
-                    return JsonResponse({"error":"Invalid link. Account does not found"}, status=200)
+                    return JsonResponse({"error": "Invalid link. Account does not found"}, status=200)
 
         else:
-            return JsonResponse({"error":"Invalid link"}, status=200)
+            return JsonResponse({"error": "Invalid link"}, status=200)
 
 
 class ForcePayView(LoginRequiredAPIView):

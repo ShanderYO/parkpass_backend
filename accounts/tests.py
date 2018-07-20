@@ -150,19 +150,6 @@ class LoginEmail1TestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         print response.content
 
-    def test_invalid_email_login_with_email(self):
-        url = "/api/v1/account/login/email/"
-
-        body = json.dumps({
-            "email": "diman1-mich@yandex.ru",
-            "password": "qwerty",
-        })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
-
-        self.assertEqual(response.status_code, 400)
-        print response.content
-
     def test_invalid_password_login_with_email(self):
         url = "/api/v1/account/login/email/"
 

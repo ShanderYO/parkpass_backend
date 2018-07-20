@@ -1,14 +1,14 @@
 # Python import
-import json
 import hashlib
 import hmac
+import json
 
 # Django import
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from django.http import JsonResponse
 
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException
@@ -90,6 +90,15 @@ class LoginRequiredAPIView(APIView):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
         if not hasattr(request, "account") or not request.account:
+            auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
+            return JsonResponse(auth_exception.to_dict(), status=401)
+        return super(LoginRequiredAPIView, self).dispatch(request, *args, **kwargs)
+
+
+class VendorAPIView(APIView):
+    @method_decorator(csrf_exempt)
+    def dispatch(self, request, *args, **kwargs):
+        if not hasattr(request, "vendor") or not request.vendor:
             auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
             return JsonResponse(auth_exception.to_dict(), status=401)
         return super(LoginRequiredAPIView, self).dispatch(request, *args, **kwargs)
