@@ -101,7 +101,7 @@ class VendorAPIView(APIView):
         if not hasattr(request, "vendor") or not request.vendor:
             auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
             return JsonResponse(auth_exception.to_dict(), status=401)
-        return super(LoginRequiredAPIView, self).dispatch(request, *args, **kwargs)
+        return super(VendorAPIView, self).dispatch(request, *args, **kwargs)
 
 
 class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):

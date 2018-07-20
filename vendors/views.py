@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.http.response import JsonResponse
 from django.views import View
@@ -7,10 +9,118 @@ from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.models import EmailConfirmation
-from base.views import APIView
+from base.utils import datetime_from_unix_timestamp_tz
+from base.views import APIView, SignedRequestAPIView
 from base.views import VendorAPIView as LoginRequiredAPIView
+from parkings.models import ParkingSession, Parking
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
+from .validators import LoginAndPasswordValidator
+
+
+class ParkingStatisticsView(SignedRequestAPIView):
+    def post(self, request):
+        try:
+            id = int(request.data.get("pk", -1))
+            start_from = int(request.data.get("start", -1))
+            stop_at = int(request.data.get("end", -1))
+            page = int(request.data.get("page", 0))
+            count = int(request.data.get("count", 10))
+        except ValueError:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "All fields must be int"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if id < 0 or stop_at < start_from:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "One or more required parameters isn't specified correctly"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        try:
+            parking = Parking.objects.get(id=id, vendor=request.vendor)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Target parking with such id not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        stat = ParkingSession.objects.filter(
+            parking=parking,
+            started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
+            else datetime.now() - timedelta(days=31),
+            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now()
+        )
+        lst = []
+        length = len(stat)
+        if len(stat) > count:
+            stat = stat[page * count:(page + 1) * count]
+        for ps in stat:
+            lst.append(
+                serializer(ps)
+            )
+        return JsonResponse({'sessions': lst, 'count': length})
+
+
+class AllParkingsStatisticsView(SignedRequestAPIView):
+    def post(self, request):
+        try:
+            ids = map(int, request.data.get('ids', []).replace(' ', '').split(','))
+            start_from = int(request.data.get("start", -1))
+            stop_at = int(request.data.get("end", -1))
+            page = int(request.data.get("page", 0))
+            count = int(request.data.get("count", 10))
+        except ValueError:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "All fields must be int"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if stop_at < start_from:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "'stop' should be greater than 'start'"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        result = []
+
+        if ids:
+            pks = Parking.objects.filter(id__in=ids)
+        else:
+            pks = Parking.objects.all()
+
+        for pk in pks:
+            ps = ParkingSession.objects.filter(
+                parking=pk,
+                started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
+                else datetime.now() - timedelta(days=31),
+                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now(),
+                state__gt=3  # Only completed sessions
+            )
+
+            sessions_count = len(ps)
+            order_sum = 0
+            avg_time = 0
+            for session in ps:
+                order_sum += session.debt
+                avg_time += (session.completed_at - session.started_at).total_seconds()
+            try:
+                avg_time = avg_time / sessions_count
+            except ZeroDivisionError:
+                pass
+
+            result.append({
+                'parking_id': pk.id,
+                'parking_name': pk.name,
+                'sessions_count': sessions_count,
+                'avg_parking_time': avg_time,
+                'order_sum': order_sum,
+            })
+        length = len(result)
+        if len(result) > count:
+            result = result[page * count:(page + 1) * count]
+        return JsonResponse({'parkings': result, 'count': length}, status=200)
 
 
 class PasswordChangeView(LoginRequiredAPIView):
@@ -19,7 +129,7 @@ class PasswordChangeView(LoginRequiredAPIView):
         old_password = request.data["old"]
         new_password = request.data["new"]
 
-        account = request.account
+        account = request.vendor
 
         if not account.check_password(old_password):
             e = AuthException(
@@ -32,7 +142,38 @@ class PasswordChangeView(LoginRequiredAPIView):
 
 
 class LoginView(APIView):
-    pass
+    validator_class = LoginAndPasswordValidator
+
+    def post(self, request):
+        name = request.data["login"]
+        password = request.data["password"]
+
+        try:
+            account = Account.objects.get(name=name)
+            if account.check_password(raw_password=password):
+                if AccountSession.objects.filter(vendor=account).exists():
+                    session = AccountSession.objects.filter(vendor=account).order_by('-created_at')[0]
+                    response_dict = serializer(session)
+                    return JsonResponse(response_dict)
+                else:
+                    e = AuthException(
+                        AuthException.INVALID_SESSION,
+                        "Invalid session. Login with phone required"
+                    )
+                    return JsonResponse(e.to_dict(), status=400)
+            else:
+                e = AuthException(
+                    AuthException.INVALID_PASSWORD,
+                    "Invalid password"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        except ObjectDoesNotExist:
+            e = AuthException(
+                AuthException.NOT_FOUND_CODE,
+                "Vendor with such login not found")
+            return JsonResponse(e.to_dict(), status=400)
+
 
 
 class LoginWithPhoneView(APIView):
@@ -141,7 +282,7 @@ class ChangeEmailView(LoginRequiredAPIView):
 
     def post(self, request):
         email = str(request.data["email"])
-        current_account = request.account
+        current_account = request.vendor
         email_confirmation = None
 
         # check already added email

@@ -3,6 +3,7 @@ from django.utils.six import text_type
 
 # Header encoding (see RFC5987)
 from accounts.models import AccountSession
+from vendors.models import VendorSession
 
 HTTP_HEADER_ENCODING = 'iso-8859-1'
 
@@ -36,7 +37,7 @@ def get_vendor(request):
     except UnicodeError:
         return None
 
-    return AccountSession.get_account_by_token(token)
+    return VendorSession.get_account_by_token(token)
 
 
 def get_account(request):

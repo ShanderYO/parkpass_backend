@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-import re
 import datetime
+import re
 
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 
 from base.exceptions import ValidationException
-from django.core.validators import validate_email
 from base.validators import BaseValidator
-from django.core.validators import validate_email
+
 
 class IdValidator(BaseValidator):
     def is_valid(self):
@@ -71,6 +71,7 @@ class ConfirmLoginParamValidator(BaseValidator):
             self.message = str(e.message)
             return False
         return True
+
 
 class EmailAndPasswordValidator(BaseValidator):
     def is_valid(self):
