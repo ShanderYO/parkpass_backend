@@ -49,3 +49,12 @@ class VendorSession(BaseAccountSession):
 
         except ObjectDoesNotExist:
             return None
+
+
+class Issue(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=13)
+    comment = models.CharField(max_length=1023, blank=True, null=True)
+    created_at = models.DateTimeField(auto_created=True, auto_now_add=True)

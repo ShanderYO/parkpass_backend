@@ -179,7 +179,7 @@ def validate_email_format(value):
 def validate_name(value):
     regex = r'[A-Za-zА-Яа-яЁё]{2,50}'
     if not re.match(regex, value):
-        raise ValidationError("Name has invalid format. Please use only letters. Also, length must be <= 41 letters.")
+        raise ValidationError("Name has invalid format. Please use only letters. Also, length must be <= 50 letters.")
 
 
 def validate_phone_number(value):

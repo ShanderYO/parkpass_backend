@@ -1,7 +1,10 @@
+# -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
 from django.http.response import JsonResponse
+from django.template.loader import render_to_string
 from django.views import View
 from dss.Serializer import serializer
 
@@ -13,9 +16,36 @@ from base.utils import datetime_from_unix_timestamp_tz
 from base.views import APIView, SignedRequestAPIView
 from base.views import VendorAPIView as LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
+from parkpass.settings import EMAIL_HOST_USER
+from .models import Issue
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
-from .validators import LoginAndPasswordValidator
+from .validators import LoginAndPasswordValidator, IssueValidator
+
+
+class IssueView(APIView):
+    validator_class = IssueValidator
+
+    def post(self, request):
+        name = request.data.get("name", "")
+        phone = request.data.get("phone", "")
+        email = request.data.get("email", "")
+        i = Issue(
+            name=name,
+            phone=phone,
+            email=email
+        )
+        i.save()
+        text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
+        if phone:
+            sms_gateway = SMSGateway()
+            sms_gateway.send_sms(phone, text, message='')
+        if email:
+            msg_html = render_to_string('emails/issue_accepted.html',
+                                        {'name': name})
+            send_mail('Ваша заявка в ParkPass принята.', "", EMAIL_HOST_USER,
+                      ['%s' % str(email)], html_message=msg_html)
+        return JsonResponse({}, status=200)
 
 
 class ParkingStatisticsView(SignedRequestAPIView):
@@ -173,7 +203,6 @@ class LoginView(APIView):
                 AuthException.NOT_FOUND_CODE,
                 "Vendor with such login not found")
             return JsonResponse(e.to_dict(), status=400)
-
 
 
 class LoginWithPhoneView(APIView):

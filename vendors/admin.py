@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from vendors.models import Vendor, VendorSession
+from vendors.models import Vendor, VendorSession, Issue
 
 
 @admin.register(Vendor)
@@ -16,4 +16,9 @@ class VendorAdmin(admin.ModelAdmin):
 
 @admin.register(VendorSession)
 class VendorSessionAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(Issue)
+class IssueAdmin(admin.ModelAdmin):
     pass
