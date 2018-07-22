@@ -323,12 +323,12 @@ class TinkoffCallbackView(APIView):
             for session_order in session_orders:
                 if session_order.authorized and not session_order.paid:
                     try:
-                        payment = TinkoffPayment.objects.get(order=session_order, error_code__eq=-1)
+                        payment = TinkoffPayment.objects.get(order=session_order, error_code=-1)
                         session_order.confirm_payment(payment)
                     except ObjectDoesNotExist as e:
                         get_logger().log(e.message)
         else:
-            get_logger().log("Wait closing session")
+            get_logger().info("Wait closing session")
 
 
     def close_parking_session_if_needed(self, order):
