@@ -73,7 +73,12 @@ class TinkoffCallbackView(APIView):
             if self.is_regular_pay(order):
                 amount = int(request.data["Amount"])
 
-                if self.status == PAYMENT_STATUS_CONFIRMED:
+                if self.status == PAYMENT_STATUS_AUTHORIZED:
+                    order.authorized = True
+                    order.save()
+                    self.confirm_all_orders_if_needed(order)
+
+                elif self.status == PAYMENT_STATUS_CONFIRMED:
                     order.paid = True
                     order.save()
                     self.close_parking_session_if_needed(order)
@@ -236,6 +241,22 @@ class TinkoffCallbackView(APIView):
             return HttpResponse("OK", status=200)
 
     def reverse_order(self, order_id, amount):
+        """
+            {
+                u'OrderId': u'743',
+                u'Status': u'REVERSED',
+                u'Success': True,
+                u'Token': u'f6f9f767f1b5e2e947fab9021b97aedd92894f0417517ae1e516423c47e08897',
+                u'ExpDate': u'0819',
+                u'ErrorCode': u'0',
+                u'Amount': 100,
+                u'TerminalKey': u'1516954410942',
+                u'CardId': 5546930,
+                u'PaymentId': 27254547,
+                u'Pan': u'510092******6768'
+            }
+        """
+
         order = self.retrieve_order(order_id)
         if order:
             if self.is_card_binding(order):
@@ -284,6 +305,30 @@ class TinkoffCallbackView(APIView):
             if credit_card.rebill_id != rebill_id:
                 credit_card.rebill_id = rebill_id
                 credit_card.save()
+
+
+    def confirm_all_orders_if_needed(self, order):
+        parking_session = order.session
+        get_logger().info("check begin confirmation..")
+        non_authorized_orders = Order.objects.filter(
+            session=parking_session,
+            authorized=False
+        )
+
+        if not non_authorized_orders.exists() and parking_session.is_completed_by_vendor():
+            # Start confirmation
+            session_orders = Order.objects.filter(
+                session=parking_session,
+            )
+            for session_order in session_orders:
+                if session_order.authorized and not session_order.paid:
+                    try:
+                        payment = TinkoffPayment.objects.get(order=session_order, error_code__eq=-1)
+                        session_order.confirm_payment(payment)
+                    except ObjectDoesNotExist as e:
+                        get_logger().log(e.message)
+        else:
+            get_logger().log("Wait closing session")
 
 
     def close_parking_session_if_needed(self, order):

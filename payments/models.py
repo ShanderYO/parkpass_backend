@@ -265,6 +265,16 @@ class Order(models.Model):
             fiscal=fiscal
         )
 
+    def confirm_payment(self, payment):
+        get_logger().info("Make confirm order: %s" % self.id)
+        request_data = TinkoffPayment.build_confirm_request_data(payment.payment_id, self.get_payment_amount())
+        get_logger().info(request_data)
+        result = TinkoffAPI().sync_call(
+            TinkoffAPI.CONFIRM, request_data
+        )
+        get_logger().info(str(result))
+
+
 PAYMENT_STATUS_UNKNOWN = -1
 PAYMENT_STATUS_INIT = 0
 PAYMENT_STATUS_NEW = 1
