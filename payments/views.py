@@ -51,6 +51,12 @@ class TinkoffCallbackView(APIView):
             self.refunded_order(order_id, amount, self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
             return HttpResponse("OK", status=200)
 
+
+        if self.status == PAYMENT_STATUS_REVERSED:
+            amount = int(request.data["Amount"])
+            self.reverse_order(order_id, amount)
+            return HttpResponse("OK", status=200)
+
         # Get order and payment
         order = self.retrieve_order(order_id)
         if order:
@@ -99,8 +105,8 @@ class TinkoffCallbackView(APIView):
                             if CreditCard.objects.filter(account=order.account).exists() else True
                     credit_card.save()
 
-                if self.status == PAYMENT_STATUS_CONFIRMED:
-                    order.paid = True
+                if self.status == PAYMENT_STATUS_AUTHORIZED:
+                    order.authorized = True
                     start_cancel_request(order)
 
             else:
@@ -228,6 +234,15 @@ class TinkoffCallbackView(APIView):
 
         else:
             return HttpResponse("OK", status=200)
+
+    def reverse_order(self, order_id, amount):
+        order = self.retrieve_order(order_id)
+        if order:
+            if self.is_card_binding(order):
+                order.refunded_sum = Decimal(1)
+                order.save()
+            else:
+                pass
 
 
     def retrieve_order(self, order_id):

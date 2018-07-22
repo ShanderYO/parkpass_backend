@@ -121,6 +121,7 @@ class Order(models.Model):
     id = models.AutoField(primary_key=True)
     sum = models.DecimalField(max_digits=7, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
+    authorized = models.BooleanField(default=False)
     paid = models.BooleanField(default=False)
     paid_card_pan = models.CharField(max_length=31, default="")
     session = models.ForeignKey(ParkingSession, null=True, blank=True)
