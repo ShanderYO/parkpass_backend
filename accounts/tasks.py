@@ -21,7 +21,6 @@ def generate_current_debt_order(parking_session_id):
         if new_order_sum > 0:
             new_order = Order.objects.create(
                 session=active_session,
-                account=active_session.client,
                 sum=new_order_sum)
             new_order.try_pay()
 
