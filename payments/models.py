@@ -267,7 +267,7 @@ class Order(models.Model):
 
     def confirm_payment(self, payment):
         get_logger().info("Make confirm order: %s" % self.id)
-        request_data = TinkoffPayment.build_confirm_request_data(payment.payment_id, self.get_payment_amount())
+        request_data = payment.build_confirm_request_data(self.get_payment_amount())
         get_logger().info(request_data)
         result = TinkoffAPI().sync_call(
             TinkoffAPI.CONFIRM, request_data
@@ -352,9 +352,9 @@ class TinkoffPayment(models.Model):
         }
         return data
 
-    def build_confirm_request_data(self, payment_id, amount):
+    def build_confirm_request_data(self, amount):
         data = {
-            "PaymentId": str(payment_id),
+            "PaymentId": str(self.payment_id),
             "Amount": str(amount),
         }
         return data

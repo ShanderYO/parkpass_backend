@@ -24,6 +24,13 @@ def generate_current_debt_order(parking_session_id):
                 sum=new_order_sum)
             new_order.try_pay()
 
+        # if over-price authorized
+        if new_order_sum < 0:
+            # TODO make reverse
+            last_order = Order.objects.filter(session=active_session)[0]
+            last_order.delete()
+            return generate_current_debt_order(parking_session_id)
+
         # if needs to check closing session
         else:
             orders = Order.objects.filter(session=active_session)

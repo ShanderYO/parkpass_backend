@@ -86,7 +86,6 @@ class TinkoffCallbackView(APIView):
                 get_logger().info("status 200: OK")
                 return HttpResponse("OK", status=200)
 
-            # TODO what execute AUTHORIZE STATE
 
             elif self.is_card_binding(order):
                 rebill_id = int(request.data["RebillId"])
