@@ -57,4 +57,4 @@ class Issue(models.Model):
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=13)
     comment = models.CharField(max_length=1023, blank=True, null=True)
-    created_at = models.DateTimeField(auto_created=True, auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, editable=True)

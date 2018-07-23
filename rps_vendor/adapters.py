@@ -1,12 +1,3 @@
-import re
-
-from django.core.exceptions import ValidationError
-
-from base.exceptions import ValidationException
-from base.validators import BaseValidator
-from parkings.validators import validate_id, validate_unix_timestamp
-
-
 class RpsCreateParkingSessionAdapter(object):
 
     def __init__(self, request_dict):

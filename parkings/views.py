@@ -12,13 +12,14 @@ from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
-    UpdateListParkingSessionValidator, ComplainSessionValidator
+    UpdateListParkingSessionValidator, ComplainSessionValidator, CreateParkingValidator
 
 
-class WantParkingView(LoginRequiredAPIView):
+class WishView(LoginRequiredAPIView):
+
     def get(self, request, *args, **kwargs):
         try:
-            parking = Parking.objects.get(id=int(kwargs['parking']))
+            parking = Parking.objects.get(id=int(kwargs['parking']), approved=True)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -37,10 +38,30 @@ class WantParkingView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
+class IssueParkingView(SignedRequestAPIView):
+    validator_class = CreateParkingValidator
+
+    def post(self, request):
+        # max_client_debt, enabled, longitude, latitude, address, description, name
+        parking = Parking(
+            name=self.request.data['name'],
+            description=self.request.data['description'],
+            address=self.request.data['address'],
+            latitude=float(self.request.data['latitude']),
+            longitude=float(self.request.data['longitude']),
+            free_places=int(self.request.data['free_places']),
+            approved=False,
+            max_client_debt=int(self.request.data['max_client_debt'])
+        )
+        parking.save()
+        return JsonResponse({}, status=200)
+
+
 class GetParkingView(LoginRequiredAPIView):
+
     def get(self, request, *args, **kwargs):
         try:
-            parking = Parking.objects.get(id=kwargs["pk"])
+            parking = Parking.objects.get(id=kwargs["pk"], approved=True)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -52,6 +73,7 @@ class GetParkingView(LoginRequiredAPIView):
 
 
 class GetParkingViewList(LoginRequiredAPIView):
+
     def get(self, request):
         left_top_latitude = request.GET.get("lt_lat", None)
         left_top_longitude = request.GET.get("lt_lon", None)
@@ -96,6 +118,7 @@ class GetParkingViewList(LoginRequiredAPIView):
 
 
 class TestSignedRequestView(SignedRequestAPIView):
+
     def post(self, request):
         res = {}
         for key in request.data:
@@ -111,7 +134,7 @@ class UpdateParkingView(SignedRequestAPIView):
         free_places = int(request.data["free_places"])
 
         try:
-            parking = Parking.objects.get(id=parking_id, vendor=request.vendor)
+            parking = Parking.objects.get(id=parking_id, vendor=request.vendor, approved=True)
             parking.free_places = free_places
             parking.save()
             return JsonResponse({}, status=200)
@@ -134,7 +157,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
         started_at = int(request.data["started_at"])
 
         try:
-            parking = Parking.objects.get(id=parking_id, vendor=request.vendor)
+            parking = Parking.objects.get(id=parking_id, vendor=request.vendor, approved=True)
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -195,13 +218,13 @@ class CancelParkingSessionView(SignedRequestAPIView):
             session = ParkingSession.objects.get(
                 session_id=session_id,
                 parking__id=parking_id,
-                parking__vendor=request.vendor
+                parking__vendor=request.vendor,
             )
             # Check if session is is_cancelable
             if not session.is_cancelable():
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
-                    "Parking session cancele error. Current state: %s" % self.state
+                    "Parking session cancelling error. Current state: %s" % self.state
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
@@ -310,7 +333,7 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
         parking_id = int(request.data["parking_id"])
         sessions = request.data["sessions"]
         try:
-            parking = Parking.objects.get(id=parking_id, vendor=request.vendor)
+            parking = Parking.objects.get(id=parking_id, vendor=request.vendor, approved=True)
             process_updated_sessions(parking, sessions)
         except ObjectDoesNotExist:
             e = ValidationException(
