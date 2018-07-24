@@ -13,6 +13,7 @@ from accounts.validators import *
 from base.exceptions import AuthException
 from base.models import EmailConfirmation
 from base.utils import datetime_from_unix_timestamp_tz
+from base.validators import LoginAndPasswordValidator
 from base.views import APIView, SignedRequestAPIView
 from base.views import VendorAPIView as LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
@@ -20,7 +21,7 @@ from parkpass.settings import EMAIL_HOST_USER
 from .models import Issue
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
-from .validators import LoginAndPasswordValidator, IssueValidator
+from .validators import IssueValidator
 
 
 class IssueView(APIView):

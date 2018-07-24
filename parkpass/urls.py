@@ -26,6 +26,7 @@ urlpatterns = [
     url(r'^api/v1/parking/', include("parkings.urls")),
     url(r'^api/v1/payments/', include("payments.urls")),
 
+                  url(r'^api/v1/owner/', include("owners.urls")),
     # Vendor extensions
     url(r'^api/v1/parking/', include("rps_vendor.urls")),
                   url(r'^api/v1/vendor/', include("vendors.urls"))

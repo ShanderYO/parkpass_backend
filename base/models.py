@@ -52,8 +52,12 @@ class EmailConfirmation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     account_type = models.CharField(max_length=40,
                                     default="account",
-                                    choices=(("User", "account"),
-                                             ("Vendor", "vendor")))
+                                    choices=(
+                                        ("User", "account"),
+                                        ("Vendor", "vendor"),
+                                        ("Owner", "owner")
+                                    )
+                                    )
 
     def __unicode__(self):
         return "Code %s [%s]" %(self.code, self.email)
