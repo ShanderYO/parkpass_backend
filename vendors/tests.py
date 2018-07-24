@@ -54,7 +54,7 @@ class Authorization(TestCase):
         self.account, self.account_session, self.sign = create_account()
 
     def test_login_by_name(self):
-        url = "/api/v1/vendor/login/"
+        url = URL_PREFIX + "login/"
 
         body = json.dumps({
             'login': LOGIN,

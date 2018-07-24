@@ -211,6 +211,7 @@ def validate_sms_code(value):
     if not re.match(regex, value):
         raise ValidationError("Phone code has invalidate format")
 
+
 def validate_password_format(value):
     # Format more than 5
     if len(str(value)) < 6:

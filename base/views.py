@@ -104,6 +104,15 @@ class VendorAPIView(APIView):
         return super(VendorAPIView, self).dispatch(request, *args, **kwargs)
 
 
+class OwnerAPIView(APIView):
+    @method_decorator(csrf_exempt)
+    def dispatch(self, request, *args, **kwargs):
+        if not hasattr(request, "owner") or not request.owner:
+            auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
+            return JsonResponse(auth_exception.to_dict(), status=401)
+        return super(OwnerAPIView, self).dispatch(request, *args, **kwargs)
+
+
 class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
