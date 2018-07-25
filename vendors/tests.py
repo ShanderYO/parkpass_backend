@@ -12,8 +12,8 @@ from parkings.models import ParkingSession, Parking
 from .models import *
 
 URL_PREFIX = "/api/v1/vendor/"
-TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Vendor 0ff08840935eb00fad198ef5387423bc24cd15e1'}
-TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
+TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Vendor ff08840935eb00fad198ef5387423bc24cd15e1'}
+TOKEN = "ff08840935eb00fad198ef5387423bc24cd15e1"
 LOGIN, PASSWORD = "vendor", "qwerty"
 PHONE = "+7(999)1234567"
 EMAIL = "test@testing.com"
@@ -97,6 +97,18 @@ class Authorization(TestCase):
 
         response = Client().get(url, **TOKEN_DICT)
         print response.content
+
+        self.assertEqual(200, response.status_code)
+
+    def test_issue_upgrade(self):
+        url = URL_PREFIX + "issue_upgrade/"
+
+        body = json.dumps({
+            'description': 'Please install Quake III Arena to parking reader',
+            'issue_type': '0'
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
 
         self.assertEqual(200, response.status_code)
 
@@ -215,7 +227,8 @@ class Statistics(TestCase):
             'ids': '1, 2, 3, 4, 5',
         })
 
-        response = self.sign(url, body)
+        response = Client().post(url, body, content_type='application/json',
+                                 **TOKEN_DICT)
 
         print response.content
 
@@ -230,7 +243,8 @@ class Statistics(TestCase):
             'pk': 1,
         })
 
-        response = self.sign(url, body)
+        response = Client().post(url, body, content_type='application/json',
+                                 **TOKEN_DICT)
 
         print response.content
         result = json.loads(response.content)['sessions']
@@ -247,7 +261,8 @@ class Statistics(TestCase):
             'pk': 1,
         })
 
-        response = self.sign(url, body)
+        response = Client().post(url, body, content_type='application/json',
+                                 **TOKEN_DICT)
 
         self.assertEqual(200, response.status_code)
 

@@ -12,7 +12,7 @@ from base.models import BaseAccount, BaseAccountSession
 class Vendor(BaseAccount):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True)
-    comission = models.FloatField(default=0.15)
+    comission = models.FloatField(default=0.02)
     secret = models.CharField(max_length=255, unique=True, default="stub")
 
     class Meta:
@@ -58,3 +58,25 @@ class Issue(models.Model):
     phone = models.CharField(max_length=13)
     comment = models.CharField(max_length=1023, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, editable=True)
+
+
+class UpgradeIssue(models.Model):
+    types = (
+        ("Software update", 0),
+        ("Install readers", 1)
+    )
+    statuses = (
+        ("New", 0),
+        ("Viewed", 1),
+        ("Processing", 2),
+        ("Processed", 3),
+        ("Cancelled", -1)
+    )
+    id = models.AutoField(primary_key=True)
+    vendor = models.ForeignKey(to=Vendor)
+    description = models.CharField(max_length=1000)
+    type = models.IntegerField(choices=types)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    status = models.IntegerField(choices=statuses, default=0)

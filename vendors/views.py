@@ -14,11 +14,11 @@ from base.exceptions import AuthException
 from base.models import EmailConfirmation
 from base.utils import datetime_from_unix_timestamp_tz
 from base.validators import LoginAndPasswordValidator
-from base.views import APIView, SignedRequestAPIView
+from base.views import APIView
 from base.views import VendorAPIView as LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
 from parkpass.settings import EMAIL_HOST_USER
-from .models import Issue
+from .models import Issue, UpgradeIssue
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
 from .validators import IssueValidator
@@ -49,7 +49,7 @@ class IssueView(APIView):
         return JsonResponse({}, status=200)
 
 
-class ParkingStatisticsView(SignedRequestAPIView):
+class ParkingStatisticsView(LoginRequiredAPIView):
     def post(self, request):
         try:
             id = int(request.data.get("pk", -1))
@@ -94,7 +94,7 @@ class ParkingStatisticsView(SignedRequestAPIView):
         return JsonResponse({'sessions': lst, 'count': length})
 
 
-class AllParkingsStatisticsView(SignedRequestAPIView):
+class AllParkingsStatisticsView(LoginRequiredAPIView):
     def post(self, request):
         try:
             ids = map(int, request.data.get('ids', []).replace(' ', '').split(','))
@@ -152,6 +152,28 @@ class AllParkingsStatisticsView(SignedRequestAPIView):
         if len(result) > count:
             result = result[page * count:(page + 1) * count]
         return JsonResponse({'parkings': result, 'count': length}, status=200)
+
+
+class IssueUpgradeView(LoginRequiredAPIView):
+
+    def post(self, request):
+        account = request.vendor
+        description = request.data.get('description', None)
+        type = request.data.get('issue_type', None)
+        if type is None or description is None or not type.isdigit() or 0 > len(description) > 1000:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Both 'issue_type' and 'description fields are required, 'issue_type' must be int"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        type = int(type)
+        ui = UpgradeIssue(
+            vendor=account,
+            description=description,
+            type=type,
+        )
+        ui.save()
+        return JsonResponse({}, status=200)
 
 
 class InfoView(LoginRequiredAPIView):
