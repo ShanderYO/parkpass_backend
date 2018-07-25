@@ -154,6 +154,19 @@ class AllParkingsStatisticsView(SignedRequestAPIView):
         return JsonResponse({'parkings': result, 'count': length}, status=200)
 
 
+class InfoView(LoginRequiredAPIView):
+
+    def get(self, request, *args, **kwargs):
+        account = request.vendor
+
+        response = {
+            'vendor_name': account.name,
+            'secret_key': account.secret,
+            'comission': account.comission
+        }
+
+        return JsonResponse(response, status=200)
+
 class PasswordChangeView(LoginRequiredAPIView):
 
     def post(self, request):

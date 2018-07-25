@@ -92,6 +92,14 @@ class Authorization(TestCase):
         print response.content
         self.assertEqual(200, response.status_code)
 
+    def test_get_info(self):
+        url = URL_PREFIX + "info/"
+
+        response = Client().get(url, **TOKEN_DICT)
+        print response.content
+
+        self.assertEqual(200, response.status_code)
+
 
 class Password(TestCase):
     """
