@@ -62,15 +62,15 @@ class Issue(models.Model):
 
 class UpgradeIssue(models.Model):
     types = (
-        ("Software update", 0),
-        ("Install readers", 1)
+        (0, "Software update"),
+        (1, "Install readers")
     )
     statuses = (
-        ("New", 0),
-        ("Viewed", 1),
-        ("Processing", 2),
-        ("Processed", 3),
-        ("Cancelled", -1)
+        (0, "New"),
+        (1, "Viewed"),
+        (2, "Processing"),
+        (3, "Processed"),
+        (-1, "Cancelled")
     )
     id = models.AutoField(primary_key=True)
     vendor = models.ForeignKey(to=Vendor)
@@ -80,3 +80,6 @@ class UpgradeIssue(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     status = models.IntegerField(choices=statuses, default=0)
+
+    def __unicode__(self):
+        return self.description
