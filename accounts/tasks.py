@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+import datetime
 from autotask.tasks import periodic_task, delayed_task
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -11,11 +12,14 @@ from payments.payment_api import TinkoffAPI
 
 @delayed_task()
 def generate_current_debt_order(parking_session_id):
+    get_logger().info("generate_current_debt_order begin")
     try:
         active_session = ParkingSession.objects.get(id=parking_session_id)
 
         ordered_sum = Order.get_ordered_sum_by_session(active_session)
         new_order_sum = active_session.debt - ordered_sum
+
+        get_logger().info(" %s : %s" % (ordered_sum, new_order_sum))
 
         # if needs to create new order
         if new_order_sum > 0:
@@ -26,6 +30,7 @@ def generate_current_debt_order(parking_session_id):
 
         # if over-price authorized
         if new_order_sum < 0:
+            get_logger().info("todo reverse")
             # TODO make reverse
             last_order = Order.objects.filter(session=active_session)[0]
             last_order.delete()
@@ -50,10 +55,18 @@ def generate_current_debt_order(parking_session_id):
 def force_pay(parking_session_id):
     try:
         active_session = ParkingSession.objects.get(id=parking_session_id)
-        not_paid_orders = Order.objects.filter(session=active_session, paid=False)
-        if not_paid_orders.exists():
-            for order in not_paid_orders:
+        not_authorized_orders = Order.objects.filter(session=active_session, authorized=False)
+        if not_authorized_orders.exists():
+            for order in not_authorized_orders:
                 order.try_pay()
+        else:
+            not_paid_orders = Order.objects.filter(session=active_session, authorized=True, paid=False)
+            for order in not_paid_orders:
+                try:
+                    payment = TinkoffPayment.objects.get(order=order)
+                    order.confirm_payment(payment)
+                except ObjectDoesNotExist as e:
+                    pass
 
     except ObjectDoesNotExist:
         pass
@@ -143,3 +156,17 @@ def _init_refund(parking_session):
     parking_session.current_refund_sum = current_refunded_sum
     parking_session.try_refund = False
     parking_session.save()
+
+
+# for 3 day authorized sum
+@periodic_task(seconds=3*24*60*60)
+def confirm_once_per_3_day():
+    _3_days_before = datetime.datetime.now() - datetime.timedelta(days=3)
+    authorized_more_that_3_days_orders = Order.objects.filter(authorized=True, created_at__lte=_3_days_before)
+    if authorized_more_that_3_days_orders.exists():
+        for order in authorized_more_that_3_days_orders:
+            try:
+                payment = TinkoffPayment.objects.get(order=order)
+                order.confirm_payment(payment)
+            except ObjectDoesNotExist:
+                continue
