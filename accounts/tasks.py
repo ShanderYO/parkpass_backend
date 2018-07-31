@@ -28,6 +28,10 @@ def generate_current_debt_order(parking_session_id):
                 sum=new_order_sum)
             new_order.try_pay()
 
+        # if start confirm only
+        if new_order_sum == 0:
+            confirm_all_orders_if_needed(active_session)
+
         # if over-price authorized
         if new_order_sum < 0:
             last_order = Order.objects.filter(session=active_session)[0]
@@ -38,12 +42,6 @@ def generate_current_debt_order(parking_session_id):
                 TinkoffAPI.CANCEL, request_data
             )
             get_logger().info(result)
-            """
-            if result.get("Status") == u'REFUNDED':
-                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100
-                get_logger().info('REFUNDED: %s' % order.refunded_sum)
-                order.save()
-            """
             last_order.delete()
             return generate_current_debt_order(parking_session_id)
 
@@ -60,6 +58,29 @@ def generate_current_debt_order(parking_session_id):
 
     except ObjectDoesNotExist:
         pass
+
+
+def confirm_all_orders_if_needed(parking_session):
+    get_logger().info("check begin confirmation..")
+    non_authorized_orders = Order.objects.filter(
+        session=parking_session,
+        authorized=False
+    )
+
+    if not non_authorized_orders.exists() and parking_session.is_completed_by_vendor():
+        # Start confirmation
+        session_orders = Order.objects.filter(
+            session=parking_session,
+        )
+        for session_order in session_orders:
+            if session_order.authorized and not session_order.paid:
+                try:
+                    payment = TinkoffPayment.objects.get(order=session_order, error_code=-1)
+                    session_order.confirm_payment(payment)
+                except ObjectDoesNotExist as e:
+                    get_logger().log(e.message)
+    else:
+        get_logger().info("Wait closing session")
 
 
 @delayed_task()
