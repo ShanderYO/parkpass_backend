@@ -30,9 +30,20 @@ def generate_current_debt_order(parking_session_id):
 
         # if over-price authorized
         if new_order_sum < 0:
-            get_logger().info("todo reverse")
-            # TODO make reverse
             last_order = Order.objects.filter(session=active_session)[0]
+            get_logger().info("Try reverse order #%s", last_order.id)
+            payment = TinkoffPayment.objects.get(order=last_order)
+            request_data = payment.build_cancel_request_data(int(last_order.sum * 100))
+            result = TinkoffAPI().sync_call(
+                TinkoffAPI.CANCEL, request_data
+            )
+            get_logger().info(result)
+            """
+            if result.get("Status") == u'REFUNDED':
+                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100
+                get_logger().info('REFUNDED: %s' % order.refunded_sum)
+                order.save()
+            """
             last_order.delete()
             return generate_current_debt_order(parking_session_id)
 
