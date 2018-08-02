@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from owners.models import Owner, OwnerSession
+from owners.models import *
 
 
 @admin.register(Owner)
@@ -10,4 +10,9 @@ class OwnerAdmin(admin.ModelAdmin):
 
 @admin.register(OwnerSession)
 class OwnerSessionAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(UpgradeIssue)
+class UpgradeIssueAdmin(admin.ModelAdmin):
     pass
