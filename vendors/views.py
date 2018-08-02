@@ -183,6 +183,7 @@ class InfoView(LoginRequiredAPIView):
 
         response = {
             'vendor_name': account.name,
+            'id': account.display_id,
             'secret_key': account.secret,
             'comission': account.comission
         }

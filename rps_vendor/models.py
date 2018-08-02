@@ -1,4 +1,3 @@
-import datetime
 from django.db import models
 
 # Create your models here.
@@ -10,7 +9,7 @@ class RpsParking(models.Model):
     request_update_url = models.URLField(null=True, blank=True)
     polling_enabled = models.BooleanField(default=False)
     last_request_body = models.TextField(null=True, blank=True)
-    last_request_date = models.DateTimeField(default=datetime.datetime.now())
+    last_request_date = models.DateTimeField(auto_now_add=True)
 
     last_response_code = models.IntegerField(default=0)
     last_response_body = models.TextField(null=True, blank=True)

@@ -11,6 +11,7 @@ from base.models import BaseAccount, BaseAccountSession
 
 class Vendor(BaseAccount):
     id = models.AutoField(primary_key=True)
+    display_id = models.IntegerField(default=-1, unique=True)
     name = models.CharField(max_length=255, unique=True)
     comission = models.FloatField(default=0.02)
     secret = models.CharField(max_length=255, unique=True, default="stub")
@@ -21,9 +22,21 @@ class Vendor(BaseAccount):
         verbose_name_plural = 'Vendors'
 
     def __unicode__(self):
-        return "%s" % (self.name)
+        return "%s" % self.name
 
     def save(self, *args, **kwargs):
+
+        if self._state.adding:
+            if self.display_id == -1:
+                # Get the maximum display_id value from the database
+                last_id = Vendor.objects.all().aggregate(largest=models.Max('display_id'))['largest']
+
+                # aggregate can return None! Check it first.
+                # If it isn't none, just use the last ID specified (which should be the greatest) and add one to it
+                # (From https://stackoverflow.com/questions/41228034/django-non-primary-key-autofield)
+                if last_id is not None:
+                    self.display_id = last_id + 1
+
         if not self.pk:
             if not kwargs.get("not_generate_secret", False):
                 self.generate_secret()

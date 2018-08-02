@@ -36,7 +36,7 @@ def create_account(id=1, name="Test", phone="+7(999)1234567", email="test@testin
     return account, account_session
 
 
-def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678", park_enabled=True,
+def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678", park_enabled=True, approved=True,
                           park_name="parking-1", park_desc="default", park_lat=1, park_lon=1, park_places=5):
     v = Vendor(
         name=ven_name,
@@ -50,7 +50,8 @@ def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678",
         enabled=park_enabled,
         longitude=park_lon,
         free_places=park_places,
-        vendor=v
+        vendor=v,
+        approved=approved
     )
     return v, p
 
