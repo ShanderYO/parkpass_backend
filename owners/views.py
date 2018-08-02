@@ -13,6 +13,29 @@ from base.views import APIView
 from base.views import OwnerAPIView as LoginRequiredAPIView
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
+from .models import UpgradeIssue
+
+
+class IssueUpgradeView(LoginRequiredAPIView):
+
+    def post(self, request):
+        account = request.vendor
+        description = request.data.get('description', None)
+        type = request.data.get('issue_type', None)
+        if type is None or description is None or not type.isdigit() or 0 > len(description) > 1000:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Both 'issue_type' and 'description fields are required, 'issue_type' must be int"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        type = int(type)
+        ui = UpgradeIssue(
+            owner=account,
+            description=description,
+            type=type,
+        )
+        ui.save()
+        return JsonResponse({}, status=200)
 
 
 class PasswordChangeView(LoginRequiredAPIView):
