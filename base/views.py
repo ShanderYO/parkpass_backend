@@ -75,6 +75,13 @@ class SignedRequestAPIView(APIView):
 
         signature = hmac.new(str(request.vendor.secret), request.body, hashlib.sha512)
 
+        if request.vendor.account_state != request.vendor.ACCOUNT_STATE.NORMAL:
+            e = PermissionException(
+                PermissionException.NO_PERMISSION,
+                "Account isn't it 'Normal' mode"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
         if signature.hexdigest() != request.META["HTTP_X_SIGNATURE"].lower():
             e = PermissionException(
                 PermissionException.SIGNATURE_INVALID,

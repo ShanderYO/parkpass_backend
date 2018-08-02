@@ -12,6 +12,18 @@ from base.models import BaseAccount, BaseAccountSession
 class Vendor(BaseAccount):
     id = models.AutoField(primary_key=True)
     display_id = models.IntegerField(default=-1, unique=True)
+
+    class ACCOUNT_STATE:
+        DISABLED = 0
+        NORMAL = 1
+        TEST = 2
+
+    account_states = (
+        (ACCOUNT_STATE.DISABLED, "Disabled"),
+        (ACCOUNT_STATE.NORMAL, "Normal"),
+        (ACCOUNT_STATE.TEST, "Test only")
+    )
+    account_state = models.IntegerField(choices=account_states, default=ACCOUNT_STATE.NORMAL)
     name = models.CharField(max_length=255, unique=True)
     comission = models.FloatField(default=0.02)
     secret = models.CharField(max_length=255, unique=True, default="stub")
