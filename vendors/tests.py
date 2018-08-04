@@ -238,7 +238,7 @@ class Statistics(TestCase):
         url = URL_PREFIX + 'stats/parking/'
 
         body = json.dumps({
-            'start': 10,
+            'start': 20,
             'end': 80,
             'pk': 1,
         })
@@ -316,3 +316,21 @@ class Issue(TestCase):
         response = Client().post(url, body, content_type='application/json')
         print response.content
         self.assertEqual(400, response.status_code)
+
+
+class TestMethods(TestCase):
+
+    def setUp(self):
+        self.account, self.account_session, self.sign = create_account()
+
+    def test_created_without_session(self):
+        url = URL_PREFIX + 'test/last_session_created/'
+
+        response = Client().post(url, **TOKEN_DICT)
+        print response.content
+
+    def test_check_free_places(self):
+        url = URL_PREFIX + 'test/free_places/'
+
+        response = Client().post(url, **TOKEN_DICT)
+        print response.content, "!!!"

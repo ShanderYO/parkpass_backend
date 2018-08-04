@@ -1,6 +1,7 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.db import models
+from django.db.models import signals
 from django.template.loader import render_to_string
 
 from accounts.models import Account
@@ -224,3 +225,24 @@ class ComplainSession(models.Model):
     message = models.TextField(max_length=1023)
     session = models.ForeignKey(ParkingSession)
     account = models.ForeignKey('accounts.Account')
+
+
+def create_test_parking(sender, instance, created, **kwargs):
+    if not created:
+        return
+    parking = Parking(
+        description='Test parking',
+        latitude=1,
+        longitude=2,
+        free_places=5,
+        vendor=instance,
+        enabled=False,
+        approved=True
+    )
+    parking.save()
+    instance.test_parking = parking
+    instance.save()
+
+
+signals.post_save.connect(receiver=create_test_parking, sender=Vendor)  # Test parking creation, when vendor
+# is being created

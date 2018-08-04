@@ -400,3 +400,46 @@ class EmailConfirmationView(View):
 
         else:
             return JsonResponse({"error": "Invalid link"}, status=200)
+
+
+class TestSessionCreatedView(LoginRequiredAPIView):
+
+    def post(self, request):
+        pass
+        # account = request.vendor
+        # parking = account.test_parking
+        # if parking is None:
+        #     return JsonResponse(
+        #         {
+        #             'error': 'There is no test parking assigned to your account. Please contact administrator.'
+        #         }, status=400
+        #     )
+        # try:
+        #     session = ParkingSession.objects.filter(parking=parking).latest('created_at')
+        # except ObjectDoesNotExist:
+        #     return JsonResponse({
+        #         'result': 'There is not parking sessions in test parking.'
+        #     }, 200)
+        # return JsonResponse({
+        #     'result': {
+        #         'started_at': '%s' % session.started_at
+        #     }
+        # })
+
+
+class TestSessionInfoView(LoginRequiredAPIView):
+    pass
+
+
+class TestSessionCompletedView(LoginRequiredAPIView):
+    pass
+
+
+class TestFreePlacesView(LoginRequiredAPIView):
+
+    def post(self, request):
+        account = request.vendor
+        parking = account.test_parking
+        if parking is None:
+            return JsonResponse({'error': 'There is no test parking assigned to your account'}, status=400)
+        return JsonResponse({'free_places': parking.free_places}, status=200)

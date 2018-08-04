@@ -20,7 +20,7 @@ TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
 
 def create_account(id=1, name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"):
     account = Account.objects.create(
-        id=id,
+        # id=id,
         first_name=name,
         phone=phone,
         email=email

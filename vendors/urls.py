@@ -19,6 +19,11 @@ urlpatterns = [
                   # Statistics
                   url(r'^stats/parking/$', ParkingStatisticsView.as_view()),
                   url(r'^stats/summary/$', AllParkingsStatisticsView.as_view()),
-                  url(r'^issue/$', IssueView.as_view())
+                  url(r'^issue/$', IssueView.as_view()),
+                  # Test user and parking
+                  url(r'^test/last_session_created/$', TestSessionCreatedView.as_view()),
+                  url(r'^test/last_session_info/$', TestSessionInfoView.as_view()),
+                  url(r'^test/last_session_completed/$', TestSessionCompletedView.as_view()),
+                  url(r'^test/free_places/$', TestFreePlacesView.as_view()),
 
               ] + staticfiles_urlpatterns()
