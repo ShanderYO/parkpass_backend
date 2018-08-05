@@ -190,6 +190,7 @@ class InfoView(LoginRequiredAPIView):
 
         return JsonResponse(response, status=200)
 
+
 class PasswordChangeView(LoginRequiredAPIView):
 
     def post(self, request):
@@ -339,7 +340,7 @@ class LoginWithEmailView(APIView):
 
 class LogoutView(LoginRequiredAPIView):
     def post(self, request):
-        request.account.clean_session()
+        request.vendor.clean_session()
         return JsonResponse({}, status=200)
 
 
@@ -402,41 +403,37 @@ class EmailConfirmationView(View):
             return JsonResponse({"error": "Invalid link"}, status=200)
 
 
-class TestSessionCreatedView(LoginRequiredAPIView):
-
+class TestView(LoginRequiredAPIView):
     def post(self, request):
         pass
-        # account = request.vendor
-        # parking = account.test_parking
-        # if parking is None:
-        #     return JsonResponse(
-        #         {
-        #             'error': 'There is no test parking assigned to your account. Please contact administrator.'
-        #         }, status=400
-        #     )
-        # try:
-        #     session = ParkingSession.objects.filter(parking=parking).latest('created_at')
-        # except ObjectDoesNotExist:
-        #     return JsonResponse({
-        #         'result': 'There is not parking sessions in test parking.'
-        #     }, 200)
-        # return JsonResponse({
-        #     'result': {
-        #         'started_at': '%s' % session.started_at
-        #     }
-        # })
-
-
-class TestSessionInfoView(LoginRequiredAPIView):
-    pass
-
-
-class TestSessionCompletedView(LoginRequiredAPIView):
-    pass
-
-
+        account = request.vendor
+        parking = account.test_parking
+        if parking is None:
+            return JsonResponse(
+                {
+                    'error': 'There is no test parking assigned to your account. Please contact administrator.'
+                }, status=400
+            )
+        try:
+            sessions = ParkingSession.objects.filter(parking=parking)
+            created_at = sessions.latest('created_at').created_at
+            updated_at = sessions.latest('updated_at').updated_at
+            updated_debt = sessions.latest('updated_at').debt
+            completed_at = sessions.latest('completed_at').completed_at
+        except ObjectDoesNotExist:
+            return JsonResponse({
+                'result': 'There is no parking sessions in test parking.'
+            }, status=200)
+        return JsonResponse({
+            'result': {
+                'last_started_at': '%s' % created_at,
+                'last_updated_at': '%s' % updated_at,
+                'last_completed_at': '%s' % completed_at,
+                'last_updated_debt': updated_debt,
+                'free_places': parking.free_places,
+            }
+        })
 class TestFreePlacesView(LoginRequiredAPIView):
-
     def post(self, request):
         account = request.vendor
         parking = account.test_parking

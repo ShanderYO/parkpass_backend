@@ -324,13 +324,24 @@ class TestMethods(TestCase):
         self.account, self.account_session, self.sign = create_account()
 
     def test_created_without_session(self):
-        url = URL_PREFIX + 'test/last_session_created/'
+        url = URL_PREFIX + 'test/'
+        response = Client().post(url, '{}', content_type='application/json',
+                                 **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
 
-        response = Client().post(url, **TOKEN_DICT)
+    def test_created_with_session(self):
+        url = URL_PREFIX + 'test/'
+
+        session = ParkingSession(
+            started_at=datetime.datetime.now(),
+            client=self.account.test_user,
+            parking=self.account.test_parking,
+            state=3
+        )
+        session.save()
+
+        response = Client().post(url, '{}', content_type='application/json',
+                                 **TOKEN_DICT)
+
         print response.content
-
-    def test_check_free_places(self):
-        url = URL_PREFIX + 'test/free_places/'
-
-        response = Client().post(url, **TOKEN_DICT)
-        print response.content, "!!!"
+        self.assertEqual(200, response.status_code)
