@@ -959,5 +959,77 @@ class IssueParking(TestCase):
         })
 
         response = self._make_signed_json_post(url, body)
-        print response.content, '!!!'
+        print response.content
         self.assertEqual(response.status_code, 200)
+
+
+class VendorPermissions(TestCase):
+    def setUp(self):
+        self.vendor = Vendor(
+            name="test-parking-vendor",
+            secret="12345678",
+        )
+        self.vendor.save(not_generate_secret=True)
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            free_places=5,
+            vendor=self.vendor,
+            approved=True
+        )
+
+    def _make_signed_json_post(self, url, body):
+        signature = hmac.new("12345678", body, hashlib.sha512)
+        response = self.client.post(url, body, content_type="application/json",
+                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
+                                       'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
+        return response
+
+    def test_normal_state(self):
+        self.vendor.account_state = Vendor.ACCOUNT_STATE.NORMAL
+        self.vendor.save()
+        url = '/api/v1/parking/update/'
+        body = json.dumps({
+            'parking_id': 2,
+            'free_places': 3
+        })
+        response = self._make_signed_json_post(url, body)
+        self.assertEqual(200, response.status_code)
+
+    def test_disabled_state(self):
+        self.vendor.account_state = Vendor.ACCOUNT_STATE.DISABLED
+        self.vendor.save()
+        url = '/api/v1/parking/update/'
+        body = json.dumps({
+            'parking_id': 2,
+            'free_places': 3
+        })
+        response = self._make_signed_json_post(url, body)
+        self.assertEqual(400, response.status_code)
+        body = json.dumps({
+            'parking_id': 1,
+            'free_places': 3
+        })
+        response = self._make_signed_json_post(url, body)
+        self.assertEqual(400, response.status_code)
+
+    def test_test_state(self):
+        self.vendor.account_state = 2
+        self.vendor.save()
+        url = '/api/v1/parking/update/'
+        body = json.dumps({
+            'parking_id': 2,
+            'free_places': 3
+        })
+        response = self._make_signed_json_post(url, body)
+        print response.content, response.status_code
+        self.assertEqual(400, response.status_code)
+        body = json.dumps({
+            'parking_id': 1,
+            'free_places': 3
+        })
+        response = self._make_signed_json_post(url, body)
+        print response.content, response.status_code
+        self.assertEqual(200, response.status_code)

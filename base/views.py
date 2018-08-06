@@ -75,10 +75,10 @@ class SignedRequestAPIView(APIView):
 
         signature = hmac.new(str(request.vendor.secret), request.body, hashlib.sha512)
 
-        if request.vendor.account_state != request.vendor.ACCOUNT_STATE.NORMAL:
+        if request.vendor.account_state == request.vendor.ACCOUNT_STATE.DISABLED:
             e = PermissionException(
                 PermissionException.NO_PERMISSION,
-                "Account isn't it 'Normal' mode"
+                "Account is disabled"
             )
             return JsonResponse(e.to_dict(), status=400)
 

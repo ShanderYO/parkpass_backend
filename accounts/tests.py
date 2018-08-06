@@ -788,7 +788,8 @@ class WantedParkingsTestCase(TestCase):
             latitude=1,
             longitude=1,
             free_places=5,
-            vendor=vendor
+            vendor=vendor,
+            approved=True
         )
         self.p1.save()
         self.p2.save()

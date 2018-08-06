@@ -5,6 +5,7 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 from accounts.tasks import generate_current_debt_order
+from base.exceptions import PermissionException
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
 from base.views import LoginRequiredAPIView, SignedRequestAPIView
@@ -13,6 +14,17 @@ from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, CreateParkingValidator
+
+
+def check_permission(vendor, parking=None):
+    if vendor.account_state == vendor.ACCOUNT_STATE.DISABLED:
+        return False
+    elif vendor.account_state == vendor.ACCOUNT_STATE.NORMAL:
+        return True
+    elif vendor.account_state == vendor.ACCOUNT_STATE.TEST:
+        return parking is None or vendor.test_parking == parking
+    else:
+        raise ValueError('Illegal account state encountered')
 
 
 class WishView(LoginRequiredAPIView):
@@ -43,6 +55,12 @@ class IssueParkingView(SignedRequestAPIView):
 
     def post(self, request):
         # max_client_debt, enabled, longitude, latitude, address, description, name
+        if not check_permission(request.vendor):
+            e = PermissionException(
+                PermissionException.NO_PERMISSION,
+                'Permission denied'
+            )
+            return JsonResponse(e.to_dict(), status=400)
         parking = Parking(
             name=self.request.data['name'],
             description=self.request.data['description'],
@@ -62,6 +80,12 @@ class GetParkingView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         try:
             parking = Parking.objects.get(id=kwargs["pk"], approved=True)
+            if not check_permission(request.vendor, parking):
+                e = PermissionException(
+                    PermissionException.NO_PERMISSION,
+                    'Permission denied'
+                )
+                return JsonResponse(e.to_dict(), status=400)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -120,6 +144,12 @@ class GetParkingViewList(LoginRequiredAPIView):
 class TestSignedRequestView(SignedRequestAPIView):
 
     def post(self, request):
+        if not check_permission(request.vendor):
+            e = PermissionException(
+                PermissionException.NO_PERMISSION,
+                'Permission denied'
+            )
+            return JsonResponse(e.to_dict(), status=400)
         res = {}
         for key in request.data:
             res[key] = request.data[key]
@@ -136,6 +166,12 @@ class UpdateParkingView(SignedRequestAPIView):
         try:
             parking = Parking.objects.get(id=parking_id, vendor=request.vendor, approved=True)
             parking.free_places = free_places
+            if not check_permission(request.vendor, parking):
+                e = PermissionException(
+                    PermissionException.NO_PERMISSION,
+                    'Permission denied'
+                )
+                return JsonResponse(e.to_dict(), status=400)
             parking.save()
             return JsonResponse({}, status=200)
 
@@ -158,7 +194,12 @@ class CreateParkingSessionView(SignedRequestAPIView):
 
         try:
             parking = Parking.objects.get(id=parking_id, vendor=request.vendor, approved=True)
-
+            if not check_permission(request.vendor, parking):
+                e = PermissionException(
+                    PermissionException.NO_PERMISSION,
+                    'Permission denied'
+                )
+                return JsonResponse(e.to_dict(), status=400)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -220,6 +261,12 @@ class CancelParkingSessionView(SignedRequestAPIView):
                 parking__id=parking_id,
                 parking__vendor=request.vendor,
             )
+            if not check_permission(request.vendor, Parking.objects.get(id=parking_id)):
+                e = PermissionException(
+                    PermissionException.NO_PERMISSION,
+                    'Permission denied'
+                )
+                return JsonResponse(e.to_dict(), status=400)
             # Check if session is is_cancelable
             if not session.is_cancelable():
                 e = ValidationException(
@@ -256,6 +303,12 @@ class UpdateParkingSessionView(SignedRequestAPIView):
             session = ParkingSession.objects.get(
                 session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
             )
+            if not check_permission(request.vendor, Parking.objects.get(id=parking_id)):
+                e = PermissionException(
+                    PermissionException.NO_PERMISSION,
+                    'Permission denied'
+                )
+                return JsonResponse(e.to_dict(), status=400)
             if not session.is_started_by_vendor():
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
@@ -302,6 +355,12 @@ class CompleteParkingSessionView(SignedRequestAPIView):
                 parking__id=parking_id,
                 parking__vendor=request.vendor
             )
+            if not check_permission(request.vendor, Parking.objects.get(id=parking_id)):
+                e = PermissionException(
+                    PermissionException.NO_PERMISSION,
+                    'Permission denied'
+                )
+                return JsonResponse(e.to_dict(), status=400)
             # Check if session was already not active
             if not session.is_active():
                 e = ValidationException(
@@ -335,6 +394,12 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
         try:
             parking = Parking.objects.get(id=parking_id, vendor=request.vendor, approved=True)
             process_updated_sessions(parking, sessions)
+            if not check_permission(request.vendor, parking_id):
+                e = PermissionException(
+                    PermissionException.NO_PERMISSION,
+                    'Permission denied'
+                )
+                return JsonResponse(e.to_dict(), status=400)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -360,6 +425,12 @@ class ComplainSessionView(LoginRequiredAPIView):
                 account=request.account,
                 session=parking_session,
             )
+            if not check_permission(request.vendor, parking_session.parking):
+                e = PermissionException(
+                    PermissionException.NO_PERMISSION,
+                    'Permission denied'
+                )
+                return JsonResponse(e.to_dict(), status=400)
             return JsonResponse({}, status=200)
 
         except ObjectDoesNotExist:
