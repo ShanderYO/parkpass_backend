@@ -9,6 +9,7 @@ from django.test import TestCase
 from accounts.models import Account, AccountSession
 from base.exceptions import ValidationException
 from parkings.models import Vendor, Parking, ParkingSession
+from vendors.models import VendorSession
 
 
 class UpdateParkingTestCase(TestCase):
@@ -159,13 +160,12 @@ class UpdateParkingTestCase(TestCase):
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
 
-
     def test_update_forbidden_parking(self):
         url = '/api/v1/parking/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
-            "parking_id": 2,
+            "parking_id": 3,
             "free_places": 10
         })
         response = self._make_signed_json_post(url, body)
@@ -305,8 +305,8 @@ class CreateSessionParkingTestCase(TestCase):
         # Set up not existing client_id
         body = json.dumps({
             "session_id": "".join(["x" for x in range(0,128)]),
-            "parking_id": 1,
-            "client_id": 2,
+            "parking_id": 2,
+            "client_id": 3,
             "started_at": 1000000
         })
         response = self._make_signed_json_post(url, body)
@@ -339,7 +339,7 @@ class CreateSessionParkingTestCase(TestCase):
         # Set up foreign parking_id
         body = json.dumps({
             "session_id": "".join(["x" for x in range(0, 128)]),
-            "parking_id": 2,
+            "parking_id": 3,
             "client_id": 1,
             "started_at": 1000000
         })
@@ -356,8 +356,8 @@ class CreateSessionParkingTestCase(TestCase):
         # Set up session_id is exist-session-id
         body = json.dumps({
             "session_id": "exist-session-id",
-            "parking_id": 1,
-            "client_id": 1,
+            "parking_id": 2,
+            "client_id": 2,
             "started_at": 1000000
         })
         response = self._make_signed_json_post(url, body)
@@ -544,7 +544,6 @@ class UpdateSessionParkingTestCase(TestCase):
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
 
-
     def test_not_forbidden_parking_id(self):
         url = '/api/v1/parking/session/update/'
 
@@ -568,7 +567,7 @@ class UpdateSessionParkingTestCase(TestCase):
         # Set up not completed session_id
         body = json.dumps({
             "session_id": "exist-session-id-completed",
-            "parking_id": 1,
+            "parking_id": 2,
             "debt": 100,
             "updated_at": 1000000
         })
@@ -587,7 +586,7 @@ class UpdateSessionParkingTestCase(TestCase):
         # Set up not completed session_id
         body = json.dumps({
             "session_id": "exist-session-id",
-            "parking_id": 1,
+            "parking_id": 2,
             "debt": 100,
             "updated_at": 1000000
         })
@@ -664,7 +663,7 @@ class CompleteSessionParkingTestCase(TestCase):
         # Set up not completed session_id
         body = json.dumps({
             "session_id": "exist-session-id",
-            "parking_id": 1,
+            "parking_id": 2,
             "debt": 100,
             "completed_at": 1000000
         })
@@ -808,7 +807,7 @@ class UpdateListSessionParkingTestCase(TestCase):
                     "updated_at": 10000
                 },
             ],
-            "parking_id": 2,
+            "parking_id": 3,
         })
         response = self._make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
@@ -921,7 +920,8 @@ class ComplainTestCase(TestCase):
             "type":1,
             "message":"bla-bla"
         })
-        response = self.client.post(url, body, **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        response = self.client.post(url, body,
+                                    **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
         self.assertEqual(response.status_code, 200)
 
         error_code = json.loads(response.content)["code"]
@@ -936,6 +936,12 @@ class IssueParking(TestCase):
             secret="12345678"
         )
         vendor.save(not_generate_secret=True)
+        account_session = VendorSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            vendor=vendor
+        )
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
 
     def _make_signed_json_post(self, url, body):
         signature = hmac.new("12345678", body, hashlib.sha512)
@@ -958,8 +964,9 @@ class IssueParking(TestCase):
             'free_places': '80'
         })
 
-        response = self._make_signed_json_post(url, body)
-        print response.content
+        response = self.client.post(url, body, content_type='application/json',
+                                    **{'HTTP_AUTHORIZATION': "Vendor 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        print response.content, "!!!"
         self.assertEqual(response.status_code, 200)
 
 

@@ -8,7 +8,7 @@ from accounts.tasks import generate_current_debt_order
 from base.exceptions import PermissionException
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
-from base.views import LoginRequiredAPIView, SignedRequestAPIView
+from base.views import LoginRequiredAPIView, SignedRequestAPIView, VendorAPIView
 from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
@@ -50,7 +50,7 @@ class WishView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class IssueParkingView(SignedRequestAPIView):
+class IssueParkingView(VendorAPIView):
     validator_class = CreateParkingValidator
 
     def post(self, request):

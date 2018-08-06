@@ -799,7 +799,7 @@ class WantedParkingsTestCase(TestCase):
     def test_adding_wannamarks(self):
         print Parking.objects.all()
         resp = []
-        for i in [1, 3, 5]:
+        for i in [2, 4, 6]:
             url = "/api/v1/parking/want_parking/%d/" % i
             resp.append(self.client.get(url,
                                         **TOKEN_DICT))

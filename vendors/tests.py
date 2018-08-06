@@ -240,7 +240,7 @@ class Statistics(TestCase):
         body = json.dumps({
             'start': 20,
             'end': 80,
-            'pk': 1,
+            'pk': 2,
         })
 
         response = Client().post(url, body, content_type='application/json',
