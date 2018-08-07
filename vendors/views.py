@@ -423,7 +423,7 @@ class TestView(LoginRequiredAPIView):
         except ObjectDoesNotExist:
             return JsonResponse({
                 'result': 'There is no parking sessions in test parking.'
-            }, status=200)
+            }, status=400)
         return JsonResponse({
             'result': {
                 'last_started_at': '%s' % created_at,
@@ -433,10 +433,3 @@ class TestView(LoginRequiredAPIView):
                 'free_places': parking.free_places,
             }
         })
-class TestFreePlacesView(LoginRequiredAPIView):
-    def post(self, request):
-        account = request.vendor
-        parking = account.test_parking
-        if parking is None:
-            return JsonResponse({'error': 'There is no test parking assigned to your account'}, status=400)
-        return JsonResponse({'free_places': parking.free_places}, status=200)
