@@ -5,6 +5,7 @@ from django.db.models import signals
 from django.template.loader import render_to_string
 
 from accounts.models import Account
+from owners.models import Owner
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
 
@@ -29,6 +30,7 @@ class Parking(models.Model):
     free_places = models.IntegerField()
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     vendor = models.ForeignKey(Vendor, null=True, blank=True)
+    owner = models.ForeignKey(Owner, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
 

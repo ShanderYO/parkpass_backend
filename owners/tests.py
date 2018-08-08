@@ -1,13 +1,18 @@
+import datetime
 import json
+from random import randint
 
 from django.test import Client
 from django.test import TestCase
 
+from accounts.tests import create_account as create_user_account
+from parkings.models import ParkingSession, Parking
+from vendors.tests import create_account as create_vendor_account
 from .models import *
 
 URL_PREFIX = "/api/v1/owner/"
-TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Owner 0ff08840935eb00fad198ef5387423bc24cd15e1'}
-TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
+TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Owner 2ff08840935eb00fad198ef5387423bc24cd15e1'}
+TOKEN = "2ff08840935eb00fad198ef5387423bc24cd15e1"
 LOGIN, PASSWORD = "owner123", "qwerty"
 PHONE = "+7(999)1234567"
 EMAIL = "test@testing.com"
@@ -79,7 +84,7 @@ class Authorization(TestCase):
 
 class Password(TestCase):
     """
-    This test case if for testing /login/restore and /login/changepw
+    This test case is for testing /login/restore and /login/changepw
     (Restoring a password by e-mail and changing it manually)
     """
 
@@ -148,3 +153,68 @@ class Password(TestCase):
 
         print response.content
         self.assertEqual(response.status_code, 200)
+
+
+class Statistics(TestCase):
+    def setUp(self):
+        self.account, self.account_session, self.sign = create_vendor_account()
+        account, accsession = create_user_account()
+        self.owneracc, self.owneraccsess = create_account()
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            free_places=5,
+            vendor=self.account,
+            owner=self.owneracc
+        )
+        parking_2 = Parking.objects.create(
+            name="parking-2",
+            description="second",
+            latitude=2,
+            longitude=3,
+            free_places=9,
+            vendor=self.account,
+            owner=self.owneracc
+        )
+        for i in range(0, 100, 1):
+            ps = ParkingSession.objects.create(
+                session_id="exist-session-id%d" % i,
+                client=account,
+                parking=parking_1,
+                state=ParkingSession.STATE_COMPLETED,
+                started_at=datetime.datetime.fromtimestamp(i),
+                completed_at=datetime.datetime.fromtimestamp(i + randint(10, 100)),
+                debt=(randint(100, 2000))
+            )
+            ps.save()
+
+    def test_parking_stats_single(self):
+        url = URL_PREFIX + 'stats/parking/'
+
+        body = json.dumps({
+            'start': 20,
+            'end': 80,
+            'pk': 2,
+        })
+
+        response = Client().post(url, body, content_type='application/json',
+                                 **TOKEN_DICT)
+
+        print response.content, 'single'
+        self.assertEqual(200, response.status_code)
+
+    def test_parking_stats_all(self):
+        url = URL_PREFIX + 'stats/parking/'
+
+        body = json.dumps({
+            'start': 20,
+            'end': 80,
+        })
+
+        response = Client().post(url, body, content_type='application/json',
+                                 **TOKEN_DICT)
+
+        print response.content, 'all'
+        self.assertEqual(200, response.status_code)
