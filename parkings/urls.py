@@ -10,6 +10,7 @@ urlpatterns = [
     url(r'^want_parking/(?P<parking>\d+)/$', WishView.as_view()),
     url(r'^test/$', TestSignedRequestView.as_view()),
     url(r'^issue/$', IssueParkingView.as_view()),
+    url(r'^issue_by_owner/$', OwnerIssueParkingView.as_view()),
     url(r'^update/$', UpdateParkingView.as_view()),
     url(r'^session/create/$', CreateParkingSessionView.as_view()),
     url(r'^session/cancel/$', CancelParkingSessionView.as_view()),

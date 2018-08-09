@@ -16,9 +16,9 @@ from base.utils import datetime_from_unix_timestamp_tz
 from base.validators import LoginAndPasswordValidator
 from base.views import APIView
 from base.views import VendorAPIView as LoginRequiredAPIView
-from parkings.models import ParkingSession, Parking
+from parkings.models import ParkingSession, Parking, UpgradeIssue
 from parkpass.settings import EMAIL_HOST_USER
-from .models import Issue, UpgradeIssue
+from .models import Issue
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
 from .validators import IssueValidator

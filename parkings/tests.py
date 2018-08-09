@@ -8,12 +8,35 @@ from django.test import TestCase
 
 from accounts.models import Account, AccountSession
 from base.exceptions import ValidationException
+from owners.models import Owner, OwnerSession
 from parkings.models import Vendor, Parking, ParkingSession
 from vendors.models import VendorSession
 
 URL_PREFIX = '/api/v1/parking/'
+TOKEN = '0ff08840935eb00fad198ef5387423bc24cd15e1'
 USER_TOKEN = {'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"}
 VENDOR_TOKEN = {'HTTP_AUTHORIZATION': "Vendor 0ff08840935eb00fad198ef5387423bc24cd15e1"}
+OWNER_TOKEN = {'HTTP_AUTHORIZATION': "Owner 0ab08840935eb00fad198ef5387423bc24cd15e1"}
+
+
+def _create_owner(id=1, fname="Fname", phone='1234', email='email', password='qwerty', login='login'):
+    account = Owner.objects.create(
+        # id=id,
+        first_name=fname,
+        phone=phone,
+        email=email,
+        name=login
+    )
+    account.set_password(password)
+    account_session = OwnerSession(
+        token='0ab08840935eb00fad198ef5387423bc24cd15e1',
+        owner=account
+    )
+    account_session.set_expire_date()
+    account_session.save(not_generate_token=True)
+    account.save()
+
+    return account, account_session
 
 
 def _create_vendor():
@@ -802,6 +825,7 @@ class IssueParking(TestCase):
             token="0ff08840935eb00fad198ef5387423bc24cd15e1",
             vendor=vendor
         )
+
         account_session.set_expire_date()
         account_session.save(not_generate_token=True)
 
@@ -822,6 +846,25 @@ class IssueParking(TestCase):
         response = Client().post(url, body, content_type='application/json',
                                  **VENDOR_TOKEN)
         print response.content
+        self.assertEqual(response.status_code, 200)
+
+    def test_issue_parking_by_owner(self):
+        url = URL_PREFIX + 'issue_by_owner/'
+
+        body = json.dumps({
+            'name': 'Worst parking ever',
+            'enabled': 'False',
+            'description': "We'll steal your car",
+            'latitude': '55.7517462',
+            'longitude': '37.6148268',
+            'max_client_debt': '500',
+            'address': 'Moscow, Sharikopodshipnikovskaya st., 228',
+            'free_places': '80'
+        })
+        _create_owner()
+        response = Client().post(url, body, content_type='application/json',
+                                 **OWNER_TOKEN)
+        print response.content, "111"
         self.assertEqual(response.status_code, 200)
 
 

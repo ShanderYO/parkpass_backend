@@ -19,6 +19,32 @@ class ParkingManager(models.Manager):
         )
 
 
+class UpgradeIssue(models.Model):
+    types = (
+        (0, "Software update"),
+        (1, "Install readers")
+    )
+    statuses = (
+        (0, "New"),
+        (1, "Viewed"),
+        (2, "Processing"),
+        (3, "Processed"),
+        (-1, "Cancelled")
+    )
+    id = models.AutoField(primary_key=True)
+    vendor = models.ForeignKey(to=Vendor, null=True, blank=True, related_name='issue_by_vendor')
+    owner = models.ForeignKey(to=Owner, null=True, blank=True, related_name='issue_by_owner')
+    description = models.CharField(max_length=1000)
+    type = models.IntegerField(choices=types)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    status = models.IntegerField(choices=statuses, default=0)
+
+    def __unicode__(self):
+        return self.description
+
+
 class Parking(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=63, null=True, blank=True)
