@@ -864,7 +864,7 @@ class IssueParking(TestCase):
         _create_owner()
         response = Client().post(url, body, content_type='application/json',
                                  **OWNER_TOKEN)
-        print response.content, "111"
+        print response.content
         self.assertEqual(response.status_code, 200)
 
 
