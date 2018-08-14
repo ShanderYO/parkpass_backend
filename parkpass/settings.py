@@ -53,7 +53,8 @@ INSTALLED_APPS = (
     'payments',
     'parkings',
     'rps_vendor',
-    'owners'
+    'owners',
+    'control'
 )
 
 MIDDLEWARE_CLASSES = (

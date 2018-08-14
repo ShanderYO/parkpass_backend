@@ -3,6 +3,7 @@ from django.utils.six import text_type
 
 # Header encoding (see RFC5987)
 from accounts.models import AccountSession
+from control.models import AdminSession
 from owners.models import OwnerSession
 from vendors.models import VendorSession
 
@@ -14,6 +15,7 @@ class TokenAuthenticationMiddleware(object):
         request.vendor = SimpleLazyObject(lambda: get_vendor(request))
         request.account = SimpleLazyObject(lambda: get_account(request))
         request.owner = SimpleLazyObject(lambda: get_owner(request))
+        request.admin = SimpleLazyObject(lambda: get_admin(request))
 
 
 def get_authorization_header(request):
@@ -78,3 +80,22 @@ def get_owner(request):
         return None
 
     return OwnerSession.get_account_by_token(token)
+
+
+def get_admin(request):
+    auth = get_authorization_header(request).split()
+
+    if not auth or auth[0].lower() != b'admin':
+        return None
+
+    if len(auth) == 1:
+        return None
+
+    if len(auth) > 2:
+        return None
+    try:
+        token = auth[1].decode()
+    except UnicodeError:
+        return None
+
+    return AdminSession.get_account_by_token(token)
