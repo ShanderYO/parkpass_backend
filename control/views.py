@@ -22,8 +22,8 @@ class LoginView(APIView):
         try:
             account = Account.objects.get(name=name)
             if account.check_password(raw_password=password):
-                if AccountSession.objects.filter(vendor=account).exists():
-                    session = AccountSession.objects.filter(vendor=account).order_by('-created_at')[0]
+                if AccountSession.objects.filter(admin=account).exists():
+                    session = AccountSession.objects.filter(admin=account).order_by('-created_at')[0]
                     response_dict = serializer(session)
                     return JsonResponse(response_dict)
                 else:

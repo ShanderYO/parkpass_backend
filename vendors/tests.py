@@ -327,7 +327,7 @@ class TestMethods(TestCase):
         url = URL_PREFIX + 'test/'
         response = Client().post(url, '{}', content_type='application/json',
                                  **TOKEN_DICT)
-        self.assertEqual(200, response.status_code)
+        self.assertEqual(400, response.status_code)
 
     def test_created_with_session(self):
         url = URL_PREFIX + 'test/'
