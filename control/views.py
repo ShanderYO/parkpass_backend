@@ -99,10 +99,26 @@ class LogoutView(LoginRequiredAPIView):
 
 
 class EditParkingView(LoginRequiredAPIView):
-    def post(self, request, id):
+    def post(self, request, id=-1):
         r = {'raise_exception': True}
+        s = str
+        i = lambda x: parse_int(x, **r)
+        b = lambda x: parse_bool(x, **r)
+        f = lambda x: parse_float(x, **r)
+        date = lambda x: datetime_from_unix_timestamp_tz(parse_int(x, **r))
+
+        def vendor(v):
+            if not v is None:
+                return Vendor.objects.get(id=v)
+
+        def owner(v):
+            if not v is None:
+                return Owner.objects.get(id=v)
         try:
-            parking = Parking.objects.get(id=id)
+            if id == -1:
+                parking = Parking()
+            else:
+                parking = Parking.objects.get(id=id)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -110,55 +126,36 @@ class EditParkingView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         try:
-            name = request.data.get("name", None)
-            if not name is None:
-                parking.name = name
-            description = request.data.get("description", None)
-            if not description is None:
-                parking.description = description
-            address = request.data.get("address", None)
-            if not address is None:
-                parking.address = address
-            latitude = parse_float(request.data.get("latitude", None), **r)
-            if not latitude is None:
-                parking.latitude = latitude
-            longitude = parse_float(request.data.get("longitude", None), **r)
-            if not longitude is None:
-                parking.longitude = longitude
-            enabled = parse_bool(request.data.get("enabled", None), **r)
-            if not enabled is None:
-                parking.enabled = enabled
-            free_places = parse_int(request.data.get("free_places", None), **r)
-            if not free_places is None:
-                parking.free_places = free_places
-            max_client_debt = parse_int(request.data.get("max_client_debt", None), **r)
-            if not max_client_debt is None:
-                parking.max_client_debt = max_client_debt
-            vendor = parse_int(request.data.get("vendor", None), **r)
-            if not vendor is None:
-                try:
-                    parking.vendor = Vendor.objects.get(id=vendor)
-                except ObjectDoesNotExist:
+            delete = parse_bool(request.data.get("delete", None))
+            if delete:
+                parking.delete()
+                return JsonResponse({}, status=200)
+            fields = {
+                'name': (s,),
+                'description': (s, 'required'),
+                'address': (s,),
+                'latitude': (f, 'required'),
+                'longitude': (f, 'required'),
+                'enabled': (b,),
+                'free_places': (i, 'required'),
+                'max_client_debt': (f,),
+                'created_at': (date,),
+                'vendor': (vendor,),
+                'owner': (owner,),
+                'approved': (b,),
+            }
+            for field in fields:
+                val = fields[field][0](request.data.get(field, None))
+                if not val is None:
+                    parking.__setattr__(field, val)
+                elif len(fields[field]) > 1 and id == -1:  # If field is required and action == create
                     e = ValidationException(
-                        ValidationException.RESOURCE_NOT_FOUND,
-                        'Vendor with such ID not found')
+                        ValidationException.VALIDATION_ERROR,
+                        'Field `%s` is required' % field
+                    )
                     return JsonResponse(e.to_dict(), status=400)
-            owner = parse_int(request.data.get("owner", None), **r)
-            if not owner is None:
-                try:
-                    parking.owner = Owner.objects.get(id=owner)
-                except ObjectDoesNotExist:
-                    e = ValidationException(
-                        ValidationException.RESOURCE_NOT_FOUND,
-                        'Owner with such ID not found')
-                    return JsonResponse(e.to_dict(), status=400)
-            created_at = parse_int(request.data.get("created_at", None), **r)
-            if not created_at is None:
-                parking.created_at = datetime_from_unix_timestamp_tz(created_at)
-            approved = parse_bool(request.data.get("approved", None), **r)
-            if not approved is None:
-                parking.approved = approved
-        except ValueError as exc:
+
+        except Exception as exc:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 str(exc)

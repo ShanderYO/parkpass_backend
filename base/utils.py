@@ -10,7 +10,9 @@ def get_logger(name=BASE_LOGGER_NAME):
     return logging.getLogger(name)
 
 
-def parse_int(value, raise_exception=False):
+def parse_int(value, raise_exception=False, allow_none=True):
+    if not allow_none and value is None:
+        raise ValueError('Required field isn\'t specified')
     if value is None and raise_exception:
         return None
     try:
@@ -21,7 +23,9 @@ def parse_int(value, raise_exception=False):
         return None
 
 
-def parse_bool(value, raise_exception=False):
+def parse_bool(value, raise_exception=False, allow_none=True):
+    if not allow_none and value is None:
+        raise ValueError('Required field isn\'t specified')
     if value is None and raise_exception:
         return None
     v = str(value).lower()
@@ -34,7 +38,9 @@ def parse_bool(value, raise_exception=False):
     return None
 
 
-def parse_float(value, raise_exception=False):
+def parse_float(value, raise_exception=False, allow_none=True):
+    if not allow_none and value is None:
+        raise ValueError('Required field isn\'t specified')
     if value is None and raise_exception:
         return None
     try:
@@ -46,5 +52,7 @@ def parse_float(value, raise_exception=False):
 
 
 def datetime_from_unix_timestamp_tz(value):
+    if value is None:
+        return None
     started_at_date = datetime.datetime.fromtimestamp(value)
     return pytz.utc.localize(started_at_date)

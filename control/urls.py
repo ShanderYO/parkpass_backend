@@ -10,6 +10,7 @@ urlpatterns = [
                   url(r'^login/confirm/$', ConfirmLoginView.as_view()),
                   url(r'^logout/$', LogoutView.as_view()),
 
-                  url(r'^objects/parking/(?P<id>\w+)/', EditParkingView.as_view()),
+                  url(r'^objects/parking/create/$', EditParkingView.as_view()),
+                  url(r'^objects/parking/(?P<id>\w+)/$', EditParkingView.as_view()),
                   # url(r'^objects/parkingsession/(?P<id>\w+)/', EditParkingSessionView.as_view()),
               ] + staticfiles_urlpatterns()
