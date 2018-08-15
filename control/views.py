@@ -5,9 +5,13 @@ from dss.Serializer import serializer
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
+from base.utils import parse_bool, parse_float, parse_int, datetime_from_unix_timestamp_tz
 from base.validators import LoginAndPasswordValidator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
+from owners.models import Owner
+from parkings.models import Parking
+from vendors.models import Vendor
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
 
@@ -92,3 +96,74 @@ class LogoutView(LoginRequiredAPIView):
     def post(self, request):
         request.admin.clean_session()
         return JsonResponse({}, status=200)
+
+
+class EditParkingView(LoginRequiredAPIView):
+    def post(self, request, id):
+        r = {'raise_exception': True}
+        try:
+            parking = Parking.objects.get(id=id)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking with such ID not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        try:
+            name = request.data.get("name", None)
+            if not name is None:
+                parking.name = name
+            description = request.data.get("description", None)
+            if not description is None:
+                parking.description = description
+            address = request.data.get("address", None)
+            if not address is None:
+                parking.address = address
+            latitude = parse_float(request.data.get("latitude", None), **r)
+            if not latitude is None:
+                parking.latitude = latitude
+            longitude = parse_float(request.data.get("longitude", None), **r)
+            if not longitude is None:
+                parking.longitude = longitude
+            enabled = parse_bool(request.data.get("enabled", None), **r)
+            if not enabled is None:
+                parking.enabled = enabled
+            free_places = parse_int(request.data.get("free_places", None), **r)
+            if not free_places is None:
+                parking.free_places = free_places
+            max_client_debt = parse_int(request.data.get("max_client_debt", None), **r)
+            if not max_client_debt is None:
+                parking.max_client_debt = max_client_debt
+            vendor = parse_int(request.data.get("vendor", None), **r)
+            if not vendor is None:
+                try:
+                    parking.vendor = Vendor.objects.get(id=vendor)
+                except ObjectDoesNotExist:
+                    e = ValidationException(
+                        ValidationException.RESOURCE_NOT_FOUND,
+                        'Vendor with such ID not found')
+                    return JsonResponse(e.to_dict(), status=400)
+            owner = parse_int(request.data.get("owner", None), **r)
+            if not owner is None:
+                try:
+                    parking.owner = Owner.objects.get(id=owner)
+                except ObjectDoesNotExist:
+                    e = ValidationException(
+                        ValidationException.RESOURCE_NOT_FOUND,
+                        'Owner with such ID not found')
+                    return JsonResponse(e.to_dict(), status=400)
+            created_at = parse_int(request.data.get("created_at", None), **r)
+            if not created_at is None:
+                parking.created_at = datetime_from_unix_timestamp_tz(created_at)
+            approved = parse_bool(request.data.get("approved", None), **r)
+            if not approved is None:
+                parking.approved = approved
+        except ValueError as exc:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                str(exc)
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        parking.save()
+
+        return JsonResponse(serializer(parking), status=200)

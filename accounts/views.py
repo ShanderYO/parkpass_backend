@@ -651,7 +651,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking session does not exists")
+                "Parking session does not exist")
             return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, status=200)

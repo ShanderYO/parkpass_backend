@@ -137,7 +137,7 @@ class CompleteAccountParkingSessionValidator(BaseValidator):
 
         if not session_id or not parking_id or not completed_at:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Keys 'session_id', 'parking_id' and 'completed_at' is required"
+            self.message = "id', 'parking_id' and 'completed_at' is required"
             return False
         try:
             validate_id(parking_id, "parking_id")

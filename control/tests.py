@@ -2,7 +2,10 @@ import json
 
 from django.test import Client
 from django.test import TestCase
+from dss.Serializer import serializer
 
+from parkings.models import Parking
+from parkings.tests import _create_parking, _create_vendor
 from .models import *
 
 URL_PREFIX = "/api/v1/control/"
@@ -62,3 +65,66 @@ class Authorization(TestCase):
 
         print response.content
         self.assertEqual(200, response.status_code)
+
+
+class ParkingEdit(TestCase):
+    def setUp(self):
+        self.account, self.account_session = create_account()
+        _create_parking(_create_vendor())
+
+    def test_show_parking(self):
+        url = URL_PREFIX + "objects/parking/1/"
+
+        response = Client().post(url, '{}', content_type="application/json", **TOKEN_DICT)
+        j = json.loads(response.content)
+        print json.dumps(j, indent=2)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(j, serializer(Parking.objects.get(id=1)))
+
+    def test_valid_changes(self):
+        url = URL_PREFIX + "objects/parking/1/"
+
+        body = json.dumps({
+            "description": "My test parking",
+            "name": 'NameParking',
+            "created_at": 1534291200.0,
+            "vendor_id": 1,
+            "enabled": True,
+            "longitude": 2.0,
+            "free_places": 3,
+            "address": 'addr',
+            "latitude": 2.0,
+            "max_client_debt": 50,
+            "approved": 'False',
+        })
+
+        response = Client().post(url, body, content_type="application/json", **TOKEN_DICT)
+        j = json.loads(response.content)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(json.loads("""{
+  "description": "My test parking", 
+  "name": "NameParking", 
+  "created_at": 1534291200.0, 
+  "vendor_id": 1, 
+  "enabled": true, 
+  "longitude": 2.0, 
+  "id": 1, 
+  "free_places": 3, 
+  "address": "addr", 
+  "latitude": 2.0, 
+  "max_client_debt": 50, 
+  "approved": false, 
+  "owner_id": null
+}"""), serializer(Parking.objects.get(id=1)))
+
+    def test_invalid_changes(self):
+        url = URL_PREFIX + "objects/parking/1/"
+
+        body = json.dumps({
+            "approved": 'yeah, sure',
+        })
+
+        response = Client().post(url, body, content_type="application/json", **TOKEN_DICT)
+        j = json.loads(response.content)
+        self.assertEqual(400, response.status_code)
+        self.assertEqual('ValidationException', j['exception'])
