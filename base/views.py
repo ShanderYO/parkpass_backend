@@ -23,7 +23,7 @@ class APIView(View, ValidatePostParametersMixin):
         # Only application/json Content-type allow
         if not request.META.get('CONTENT_TYPE', "").startswith("application/json") and request.POST:
             return JsonResponse({
-                "error":"HTTP Status 415 - Unsupported Media Type"
+                "error": "HTTP Status 415 - Unsupported Media Type"
             }, status=415)
 
         if request.method == 'POST':

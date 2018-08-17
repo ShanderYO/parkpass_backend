@@ -3,24 +3,30 @@ import re
 from django.core.exceptions import ValidationError
 
 from base.exceptions import ValidationException
-from base.validators import BaseValidator
+from base.validators import BaseValidator, validate_uint
 
 
-def validate_latitude(value):
+def validate_latitude(value, allow_none=False):
     # value is float
+    if allow_none and value is None:
+        return True
     regex = "^(\-)?(?:90(?:(?:\.0{1,7})?)|(?:[0-9]|[1-8][0-9])(?:(?:\.[0-9]{1,7})?))$"
     if not re.match(regex, str(value)):
         raise ValidationError("Invalid latitude of geo position")
 
 
-def validate_longitude(value):
+def validate_longitude(value, allow_none=False):
     # value is float
+    if allow_none and value is None:
+        return True
     regex = "^(\-)?(?:180(?:(?:\.0{1,7})?)|(?:[0-9]|[1-9][0-9]|1[0-7][0-9])(?:(?:\.[0-9]{1,7})?))$"
     if not re.match(regex, str(value)):
         raise ValidationError("Invalid longitude of geo position")
 
 
-def validate_id(value, key_name):
+def validate_id(value, key_name, allow_none=False):
+    if allow_none and value is None:
+        return True
     try:
         int_value = int(value)
         if int_value < 1:
@@ -32,15 +38,6 @@ def validate_id(value, key_name):
 
     except (ValueError, TypeError):
         raise ValidationError("Key '%s' has invalid format. Must be unsigned Int64 type" % key_name)
-
-
-def validate_uint(value, key_name):
-    try:
-        if int(value) >= 0:
-            return True
-    except (ValueError, TypeError):
-        raise ValidationError("Key '%s' has invalid format. Must be unsigned Int type" % key_name)
-    raise ValidationError("Key '%s' has invalid format. Must be unsigned Int type" % key_name)
 
 
 class UpdateParkingValidator(BaseValidator):
@@ -70,7 +67,9 @@ class UpdateParkingValidator(BaseValidator):
         return True
 
 
-def validate_text(value, key):
+def validate_text(value, key, allow_none=False):
+    if allow_none and value is None:
+        return True
     try:
         str(value)
     except Exception:

@@ -12,5 +12,11 @@ urlpatterns = [
 
                   url(r'^objects/parking/create/$', EditParkingView.as_view()),
                   url(r'^objects/parking/(?P<id>\w+)/$', EditParkingView.as_view()),
-                  # url(r'^objects/parkingsession/(?P<id>\w+)/', EditParkingSessionView.as_view()),
+
+                  url(r'^objects/parkingsession/create/$', EditParkingSessionView.as_view()),
+                  url(r'^objects/parkingsession/(?P<id>\w+)/$', EditParkingSessionView.as_view()),
+
+                  url(r'^objects/vendor/create/$', EditVendorView.as_view()),
+                  url(r'^objects/vendor/(?P<id>\w+)/$', EditVendorView.as_view()),
+
               ] + staticfiles_urlpatterns()

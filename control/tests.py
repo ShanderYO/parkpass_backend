@@ -1,16 +1,19 @@
+import datetime
 import json
 
 from django.test import Client
 from django.test import TestCase
 from dss.Serializer import serializer
 
-from parkings.models import Parking
+from accounts.tests import create_account as create_user_account
+from parkings.models import Parking, ParkingSession
 from parkings.tests import _create_parking, _create_vendor
 from .models import *
 
 URL_PREFIX = "/api/v1/control/"
-TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Admin ff08840935eb00fad198ef5387423bc24cd15e1'}
-TOKEN = "ff08840935eb00fad198ef5387423bc24cd15e1"
+TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Admin ff03440935eb00fad198ef5387423bc24cd15e1',
+              'content_type': 'application/json'}
+TOKEN = "ff03440935eb00fad198ef5387423bc24cd15e1"
 LOGIN, PASSWORD = "adminadmin", "qwerty"
 PHONE = "+7(999)1234567"
 EMAIL = "test@testing.com"
@@ -63,7 +66,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        # print response.content
+        print response.content, 111
         self.assertEqual(200, response.status_code)
 
 
@@ -75,7 +78,7 @@ class ParkingEdit(TestCase):
     def test_show_parking(self):
         url = URL_PREFIX + "objects/parking/1/"
 
-        response = Client().post(url, '{}', content_type="application/json", **TOKEN_DICT)
+        response = Client().post(url, '{}', **TOKEN_DICT)
         j = json.loads(response.content)
         # print json.dumps(j, indent=2)
         self.assertEqual(200, response.status_code)
@@ -98,24 +101,26 @@ class ParkingEdit(TestCase):
             "approved": 'False',
         })
 
-        response = Client().post(url, body, content_type="application/json", **TOKEN_DICT)
-        j = json.loads(response.content)
+        response = Client().post(url, body, **TOKEN_DICT)
+        # j = json.loads(response.content)
+        # print json.dumps(j, indent=2)
         self.assertEqual(200, response.status_code)
-        self.assertEqual(json.loads("""{
-  "description": "My test parking", 
-  "name": "NameParking", 
-  "created_at": 1534291200.0, 
-  "vendor_id": 1, 
-  "enabled": true, 
-  "longitude": 2.0, 
-  "id": 1, 
-  "free_places": 3, 
-  "address": "addr", 
-  "latitude": 2.0, 
-  "max_client_debt": 50, 
-  "approved": false, 
-  "owner_id": null
-}"""), serializer(Parking.objects.get(id=1)))
+        self.assertEqual(json.loads("""
+        {
+          "description": "My test parking", 
+          "name": "NameParking", 
+          "created_at": 1534291200.0, 
+          "vendor_id": 1, 
+          "enabled": true, 
+          "longitude": 2.0, 
+          "id": 1, 
+          "free_places": 3, 
+          "address": "addr", 
+          "latitude": 2.0, 
+          "max_client_debt": 50, 
+          "approved": false, 
+          "owner_id": null
+        }"""), serializer(Parking.objects.get(id=1)))
 
     def test_invalid_changes(self):
         url = URL_PREFIX + "objects/parking/1/"
@@ -124,7 +129,7 @@ class ParkingEdit(TestCase):
             "approved": 'yeah, sure',
         })
 
-        response = Client().post(url, body, content_type="application/json", **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(400, response.status_code)
         self.assertEqual('ValidationException', j['exception'])
@@ -136,7 +141,7 @@ class ParkingEdit(TestCase):
             "delete": 'true',
         })
 
-        response = Client().post(url, body, content_type="application/json", **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(200, response.status_code)
         self.assertEqual({}, j)
@@ -157,6 +162,107 @@ class ParkingEdit(TestCase):
             "approved": 'False',
         })
 
-        response = Client().post(url, body, content_type="application/json", **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(400, response.status_code)
+
+
+class ParkingSessionEdit(TestCase):
+    def setUp(self):
+        self.url = URL_PREFIX + "objects/parkingsession/"
+        create_account()
+        self.account, self.account_session = create_user_account()
+        parking = _create_parking(_create_vendor())
+        ParkingSession.objects.create(
+            session_id="exist-session-id",
+            client=self.account,
+            parking=parking,
+            state=ParkingSession.STATE_STARTED,
+            started_at=datetime.datetime.now()
+        )
+
+    def test_show_ps(self):
+        url = self.url + "1/"
+
+        response = Client().post(url, '{}', **TOKEN_DICT)
+        # j = json.loads(response.content)
+        # print json.dumps(j, indent=2)
+        self.assertEqual(200, response.status_code)
+
+    def test_delete_ps(self):
+        url = self.url + "1/"
+
+        body = json.dumps(
+            {
+                'delete': True
+            })
+
+        response = Client().post(url, body, **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+        with self.assertRaises(ObjectDoesNotExist):
+            ParkingSession.objects.get(id=1)
+
+    def test_edit_ps(self):
+        url = self.url + "1/"
+
+        body = json.dumps({
+            "parking_id": 2,
+            "started_at": 1534345694.0,
+            "created_at": 1534234000.0,
+            "try_refund": True,
+            "session_id": "exsdt-session-id",
+            "updated_at": 12345,
+            "completed_at": 34567,
+            "state": 5,
+            "current_refund_sum": 2,
+            "client_id": 1,
+            "target_refund_sum": 5,
+            "debt": 10,
+            "is_suspended": True,
+            "suspended_at": "0"
+        })
+
+        response = Client().post(url, body, **TOKEN_DICT)
+
+
+class VendorEdit(TestCase):
+    def setUp(self):
+        self.url = URL_PREFIX + "objects/vendor/"
+        create_account()
+        _create_vendor()
+
+    def test_show_vendor(self):
+        url = self.url + "1/"
+
+        response = Client().post(url, '{}', **TOKEN_DICT)
+        j = json.loads(response.content)
+
+        print json.dumps(j, indent=2)
+
+        self.assertEqual(200, response.status_code)
+
+    def test_edit_vendor(self):
+        url = self.url + "1/"
+
+        body = json.dumps(
+            {
+                "display_id": 3,
+                "first_name": "Fname",
+                "last_name": "Lname",
+                "test_parking_id": 1,
+                "name": "tst-parking-vendor",
+                "phone": "1234",
+                "created_at": 0534464000.0,
+                "sms_code": "smsms",
+                "secret": "123regr8",
+                "email": "mail@mail.ur",
+                "test_user_id": 1,
+                "email_confirmation_id": "confirm_me",
+                "password": "sttt",
+                "account_state": 2,
+                "comission": 0.22
+            }
+        )
+
+        response = Client().post(url, body, **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)

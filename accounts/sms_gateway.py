@@ -14,6 +14,8 @@ class SMSGateway(object):
         self.exception = None
 
     def send_sms(self, phone, code, message='Secret+code+for+login+'):
+        if not settings.SMS_GATEWAY_ENABLED:
+            return
         formatted_phone = self._get_phone_format(phone)
         content = message + self._get_sms_content(code)
 

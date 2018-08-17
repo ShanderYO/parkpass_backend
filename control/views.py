@@ -2,18 +2,21 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http.response import JsonResponse
 from dss.Serializer import serializer
 
+from accounts.models import Account as UserAccount
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
-from base.utils import parse_bool, parse_float, parse_int, datetime_from_unix_timestamp_tz
 from base.validators import LoginAndPasswordValidator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
 from owners.models import Owner
-from parkings.models import Parking
+from parkings.models import Parking, ParkingSession
+from validators import EditParkingValidator, EditParkingSessionValidator
 from vendors.models import Vendor
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
+from .utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
+    edit_object_view
 
 
 class LoginView(APIView):
@@ -98,69 +101,67 @@ class LogoutView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class EditParkingView(LoginRequiredAPIView):
+class EditVendorView(LoginRequiredAPIView):
     def post(self, request, id=-1):
-        r = {'raise_exception': True}
-        s = str
-        i = lambda x: parse_int(x, **r)
-        b = lambda x: parse_bool(x, **r)
-        f = lambda x: parse_float(x, **r)
-        date = lambda x: datetime_from_unix_timestamp_tz(parse_int(x, **r))
+        fields = {
+            'first_name': StringField(),
+            'last_name': StringField(),
+            'phone': StringField(required=True),
+            'sms_code': StringField(),
+            'email': StringField(),
+            'password': StringField(),
+            'email_confirmation': StringField(),
+            'created_at': DateField(),
+            'display_id': IntField(),
+            'account_state': IntChoicesField(choices=Vendor.account_states),
+            'name': StringField(required=True),
+            'comission': FloatField(),
+            'secret': StringField(),
+            'test_parking': ForeignField(object=Parking),
+            'test_user': ForeignField(object=UserAccount)
+        }
+        return edit_object_view(request=request, id=id, object=Vendor, fields=fields)
 
-        def vendor(v):
-            if not v is None:
-                return Vendor.objects.get(id=v)
 
-        def owner(v):
-            if not v is None:
-                return Owner.objects.get(id=v)
-        try:
-            if id == -1:
-                parking = Parking()
-            else:
-                parking = Parking.objects.get(id=id)
-        except ObjectDoesNotExist:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "Parking with such ID not found"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        try:
-            delete = parse_bool(request.data.get("delete", None))
-            if delete:
-                parking.delete()
-                return JsonResponse({}, status=200)
+class EditParkingSessionView(LoginRequiredAPIView):
+    validator_class = EditParkingSessionValidator
+
+    def post(self, request, id=-1):
+        fields = {
+            'session_id': StringField(required=True),
+            'client': ForeignField(object=UserAccount, required=True),
+            'parking': ForeignField(object=Parking, required=True),
+            'debt': FloatField(),
+            'state': IntChoicesField(required=True, choices=ParkingSession.STATE_CHOICES),
+            'started_at': DateField(required=True),
+            'updated_at': DateField(),
+            'completed_at': DateField(),
+            'is_suspended': BoolField(),
+            'suspended_at': DateField(),
+            'try_refund': BoolField(),
+            'target_refund_sum': FloatField(),
+            'current_refund_sum': FloatField(),
+            'created_at': DateField()
+        }
+        return edit_object_view(request=request, id=id, object=ParkingSession, fields=fields)
+
+
+class EditParkingView(LoginRequiredAPIView):
+    validator_class = EditParkingValidator
+
+    def post(self, request, id=-1):
             fields = {
-                'name': (s,),
-                'description': (s, 'required'),
-                'address': (s,),
-                'latitude': (f, 'required'),
-                'longitude': (f, 'required'),
-                'enabled': (b,),
-                'free_places': (i, 'required'),
-                'max_client_debt': (f,),
-                'created_at': (date,),
-                'vendor': (vendor,),
-                'owner': (owner,),
-                'approved': (b,),
+                'name': StringField(),
+                'description': StringField(required=True),
+                'address': StringField(),
+                'latitude': FloatField(required=True),
+                'longitude': FloatField(required=True),
+                'enabled': BoolField(),
+                'free_places': IntField(required=True),
+                'max_client_debt': FloatField(),
+                'created_at': DateField(),
+                'vendor': ForeignField(object=Vendor),
+                'owner': ForeignField(object=Owner),
+                'approved': BoolField(),
             }
-            for field in fields:
-                val = fields[field][0](request.data.get(field, None))
-                if not val is None:
-                    parking.__setattr__(field, val)
-                elif len(fields[field]) > 1 and id == -1:  # If field is required and action == create
-                    e = ValidationException(
-                        ValidationException.VALIDATION_ERROR,
-                        'Field `%s` is required' % field
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
-
-        except Exception as exc:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                str(exc)
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        parking.save()
-
-        return JsonResponse(serializer(parking), status=200)
+            return edit_object_view(request=request, id=id, object=Parking, fields=fields)

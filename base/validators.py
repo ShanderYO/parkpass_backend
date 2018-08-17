@@ -35,6 +35,35 @@ def validate_login_format(value):
         raise ValidationError("Login has invalid format")
 
 
+def validate_boolean(value, allow_none=False):
+    if allow_none and value is None:
+        return True
+    if str(value).lower() not in ('1', '0', 'true', 'false'):
+        raise ValidationError("Boolean has invalid format(must be on of [1, 0, true, false])")
+
+
+def validate_uint(value, key_name='', allow_none=False):
+    if allow_none and value is None:
+        return True
+    try:
+        if int(value) >= 0:
+            return True
+    except (ValueError, TypeError):
+        raise ValidationError("Key %s has invalid format. Must be unsigned Int type" % key_name)
+    raise ValidationError("Key %s has invalid format. Must be unsigned Int type" % key_name)
+
+
+def validate_ufloat(value, key_name='', allow_none=False):
+    if allow_none and value is None:
+        return True
+    try:
+        float_value = float(value)
+        if float_value <= 0:
+            raise TypeError()
+    except (ValueError, TypeError):
+        raise ValidationError("Key %s has invalid format. Must be unsigned float" % key_name)
+
+
 class LoginAndPasswordValidator(BaseValidator):
     def is_valid(self):
         login = self.request.data.get("login", None)
