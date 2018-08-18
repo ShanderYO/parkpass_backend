@@ -221,3 +221,5 @@ MEDIA_URL = '/media/'
 AVATARS_URL = MEDIA_URL + 'avatars/'
 AVATARS_ROOT = os.path.join(BASE_DIR, "media/avatars")
 DEFAULT_AVATAR_URL = MEDIA_URL + 'default'
+
+PAGINATION_OBJECTS_PER_PAGE = 10

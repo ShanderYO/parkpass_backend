@@ -18,6 +18,7 @@ from base.views import APIView
 from base.views import VendorAPIView as LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking, UpgradeIssue
 from parkpass.settings import EMAIL_HOST_USER
+from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
 from .models import Issue
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
@@ -101,7 +102,7 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
             start_from = int(request.data.get("start", -1))
             stop_at = int(request.data.get("end", -1))
             page = int(request.data.get("page", 0))
-            count = int(request.data.get("count", 10))
+            count = int(request.data.get("count", PAGINATION_OBJECTS_PER_PAGE))
         except ValueError:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -117,9 +118,9 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
         result = []
 
         if ids:
-            pks = Parking.objects.filter(id__in=ids)
+            pks = Parking.objects.filter(id__in=ids, vendor=request.vendor)
         else:
-            pks = Parking.objects.all()
+            pks = Parking.objects.filter(vendor=request.vendor)
 
         for pk in pks:
             ps = ParkingSession.objects.filter(

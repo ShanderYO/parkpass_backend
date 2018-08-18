@@ -10,12 +10,14 @@ def get_logger(name=BASE_LOGGER_NAME):
     return logging.getLogger(name)
 
 
-def parse_int(value, raise_exception=False, allow_none=True):
+def parse_int(value, raise_exception=False, allow_none=True, only_positive=False):
     if not allow_none and value is None:
         raise ValueError('Required field isn\'t specified')
     if value is None and raise_exception:
         return None
     try:
+        if int(value) < 0 and only_positive:
+            raise ValueError("Only positive integers allowed")
         return int(value)
     except Exception:
         if raise_exception:
@@ -38,12 +40,14 @@ def parse_bool(value, raise_exception=False, allow_none=True):
     return None
 
 
-def parse_float(value, raise_exception=False, allow_none=True):
+def parse_float(value, raise_exception=False, allow_none=True, only_positive=False):
     if not allow_none and value is None:
         raise ValueError('Required field isn\'t specified')
     if value is None and raise_exception:
         return None
     try:
+        if float(value) < 0 and only_positive:
+            raise ValueError("Only positive floats allowed")
         return float(value)
     except Exception:
         if raise_exception:

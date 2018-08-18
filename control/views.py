@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.http.response import JsonResponse
 from dss.Serializer import serializer
@@ -6,17 +8,37 @@ from accounts.models import Account as UserAccount
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
+from base.utils import datetime_from_unix_timestamp_tz
 from base.validators import LoginAndPasswordValidator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
 from owners.models import Owner
-from parkings.models import Parking, ParkingSession
-from validators import EditParkingValidator, EditParkingSessionValidator
+from parkings.models import Parking, ParkingSession, ComplainSession
+from parkings.validators import validate_longitude, validate_latitude
+from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
+from validators import create_generic_validator
 from vendors.models import Vendor
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
 from .utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
-    edit_object_view
+    edit_object_view, PositiveFloatField, PositiveIntField, CustomValidatedField
+
+
+def generic_pagination_view(obj):
+    class GenericPaginationView(LoginRequiredAPIView):
+        def post(self, request, page):
+            page = int(page)
+            result = []
+            objects = obj.objects.all()
+            for o in objects:
+                result.append(serializer(o))
+            length = len(result)
+            count = PAGINATION_OBJECTS_PER_PAGE
+            if length > count:
+                result = result[page * count:(page + 1) * count]
+            return JsonResponse({'count': length, 'objects': result}, status=200)
+
+    return GenericPaginationView
 
 
 class LoginView(APIView):
@@ -102,66 +124,158 @@ class LogoutView(LoginRequiredAPIView):
 
 
 class EditVendorView(LoginRequiredAPIView):
+    fields = {
+        'first_name': StringField(),
+        'last_name': StringField(),
+        'phone': StringField(required=True),
+        'sms_code': StringField(),
+        'email': StringField(),
+        'password': StringField(),
+        'email_confirmation': StringField(),
+        'created_at': DateField(),
+        'display_id': IntField(),
+        'account_state': IntChoicesField(choices=Vendor.account_states),
+        'name': StringField(required=True),
+        'comission': FloatField(),
+        'secret': StringField(),
+        'test_parking': ForeignField(object=Parking),
+        'test_user': ForeignField(object=UserAccount)
+    }
+
+    validator_class = create_generic_validator(fields)
+
     def post(self, request, id=-1):
-        fields = {
-            'first_name': StringField(),
-            'last_name': StringField(),
-            'phone': StringField(required=True),
-            'sms_code': StringField(),
-            'email': StringField(),
-            'password': StringField(),
-            'email_confirmation': StringField(),
-            'created_at': DateField(),
-            'display_id': IntField(),
-            'account_state': IntChoicesField(choices=Vendor.account_states),
-            'name': StringField(required=True),
-            'comission': FloatField(),
-            'secret': StringField(),
-            'test_parking': ForeignField(object=Parking),
-            'test_user': ForeignField(object=UserAccount)
-        }
-        return edit_object_view(request=request, id=id, object=Vendor, fields=fields)
+        return edit_object_view(request=request, id=id, object=Vendor, fields=self.fields)
 
 
 class EditParkingSessionView(LoginRequiredAPIView):
-    validator_class = EditParkingSessionValidator
+    fields = {
+        'session_id': StringField(required=True),
+        'client': ForeignField(object=UserAccount, required=True),
+        'parking': ForeignField(object=Parking, required=True),
+        'debt': FloatField(),
+        'state': IntChoicesField(required=True, choices=ParkingSession.STATE_CHOICES),
+        'started_at': DateField(required=True),
+        'updated_at': DateField(),
+        'completed_at': DateField(),
+        'is_suspended': BoolField(),
+        'suspended_at': DateField(),
+        'try_refund': BoolField(),
+        'target_refund_sum': FloatField(),
+        'current_refund_sum': FloatField(),
+        'created_at': DateField()
+    }
+    validator_class = create_generic_validator(fields)
 
     def post(self, request, id=-1):
-        fields = {
-            'session_id': StringField(required=True),
-            'client': ForeignField(object=UserAccount, required=True),
-            'parking': ForeignField(object=Parking, required=True),
-            'debt': FloatField(),
-            'state': IntChoicesField(required=True, choices=ParkingSession.STATE_CHOICES),
-            'started_at': DateField(required=True),
-            'updated_at': DateField(),
-            'completed_at': DateField(),
-            'is_suspended': BoolField(),
-            'suspended_at': DateField(),
-            'try_refund': BoolField(),
-            'target_refund_sum': FloatField(),
-            'current_refund_sum': FloatField(),
-            'created_at': DateField()
-        }
-        return edit_object_view(request=request, id=id, object=ParkingSession, fields=fields)
+        return edit_object_view(request=request, id=id, object=ParkingSession, fields=self.fields)
 
 
 class EditParkingView(LoginRequiredAPIView):
-    validator_class = EditParkingValidator
+    fields = {
+        'name': StringField(),
+        'description': StringField(required=True),
+        'address': StringField(),
+        'latitude': CustomValidatedField(validate_latitude, required=True),
+        'longitude': CustomValidatedField(validate_longitude, required=True),
+        'enabled': BoolField(),
+        'free_places': PositiveIntField(required=True),
+        'max_client_debt': PositiveFloatField(),
+        'created_at': DateField(),
+        'vendor': ForeignField(object=Vendor),
+        'owner': ForeignField(object=Owner),
+        'approved': BoolField(),
+    }
+    validator_class = create_generic_validator(fields)  # EditParkingValidator
 
     def post(self, request, id=-1):
-            fields = {
-                'name': StringField(),
-                'description': StringField(required=True),
-                'address': StringField(),
-                'latitude': FloatField(required=True),
-                'longitude': FloatField(required=True),
-                'enabled': BoolField(),
-                'free_places': IntField(required=True),
-                'max_client_debt': FloatField(),
-                'created_at': DateField(),
-                'vendor': ForeignField(object=Vendor),
-                'owner': ForeignField(object=Owner),
-                'approved': BoolField(),
-            }
-            return edit_object_view(request=request, id=id, object=Parking, fields=fields)
+        return edit_object_view(request=request, id=id, object=Parking, fields=self.fields)
+
+
+class EditComplainView(LoginRequiredAPIView):
+    fields = {
+        'type': IntChoicesField(choices=None, required=True),
+        'message': StringField(required=True, max_length=1023),
+        'session': ForeignField(object=ParkingSession, required=True),
+        'account': ForeignField(object=UserAccount, required=True),
+    }
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request, id=-1):
+        return edit_object_view(request=request, id=id, object=ComplainSession, fields=self.fields)
+
+
+class ShowComplainView(generic_pagination_view(ComplainSession)):
+    pass
+
+
+class ShowVendorView(generic_pagination_view(Vendor)):
+    pass
+
+
+class ShowParkingSessionView(generic_pagination_view(ParkingSession)):
+    pass
+
+
+class ShowParkingView(generic_pagination_view(Parking)):
+    pass
+
+
+class AllParkingsStatisticsView(LoginRequiredAPIView):
+    def post(self, request):
+        try:
+            ids = map(int, request.data.get('ids', []).replace(' ', '').split(','))
+            start_from = int(request.data.get("start", -1))
+            stop_at = int(request.data.get("end", -1))
+            page = int(request.data.get("page", 0))
+            count = int(request.data.get("count", PAGINATION_OBJECTS_PER_PAGE))
+        except ValueError:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "All fields must be int"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if stop_at < start_from:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "'stop' should be greater than 'start'"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        result = []
+
+        if ids:
+            pks = Parking.objects.filter(id__in=ids)
+        else:
+            pks = Parking.objects.all()
+
+        for pk in pks:
+            ps = ParkingSession.objects.filter(
+                parking=pk,
+                started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
+                else datetime.now() - timedelta(days=31),
+                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now(),
+                state__gt=3  # Only completed sessions
+            )
+
+            sessions_count = len(ps)
+            order_sum = 0
+            avg_time = 0
+            for session in ps:
+                order_sum += session.debt
+                avg_time += (session.completed_at - session.started_at).total_seconds()
+            try:
+                avg_time = avg_time / sessions_count
+            except ZeroDivisionError:
+                pass
+
+            result.append({
+                'parking_id': pk.id,
+                'parking_name': pk.name,
+                'sessions_count': sessions_count,
+                'avg_parking_time': avg_time,
+                'order_sum': order_sum,
+            })
+        length = len(result)
+        if len(result) > count:
+            result = result[page * count:(page + 1) * count]
+        return JsonResponse({'parkings': result, 'count': length}, status=200)

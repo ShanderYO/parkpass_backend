@@ -20,7 +20,15 @@ class FieldType:
 
 
 class StringField(FieldType):
+    def __init__(self, required=False, raise_exception=True, max_length=None):
+        self.max_length = max_length
+        FieldType.__init__(self, required, raise_exception)
+
     def parse(self, value):
+        if self.max_length is not None:
+            if len(str(value)) > self.max_length:
+                if self._raise:
+                    raise ValueError("Length must be not greater than %s" % self.max_length)
         return str(value)
 
 
@@ -29,11 +37,31 @@ class IntField(FieldType):
         return parse_int(value, raise_exception=self._raise)
 
 
+class PositiveIntField(FieldType):
+    def parse(self, value):
+        return parse_int(value, raise_exception=self._raise, only_positive=True)
+
+
+class CustomValidatedField(FieldType):
+    def __init__(self, callable, required=False, raise_exception=True):
+        self.parser = callable
+        FieldType.__init__(self, required, raise_exception)
+
+    def parse(self, value):
+        try:
+            if value is None and self.is_required:
+                raise ValueError("Missing required value")
+            return self.parser(value)
+        except Exception as e:
+            if self._raise:
+                raise
+            return None
+
+
 class IntChoicesField(FieldType):
     def __init__(self, choices, required=False, raise_exception=True):
         self._choices = choices
-        self._required = required
-        self._raise = raise_exception
+        FieldType.__init__(self, required, raise_exception)
 
     def parse(self, value):
         if not self.is_required and value is None:
@@ -58,6 +86,11 @@ class FloatField(FieldType):
         return parse_float(value, raise_exception=self._raise)
 
 
+class PositiveFloatField(FieldType):
+    def parse(self, value):
+        return parse_float(value, raise_exception=self._raise, only_positive=True)
+
+
 class DateField(FieldType):
     def parse(self, value):
         return datetime_from_unix_timestamp_tz(parse_int(value, raise_exception=self._raise))
@@ -66,8 +99,7 @@ class DateField(FieldType):
 class ForeignField(FieldType):
     def __init__(self, object, required=False, raise_exception=True):
         self._object = object
-        self._required = required
-        self._raise = raise_exception
+        FieldType.__init__(self, required, raise_exception)
 
     def parse(self, value):
         if not value is None:

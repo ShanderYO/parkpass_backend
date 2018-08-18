@@ -67,15 +67,15 @@ class UpdateParkingValidator(BaseValidator):
         return True
 
 
-def validate_text(value, key, allow_none=False):
+def validate_text(value, key, allow_none=False, length=500):
     if allow_none and value is None:
         return True
     try:
         str(value)
     except Exception:
         raise ValidationError("Key %s has invalid format. Must be a string" % key)
-    if not 500 > len(value) > 1:
-        raise ValidationError("Key %s has invalid format. Length must be between 1 and 500 letters." % key)
+    if not length > len(value) > 1:
+        raise ValidationError("Key %s has invalid format. Length must be between 1 and %s letters." % (key, length))
 
 
 class CreateParkingValidator(BaseValidator):

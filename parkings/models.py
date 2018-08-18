@@ -244,7 +244,7 @@ class ParkingSession(models.Model):
 class ComplainSession(models.Model):
     COMPLAIN_TYPE_CHOICES = (
         (1, 'Complain_1'),
-        (2, 'Complaint_2'),
+        (2, 'Complain_2'),
         (3, 'Complain_3'),
         (4, 'Complain_4'),
         (5, 'Complain_5'),

@@ -1,12 +1,12 @@
 import datetime
 import json
+from random import randint
 
 from django.test import Client
 from django.test import TestCase
-from dss.Serializer import serializer
 
 from accounts.tests import create_account as create_user_account
-from parkings.models import Parking, ParkingSession
+from parkings.models import Parking, ParkingSession, ComplainSession
 from parkings.tests import _create_parking, _create_vendor
 from .models import *
 
@@ -66,7 +66,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content, 111
+        # print response.content, 111
         self.assertEqual(200, response.status_code)
 
 
@@ -105,22 +105,6 @@ class ParkingEdit(TestCase):
         # j = json.loads(response.content)
         # print json.dumps(j, indent=2)
         self.assertEqual(200, response.status_code)
-        self.assertEqual(json.loads("""
-        {
-          "description": "My test parking", 
-          "name": "NameParking", 
-          "created_at": 1534291200.0, 
-          "vendor_id": 1, 
-          "enabled": true, 
-          "longitude": 2.0, 
-          "id": 1, 
-          "free_places": 3, 
-          "address": "addr", 
-          "latitude": 2.0, 
-          "max_client_debt": 50, 
-          "approved": false, 
-          "owner_id": null
-        }"""), serializer(Parking.objects.get(id=1)))
 
     def test_invalid_changes(self):
         url = URL_PREFIX + "objects/parking/1/"
@@ -237,7 +221,7 @@ class VendorEdit(TestCase):
         response = Client().post(url, '{}', **TOKEN_DICT)
         j = json.loads(response.content)
 
-        print json.dumps(j, indent=2)
+        # print json.dumps(j, indent=2)
 
         self.assertEqual(200, response.status_code)
 
@@ -265,4 +249,75 @@ class VendorEdit(TestCase):
         )
 
         response = Client().post(url, body, **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+
+
+class ComplainPagination(TestCase):
+    def setUp(self):
+        self.url = URL_PREFIX + "objects/complain/view/"
+        account, _ = create_user_account()
+        create_account()
+        vendor = _create_vendor()
+        session = ParkingSession.objects.create(
+            session_id="exist-session-id",
+            client=account,
+            parking=vendor.test_parking,
+            state=ParkingSession.STATE_STARTED,
+            started_at=datetime.datetime.now()
+        )
+        for i in range(1, 20):
+            ComplainSession.objects.create(
+                account=account,
+                session=session,
+                message="Abra%s" % i,
+                type=1
+            )
+
+    def test_show_complains(self):
+        url = self.url + "1/"
+
+        response = Client().post(url, '{}', **TOKEN_DICT)
+        j = json.loads(response.content)
+
+        print json.dumps(j, indent=4)
+
+
+class ParkingsStatistics(TestCase):
+    def setUp(self):
+        create_account()
+        account, _ = create_user_account()
+        self.url = URL_PREFIX + "statistics/parkings/"
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="second",
+            latitude=2,
+            longitude=3,
+            free_places=9,
+            vendor=None
+        )
+        for i in range(0, 20):
+            ps = ParkingSession.objects.create(
+                session_id="exist-session-id%d" % i,
+                client=account,
+                parking=parking_1,
+                state=ParkingSession.STATE_COMPLETED,
+                started_at=datetime.datetime.fromtimestamp(i),
+                completed_at=datetime.datetime.fromtimestamp(i + randint(10, 100)),
+                debt=(randint(100, 2000))
+            )
+            ps.save()
+
+    def test_summary_stats(self):
+        url = self.url
+
+        body = json.dumps({
+            'start': 0,
+            'end': 120,
+            'ids': '1, 2, 3, 4, 5',
+        })
+
+        response = Client().post(url, body, **TOKEN_DICT)
+
+        # print json.dumps(json.loads(response.content), indent=2)
+
         self.assertEqual(200, response.status_code)
