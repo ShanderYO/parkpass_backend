@@ -321,3 +321,86 @@ class ParkingsStatistics(TestCase):
         # print json.dumps(json.loads(response.content), indent=2)
 
         self.assertEqual(200, response.status_code)
+
+
+class FilterPagination(TestCase):
+    def setUp(self):
+        create_account()
+        account, _ = create_user_account()
+        self.url = URL_PREFIX + "objects/parking/view/1/"
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="first",
+            latitude=2,
+            longitude=3,
+            approved=True,
+            free_places=9,
+            vendor=None
+        )
+        parking_2 = Parking.objects.create(
+            name="parking-2",
+            description="second",
+            latitude=2,
+            longitude=3,
+            approved=False,
+            free_places=9,
+            vendor=None
+        )
+        parking_3 = Parking.objects.create(
+            name="parking-3",
+            description="third",
+            latitude=4,
+            longitude=5,
+            approved=False,
+            free_places=10,
+            vendor=None
+        )
+
+    def test_show_approved(self):
+        body = json.dumps({
+            'approved__eq': True
+        })
+
+        response = Client().post(self.url, body, **TOKEN_DICT)
+        j = json.loads(response.content)
+        self.assertEqual(1, len(j['objects']))
+        self.assertEqual(True, j['objects'][0]['approved'])
+
+    def test_show_not_approved(self):
+        body = json.dumps({
+            'approved__ne': True
+        })
+
+        response = Client().post(self.url, body, **TOKEN_DICT)
+        j = json.loads(response.content)
+        self.assertEqual(2, len(j['objects']))
+        self.assertEqual(False, j['objects'][0]['approved'])
+
+    def test_show_free(self):
+        body = json.dumps({
+            'free_places__gt': 0
+        })
+
+        response = Client().post(self.url, body, **TOKEN_DICT)
+        j = json.loads(response.content)
+        self.assertEqual(3, len(j['objects']))
+
+    def test_show_busy(self):
+        body = json.dumps({
+            'free_places': 0
+        })
+
+        response = Client().post(self.url, body, **TOKEN_DICT)
+        j = json.loads(response.content)
+        self.assertEqual(0, len(j['objects']))
+
+    def test_description_in(self):
+        body = json.dumps({
+            'description__in': [
+                'second', 'third'
+            ]
+        })
+
+        response = Client().post(self.url, body, **TOKEN_DICT)
+        j = json.loads(response.content)
+        self.assertEqual(2, len(j['objects']))

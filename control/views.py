@@ -13,11 +13,11 @@ from base.validators import LoginAndPasswordValidator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
 from owners.models import Owner
-from parkings.models import Parking, ParkingSession, ComplainSession
+from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIssue
 from parkings.validators import validate_longitude, validate_latitude
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
 from validators import create_generic_validator
-from vendors.models import Vendor
+from vendors.models import Vendor, Issue
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
 from .utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
@@ -27,9 +27,36 @@ from .utils import IntField, ForeignField, FloatField, IntChoicesField, BoolFiel
 def generic_pagination_view(obj):
     class GenericPaginationView(LoginRequiredAPIView):
         def post(self, request, page):
+            filter = {}
+            for key in request.data:
+                try:
+                    attr, modifier = key.split('__') if not hasattr(obj, key) else (key, 'eq')
+                    if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge', 'le', 'in') or not hasattr(obj, attr):
+                        raise ValueError()
+                    if type(True) == type(request.data[key]):
+                        if modifier == 'eq':
+                            filter[attr] = request.data[key]
+                        elif modifier == 'ne':
+                            filter[attr] = not request.data[key]
+                        else:
+                            raise ValueError()
+                    else:
+                        if modifier == 'eq':
+                            filter[attr] = request.data[key]
+                        else:
+                            filter[attr + '__' + modifier] = request.data[key]
+                except ValueError:
+                    e = ValidationException(
+                        ValidationException.VALIDATION_ERROR,
+                        "Invalid filter format"
+                    )
+                    return JsonResponse(e.to_dict(), status=400)
+            if filter:
+                objects = obj.objects.filter(**filter)
+            else:
+                objects = obj.objects.all()
             page = int(page)
             result = []
-            objects = obj.objects.all()
             for o in objects:
                 result.append(serializer(o))
             length = len(result)
@@ -279,3 +306,42 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
         if len(result) > count:
             result = result[page * count:(page + 1) * count]
         return JsonResponse({'parkings': result, 'count': length}, status=200)
+
+
+class ShowIssueView(generic_pagination_view(Issue)):
+    pass
+
+
+class EditIssueView(LoginRequiredAPIView):
+    fields = {
+        'name': StringField(required=True, max_length=255),
+        'email': StringField(max_length=255),
+        'phone': StringField(required=True, max_length=13),
+        'comment': StringField(required=True, max_length=1023),
+        'created_at': DateField()
+    }
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request, id=-1):
+        return edit_object_view(request=request, id=id, object=Issue, fields=self.fields)
+
+
+class ShowUpgradeIssueView(generic_pagination_view(UpgradeIssue)):
+    pass
+
+
+class EditUpgradeIssueView(LoginRequiredAPIView):
+    fields = {
+        'vendor': ForeignField(object=Vendor),
+        'owner': ForeignField(object=Owner),
+        'description': StringField(required=True, max_length=1000),
+        'type': IntChoicesField(choices=UpgradeIssue.types, required=True),
+        'issued_at': DateField(),
+        'updated_at': DateField(),
+        'completed_at': DateField(),
+        'status': IntChoicesField(choices=UpgradeIssue.statuses)
+    }
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request, id=-1):
+        return edit_object_view(request=request, id=id, object=UpgradeIssue, fields=self.fields)

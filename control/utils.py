@@ -115,7 +115,7 @@ def edit_object_view(request, id, object, fields):
     except ObjectDoesNotExist:
         e = ValidationException(
             ValidationException.RESOURCE_NOT_FOUND,
-            "Parking with such ID not found"
+            "Object with such ID not found"
         )
         return JsonResponse(e.to_dict(), status=400)
     try:
