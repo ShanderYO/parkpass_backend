@@ -45,7 +45,7 @@ class Terminal(models.Model):
 
 
 class EmailConfirmation(models.Model):
-    TOKEN_EXIPATION_TIMEDELTA_IN_SECONDS = 60 * 60 * 24 * 30 # One mounth
+    TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS = 60 * 60 * 24 * 30  # One month
 
     email = models.EmailField()
     code = models.CharField(max_length=255)
@@ -67,7 +67,7 @@ class EmailConfirmation(models.Model):
 
     def is_expired(self):
         created_at = (self.created_at +
-                      timedelta(0, self.TOKEN_EXIPATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
+                      timedelta(0, self.TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
         return datetime.now() > created_at
 
     # TODO make async

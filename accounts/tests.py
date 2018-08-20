@@ -11,16 +11,18 @@ from django.test import TestCase
 from accounts.models import Account, AccountSession
 from parkings.models import Parking, ParkingSession, Wish
 from parkpass.settings import AVATARS_ROOT
+from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order, FiskalNotification
 from vendors.models import Vendor
 
-TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1'}
+TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1',
+              'content_type': 'application/json'}
 TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
+URL_PREFIX = "/api/v1/account/"
 
 
-def create_account(id=1, name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"):
+def create_account(name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"):
     account = Account.objects.create(
-        # id=id,
         first_name=name,
         phone=phone,
         email=email
@@ -66,162 +68,108 @@ class PasswordTestCase(TestCase):
         account, account_session = create_account()
         account.save()
 
-        self.client = Client()
-
     def test_invalid_email_restore(self):
         """
         Testing case when invalid email is entered when attempting to restore password
         :return:
         """
-        url = "/api/v1/account/login/restore"
+        url = URL_PREFIX + "login/restore"
 
         body = json.dumps({
             "email": "abra@cadabra.boom"
         })
-        response = self.client.post(url, body, content_type="application/json")
+        response = Client().post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
     def test_valid_email_restore(self):
         """
         Testing case when valid email is entered when attempting to restore password
         """
-        url = "/api/v1/account/login/restore"
+        url = URL_PREFIX + "login/restore"
 
         body = json.dumps({
             "email": "test@testing.com"
         })
-        response = self.client.post(url, body, content_type="application/json")
+        response = Client().post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
     def test_invalid_old_change(self):
         """
         Testing case when old password is invalid
         """
-        url = "/api/v1/account/login/changepw/"
+        url = URL_PREFIX + "login/changepw/"
 
         body = json.dumps({
             "old": "abracadabra",
             "new": "12345"
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
     def test_valid_password_change(self):
         """
         Testing case when valid old pw entered when changing pw
         """
-        url = "/api/v1/account/login/changepw/"
+        url = URL_PREFIX + "login/changepw/"
 
         body = json.dumps({
             "old": "qwerty",
             "new": "uiop"
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
         # self.assertTrue(self.account.check_password("uiop"))     # New password should be valid
         # self.assertFalse(self.account.check_password("qwerty"))  # Old password shouldn't
 
 
-class LoginEmail1TestCase(TestCase):
+class LoginEmailTestCase(TestCase):
 
     def setUp(self):
-        account, account_session = create_account(email="diman-mich@yandex.ru")
-        self.client = Client()
-
+        create_account(email="diman-mich@yandex.ru")
+        
     def test_invalid_email_login_with_email(self):
-        url = "/api/v1/account/login/email/"
+        url = URL_PREFIX + "login/email/"
 
         body = json.dumps({
             "email": "diman1-mich@yandex.ru",
             "password": "qwerty",
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
     def test_invalid_password_login_with_email(self):
-        url = "/api/v1/account/login/email/"
+        url = URL_PREFIX + "login/email/"
 
         body = json.dumps({
             "email": "diman-mich@yandex.ru",
             "password": "qwerty1",
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
     def test_valid_login_with_email(self):
-        url = "/api/v1/account/login/email/"
+        url = URL_PREFIX + "login/email/"
 
         body = json.dumps({
             "email": "diman-mich@yandex.ru",
             "password": "qwerty",
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        print response.content
-
-
-class LoginEmail2TestCase(TestCase):
-
-    def setUp(self):
-        account = create_account()
-        self.client = Client()
-
-    def test_invalid_email_login_with_email(self):
-        url = "/api/v1/account/login/email/"
-
-        body = json.dumps({
-            "email": "diman1-mich@yandex.ru",
-            "password": "qwerty",
-        })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
-
-        self.assertEqual(response.status_code, 400)
-        print response.content
-
-    def test_invalid_email_login_with_email(self):
-        url = "/api/v1/account/login/email/"
-
-        body = json.dumps({
-            "email": "diman1-mich@yandex.ru",
-            "password": "qwerty",
-        })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
-
-        self.assertEqual(response.status_code, 400)
-        print response.content
-
-    def test_valid_login_with_email(self):
-        url = "/api/v1/account/login/email/"
-
-        body = json.dumps({
-            "email": "diman-mich@yandex.ru",
-            "password": "qwerty",
-        })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
-
-        self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
 
 class AccountTestCase(TestCase):
@@ -230,39 +178,41 @@ class AccountTestCase(TestCase):
     """
 
     def setUp(self):
-        account, account_session = create_account()
-        vendor, parking = create_vendor_parking()
-        self.client = Client()
-
+        create_account()
+        create_vendor_parking()
+        
     def test_invalid_token(self):
-        url = "/api/v1/account/me/"
+        url = URL_PREFIX + "me/"
 
-        response = self.client.get(url, content_type="application/json",
-                                   **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd1523'})
+        response = Client().get(url, content_type="application/json",
+                                **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd1523'})
         self.assertEqual(response.status_code, 401)
-        print response.content
+        j = json.loads(response.content)
+        self.assertEqual(102, j['code'])
 
     def test_valid_request(self):
-        url = "/api/v1/account/me/"
+        url = URL_PREFIX + "me/"
 
-        response = self.client.get(url, **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        j = json.loads(response.content)
+        self.assertEqual(len(j), 6)
+        self.assertEqual(1, j['id'])
 
     def test_new_session_without_card(self):
-        url = "/api/v1/account/session/create/"
+        url = URL_PREFIX + "session/create/"
 
         body = json.dumps({
             "session_id": "lala",
-            "parking_id": 1,
+            "parking_id": 2,
             "started_at": 1467936000
         })
 
-        response = self.client.post(url,
-                                    body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
         self.assertNotEqual(response.status_code, 200)
-        print response.content
+        j = json.loads(response.content)
+        # print json.dumps(j, indent=4), 222333
+        # self.assertEqual(305, j['code'])
 
 
 class AccountDeactivateTestCase(AccountTestCase):
@@ -310,13 +260,11 @@ class AccountDeactivateTestCase(AccountTestCase):
             # completed_at=datetime.datetime(2016, 12, 14),
         )
         self.account = account
-        self.client = Client()
 
     def test_deactivate_account(self):
-        url = "/api/v1/account/deactivate/"
-        response = self.client.post(url, "{}", content_type="application/json",
-                                    **TOKEN_DICT)
-        print response.content
+        url = URL_PREFIX + "deactivate/"
+        response = Client().post(url, "{}", **TOKEN_DICT)
+        # print response.content
         self.assertEqual(response.status_code, 200)
         self.assertEqual(CreditCard.objects.all().count(), 0)
         self.assertIsNone(ParkingSession.get_active_session(account=self.account))
@@ -340,73 +288,65 @@ class AccountWithCardTestCase(AccountTestCase):
             is_default=False,
             account=account,
         )
-    """
-    def test_add_card_request(self):
-        url = "/api/v1/account/card/add/"
 
-        response = self.client.post(url, content_type="application/json",
-                                   **TOKEN_DICT)
+    def test_add_card_request(self):
+        url = URL_PREFIX + "card/add/"
+
+        response = Client().post(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
-    """
 
     def test_set_default_not_exist_card(self):
-        url = "/api/v1/account/card/default/"
+        url = URL_PREFIX + "card/default/"
 
         body = json.dumps({
             "id": 3  # not exists
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
     def test_change_default_card_repeat(self):
-        url = "/api/v1/account/card/default/"
+        url = URL_PREFIX + "card/default/"
 
         body = json.dumps({
             "id": 1  # already by default
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
     def test_change_default_card(self):
-        url = "/api/v1/account/card/default/"
+        url = URL_PREFIX + "card/default/"
 
         body = json.dumps({
             "id": 2
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
     def test_delete_card(self):
-        url = "/api/v1/account/card/delete/"
+        url = URL_PREFIX + "card/delete/"
 
         body = json.dumps({
             "id": 3  # not exists
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+        j = json.loads(response.content)
+        self.assertEqual(402, j['code'])
 
         body = json.dumps({
             "id": 1
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEquals(CreditCard.objects.all().count(), 1)
-        print response.content
+        self.assertEqual(CreditCard.objects.all().count(), 1)
 
 
 class AccountSessionsTestCase(TestCase):
@@ -481,86 +421,84 @@ class AccountSessionsTestCase(TestCase):
         )
 
     def test_parking_session_list_page(self):
-        url = "/api/v1/account/session/list/"
+        url = URL_PREFIX + "session/list/"
 
-        response = self.client.get(url, **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
         # Check pagination
         response_dict = json.loads(response.content)
         page_token = response_dict.get("next", None)
 
-        url = "/api/v1/account/session/list/?page=%s" % page_token
-        response = self.client.get(url, **TOKEN_DICT)
+        url = URL_PREFIX + "session/list/?page=%s" % page_token
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
     def test_parking_session_interval_invalid_params_view(self):
 
         # skip from_date=11
-        url = "/api/v1/account/session/list/?from_date=11"
-        response = self.client.get(url, **TOKEN_DICT)
+        url = URL_PREFIX + "session/list/?from_date=11"
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
         # skip to_date=11
-        url = "/api/v1/account/session/list/?to_date=11"
-        response = self.client.get(url, **TOKEN_DICT)
+        url = URL_PREFIX + "session/list/?to_date=11"
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
-        url = "/api/v1/account/session/list/?from_date=11&to_date=12"
-        response = self.client.get(url, **TOKEN_DICT)
+        url = URL_PREFIX + "session/list/?from_date=11&to_date=12"
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
         # skip to_date=Privet
-        url = "/api/v1/account/session/list/?to_date=11&to_date=Privet"
-        response = self.client.get(url, **TOKEN_DICT)
+        url = URL_PREFIX + "session/list/?to_date=11&to_date=Privet"
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
     def test_parking_session_interval_too_big_period_view(self):
-        url = "/api/v1/account/session/list/?from_date=0&to_date=1527539422"
-        response = self.client.get(url, **TOKEN_DICT)
+        url = URL_PREFIX + "session/list/?from_date=0&to_date=1527539422"
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
-        print response.content
+        # print response.content
 
     def test_parking_session_interval_valid_view(self):
-        url = "/api/v1/account/session/list/?from_date=1510000000&to_date=1537539422"
-        response = self.client.get(url, **TOKEN_DICT)
-        print "ddd1"
-        print response.content
+        url = URL_PREFIX + "session/list/?from_date=1510000000&to_date=1537539422"
+        response = Client().get(url, **TOKEN_DICT)
+        # print response.content
         self.assertEqual(response.status_code, 200)
 
     def test_get_debt_request(self):
-        url = "/api/v1/account/session/debt/"
+        url = URL_PREFIX + "session/debt/"
 
-        response = self.client.get(url, **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
     def test_session_pay_invalid_id(self):
-        url = "/api/v1/account/session/pay/"
+        url = URL_PREFIX + "session/pay/"
         body = json.dumps({
             "id": 999  # not exists
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
-        print response.content
+        j = json.loads(response.content)
+        self.assertEqual(402, j['code'])
 
     def test_session_pay(self):
-        url = "/api/v1/account/session/pay/"
+        url = URL_PREFIX + "session/pay/"
 
         body = json.dumps({
             "id": 15
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        # print response.content
 
 
 class StartAccountTestCaseWithDebt(TestCase):
@@ -593,7 +531,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         )
 
     def test_denied_start_session(self):
-        url = "/api/v1/account/session/create/"
+        url = URL_PREFIX + "session/create/"
 
         body = json.dumps({
             "session_id": "lala",
@@ -601,47 +539,60 @@ class StartAccountTestCaseWithDebt(TestCase):
             "started_at": 1467936000
         })
 
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
-        print response.content
+        j = json.loads(response.content)
+        self.assertEqual(j['code'], 304)
 
     def test_force_stop_session(self):
-        url = "/api/v1/account/session/stop/"
+        url = URL_PREFIX + "session/stop/"
 
         body = json.dumps({
             "id": 1
         })
 
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        self.assertEqual(response.content, '{}')
+        self.assertTrue(ParkingSession.objects.get(id=1).is_suspended)
 
     def test_force_stop_session_invalid(self):
-        url = "/api/v1/account/session/stop/"
+        url = URL_PREFIX + "session/stop/"
 
         body = json.dumps({
-            "id": 1
+            "id": 55
         })
 
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
-        self.assertEqual(response.status_code, 200)
-        print response.content
+        response = Client().post(url, body, **TOKEN_DICT)
+        print response.content, 12321
+        self.assertEqual(response.status_code, 400)
+        j = json.loads(response.content)
+        self.assertEqual(402, j['code'])
 
     def test_force_stop_and_resume_session(self):
-        url = "/api/v1/account/session/stop/"
+        url = URL_PREFIX + "session/stop/"
 
         body = json.dumps({
             "id": 1
         })
 
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        print response.content
+        self.assertEqual(response.content, '{}')
+        self.assertTrue(ParkingSession.objects.get(id=1).is_suspended)
+
+        url = URL_PREFIX + "session/resume/"
+
+        body = json.dumps({
+            "id": 1
+        })
+
+        response = Client().post(url, body, **TOKEN_DICT)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, '{}')
+        self.assertFalse(ParkingSession.objects.get(id=1).is_suspended)
 
 
 class ReceiptTestCase(TestCase):
@@ -686,60 +637,57 @@ class ReceiptTestCase(TestCase):
             account=account,
             fiscal_notification=fiskal
         )
-        self.client = Client()
 
     def test_not_exists_parking(self):
-        url = "/api/v1/account/session/receipt/get/"
+        url = URL_PREFIX + "session/receipt/get/"
 
         body = json.dumps({
             "id": 3
         })
 
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+        j = json.loads(response.content)
+        self.assertEqual(402, j['code'])
 
     def test_valid_receipt(self):
-        url = "/api/v1/account/session/receipt/get/"
+        url = URL_PREFIX + "session/receipt/get/"
 
         body = json.dumps({
             "id": 1
         })
 
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        print response.content
+        j = json.loads(response.content)
+        self.assertEqual(1, j['result'][0]['order']['id'])
+        self.assertEqual(1, j['result'][0]['fiscal']['id'])
 
-    def test_send_receipt_to_unbinded_mail(self):
-        url = "/api/v1/account/session/receipt/send/"
+    def test_send_receipt_to_unbound_mail(self):
+        url = URL_PREFIX + "session/receipt/send/"
         body = json.dumps({
             "id": 1
         })
-        response = self.client.post(url, body, content_type="application/json",
-                                    **TOKEN_DICT)
+        response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+        j = json.loads(response.content)
+        self.assertEqual(306, j['code'])
 
 
 class AccountAvatarTestCase(AccountTestCase):
     def setUp(self):
-        account, account_session = create_account(phone="+7(123)4567890")
-        self.client = Client()
-
+        create_account(phone="+7(123)4567890")
+        
     def test_set_avatar(self):
-        url = "/api/v1/account/avatar/set/"
+        url = URL_PREFIX + "avatar/set/"
         with open("test1.jpg", "rb") as fp:
             body = json.dumps({
                 "avatar": base64.b64encode(fp.read()),
             })
-            response = self.client.post(url, body, content_type="application/json",
-                                        **TOKEN_DICT)
-        print response.content
+            response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         phone = "+7(123)4567890"
         path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
@@ -747,24 +695,24 @@ class AccountAvatarTestCase(AccountTestCase):
         remove(path)
 
     def test_set_large_avatar(self):
-        url = "/api/v1/account/avatar/set/"
+        url = URL_PREFIX + "avatar/set/"
         with open("test.jpg", "rb") as fp:
             body = json.dumps({
                 "avatar": base64.b64encode(fp.read()),
             })
-            response = self.client.post(url, body, content_type="application/json",
-                                        **TOKEN_DICT)
-        print response.content
+            response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
+        j = json.loads(response.content)
+        self.assertEqual(j['code'], 404)
         phone = "+7(123)4567890"
         path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
         self.assertFalse(isfile(path))
 
     def test_get_avatar(self):
-        url = "/api/v1/account/avatar/get/"
-        response = self.client.get(url,
-                                   **TOKEN_DICT)
-        print response.content
+        url = URL_PREFIX + "avatar/get/"
+        response = Client().get(url, **TOKEN_DICT)
+        j = json.loads(response.content)
+        self.assertIn(DEFAULT_AVATAR_URL, j['url'])
         self.assertEqual(response.status_code, 200)
 
 
@@ -794,16 +742,14 @@ class WantedParkingsTestCase(TestCase):
         self.p1.save()
         self.p2.save()
         self.p3.save()
-        self.client = Client()
 
     def test_adding_wannamarks(self):
-        print Parking.objects.all()
+        # print Parking.objects.all()
         resp = []
         for i in [2, 4, 6]:
             url = "/api/v1/parking/want_parking/%d/" % i
-            resp.append(self.client.get(url,
-                                        **TOKEN_DICT))
-            print resp[-1].content
+            resp.append(Client().get(url, **TOKEN_DICT))
+            # print resp[-1].content
         self.assertEqual(resp[0].status_code, 200)
         self.assertEqual(resp[1].status_code, 400)
         self.assertEqual(resp[2].status_code, 400)

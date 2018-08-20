@@ -9,13 +9,18 @@ from vendors.models import VendorSession
 
 HTTP_HEADER_ENCODING = 'iso-8859-1'
 
+user = (b'token', AccountSession)
+vendor = (b'vendor', VendorSession)
+owner = (b'owner', OwnerSession)
+admin = (b'admin', AdminSession)
+
 
 class TokenAuthenticationMiddleware(object):
     def process_request(self, request):
-        request.vendor = SimpleLazyObject(lambda: get_vendor(request))
-        request.account = SimpleLazyObject(lambda: get_account(request))
-        request.owner = SimpleLazyObject(lambda: get_owner(request))
-        request.admin = SimpleLazyObject(lambda: get_admin(request))
+        request.vendor = SimpleLazyObject(lambda: get_account(request, vendor))
+        request.account = SimpleLazyObject(lambda: get_account(request, user))
+        request.owner = SimpleLazyObject(lambda: get_account(request, owner))
+        request.admin = SimpleLazyObject(lambda: get_account(request, admin))
 
 
 def get_authorization_header(request):
@@ -25,10 +30,10 @@ def get_authorization_header(request):
     return auth
 
 
-def get_vendor(request):
+def get_account(request, ac_type):
     auth = get_authorization_header(request).split()
 
-    if not auth or auth[0].lower() != b'vendor':
+    if not auth or auth[0].lower() != ac_type[0]:
         return None
 
     if len(auth) == 1:
@@ -41,61 +46,4 @@ def get_vendor(request):
     except UnicodeError:
         return None
 
-    return VendorSession.get_account_by_token(token)
-
-
-def get_account(request):
-    auth = get_authorization_header(request).split()
-
-    if not auth or auth[0].lower() != b'token':
-        return None
-
-    if len(auth) == 1:
-        return None
-
-    if len(auth) > 2:
-        return None
-    try:
-        token = auth[1].decode()
-    except UnicodeError:
-        return None
-
-    return AccountSession.get_account_by_token(token)
-
-
-def get_owner(request):
-    auth = get_authorization_header(request).split()
-
-    if not auth or auth[0].lower() != b'owner':
-        return None
-
-    if len(auth) == 1:
-        return None
-
-    if len(auth) > 2:
-        return None
-    try:
-        token = auth[1].decode()
-    except UnicodeError:
-        return None
-
-    return OwnerSession.get_account_by_token(token)
-
-
-def get_admin(request):
-    auth = get_authorization_header(request).split()
-
-    if not auth or auth[0].lower() != b'admin':
-        return None
-
-    if len(auth) == 1:
-        return None
-
-    if len(auth) > 2:
-        return None
-    try:
-        token = auth[1].decode()
-    except UnicodeError:
-        return None
-
-    return AdminSession.get_account_by_token(token)
+    return ac_type[1].get_account_by_token(token)

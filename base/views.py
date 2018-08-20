@@ -94,39 +94,26 @@ class SignedRequestAPIView(APIView):
 
 
 class LoginRequiredAPIView(APIView):
+    account_type = 'account'
+
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request, "account") or not request.account:
+        if not hasattr(request, self.account_type) or not getattr(request, self.account_type, None):
             auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
             return JsonResponse(auth_exception.to_dict(), status=401)
         return super(LoginRequiredAPIView, self).dispatch(request, *args, **kwargs)
 
 
-class VendorAPIView(APIView):
-    @method_decorator(csrf_exempt)
-    def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request, "vendor") or not request.vendor:
-            auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
-            return JsonResponse(auth_exception.to_dict(), status=401)
-        return super(VendorAPIView, self).dispatch(request, *args, **kwargs)
+class VendorAPIView(LoginRequiredAPIView):
+    account_type = 'vendor'
 
 
-class OwnerAPIView(APIView):
-    @method_decorator(csrf_exempt)
-    def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request, "owner") or not request.owner:
-            auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
-            return JsonResponse(auth_exception.to_dict(), status=401)
-        return super(OwnerAPIView, self).dispatch(request, *args, **kwargs)
+class OwnerAPIView(LoginRequiredAPIView):
+    account_type = 'owner'
 
 
-class AdminAPIView(APIView):
-    @method_decorator(csrf_exempt)
-    def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request, "admin") or not request.admin:
-            auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
-            return JsonResponse(auth_exception.to_dict(), status=401)
-        return super(AdminAPIView, self).dispatch(request, *args, **kwargs)
+class AdminAPIView(LoginRequiredAPIView):
+    account_type = 'admin'
 
 
 class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):
