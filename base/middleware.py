@@ -5,6 +5,7 @@ from django.utils.six import text_type
 from accounts.models import AccountSession
 from control.models import AdminSession
 from owners.models import OwnerSession
+from utils import get_logger
 from vendors.models import VendorSession
 
 HTTP_HEADER_ENCODING = 'iso-8859-1'
@@ -13,6 +14,15 @@ user = (b'token', AccountSession)
 vendor = (b'vendor', VendorSession)
 owner = (b'owner', OwnerSession)
 admin = (b'admin', AdminSession)
+
+
+class LoggingMiddleware(object):
+    def process_response(self, request, response):
+        log = get_logger()
+        log.info('Accessing URL "%s"' % request.path)
+        log.info('Request body: %s' % request.body)
+        log.info('Sending response: "%s" with code %i' % (response.content, response.status_code))
+        return response
 
 
 class TokenAuthenticationMiddleware(object):

@@ -52,7 +52,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content, "!!!"
+        print response.content
         self.assertEqual(200, response.status_code)
 
     def test_login_by_phone(self):

@@ -161,13 +161,17 @@ class LoginEmailTestCase(TestCase):
 
     def test_valid_login_with_email(self):
         url = URL_PREFIX + "login/email/"
+        url2 = URL_PREFIX + "me/"
 
         body = json.dumps({
             "email": "diman-mich@yandex.ru",
             "password": "qwerty",
         })
         response = Client().post(url, body, **TOKEN_DICT)
-
+        j = json.loads(response.content)
+        self.assertEqual(response.status_code, 200)
+        response = Client().get(url2, content_type='application/json',
+                                HTTP_AUTHORIZATION='Token %s' % j['token'])
         self.assertEqual(response.status_code, 200)
         # print response.content
 

@@ -882,7 +882,7 @@ class VendorPermissions(TestCase):
             'free_places': 3
         })
         response = _make_signed_json_post(url, body)
-        print response.content, "!!!"
+        print response.content
         self.assertEqual(200, response.status_code)
 
     def test_disabled_state(self):
