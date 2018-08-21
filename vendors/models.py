@@ -14,6 +14,14 @@ class Vendor(BaseAccount):
     id = models.AutoField(primary_key=True)
     display_id = models.IntegerField(default=-1, unique=True)
 
+    @property
+    def session_class(self):
+        return VendorSession
+
+    @property
+    def type(self):
+        return 'vendor'
+
     class ACCOUNT_STATE:
         DISABLED = 0
         NORMAL = 1

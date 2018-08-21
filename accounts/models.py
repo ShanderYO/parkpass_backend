@@ -4,7 +4,13 @@ from base.models import BaseAccount, BaseAccountSession
 
 
 class Account(BaseAccount):
-    pass
+    @property
+    def session_class(self):
+        return AccountSession
+
+    @property
+    def type(self):
+        return 'account'
 
 
 class AccountSession(BaseAccountSession):

@@ -8,7 +8,14 @@ from base.models import BaseAccount, BaseAccountSession
 
 class Owner(BaseAccount):
     name = models.CharField(max_length=255, unique=True)
-    pass
+
+    @property
+    def session_class(self):
+        return OwnerSession
+
+    @property
+    def type(self):
+        return 'owner'
 
 
 class OwnerSession(BaseAccountSession):

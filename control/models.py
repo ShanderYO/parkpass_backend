@@ -12,6 +12,14 @@ class Admin(BaseAccount):
     def __unicode__(self):
         return "%s" % self.name
 
+    @property
+    def session_class(self):
+        return AdminSession
+
+    @property
+    def type(self):
+        return 'admin'
+
 
 class AdminSession(BaseAccountSession):
     admin = models.OneToOneField(Admin)

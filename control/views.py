@@ -1,7 +1,9 @@
+import os
 from datetime import datetime, timedelta
+from wsgiref.util import FileWrapper
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.http.response import JsonResponse
+from django.http.response import JsonResponse, HttpResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account as UserAccount
@@ -15,6 +17,7 @@ from base.views import AdminAPIView as LoginRequiredAPIView
 from owners.models import Owner
 from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIssue
 from parkings.validators import validate_longitude, validate_latitude
+from parkpass.settings import LOG_FILE
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
 from validators import create_generic_validator
 from vendors.models import Vendor, Issue
@@ -345,3 +348,15 @@ class EditUpgradeIssueView(LoginRequiredAPIView):
 
     def post(self, request, id=-1):
         return edit_object_view(request=request, id=id, object=UpgradeIssue, fields=self.fields)
+
+
+class GetLogView(LoginRequiredAPIView):
+    def post(self, request):
+        try:
+            f = file(LOG_FILE, 'rb')
+        except Exception, e:
+            return JsonResponse({'error': 'Log not found'}, status=400)
+        wrapper = FileWrapper(f)
+        response = HttpResponse(wrapper)
+        response['Content-Length'] = os.path.getsize(LOG_FILE)
+        return response

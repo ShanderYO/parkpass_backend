@@ -109,6 +109,10 @@ class BaseAccount(models.Model):
     def session_class(self):
         return self.__class__
 
+    @property
+    def type(self):
+        return 'baseaccount'
+
     def check_password(self, raw_password):
         def setter(r_password):
             self.set_password(r_password)
@@ -165,20 +169,21 @@ class BaseAccount(models.Model):
         self.sms_code = "".join([str(random.randrange(1,9)) for x in xrange(5)])
 
     def login(self):
-        if self.session_class.objects.filter(account=self).exists():
-            old_session = self.session_class.objects.get(account=self)
+        d = {self.type: self}
+        if self.session_class.objects.filter(**d).exists():
+            old_session = self.session_class.objects.get(**d)
             old_session.delete()
-        new_session = self.session_class(account=self)
+        new_session = self.session_class(**d)
         new_session.save()
         self.sms_code = None
         self.save()
 
     def get_session(self):
-        return self.session_class.objects.get(account=self)
+        return self.session_class.objects.get(**{self.type: self})
 
     def clean_session(self):
-        if self.session_class.objects.filter(account=self).exists():
-            account_session = self.session_class.objects.get(account=self)
+        if self.session_class.objects.filter(**{self.type: self}).exists():
+            account_session = self.session_class.objects.get(**{self.type: self})
             account_session.delete()
 
 
@@ -193,8 +198,8 @@ class BaseAccountSession(models.Model):
         ordering = ["-expired_at"]
         abstract = True
 
-    def __unicode__(self):
-        return "Session for %s %s" % (self.account.first_name, self.account.last_name)
+    #    def __unicode__(self):
+    #        return "Session for %s %s" % (self.account.first_name, self.account.last_name)
 
     @classmethod
     def get_account_by_token(cls, token):

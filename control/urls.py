@@ -35,5 +35,6 @@ urlpatterns = [
                   url(r'^objects/upgradeissue/(?P<id>\w+)/$', ShowUpgradeIssueView.as_view()),
 
                   url(r'^statistics/parkings/$', AllParkingsStatisticsView.as_view()),
+                  url(r'^statistics/log/$', GetLogView.as_view()),
 
               ] + staticfiles_urlpatterns()

@@ -20,7 +20,7 @@ class LoggingMiddleware(object):
     def process_response(self, request, response):
         log = get_logger()
         log.info('Accessing URL "%s"' % request.path)
-        log.info('Request body: %s' % request.body)
+        # log.info('Request body: %s' % request.body)  # TODO: Fix bug
         log.info('Sending response: "%s" with code %i' % (response.content, response.status_code))
         return response
 

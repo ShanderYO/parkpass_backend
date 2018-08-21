@@ -65,7 +65,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'base.middleware.TokenAuthenticationMiddleware',
-    'base.middleware.LoggingMiddleware',
+    # 'base.middleware.LoggingMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -149,6 +149,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 BASE_LOGGER_NAME = "parkpass"
+LOG_FILE = 'parkpass.log'
 
 LOGGING = {
     'version': 1,
@@ -175,7 +176,7 @@ LOGGING = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'parkpass.log',
+            'filename': LOG_FILE,
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
             'formatter': 'verbose'
