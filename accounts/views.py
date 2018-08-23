@@ -6,6 +6,7 @@ import pytz
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views import View
 from dss.Serializer import serializer
 
@@ -83,15 +84,18 @@ class DeactivateAccountView(LoginRequiredAPIView):
 
     def post(self, request):
         account = request.account
-        CreditCard.objects.filter(account=account).delete()
+        ps = ParkingSession.get_active_session(account)
+        if ps is not None:
+            generate_current_debt_order(ParkingSession.get_active_session(account))
+            if not ps.is_suspended:
+                ps.is_suspended = True
+                ps.suspended_at = timezone.now()
+                ps.save()
 
-        parking_session = ParkingSession.get_active_session(account)
-        if parking_session is None or not parking_session.is_suspended:
-            parking_session.is_suspended = True
-            parking_session.suspended_at = datetime.datetime.now()
-            parking_session.save()
-            # Create payment order and pay
-            generate_current_debt_order(parking_session.id)
+        cards = CreditCard.objects.filter(account=account)
+        for card in cards:
+            card.delete()
+
         return JsonResponse({}, status=200)
 
 
@@ -210,6 +214,8 @@ class AccountView(LoginRequiredAPIView):
         account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code", "password"))
         card_list = CreditCard.get_card_by_account(request.account)
         account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "exp_date", "is_default"))
+        path = DEFAULT_AVATAR_URL if not isfile(request.account.get_avatar_path()) else request.account.get_avatar_url()
+        account_dict["avatar"] = request.get_host() + path
         return JsonResponse(account_dict, status=200)
 
     def post(self, request):

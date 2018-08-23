@@ -5,19 +5,18 @@ from accounts.views import LoginView, LogoutView, AccountView, ConfirmLoginView,
     SetDefaultCardView, \
     DebtParkingSessionView, StartParkingSession, CompleteParkingSession, ForceStopParkingSession, ForcePayView, \
     ResumeParkingSession, AccountParkingListView, GetReceiptView, ChangeEmailView, EmailConfirmationView, \
-    SendReceiptToEmailView, LoginWithEmailView, PasswordRestoreView, SetAvatarView, GetAvatarView, PasswordChangeView, \
+    SendReceiptToEmailView, LoginWithEmailView, PasswordRestoreView, SetAvatarView, PasswordChangeView, \
     DeactivateAccountView
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
     url(r'^login/email/$', LoginWithEmailView.as_view()),
     url(r'^login/confirm/$', ConfirmLoginView.as_view()),
-    url(r'^login/changepw/$', PasswordChangeView.as_view()),
+    url(r'^password/change/$', PasswordChangeView.as_view()),
     url(r'^logout/$', LogoutView.as_view()),
-    url(r'^login/restore', PasswordRestoreView.as_view()),
+    url(r'^password/restore/$', PasswordRestoreView.as_view()),
     url(r'^me/$', AccountView.as_view()),
     url(r'^avatar/set/$', SetAvatarView.as_view()),
-    url(r'^avatar/get/$', GetAvatarView.as_view()),
     url(r'^card/add/$', AddCardView.as_view()),
     url(r'^card/delete/$', DeleteCardView.as_view()),
     url(r'^card/default/$', SetDefaultCardView.as_view()),
