@@ -10,8 +10,8 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from accounts.models import Account, AccountTypes
 # App import
+from accounts.models import Account, AccountTypes
 from base.exceptions import ValidationException, AuthException, PermissionException
 from base.validators import ValidatePostParametersMixin
 

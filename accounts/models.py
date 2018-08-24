@@ -1,25 +1,12 @@
-import binascii
-import os
-import random
+
 import uuid
 from datetime import datetime, timedelta
-from hashlib import md5
-from io import BytesIO
-
-from PIL import Image
-from django.contrib.auth.hashers import make_password, check_password
-from django.contrib.auth.models import User
-from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.db import models
-from django.db.models import BigAutoField
 from django.template.loader import render_to_string
-from django.utils import timezone
 
-import AccountTypes
-from accounts.sms_gateway import SMSGateway
-from base.exceptions import ValidationException
-from parkpass.settings import EMAIL_HOST_USER, AVATARS_ROOT, AVATARS_URL
+from base.models import BaseAccount
+from parkpass.settings import EMAIL_HOST_USER
 
 
 class EmailConfirmation(models.Model):
@@ -55,137 +42,8 @@ class EmailConfirmation(models.Model):
         return "http://parkpass.ru/account/email/confirm/"+self.code
 
 
-class Account(models.Model):
-    id = BigAutoField(primary_key=True)
-    first_name = models.CharField(max_length=63, null=True, blank=True,
-                                  verbose_name="First name")
-    last_name = models.CharField(max_length=63, null=True, blank=True,
-                                 verbose_name="Last name")
-    phone = models.CharField(max_length=15, verbose_name="Phone number")
-    sms_code = models.CharField(max_length=6, null=True, blank=True, editable=False)
-    email = models.EmailField(null=True, blank=True, verbose_name="E-mail")
-    password = models.CharField(max_length=255, default="stub")
-    email_confirmation = models.ForeignKey(EmailConfirmation, null=True,
-                                           blank=True, on_delete=models.CASCADE, editable=False)
-    created_at = models.DateField(auto_now_add=True, null=True)
-    account_type = models.CharField(
-        max_length=16,
-        choices=[("User", AccountTypes.USER), ("Vendor", AccountTypes.VENDOR)],
-        default=AccountTypes.USER,
-        verbose_name="Type of account")
-    ven_name = models.CharField(max_length=255, unique=True, blank=True, null=True, verbose_name="Vendor name")
-    ven_secret = models.CharField(max_length=255, blank=True, null=True, verbose_name="Vendor secret key",
-                                  editable=False)
-
-    def __unicode__(self):
-        return "[%s] %s %s ID: %d" % (self.account_type, self.first_name, self.last_name, self.id)
-
-    class Meta:
-        ordering = ["-id"]
-        verbose_name = 'Account'
-        verbose_name_plural = 'Accounts'
-
-    def save(self, *args, **kwargs):
-
-        if not self.pk:
-            if not kwargs.get("not_generate_secret", False):
-                self.generate_secret()
-            else:
-                del kwargs["not_generate_secret"]
-
-        if self.password == "stub" and self.email != "":
-            self.create_password_and_send()
-
-        def clear_number(num):
-            return num.replace("+", "").replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
-
-        self.phone = clear_number(self.phone)
-
-        super(Account, self).save()
-
-    def __unicode__(self):
-        return "%s %s" % (self.first_name, self.last_name)
-
-    def login(self):
-        if AccountSession.objects.filter(account=self).exists():
-            old_session = AccountSession.objects.get(account=self)
-            old_session.delete()
-        new_session = AccountSession(account=self)
-        new_session.save()
-        self.sms_code = None
-        self.save()
-
-    def generate_secret(self):
-        self.ven_secret = binascii.hexlify(os.urandom(32)).decode()
-
-    def check_password(self, raw_password):
-        def setter(r_password):
-            self.set_password(r_password)
-        return check_password(raw_password, self.password, setter)
-
-    def update_avatar(self, f):
-        path = AVATARS_ROOT + '/' + md5(self.phone).hexdigest()
-        im = Image.open(BytesIO(f))
-        width, height = im.size
-        format = im.format
-        im.close()
-        if width > 300 or height > 300 or format != 'JPEG':
-            raise ValidationException(
-                ValidationException.INVALID_IMAGE,
-                "Image must be JPEG and not be larger than 300x300 px"
-            )
-        with open(path, "w") as dest:
-            dest.write(f)
-
-    def get_avatar_url(self):
-        return AVATARS_URL + md5(self.phone).hexdigest()
-
-    def get_avatar_path(self):
-        return AVATARS_ROOT + '/' + md5(self.phone).hexdigest()
-
-    def set_password(self, raw_password):
-        self.password = make_password(raw_password)
-
-    def make_hashed_password(self):
-        raw_password = self.password
-        self.password = make_password(raw_password)
-
-    def create_password_and_send(self):
-        raw_password = self.generate_random_password()
-        self.set_password(raw_password)
-        self.save()
-        if self.email:
-            self.send_password_mail(raw_password)
-        else:
-            self.send_password_sms(raw_password)
-
-    def send_password_mail(self, raw_password):
-        render_data = {
-            "password": raw_password,
-        }
-        msg_html = render_to_string('emails/password_mail.html',
-                                    render_data)
-        send_mail('Parkpass password', "", EMAIL_HOST_USER,
-                  ['%s' % str(self.email)], html_message=msg_html)
-
-    def send_password_sms(self, raw_password):
-        sms_gateway = SMSGateway()
-        sms_gateway.send_sms(self.phone, raw_password)
-
-    def generate_random_password(self):
-        raw_password = User.objects.make_random_password(8)
-        return raw_password
-
-    def create_sms_code(self):
-        self.sms_code = "".join([str(random.randrange(1,9)) for x in xrange(5)])
-
-    def get_session(self):
-        return AccountSession.objects.get(account=self)
-
-    def clean_session(self):
-        if AccountSession.objects.filter(account=self).exists():
-            account_session = AccountSession.objects.get(account=self)
-            account_session.delete()
+class Account(BaseAccount):
+    pass
 
 
 class AccountSession(models.Model):
@@ -195,41 +53,3 @@ class AccountSession(models.Model):
     expired_at = models.DateTimeField()
     created_at = models.DateField(auto_now_add=True)
     account = models.OneToOneField(Account)
-
-    class Meta:
-        ordering = ["-expired_at"]
-
-    def __unicode__(self):
-        return "Session for %s %s" % (self.account.first_name, self.account.last_name)
-
-    @classmethod
-    def get_account_by_token(cls, token):
-        try:
-            session = cls.objects.get(token=token)
-            if session.is_expired():
-                session.delete()
-                return None
-            return session.account
-
-        except ObjectDoesNotExist:
-            return None
-
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            if not kwargs.get("not_generate_token", False):
-                self.generate_token()
-            else:
-                del kwargs["not_generate_token"]
-            self.set_expire_date()
-        super(AccountSession, self).save(*args, **kwargs)
-
-    def generate_token(self):
-        self.token = binascii.hexlify(os.urandom(20)).decode()
-
-    def set_expire_date(self):
-        self.expired_at = datetime.now() \
-                        + timedelta(seconds=self.ACCESS_TOKEN_EXPIRE_SECONDS)
-
-    def is_expired(self):
-        print self.expired_at
-        return timezone.now() >= self.expired_at
