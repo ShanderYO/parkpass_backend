@@ -4,6 +4,7 @@ import base64
 import datetime
 from os.path import isfile
 
+import pytz
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import JsonResponse
@@ -12,7 +13,7 @@ from dss.Serializer import serializer
 
 from accounts.models import Account, EmailConfirmation, AccountSession, AccountTypes
 from accounts.sms_gateway import SMSGateway
-from accounts.tasks import generate_current_debt_order
+from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
     EmailAndPasswordValidator, LoginAndPasswordValidator
@@ -492,9 +493,9 @@ class ForcePayView(LoginRequiredAPIView):
 
         id = int(request.data["id"])
         try:
-            parking_session = ParkingSession.objects.get(id=id)
+            ParkingSession.objects.get(id=id)
             # Create payment order and pay
-            generate_current_debt_order(id)
+            force_pay(id)
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -678,7 +679,7 @@ class ForceStopParkingSession(LoginRequiredAPIView):
             parking_session = ParkingSession.objects.get(id=id)
             if not parking_session.is_suspended:
                 parking_session.is_suspended = True
-                parking_session.suspended_at = datetime.datetime.now()
+                parking_session.suspended_at = pytz.utc.localize(datetime.datetime.now())
                 parking_session.save()
 
                 # Create payment order and pay

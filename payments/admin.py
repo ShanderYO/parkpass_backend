@@ -19,3 +19,9 @@ class TinkoffPaymentAdmin(admin.ModelAdmin):
 @admin.register(FiskalNotification)
 class FiskalNotificationAdmin(admin.ModelAdmin):
     pass
+
+"""
+@admin.register(CreditCardBindRequest)
+class CreditCardBindRequestAdmin(admin.ModelAdmin):
+    pass
+"""

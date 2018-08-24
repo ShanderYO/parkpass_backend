@@ -116,21 +116,22 @@ class CreditCard(models.Model):
             }
         return None
 
-
 class Order(models.Model):
 
     id = models.AutoField(primary_key=True)
     sum = models.DecimalField(max_digits=7, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
+    authorized = models.BooleanField(default=False)
     paid = models.BooleanField(default=False)
-    paid_card_pan = models.CharField(blank=True,null=True, max_length=31)
+    paid_card_pan = models.CharField(max_length=31, default="")
     session = models.ForeignKey(ParkingSession, null=True, blank=True)
     refund_request = models.BooleanField(default=False)
     refunded_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
-    # for init payment order
-    account = models.ForeignKey(Account, null=True, blank=True)
     fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # for init payment order
+    account = models.ForeignKey(Account, null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -147,15 +148,11 @@ class Order(models.Model):
         return result_sum
 
     def generate_receipt_data(self):
-        """
-        if self.account.email is None or len(self.account.email) == 0:
-            return None
-        """
 
         # Init payment receipt
         if self.session is None:
             return dict(
-                Email=self.account.email if self.account.email else None,
+                Email=None, # not send to email
                 Phone=self.account.phone,
                 Taxation="osn",
                 Items=[{
@@ -268,6 +265,17 @@ class Order(models.Model):
             fiscal=fiscal
         )
 
+    def confirm_payment(self, payment):
+        get_logger().info("Make confirm order: %s" % self.id)
+        request_data = payment.build_confirm_request_data(self.get_payment_amount())
+        get_logger().info(request_data)
+        result = TinkoffAPI().sync_call(
+            TinkoffAPI.CONFIRM, request_data
+        )
+        get_logger().info(str(result))
+
+
+PAYMENT_STATUS_UNKNOWN = -1
 PAYMENT_STATUS_INIT = 0
 PAYMENT_STATUS_NEW = 1
 PAYMENT_STATUS_CANCEL = 2
@@ -282,6 +290,7 @@ PAYMENT_STATUS_PARTIAL_REFUNDED = 10
 PAYMENT_STATUS_RECEIPT = 11
 
 PAYMENT_STATUSES = (
+    (PAYMENT_STATUS_UNKNOWN, 'Unknown'),
     (PAYMENT_STATUS_INIT, 'Init'),
     (PAYMENT_STATUS_NEW, 'New'),
     (PAYMENT_STATUS_CANCEL, 'Cancel'),
@@ -343,9 +352,9 @@ class TinkoffPayment(models.Model):
         }
         return data
 
-    def build_confirm_request_data(self, payment_id, amount):
+    def build_confirm_request_data(self, amount):
         data = {
-            "PaymentId": str(payment_id),
+            "PaymentId": str(self.payment_id),
             "Amount": str(amount),
         }
         return data

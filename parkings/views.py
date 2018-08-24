@@ -7,9 +7,12 @@ from django.http import JsonResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account
+
 from accounts.models import AccountTypes
 from accounts.views import only_for
+
 from base.exceptions import PermissionException
+from accounts.tasks import generate_current_debt_order
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
 from base.views import LoginRequiredAPIView, SignedRequestAPIView
@@ -407,6 +410,7 @@ class CompleteParkingSessionView(SignedRequestAPIView):
             session.completed_at = completed_at
             session.add_vendor_complete_mark()
             session.save()
+            generate_current_debt_order(session.id)
 
         except ObjectDoesNotExist:
             e = ValidationException(
