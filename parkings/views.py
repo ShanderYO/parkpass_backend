@@ -8,7 +8,7 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 
-from accounts.models import AccountTypes
+from base import AccountTypes
 from accounts.views import only_for
 
 from base.exceptions import PermissionException

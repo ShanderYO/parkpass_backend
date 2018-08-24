@@ -3,8 +3,8 @@ from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
 
-from accounts import AccountTypes
 from accounts.models import Account
+from base import AccountTypes
 from parkpass.settings import EMAIL_HOST_USER
 
 

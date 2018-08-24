@@ -3,20 +3,21 @@
 import base64
 import datetime
 from os.path import isfile
-import pytz
 
+import pytz
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views import View
 from dss.Serializer import serializer
 
-from accounts.models import Account, EmailConfirmation, AccountSession, AccountTypes
+from accounts.models import Account, EmailConfirmation, AccountSession
 from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
     EmailAndPasswordValidator, LoginAndPasswordValidator
+from base import AccountTypes
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
