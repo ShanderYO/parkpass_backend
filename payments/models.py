@@ -387,36 +387,3 @@ class TinkoffPayment(models.Model):
             self.status = PAYMENT_STATUS_REFUNDED
 
         self.save()
-
-"""
-BIND_CARD_STATUS_CREATED = 0
-BIND_CARD_STATUS_INITED = 1
-BIND_CARD_STATUS_AUTHORIZED = 2
-BIND_CARD_STATUS_CONFIRMED = 3
-BIND_CARD_STATUS_REFUNDING = 4
-BIND_CARD_STATUS_REFUNDED = 5
-BIND_CARD_STATUS_REJECTED = 6
-BIND_CARD_STATUS_ERROR = 7
-
-BIND_CARD_STATUSES = (
-    (BIND_CARD_STATUS_CREATED, 'Created'),
-    (BIND_CARD_STATUS_INITED, 'Inited'),
-    (BIND_CARD_STATUS_AUTHORIZED, 'Authorized payment'),
-    (BIND_CARD_STATUS_CONFIRMED, 'Confirmed payment'),
-    (BIND_CARD_STATUS_REFUNDING, 'Refunding payment request'),
-    (BIND_CARD_STATUS_REFUNDED, 'Refunded payment'),
-    (BIND_CARD_STATUS_REJECTED, 'Rejected'),
-    (BIND_CARD_STATUS_ERROR, 'Error ocurred'),
-)
-
-
-class CreditCardBindRequest(models.Model):
-    id = models.AutoField(primary_key=True)
-    account = models.ForeignKey(Account, null=True, blank=True)
-    payment = models.OneToOneField(TinkoffPayment)
-    status = models.PositiveSmallIntegerField(choices=BIND_CARD_STATUSES, default=BIND_CARD_STATUS_CREATED)
-    status_text = models.CharField(max_length=1024, blank=True, null=True)
-
-    def __unicode__(self):
-        return u'For %s %s in %s %s)' % (self.account.first_name, self.account.last_name, self.status, self.status_text is None)
-"""
