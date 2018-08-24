@@ -6,6 +6,7 @@ from django.template.loader import render_to_string
 from accounts.models import Account
 from base import AccountTypes
 from parkpass.settings import EMAIL_HOST_USER
+from vendors.models import Vendor
 
 
 class ParkingManager(models.Manager):
@@ -27,11 +28,10 @@ class Parking(models.Model):
     enabled = models.BooleanField(default=True)
     free_places = models.IntegerField()
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
-    vendor = models.ForeignKey(Account,
+    vendor = models.ForeignKey(Vendor,
                                null=True,
                                blank=True,
-                               on_delete=models.CASCADE,
-                               limit_choices_to={'account_type': AccountTypes.VENDOR})
+                               on_delete=models.CASCADE)
     created_at = models.DateField(auto_now_add=True)
 
     objects = models.Manager()
