@@ -43,7 +43,7 @@ class EmailConfirmation(models.Model):
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def _generate_confirmation_link(self):
-        return "http://parkpass.ru/account/email/confirm/"+self.code
+        return "http://parkpass.ru/api/v1/account/email/confirm/"+self.code
 
 
 class Account(BaseAccount):
