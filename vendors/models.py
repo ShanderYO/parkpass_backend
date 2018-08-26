@@ -11,7 +11,7 @@ from base.models import BaseAccount, BaseAccountSession
 
 
 class Vendor(BaseAccount):
-    display_id = models.IntegerField(default=-1, unique=True)
+    display_id = models.IntegerField()
 
     @property
     def session_class(self):
