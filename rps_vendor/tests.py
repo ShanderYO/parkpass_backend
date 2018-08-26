@@ -25,8 +25,8 @@ class UpdateParkingTestCase(TestCase):
             phone="89991234567",
             email="e@mail.com",
             account_type=AccountTypes.VENDOR,
-            ven_name="test-parking-vendor",
-            ven_secret="12345678"
+            name="test-parking-vendor",
+            secret="12345678"
         )
         vendor.save(not_generate_secret=True)
 

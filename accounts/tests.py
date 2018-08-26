@@ -8,7 +8,8 @@ from os.path import isfile
 from django.test import Client
 from django.test import TestCase
 
-from accounts.models import Account, AccountSession, AccountTypes
+from base.enums import AccountTypes
+from accounts.models import Account, AccountSession
 from parkings.models import Parking, ParkingSession, WantedParking
 from parkpass.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
@@ -43,8 +44,8 @@ def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678",
         phone="89991234567",
         email="e@mail.com",
         account_type=AccountTypes.VENDOR,
-        ven_name=ven_name,
-        ven_secret=ven_secret
+        name=ven_name,
+        secret=ven_secret
     )
     v.save(not_generate_secret=True)
     p = Parking.objects.create(
@@ -202,7 +203,7 @@ class VendorLoginTestCase(TestCase):
             phone="12345678900",
             email="1@testing.com",
         )
-        acc.ven_name = "notvendor"
+        acc.name = "notvendor"
         acc.save()
         acc, accsession = create_account(
             name="Second",
@@ -210,7 +211,7 @@ class VendorLoginTestCase(TestCase):
             email="2@testing.com"
         )
         acc.account_type = AccountTypes.VENDOR
-        acc.ven_name = "vendor-1"
+        acc.name = "vendor-1"
         acc.save()
 
     def test_vendor_login_valid(self):

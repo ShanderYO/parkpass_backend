@@ -11,10 +11,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
 # App import
-from base import AccountTypes
-from accounts.models import Account
 from base.exceptions import ValidationException, AuthException, PermissionException
 from base.validators import ValidatePostParametersMixin
+from vendors.models import Vendor
 
 
 class APIView(View, ValidatePostParametersMixin):
@@ -64,18 +63,9 @@ class SignedRequestAPIView(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
         try:
-            request.vendor = Account.objects.get(
-                ven_name=str(request.META["HTTP_X_VENDOR_NAME"]),
-                account_type=AccountTypes.VENDOR
+            request.vendor = Vendor.objects.get(
+                name=str(request.META["HTTP_X_VENDOR_NAME"]),
             )
-            """
-            if request.vendor.account_type != AccountTypes.VENDOR:
-                e = PermissionException(
-                    PermissionException.VENDOR_NOT_FOUND,
-                    "This account has no vendor privelegies"
-                )
-                return JsonResponse(e.to_dict(), status=400)
-            """
         except ObjectDoesNotExist:
             e = PermissionException(
                 PermissionException.VENDOR_NOT_FOUND,
@@ -90,7 +80,6 @@ class SignedRequestAPIView(APIView):
                 PermissionException.SIGNATURE_INVALID,
                 "Invalid signature"
             )
-            print signature.hexdigest()
             return JsonResponse(e.to_dict(), status=400)
 
         return super(SignedRequestAPIView, self).dispatch(request, *args, **kwargs)

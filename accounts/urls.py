@@ -24,13 +24,11 @@ from accounts.views import (LoginView,
                             PasswordChangeView,
                             DeactivateAccountView,
                             SetAvatarView,
-                            GetAvatarView,
-                            VendorNameLoginView)
+                            GetAvatarView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
     url(r'^login/email/$', LoginWithEmailView.as_view()),
-    url(r'^login/vendor/$', VendorNameLoginView.as_view()),
     url(r'^login/confirm/$', ConfirmLoginView.as_view()),
     url(r'^logout/$', LogoutView.as_view()),
     url(r'^login/restore', PasswordRestoreView.as_view()),

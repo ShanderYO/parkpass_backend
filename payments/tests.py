@@ -14,8 +14,8 @@ class PaymentCallbackTestCase(TestCase):
             phone="89991234567",
             email="e@mail.com",
             account_type=AccountTypes.VENDOR,
-            ven_name="vendor-1",
-            ven_secret="1234567"
+            name="vendor-1",
+            secret="1234567"
         )
         vendor.save(not_generate_secret=True)
 

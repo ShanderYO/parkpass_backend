@@ -17,7 +17,7 @@ from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
     EmailAndPasswordValidator, LoginAndPasswordValidator
-from base import AccountTypes
+from base.enums import AccountTypes
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
@@ -135,7 +135,6 @@ class DeactivateAccountView(LoginRequiredAPIView):
     Clear card list and stop parking session
     Out: {} 200
     """
-
     def post(self, request):
         try:
             only_for(request.account, AccountTypes.USER)
@@ -156,8 +155,7 @@ class DeactivateAccountView(LoginRequiredAPIView):
 
 
 # TODO: Отрефакторить методы так, чтобы не было больших блоков кода в if-else конструкциях ( повышение читаемости кода )
-
-
+"""
 class VendorNameLoginView(APIView):
     validator_class = LoginAndPasswordValidator
 
@@ -166,7 +164,7 @@ class VendorNameLoginView(APIView):
         password = request.data["password"]
 
         try:
-            account = Account.objects.get(ven_name=login)
+            account = Account.objects.get(name=login)
             if account.account_type != AccountTypes.VENDOR:  # If not casting to `str` cond is True always
                 e = PermissionException(  # IDK why...
                     PermissionException.VENDOR_NOT_FOUND,
@@ -196,7 +194,7 @@ class VendorNameLoginView(APIView):
                 AuthException.NOT_FOUND_CODE,
                 "User with such login not found")
             return JsonResponse(e.to_dict(), status=400)
-
+"""
 
 class LoginWithEmailView(APIView):
     validator_class = EmailAndPasswordValidator
@@ -267,7 +265,7 @@ class AccountView(LoginRequiredAPIView):
     validator_class = AccountParamValidator
 
     def get(self, request):
-        vendor_tuple = ("ven_name", "ven_secret") if request.account.account_type != AccountTypes.VENDOR else ()
+        vendor_tuple = ("name", "secret") if request.account.account_type != AccountTypes.VENDOR else ()
         account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code", "password") + vendor_tuple)
         if request.account.account_type == AccountTypes.USER:
             card_list = CreditCard.get_card_by_account(request.account)

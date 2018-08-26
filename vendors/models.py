@@ -11,8 +11,10 @@ from base.models import BaseAccount, BaseAccountSession
 
 class Vendor(BaseAccount):
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=255, unique=True)
-    secret = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True,
+                            help_text='It used for x_vendor_name header in requests')
+    secret = models.CharField(max_length=255, unique=True,
+                              help_text='Key for use hmac-sha256 in x_signature in requests')
 
     class Meta:
         ordering = ["-id"]

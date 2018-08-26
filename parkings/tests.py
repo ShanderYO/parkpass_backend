@@ -7,7 +7,8 @@ from random import randint
 from django.test import Client
 from django.test import TestCase
 
-from accounts.models import Account, AccountSession, AccountTypes
+from base.enums import AccountTypes
+from accounts.models import Account, AccountSession
 from accounts.tests import create_account
 from base.exceptions import ValidationException
 from parkings.models import Parking, ParkingSession
@@ -21,11 +22,11 @@ class VendorFixture:
             phone=phone,
             email=email,
             account_type=account_type,
-            ven_name=ven_name,
-            ven_secret=ven_secret
+            name=ven_name,
+            secret=ven_secret
         )
         self.vendor.save(not_generate_secret=True)
-        self.ven_name = ven_name
+        self.name = ven_name
         self.ven_secret = ven_secret
         self.client = Client()
 
@@ -33,7 +34,7 @@ class VendorFixture:
         signature = hmac.new(self.ven_secret, body, hashlib.sha512)
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': self.ven_name})
+                                       'HTTP_X_VENDOR_NAME': self.name})
         return response
         
 
@@ -47,7 +48,7 @@ class UpdateParkingTestCase(TestCase):
             email="e@e.com",
             phone="12345678900",
             account_type=AccountTypes.USER,
-            ven_name="vendor-2",
+            name="vendor-2",
             ven_secret="12321321"
         )
 
