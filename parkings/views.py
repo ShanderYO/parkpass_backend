@@ -221,12 +221,6 @@ class GetParkingView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         try:
             parking = Parking.objects.get(id=kwargs["pk"], approved=True)
-            if not check_permission(request.vendor, parking):
-                e = PermissionException(
-                    PermissionException.NO_PERMISSION,
-                    'Permission denied'
-                )
-                return JsonResponse(e.to_dict(), status=400)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
