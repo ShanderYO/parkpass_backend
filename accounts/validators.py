@@ -118,8 +118,10 @@ class AccountParamValidator(BaseValidator):
             self.message = "Nothing change"
             return False
         try:
-            validate_name(first_name)
-            validate_name(last_name)
+            if first_name:
+                validate_name(first_name)
+            if last_name:
+                validate_name(last_name)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e.message)
