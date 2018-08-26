@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import base64
 import datetime
 from os.path import isfile
@@ -8,17 +6,18 @@ import pytz
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views import View
 from dss.Serializer import serializer
 
-from accounts.models import Account, EmailConfirmation, AccountSession
+from accounts.models import Account, AccountSession
 from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
-    EmailAndPasswordValidator, LoginAndPasswordValidator
-from base.enums import AccountTypes
+    EmailAndPasswordValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
+from base.models import EmailConfirmation
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
@@ -27,10 +26,77 @@ from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 
 
-def only_for(account, account_type):
-    if account.account_type == account_type:
-        raise PermissionException(PermissionException.NOT_PRIVELEGIED,
-                                  "You aren't privelegied to use this method")
+class SetAvatarView(LoginRequiredAPIView):
+    def post(self, request):
+        try:
+            file = request.data.get("avatar", None)
+            if file is None:
+                raise ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "No file attached"
+                )
+            request.account.update_avatar(base64.b64decode(file))
+        except ValidationException, e:
+            return JsonResponse(e.to_dict(), status=400)
+        return JsonResponse({}, status=200)
+
+
+class GetAvatarView(LoginRequiredAPIView):
+    def get(self, request):
+        path = DEFAULT_AVATAR_URL if not isfile(request.account.get_avatar_path()) else request.account.get_avatar_url()
+        body = {
+            'url': request.get_host() + path
+        }
+        return JsonResponse(body, status=200)
+
+
+class PasswordChangeView(LoginRequiredAPIView):
+    """
+    API View for url /login/changepw
+    In: POST with json { old: "old_password", new: "new_password" }
+    Out:
+    200 {}
+
+    """
+
+    def post(self, request):
+        old_password = request.data["old"]
+        new_password = request.data["new"]
+
+        account = request.account
+
+        if not account.check_password(old_password):
+            e = AuthException(
+                AuthException.INVALID_PASSWORD,
+                "Invalid old password"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        account.set_password(new_password)
+        return JsonResponse({}, status=200)
+
+
+class DeactivateAccountView(LoginRequiredAPIView):
+    """
+    API View for url /account/deactivate
+    Clear card list and stop parking session
+    Out: {} 200
+    """
+
+    def post(self, request):
+        account = request.account
+        ps = ParkingSession.get_active_session(account)
+        if ps is not None:
+            generate_current_debt_order(ParkingSession.get_active_session(account))
+            if not ps.is_suspended:
+                ps.is_suspended = True
+                ps.suspended_at = timezone.now()
+                ps.save()
+
+        cards = CreditCard.objects.filter(account=account)
+        for card in cards:
+            card.delete()
+
+        return JsonResponse({}, status=200)
 
 
 class LoginView(APIView):
@@ -75,10 +141,6 @@ class ConfirmLoginView(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
 
-class CreateUserView():
-    pass
-
-
 class PasswordRestoreView(APIView):
     """
     API View for url /login/restore
@@ -103,98 +165,6 @@ class PasswordRestoreView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-
-class PasswordChangeView(LoginRequiredAPIView):
-    """
-    API View for url /login/changepw
-    In: POST with json { old: "old_password", new: "new_password" }
-    Out:
-    200 {}
-
-    """
-
-    def post(self, request):
-        old_password = request.data["old"]
-        new_password = request.data["new"]
-
-        account = request.account
-
-        if not account.check_password(old_password):
-            e = AuthException(
-                AuthException.INVALID_PASSWORD,
-                "Invalid old password"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        account.set_password(new_password)
-        return JsonResponse({}, status=200)
-
-
-class DeactivateAccountView(LoginRequiredAPIView):
-    """
-    API View for url /account/deactivate
-    Clear card list and stop parking session
-    Out: {} 200
-    """
-    def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
-        account = request.account
-        CreditCard.objects.filter(account=account).delete()
-
-        parking_session = ParkingSession.get_active_session(account)
-        if parking_session is None or not parking_session.is_suspended:
-            parking_session.is_suspended = True
-            parking_session.suspended_at = datetime.datetime.now()
-            parking_session.save()
-            # Create payment order and pay
-            generate_current_debt_order(parking_session.id)
-        return JsonResponse({}, status=200)
-
-
-# TODO: Отрефакторить методы так, чтобы не было больших блоков кода в if-else конструкциях ( повышение читаемости кода )
-"""
-class VendorNameLoginView(APIView):
-    validator_class = LoginAndPasswordValidator
-
-    def post(self, request):
-        login = request.data["login"]
-        password = request.data["password"]
-
-        try:
-            account = Account.objects.get(name=login)
-            if account.account_type != AccountTypes.VENDOR:  # If not casting to `str` cond is True always
-                e = PermissionException(  # IDK why...
-                    PermissionException.VENDOR_NOT_FOUND,
-                    "This account has no vendor privelegies"
-                )
-                return JsonResponse(e.to_dict(), status=400)
-            if account.check_password(raw_password=password):
-                if AccountSession.objects.filter(account=account).exists():
-                    session = AccountSession.objects.filter(account=account).order_by('-created_at')[0]
-                    response_dict = serializer(session)
-                    return JsonResponse(response_dict)
-                else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
-            else:
-                e = AuthException(
-                    AuthException.INVALID_PASSWORD,
-                    "Invalid password"
-                )
-                return JsonResponse(e.to_dict(), status=400)
-
-        except ObjectDoesNotExist:
-            e = AuthException(
-                AuthException.NOT_FOUND_CODE,
-                "User with such login not found")
-            return JsonResponse(e.to_dict(), status=400)
-"""
 
 class LoginWithEmailView(APIView):
     validator_class = EmailAndPasswordValidator
@@ -227,7 +197,7 @@ class LoginWithEmailView(APIView):
         except ObjectDoesNotExist:
             e = AuthException(
                 AuthException.NOT_FOUND_CODE,
-                "User with such login not found")
+                "User with such email not found")
             return JsonResponse(e.to_dict(), status=400)
 
 
@@ -237,39 +207,15 @@ class LogoutView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class SetAvatarView(LoginRequiredAPIView):
-    def post(self, request):
-        try:
-            file = request.data.get("avatar", None)
-            if file is None:
-                raise ValidationException(
-                    ValidationException.RESOURCE_NOT_FOUND,
-                    "No file attached"
-                )
-            request.account.update_avatar(base64.b64decode(file))
-        except ValidationException, e:
-            return JsonResponse(e.to_dict(), status=400)
-        return JsonResponse({}, status=200)
-
-
-class GetAvatarView(LoginRequiredAPIView):
-    def get(self, request):
-        path = DEFAULT_AVATAR_URL if not isfile(request.account.get_avatar_path()) else request.account.get_avatar_url()
-        body = {
-            'url': request.get_host() + path
-        }
-        return JsonResponse(body, status=200)
-
-
 class AccountView(LoginRequiredAPIView):
     validator_class = AccountParamValidator
 
     def get(self, request):
-        vendor_tuple = ("name", "secret") if request.account.account_type != AccountTypes.VENDOR else ()
-        account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code", "password") + vendor_tuple)
-        if request.account.account_type == AccountTypes.USER:
-            card_list = CreditCard.get_card_by_account(request.account)
-            account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "exp_date", "is_default"))
+        account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code", "password"))
+        card_list = CreditCard.get_card_by_account(request.account)
+        account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "exp_date", "is_default"))
+        path = DEFAULT_AVATAR_URL if not isfile(request.account.get_avatar_path()) else request.account.get_avatar_url()
+        account_dict["avatar"] = request.get_host() + path
         return JsonResponse(account_dict, status=200)
 
     def post(self, request):
@@ -336,8 +282,8 @@ class AccountParkingListView(LoginRequiredAPIView):
                                                                     "parking_id", "created_at"))
         for index, obj in enumerate(object_list):
             parking_dict = {
-                "id": obj.parking.id,
-                "name": obj.parking.name
+                "id":obj.parking.id,
+                "name":obj.parking.name
             }
             data[index]["parking"] = parking_dict
 
@@ -351,11 +297,6 @@ class AccountParkingListView(LoginRequiredAPIView):
 
 class DebtParkingSessionView(LoginRequiredAPIView):
     def get(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         current_parking_session = ParkingSession.get_active_session(request.account)
         if current_parking_session:
             debt_dict = serializer(current_parking_session, exclude_attr=("session_id", "client_id", "created_at",))
@@ -371,11 +312,6 @@ class GetReceiptView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         id = int(request.data["id"])
         try:
             parking_session = ParkingSession.objects.get(id=id)
@@ -397,11 +333,6 @@ class SendReceiptToEmailView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         id = int(request.data["id"])
         if request.account.email is None:
             e = PermissionException(
@@ -485,11 +416,6 @@ class ForcePayView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         id = int(request.data["id"])
         try:
             ParkingSession.objects.get(id=id)
@@ -507,11 +433,6 @@ class ForcePayView(LoginRequiredAPIView):
 
 class AddCardView(LoginRequiredAPIView):
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         result_dict = CreditCard.bind_request(request.account)
 
         # If error request
@@ -546,11 +467,6 @@ class DeleteCardView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         card_id = request.data["id"]
         try:
             card = CreditCard.objects.get(id=card_id, account=request.account)
@@ -582,11 +498,6 @@ class SetDefaultCardView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         card_id = request.data["id"]
         try:
             card = CreditCard.objects.get(id=card_id, account=request.account)
@@ -609,11 +520,6 @@ class StartParkingSession(LoginRequiredAPIView):
     validator_class = StartAccountParkingSessionValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         session_id = request.data["session_id"]
         parking_id = int(request.data["parking_id"])
         started_at = int(request.data["started_at"])
@@ -667,11 +573,6 @@ class ForceStopParkingSession(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         id = int(request.data["id"])
 
         try:
@@ -698,11 +599,6 @@ class ResumeParkingSession(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         id = int(request.data["id"])
 
         try:
@@ -730,11 +626,6 @@ class CompleteParkingSession(LoginRequiredAPIView):
     validator_class = CompleteAccountParkingSessionValidator
 
     def post(self, request):
-        try:
-            only_for(request.account, AccountTypes.USER)
-        except PermissionException as e:
-            return JsonResponse(e.to_dict(), status=400)
-
         session_id = request.data["id"]
         parking_id = int(request.data["parking_id"])
         completed_at = int(request.data["completed_at"])
@@ -766,7 +657,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Parking session does not exists")
+                "Parking session does not exist")
             return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, status=200)

@@ -1,9 +1,11 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.db import models
+from django.db.models import signals
 from django.template.loader import render_to_string
 
 from accounts.models import Account
+from owners.models import Owner
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
 
@@ -13,8 +15,34 @@ class ParkingManager(models.Manager):
         return self.filter(
             latitude__range=[rb_point[0], lt_point[0]],
             longitude__range=[lt_point[1], rb_point[1]],
-            enabled=True
+            enabled=True, approved=True
         )
+
+
+class UpgradeIssue(models.Model):
+    types = (
+        (0, "Software update"),
+        (1, "Install readers")
+    )
+    statuses = (
+        (0, "New"),
+        (1, "Viewed"),
+        (2, "Processing"),
+        (3, "Processed"),
+        (-1, "Cancelled")
+    )
+    id = models.AutoField(primary_key=True)
+    vendor = models.ForeignKey(to=Vendor, null=True, blank=True, related_name='issue_by_vendor')
+    owner = models.ForeignKey(to=Owner, null=True, blank=True, related_name='issue_by_owner')
+    description = models.CharField(max_length=1000)
+    type = models.IntegerField(choices=types)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    status = models.IntegerField(choices=statuses, default=0)
+
+    def __unicode__(self):
+        return self.description
 
 
 class Parking(models.Model):
@@ -27,11 +55,10 @@ class Parking(models.Model):
     enabled = models.BooleanField(default=True)
     free_places = models.IntegerField()
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
-    vendor = models.ForeignKey(Vendor,
-                               null=True,
-                               blank=True,
-                               on_delete=models.CASCADE)
+    vendor = models.ForeignKey(Vendor, null=True, blank=True)
+    owner = models.ForeignKey(Owner, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
+    approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
 
     objects = models.Manager()
     parking_manager = ParkingManager()
@@ -45,7 +72,10 @@ class Parking(models.Model):
         return "%s [%s]" % (self.name, self.id)
 
 
-class WantedParking(models.Model):
+class Wish(models.Model):
+    class Meta:
+        verbose_name_plural = 'Wishes'
+
     id = models.BigAutoField(primary_key=True)
     parking = models.OneToOneField(to=Parking)
     user = models.ForeignKey(to=Account, default=None)
@@ -214,7 +244,7 @@ class ParkingSession(models.Model):
 class ComplainSession(models.Model):
     COMPLAIN_TYPE_CHOICES = (
         (1, 'Complain_1'),
-        (2, 'Complaint_2'),
+        (2, 'Complain_2'),
         (3, 'Complain_3'),
         (4, 'Complain_4'),
         (5, 'Complain_5'),
@@ -223,3 +253,24 @@ class ComplainSession(models.Model):
     message = models.TextField(max_length=1023)
     session = models.ForeignKey(ParkingSession)
     account = models.ForeignKey('accounts.Account')
+
+
+def create_test_parking(sender, instance, created, **kwargs):
+    if not created:
+        return
+    parking = Parking(
+        description='Test parking',
+        latitude=1,
+        longitude=2,
+        free_places=5,
+        vendor=instance,
+        enabled=False,
+        approved=True
+    )
+    parking.save()
+    instance.test_parking = parking
+    instance.save()
+
+
+signals.post_save.connect(receiver=create_test_parking, sender=Vendor)  # Test parking creation, when vendor
+# is being created

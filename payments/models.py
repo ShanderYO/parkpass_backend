@@ -1,5 +1,5 @@
 from django.db import models
-# Create your models here.
+
 from dss.Serializer import serializer
 
 from accounts.models import Account
@@ -24,7 +24,7 @@ class FiskalNotification(models.Model):
     type = models.CharField(max_length=15)
 
     def __unicode__(self):
-        return u"Fiskal notification: %s (%s)" \
+        return u"Fiscal notification: %s (%s)" \
                % (self.fiscal_number, self.shift_number)
 
     class Meta:
@@ -115,6 +115,7 @@ class CreditCard(models.Model):
                 }
             }
         return None
+
 
 class Order(models.Model):
 
@@ -249,7 +250,6 @@ class Order(models.Model):
         )
         get_logger().info(str(result))
 
-
     def get_order_with_fiscal_dict(self):
         order = dict(
             id=self.id,
@@ -273,7 +273,6 @@ class Order(models.Model):
             TinkoffAPI.CONFIRM, request_data
         )
         get_logger().info(str(result))
-
 
 PAYMENT_STATUS_UNKNOWN = -1
 PAYMENT_STATUS_INIT = 0
@@ -303,11 +302,12 @@ PAYMENT_STATUSES = (
     (PAYMENT_STATUS_PARTIAL_REFUNDED, 'Partial_refunded'),
 )
 
+
 class TinkoffPayment(models.Model):
 
     payment_id = models.BigIntegerField(unique=True, blank=True, null=True)
     status = models.SmallIntegerField(choices=PAYMENT_STATUSES, default=PAYMENT_STATUS_INIT)
-    order = models.ForeignKey(Order, null=True, blank=True) # TODO DELETE FROM THIS
+    order = models.ForeignKey(Order, null=True, blank=True)  # TODO DELETE FROM THIS
     receipt_data = models.TextField(null=True, blank=True)
 
     # Fields for debug

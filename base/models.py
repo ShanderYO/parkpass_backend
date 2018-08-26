@@ -1,24 +1,25 @@
-import random
 import binascii
 import os
+import random
 import uuid
-
 from datetime import datetime, timedelta
+from hashlib import md5
+from io import BytesIO
 
+from PIL import Image
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
+from django.db import models
 from django.db.models import BigAutoField
 from django.template.loader import render_to_string
-
-from parkpass import settings
-from django.db import models
-
 from django.utils import timezone
 
-from parkpass.settings import EMAIL_HOST_USER
+from base.exceptions import ValidationException
+from parkpass import settings
+from parkpass.settings import EMAIL_HOST_USER, AVATARS_URL, AVATARS_ROOT
 
 
 class Terminal(models.Model):
@@ -44,11 +45,19 @@ class Terminal(models.Model):
 
 
 class EmailConfirmation(models.Model):
-    TOKEN_EXIPATION_TIMEDELTA_IN_SECONDS = 60 * 60 * 24 * 30 # One mounth
+    TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS = 60 * 60 * 24 * 30  # One month
 
     email = models.EmailField()
     code = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
+    account_type = models.CharField(max_length=40,
+                                    default="account",
+                                    choices=(
+                                        ("User", "account"),
+                                        ("Vendor", "vendor"),
+                                        ("Owner", "owner")
+                                    )
+                                    )
 
     def __unicode__(self):
         return "Code %s [%s]" %(self.code, self.email)
@@ -58,7 +67,7 @@ class EmailConfirmation(models.Model):
 
     def is_expired(self):
         created_at = (self.created_at +
-                      timedelta(0, self.TOKEN_EXIPATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
+                      timedelta(0, self.TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
         return datetime.now() > created_at
 
     # TODO make async
@@ -73,7 +82,7 @@ class EmailConfirmation(models.Model):
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def _generate_confirmation_link(self):
-        return "http://parkpass.ru/account/email/confirm/"+self.code
+        return ("http://parkpass.ru/%s/email/confirm/" % self.account_type) + self.code
 
 
 class BaseAccount(models.Model):
@@ -100,10 +109,35 @@ class BaseAccount(models.Model):
     def session_class(self):
         return self.__class__
 
+    @property
+    def type(self):
+        return 'baseaccount'
+
     def check_password(self, raw_password):
         def setter(r_password):
             self.set_password(r_password)
         return check_password(raw_password, self.password, setter)
+
+    def update_avatar(self, f):
+        path = AVATARS_ROOT + '/' + md5(self.phone).hexdigest()
+        im = Image.open(BytesIO(f))
+        width, height = im.size
+        format = im.format
+        im.close()
+
+        if width > 300 or height > 300 or format != 'JPEG':
+            raise ValidationException(
+                    ValidationException.INVALID_IMAGE,
+                    "Image must be JPEG and not be larger than 300x300 px"
+                   )
+        with open(path, "w") as dest:
+            dest.write(f)
+
+    def get_avatar_url(self):
+        return AVATARS_URL + md5(self.phone).hexdigest()
+
+    def get_avatar_path(self):
+        return AVATARS_ROOT + '/' + md5(self.phone).hexdigest()
 
     def set_password(self, raw_password):
         self.password = make_password(raw_password)
@@ -135,20 +169,21 @@ class BaseAccount(models.Model):
         self.sms_code = "".join([str(random.randrange(1,9)) for x in xrange(5)])
 
     def login(self):
-        if self.session_class.objects.filter(account=self).exists():
-            old_session = self.session_class.objects.get(account=self)
+        d = {self.type: self}
+        if self.session_class.objects.filter(**d).exists():
+            old_session = self.session_class.objects.get(**d)
             old_session.delete()
-        new_session = self.session_class(account=self)
+        new_session = self.session_class(**d)
         new_session.save()
         self.sms_code = None
         self.save()
 
     def get_session(self):
-        return self.session_class.objects.get(account=self)
+        return self.session_class.objects.get(**{self.type: self})
 
     def clean_session(self):
-        if self.session_class.objects.filter(account=self).exists():
-            account_session = self.session_class.objects.get(account=self)
+        if self.session_class.objects.filter(**{self.type: self}).exists():
+            account_session = self.session_class.objects.get(**{self.type: self})
             account_session.delete()
 
 
@@ -163,8 +198,8 @@ class BaseAccountSession(models.Model):
         ordering = ["-expired_at"]
         abstract = True
 
-    def __unicode__(self):
-        return "Session for %s %s" % (self.account.first_name, self.account.last_name)
+    #    def __unicode__(self):
+    #        return "Session for %s %s" % (self.account.first_name, self.account.last_name)
 
     @classmethod
     def get_account_by_token(cls, token):

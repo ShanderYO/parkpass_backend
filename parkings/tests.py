@@ -2,100 +2,117 @@ import datetime
 import hashlib
 import hmac
 import json
-from random import randint
 
 from django.test import Client
 from django.test import TestCase
 
-from base.enums import AccountTypes
 from accounts.models import Account, AccountSession
-from accounts.tests import create_account
 from base.exceptions import ValidationException
-from parkings.models import Parking, ParkingSession
+from owners.models import Owner, OwnerSession
+from parkings.models import Vendor, Parking, ParkingSession
+from vendors.models import VendorSession
+
+URL_PREFIX = '/api/v1/parking/'
+TOKEN = '0ff08840935eb00fad198ef5387423bc24cd15e1'
+USER_TOKEN = {'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"}
+VENDOR_TOKEN = {'HTTP_AUTHORIZATION': "Vendor 0ff08840935eb00fad198ef5387423bc24cd15e1"}
+OWNER_TOKEN = {'HTTP_AUTHORIZATION': "Owner 0ab08840935eb00fad198ef5387423bc24cd15e1"}
 
 
-class VendorFixture:
-    def __init__(self, first_name="Fname", phone="89991234567", email="e@mail.com",
-                 account_type=AccountTypes.VENDOR, ven_name="vendor-1", ven_secret="1234567"):
-        self.vendor = Account.objects.create(
-            first_name=first_name,
-            phone=phone,
-            email=email,
-            account_type=account_type,
-            name=ven_name,
-            secret=ven_secret
-        )
-        self.vendor.save(not_generate_secret=True)
-        self.name = ven_name
-        self.ven_secret = ven_secret
-        self.client = Client()
+def _create_owner(id=1, fname="Fname", phone='1234', email='email', password='qwerty', login='login'):
+    account = Owner.objects.create(
+        # id=id,
+        first_name=fname,
+        phone=phone,
+        email=email,
+        name=login
+    )
+    account.set_password(password)
+    account_session = OwnerSession(
+        token='0ab08840935eb00fad198ef5387423bc24cd15e1',
+        owner=account
+    )
+    account_session.set_expire_date()
+    account_session.save(not_generate_token=True)
+    account.save()
 
-    def make_signed_json_post(self, url, body):
-        signature = hmac.new(self.ven_secret, body, hashlib.sha512)
-        response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': self.name})
-        return response
-        
+    return account, account_session
+
+
+def _create_vendor():
+    vendor = Vendor(
+        name="test-parking-vendor",
+        secret="12345678"
+    )
+    vendor.save(not_generate_secret=True)
+    return vendor
+
+
+def _create_user():
+    return Account.objects.create(
+        first_name="Test first_name",
+        last_name="Test last_name",
+        phone="+7(909)1239889",
+    )
+
+
+def _create_parking(vendor,
+                    name="parking-1",
+                    description="default",
+                    latitude=1,
+                    longitude=1,
+                    free_places=5,
+                    approved=True):
+    return Parking.objects.create(
+        name=name,
+        vendor=vendor,
+        description=description,
+        latitude=latitude,
+        longitude=longitude,
+        free_places=free_places,
+        approved=approved)
+
+
+def _make_signed_json_post(url, body):
+    signature = hmac.new("12345678", body, hashlib.sha512)
+    response = Client().post(url, body, content_type="application/json",
+                             **{'HTTP_X_SIGNATURE': signature.hexdigest(),
+                                'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
+    return response
+
 
 class UpdateParkingTestCase(TestCase):
     """
         Test for /api/v1/parking/update/ API
     """
+
     def setUp(self):
-        self.vendor = VendorFixture()
-        self.not_vendor = VendorFixture(
-            email="e@e.com",
-            phone="12345678900",
-            account_type=AccountTypes.USER,
-            name="vendor-2",
-            ven_secret="12321321"
-        )
+        vendor = _create_vendor()
 
-        Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=self.vendor.vendor
-        )
+        _create_parking(vendor)
+        _create_parking(None, name='parking-2')
 
-        Parking.objects.create(
-            name="parking-2",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=None
-        )
-        Account.objects.create(
-            first_name="Test first_name",
-            last_name="Test last_name",
-            phone="+7(909)1239889",
-        )
-        self.client = Client()
+        _create_user()
 
     def test_update_empty_body(self):
-        url = '/api/v1/parking/update/'
+        url = URL_PREFIX + 'update/'
         body = json.dumps({
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
-    
 
     def test_update_incomplete_body(self):
-        url = '/api/v1/parking/update/'
+        url = URL_PREFIX + 'update/'
 
         # Not set up parking_id
         body = json.dumps({
             "free_places": "dimas@carabas.com"
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -106,23 +123,22 @@ class UpdateParkingTestCase(TestCase):
         body = json.dumps({
             "parking_id":1
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
-
     def test_update_invalid_body(self):
-        url = '/api/v1/parking/update/'
+        url = URL_PREFIX + 'update/'
 
         # Set parking_id not int
         body = json.dumps({
             "parking_id": "wrong_id",
             "free_places": 12
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -134,7 +150,7 @@ class UpdateParkingTestCase(TestCase):
             "parking_id": "-12",
             "free_places": 12
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -147,7 +163,7 @@ class UpdateParkingTestCase(TestCase):
             "free_places": "more"
         })
 
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -159,7 +175,7 @@ class UpdateParkingTestCase(TestCase):
             "parking_id": 1,
             "free_places": "-1"
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -168,59 +184,47 @@ class UpdateParkingTestCase(TestCase):
 
 
     def test_update_undefined_parking(self):
-        url = '/api/v1/parking/update/'
+        url = URL_PREFIX + 'update/'
 
         # Set up not existing parking_id
         body = json.dumps({
             "parking_id": 3,
             "free_places": 10
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
-
 
     def test_update_forbidden_parking(self):
-        url = '/api/v1/parking/update/'
+        url = URL_PREFIX + 'update/'
 
         # Set up not existing parking_id
         body = json.dumps({
-            "parking_id": 2,
+            "parking_id": 3,
             "free_places": 10
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
 
+
     def test_update_valid(self):
-        url = '/api/v1/parking/update/'
+        url = URL_PREFIX + 'update/'
 
         # Set up not existing parking_id
         body = json.dumps({
             "parking_id": 1,
             "free_places": 10
         })
-        response = self.vendor.make_signed_json_post(url, body)
-        print response.content
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
-
-    def test_update_unprivileged(self):
-        url = '/api/v1/parking/update/'
-
-        # Set up not existing parking_id
-        body = json.dumps({
-            "parking_id": 1,
-            "free_places": 10
-        })
-        response = self.not_vendor.make_signed_json_post(url, body)
         print response.content
-        self.assertEqual(response.status_code, 400)
 
 
 class CreateSessionParkingTestCase(TestCase):
@@ -228,30 +232,12 @@ class CreateSessionParkingTestCase(TestCase):
         Test for /api/v1/parking/session/create/ API
     """
     def setUp(self):
-        self.vendor = VendorFixture()
+        vendor = _create_vendor()
 
-        parking_1 = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=self.vendor.vendor
-        )
+        parking_1 = _create_parking(vendor)
+        _create_parking(None, name='parking-2')
 
-        Parking.objects.create(
-            name="parking-2",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=None
-        )
-        account = Account.objects.create(
-            first_name="Test first_name",
-            last_name="Test last_name",
-            phone="+7(909)1239889",
-        )
+        account = _create_user()
 
         ParkingSession.objects.create(
             session_id="exist-session-id",
@@ -261,23 +247,19 @@ class CreateSessionParkingTestCase(TestCase):
             started_at=datetime.datetime.now()
         )
 
-        self.client = Client()
-
-
     def test_empty_body(self):
-        url = '/api/v1/parking/session/create/'
+        url = URL_PREFIX + 'session/create/'
         body = json.dumps({
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
-
     def test_incomplete_body(self):
-        url = '/api/v1/parking/session/create/'
+        url = URL_PREFIX + 'session/create/'
 
         # Not set up started_at
         body = json.dumps({
@@ -285,7 +267,7 @@ class CreateSessionParkingTestCase(TestCase):
             "parking_id":1,
             "client_id":1
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -298,16 +280,15 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at":10000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
-
     def test_invalid_session_id(self):
-        url = '/api/v1/parking/session/create/'
+        url = URL_PREFIX + 'session/create/'
 
         # Set up session_id more 128 symbols
         body = json.dumps({
@@ -316,34 +297,32 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
-
     def test_invalid_client_id(self):
-        url = '/api/v1/parking/session/create/'
+        url = URL_PREFIX + 'session/create/'
 
         # Set up not existing client_id
         body = json.dumps({
             "session_id": "".join(["x" for x in range(0,128)]),
-            "parking_id": 1,
-            "client_id": 25,
+            "parking_id": 2,
+            "client_id": 3,
             "started_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
 
-
     def test_invalid_parking_id(self):
-        url = '/api/v1/parking/session/create/'
+        url = URL_PREFIX + 'session/create/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -352,52 +331,49 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
 
-
     def test_forbidden_parking(self):
-        url = '/api/v1/parking/session/create/'
+        url = URL_PREFIX + 'session/create/'
 
         # Set up foreign parking_id
         body = json.dumps({
             "session_id": "".join(["x" for x in range(0, 128)]),
-            "parking_id": 2,
+            "parking_id": 3,
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
 
-
     def test_already_exist_session_id(self):
-        url = '/api/v1/parking/session/create/'
+        url = URL_PREFIX + 'session/create/'
 
         # Set up session_id is exist-session-id
         body = json.dumps({
             "session_id": "exist-session-id",
-            "parking_id": 1,
-            "client_id": 1,
+            "parking_id": 2,
+            "client_id": 2,
             "started_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
-
     def test_create_session_valid(self):
-        url = '/api/v1/parking/session/create/'
+        url = URL_PREFIX + 'session/create/'
 
         # Set up session_id new value
         body = json.dumps({
@@ -406,7 +382,7 @@ class CreateSessionParkingTestCase(TestCase):
             "client_id": 1,
             "started_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
 
 
@@ -415,30 +391,12 @@ class UpdateSessionParkingTestCase(TestCase):
         Test for /api/v1/parking/session/update/ API
     """
     def setUp(self):
-        self.vendor = VendorFixture()
+        vendor = _create_vendor()
 
-        parking_1 = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=self.vendor.vendor
-        )
+        parking_1 = _create_parking(vendor)
+        _create_parking(None, name='parking-2')
 
-        Parking.objects.create(
-            name="parking-2",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=None
-        )
-        account = Account.objects.create(
-            first_name="Test first_name",
-            last_name="Test last_name",
-            phone="+7(909)1239889",
-        )
+        account = _create_user()
 
         ParkingSession.objects.create(
             session_id="exist-session-id",
@@ -456,15 +414,14 @@ class UpdateSessionParkingTestCase(TestCase):
             started_at=datetime.datetime.now()
         )
 
-        self.client = Client()
 
     def test_empty_body(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up empty body
         body = json.dumps({
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -472,7 +429,7 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_invalid_session_id(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up session_id more 128 symbols
         body = json.dumps({
@@ -481,7 +438,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 2,
             "updated_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -489,7 +446,7 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_invalid_debt_negative_value(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up debt negative sign
         body = json.dumps({
@@ -498,7 +455,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": "-2",
             "updated_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -506,7 +463,7 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_invalid_debt_string_value(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up debt string
         body = json.dumps({
@@ -515,7 +472,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": "test-string",
             "updated_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -523,7 +480,7 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_not_existing_session_id(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up not existing session_id
         body = json.dumps({
@@ -532,7 +489,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -540,7 +497,7 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_not_existing_parking_id(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up not existing parking_id
         body = json.dumps({
@@ -549,7 +506,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -557,7 +514,7 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_not_forbidden_parking_id(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up not forbidden parking_id
         body = json.dumps({
@@ -566,7 +523,7 @@ class UpdateSessionParkingTestCase(TestCase):
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -574,16 +531,16 @@ class UpdateSessionParkingTestCase(TestCase):
         print response.content
 
     def test_update_already_completed(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up not completed session_id
         body = json.dumps({
             "session_id": "exist-session-id-completed",
-            "parking_id": 1,
+            "parking_id": 2,
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         print "test_update_already_completed"
@@ -593,50 +550,31 @@ class UpdateSessionParkingTestCase(TestCase):
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
 
     def test_update_session_valid(self):
-        url = '/api/v1/parking/session/update/'
+        url = URL_PREFIX + 'session/update/'
 
         # Set up not completed session_id
         body = json.dumps({
             "session_id": "exist-session-id",
-            "parking_id": 1,
+            "parking_id": 2,
             "debt": 100,
             "updated_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
         # VAlidation error
         print response.content
-
 
 class CompleteSessionParkingTestCase(TestCase):
     """
         Test for /api/v1/parking/session/complete/ API
     """
     def setUp(self):
-        self.vendor = VendorFixture()
+        vendor = _create_vendor()
 
-        parking_1 = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=self.vendor.vendor
-        )
+        parking_1 = _create_parking(vendor)
+        _create_parking(None, name='parking-2')
 
-        Parking.objects.create(
-            name="parking-2",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=None
-        )
-        account = Account.objects.create(
-            first_name="Test first_name",
-            last_name="Test last_name",
-            phone="+7(909)1239889",
-        )
+        account = _create_user()
 
         ParkingSession.objects.create(
             session_id="exist-session-id",
@@ -654,21 +592,19 @@ class CompleteSessionParkingTestCase(TestCase):
             started_at=datetime.datetime.now()
         )
 
-        self.client = Client()
-
     # TODO add need tests
 
     def test_completed_session_valid(self):
-        url = '/api/v1/parking/session/complete/'
+        url = URL_PREFIX + 'session/complete/'
 
         # Set up not completed session_id
         body = json.dumps({
             "session_id": "exist-session-id",
-            "parking_id": 1,
+            "parking_id": 2,
             "debt": 100,
             "completed_at": 1000000
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
         print response.content
 
@@ -678,44 +614,25 @@ class UpdateListSessionParkingTestCase(TestCase):
         Test for /api/v1/parking/session/list/update/ API
     """
     def setUp(self):
-        self.vendor = VendorFixture()
-
-        Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=self.vendor.vendor
-        )
-
-        Parking.objects.create(
-            name="parking-2",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=None
-        )
-
-        self.client = Client()
+        vendor = _create_vendor()
+        _create_parking(vendor)
+        _create_parking(None, name='parking-2')
 
     def test_empty_body(self):
-        url = '/api/v1/parking/session/list/update/'
+        url = URL_PREFIX + 'session/list/update/'
 
         # Set up empty body
         body = json.dumps({
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
-
     def test_empty_parking_id_body(self):
-        url = '/api/v1/parking/session/list/update/'
+        url = URL_PREFIX + 'session/list/update/'
         # Not set up parking_id
         body = json.dumps({
             "sessions": [
@@ -726,37 +643,35 @@ class UpdateListSessionParkingTestCase(TestCase):
                 },
             ]
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
-
     def test_empty_session_body(self):
-        url = '/api/v1/parking/session/list/update/'
+        url = URL_PREFIX + 'session/list/update/'
 
         # Not set up sessions
         body = json.dumps({
             "parking_id": 1
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
-
     def test_invalid_sessions_type_body(self):
-        url = '/api/v1/parking/session/list/update/'
+        url = URL_PREFIX + 'session/list/update/'
         # Not set up sessions as string
         body = json.dumps({
             "parking_id": 1,
             "sessions": "session-string"
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -764,7 +679,7 @@ class UpdateListSessionParkingTestCase(TestCase):
         print response.content
 
     def test_invalid_inner_sessions_type_body(self):
-        url = '/api/v1/parking/session/list/update/'
+        url = URL_PREFIX + 'session/list/update/'
         # Not set up sessions as string
         body = json.dumps({
             "parking_id": 1,
@@ -774,7 +689,7 @@ class UpdateListSessionParkingTestCase(TestCase):
                     "updated_at": 10000
                 }
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
@@ -782,7 +697,7 @@ class UpdateListSessionParkingTestCase(TestCase):
         print response.content
 
     def test_update_list_session_forbidden_parking(self):
-        url = '/api/v1/parking/session/list/update/'
+        url = URL_PREFIX + 'session/list/update/'
 
         # Set up forbidden parking_id
         body = json.dumps({
@@ -798,18 +713,17 @@ class UpdateListSessionParkingTestCase(TestCase):
                     "updated_at": 10000
                 },
             ],
-            "parking_id": 2,
+            "parking_id": 3,
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
         print response.content
 
-
     def test_update_list_session_valid(self):
-        url = '/api/v1/parking/session/list/update/'
+        url = URL_PREFIX + 'session/list/update/'
 
         # Set up valid sessions format
         body = json.dumps({
@@ -827,7 +741,7 @@ class UpdateListSessionParkingTestCase(TestCase):
             ],
             "parking_id": 1,
         })
-        response = self.vendor.make_signed_json_post(url, body)
+        response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 202)
         print response.content
 
@@ -837,22 +751,11 @@ class ComplainTestCase(TestCase):
         Test for /parking/complain/ API
     """
     def setUp(self):
-        self.vendor = VendorFixture()
+        vendor = _create_vendor()
 
-        parking_1 = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=self.vendor.vendor
-        )
+        parking_1 = _create_parking(vendor)
 
-        account = Account.objects.create(
-            first_name="Test first_name",
-            last_name="Test last_name",
-            phone="+7(909)1239889",
-        )
+        account = _create_user()
 
         account_session = AccountSession(
             token="0ff08840935eb00fad198ef5387423bc24cd15e1",
@@ -868,17 +771,16 @@ class ComplainTestCase(TestCase):
             state=ParkingSession.STATE_STARTED,
             started_at=datetime.datetime.now()
         )
-        self.client = Client()
 
     def complain_invalid_session_test(self):
-        url = '/parking/complain/'
+        url = URL_PREFIX + 'complain/'
         body = json.dumps({
             "session_id": 2,
             "type": 1,
             "message": "bla-bla"
         })
-        response = self.client.post(url, body,
-                                    **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        response = Client().post(url, body,
+                                 **USER_TOKEN)
         self.assertEqual(response.status_code, 200)
 
         error_code = json.loads(response.content)["code"]
@@ -892,8 +794,8 @@ class ComplainTestCase(TestCase):
             "type": 10,
             "message": "bla-bla"
         })
-        response = self.client.post(url, body,
-                                    **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        response = Client().post(url, body,
+                                 **USER_TOKEN)
         self.assertEqual(response.status_code, 200)
 
         error_code = json.loads(response.content)["code"]
@@ -901,13 +803,14 @@ class ComplainTestCase(TestCase):
         print response.content
 
     def complain_valid_test(self):
-        url = '/parking/complain/'
+        url = URL_PREFIX + 'complain/'
         body = json.dumps({
             "session_id":1,
             "type":1,
             "message":"bla-bla"
         })
-        response = self.client.post(url, body, **{'HTTP_AUTHORIZATION': "Token 0ff08840935eb00fad198ef5387423bc24cd15e1"})
+        response = Client().post(url, body,
+                                 **USER_TOKEN)
         self.assertEqual(response.status_code, 200)
 
         error_code = json.loads(response.content)["code"]
@@ -915,82 +818,105 @@ class ComplainTestCase(TestCase):
         print response.content
 
 
-class StatisticsTestCase(TestCase):
+class IssueParking(TestCase):
     def setUp(self):
-        self.vendor = VendorFixture(ven_name="ven", ven_secret="Victorias")
-        parking_1 = Parking.objects.create(
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            free_places=5,
-            vendor=self.vendor.vendor
-        )
-        parking_2 = Parking.objects.create(
-            name="parking-2",
-            description="second",
-            latitude=2,
-            longitude=3,
-            free_places=9,
-            vendor=self.vendor.vendor
+        vendor = _create_vendor()
+        account_session = VendorSession(
+            token="0ff08840935eb00fad198ef5387423bc24cd15e1",
+            vendor=vendor
         )
 
-        account, acc_session = create_account()
+        account_session.set_expire_date()
+        account_session.save(not_generate_token=True)
 
-        for i in range(0, 100, 1):
-            ps = ParkingSession.objects.create(
-                session_id="exist-session-id%d" % i,
-                client=account,
-                parking=parking_1,
-                state=ParkingSession.STATE_COMPLETED,
-                started_at=datetime.datetime.fromtimestamp(i),
-                completed_at=datetime.datetime.fromtimestamp(i + randint(10, 100)),
-                debt=(randint(100, 2000))
-            )
-            ps.save()
-        pass
-
-    def test_summary_stats(self):
-        url = '/api/v1/parking/stats/summary/'
+    def test_issue_parking_valid(self):
+        url = URL_PREFIX + 'issue/'
 
         body = json.dumps({
-            'start': 0,
-            'end': 120,
-            'ids': '1, 2, 3, 4, 5',
+            'name': 'Worst parking ever',
+            'enabled': 'False',
+            'description': "We'll steal your car",
+            'latitude': '55.7517462',
+            'longitude': '37.6148268',
+            'max_client_debt': '500',
+            'address': 'Moscow, Sharikopodshipnikovskaya st., 228',
+            'free_places': '80'
         })
 
-        response = self.vendor.make_signed_json_post(url, body)
-
+        response = Client().post(url, body, content_type='application/json',
+                                 **VENDOR_TOKEN)
         print response.content
+        self.assertEqual(response.status_code, 200)
 
+    def test_issue_parking_by_owner(self):
+        url = URL_PREFIX + 'ownerissue/'
+
+        body = json.dumps({
+            'name': 'Worst parking ever',
+            'enabled': 'False',
+            'description': "We'll steal your car",
+            'latitude': '55.7517462',
+            'longitude': '37.6148268',
+            'max_client_debt': '500',
+            'address': 'Moscow, Sharikopodshipnikovskaya st., 228',
+            'free_places': '80'
+        })
+        _create_owner()
+        response = Client().post(url, body, content_type='application/json',
+                                 **OWNER_TOKEN)
+        print response.content
+        self.assertEqual(response.status_code, 200)
+
+
+class VendorPermissions(TestCase):
+    def setUp(self):
+        self.vendor = _create_vendor()
+        _create_parking(self.vendor)
+
+    def test_normal_state(self):
+        self.vendor.account_state = Vendor.ACCOUNT_STATE.NORMAL
+        self.vendor.save()
+        url = URL_PREFIX + 'update/'
+        body = json.dumps({
+            'parking_id': 2,
+            'free_places': 3
+        })
+        response = _make_signed_json_post(url, body)
+        print response.content
         self.assertEqual(200, response.status_code)
 
-    def test_parking_stats(self):
-        url = '/api/v1/parking/stats/parking/'
-
+    def test_disabled_state(self):
+        self.vendor.account_state = Vendor.ACCOUNT_STATE.DISABLED
+        self.vendor.save()
+        url = URL_PREFIX + 'update/'
         body = json.dumps({
-            'start': 10,
-            'end': 80,
-            'pk': 1,
+            'parking_id': 2,
+            'free_places': 3
         })
-
-        response = self.vendor.make_signed_json_post(url, body)
-
-        print response.content
-        result = json.loads(response.content)['sessions']
-        self.assertEqual(len(result), 10)
-        starts = []
-        for i in result:
-            starts.append(i['started_at'])
-        self.assertFalse('90' in starts)
-
-    def test_without_time(self):
-        url = '/api/v1/parking/stats/parking/'
-
+        response = _make_signed_json_post(url, body)
+        self.assertEqual(400, response.status_code)
         body = json.dumps({
-            'pk': 1,
+            'parking_id': 1,
+            'free_places': 3
         })
+        response = _make_signed_json_post(url, body)
+        self.assertEqual(400, response.status_code)
 
-        response = self.vendor.make_signed_json_post(url, body)
-
+    def test_test_state(self):
+        self.vendor.account_state = 2
+        self.vendor.save()
+        url = URL_PREFIX + 'update/'
+        body = json.dumps({
+            'parking_id': 2,
+            'free_places': 3
+        })
+        response = _make_signed_json_post(url, body)
+        print response.content, response.status_code
+        self.assertEqual(400, response.status_code)
+        body = json.dumps({
+            'parking_id': 1,
+            'free_places': 3
+        })
+        response = _make_signed_json_post(url, body)
+        print response.content, response.status_code
         self.assertEqual(200, response.status_code)

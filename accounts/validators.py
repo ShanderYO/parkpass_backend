@@ -155,7 +155,7 @@ class CompleteAccountParkingSessionValidator(BaseValidator):
 
         if not session_id or not parking_id or not completed_at:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Keys 'session_id', 'parking_id' and 'completed_at' is required"
+            self.message = "id', 'parking_id' and 'completed_at' is required"
             return False
         try:
             validate_id(parking_id, "parking_id")
@@ -201,7 +201,7 @@ def validate_name(value):
 
 
 def validate_phone_number(value):
-    # Format +0 (123) 456-78-90 or 01234567890 or 0(123)456-78-90 etc.
+    # Format (+code1) code2+number
     regex = r'^\+?\d[\( ]?\d\d\d[\) ]?-? ?\d\d\d[ -]?\d\d[ -]?\d\d$'
     if not re.match(regex, value):
         raise ValidationError("Phone number has invalid format. Please, send like something +7(909)1234332")
@@ -213,8 +213,8 @@ def validate_account_birthday(value):
 
 
 def validate_account_name(value, field_name="NonameField"):
-    regex = "^[-.A-Za-z0-9]+$"
-    if not re.match(regex, value):
+    regex = regex = "^[A-Za-z0-9]{6,15}$"
+    if not re.match(regex,value):
         raise ValidationError("%s has invalid format" % field_name)
 
 

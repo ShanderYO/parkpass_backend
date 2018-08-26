@@ -9,7 +9,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('base', '__latest__'),
+        ('base', '0002_emailconfirmation'),
         ('accounts', '0010_account_password'),
     ]
 

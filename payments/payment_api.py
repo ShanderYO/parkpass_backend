@@ -6,7 +6,7 @@ import requests
 
 from base.models import Terminal
 from base.utils import get_logger
-from parkpass import settings
+
 
 class TinkoffApiException:
     TINKOFF_EXCEPTION_3DS_NOT_AUTH = [101]
@@ -16,6 +16,7 @@ class TinkoffApiException:
     TINKOFF_EXCEPTION_BANK_OPERATION_DENIED = [99, 1034, 1041, 1043, 1057, 1065, 1089]
     TINKOFF_EXCEPTION_MANY_MONEY = [1051]
     TINKOFF_EXCEPTION_INTERNAL_ERROR = [9999]
+
 
 class TinkoffAPI():
     INIT = "https://securepay.tinkoff.ru/v2/Init"
@@ -48,7 +49,7 @@ class TinkoffAPI():
 
         headers = {'Content-Type': 'application/json'}
         json_data = json.dumps(payload)
-        get_logger().info(json_data)
+        get_logger().info('TinkoffAPI payload: ' + json_data)
 
         try:
             r = requests.post(url, data=json_data, headers=headers,

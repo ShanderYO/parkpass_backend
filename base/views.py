@@ -19,11 +19,10 @@ from vendors.models import Vendor
 class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-
         # Only application/json Content-type allow
         if not request.META.get('CONTENT_TYPE', "").startswith("application/json") and request.POST:
             return JsonResponse({
-                "error":"HTTP Status 415 - Unsupported Media Type"
+                "error": "HTTP Status 415 - Unsupported Media Type"
             }, status=415)
 
         if request.method == 'POST':
@@ -73,7 +72,14 @@ class SignedRequestAPIView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        signature = hmac.new(str(request.vendor.ven_secret), request.body, hashlib.sha512)
+        signature = hmac.new(str(request.vendor.secret), request.body, hashlib.sha512)
+
+        if request.vendor.account_state == request.vendor.ACCOUNT_STATE.DISABLED:
+            e = PermissionException(
+                PermissionException.NO_PERMISSION,
+                "Account is disabled"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
         if signature.hexdigest() != request.META["HTTP_X_SIGNATURE"].lower():
             e = PermissionException(
@@ -86,12 +92,26 @@ class SignedRequestAPIView(APIView):
 
 
 class LoginRequiredAPIView(APIView):
+    account_type = 'account'
+
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request, "account") or not request.account:
+        if not hasattr(request, self.account_type) or not getattr(request, self.account_type, None):
             auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
             return JsonResponse(auth_exception.to_dict(), status=401)
         return super(LoginRequiredAPIView, self).dispatch(request, *args, **kwargs)
+
+
+class VendorAPIView(LoginRequiredAPIView):
+    account_type = 'vendor'
+
+
+class OwnerAPIView(LoginRequiredAPIView):
+    account_type = 'owner'
+
+
+class AdminAPIView(LoginRequiredAPIView):
+    account_type = 'admin'
 
 
 class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):

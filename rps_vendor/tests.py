@@ -1,30 +1,24 @@
+import datetime
 import hashlib
 import hmac
 import json
 import time
 
-from django.test import TestCase
-
-import datetime
-from django.test import TestCase
 from django.test import Client
+from django.test import TestCase
 
 # Create your tests here.
-from accounts.models import Account, AccountTypes
-from parkings.models import Parking, ParkingSession
+from accounts.models import Account
+from parkings.models import Vendor, Parking, ParkingSession
 from rps_vendor.models import RpsParking
 
 
 class UpdateParkingTestCase(TestCase):
     """
-        Test for /api/v1/parking/v1/update/ API
+        Test for /parking/v1/update/ API
     """
     def setUp(self):
-        vendor = Account.objects.create(
-            first_name="Fname",
-            phone="89991234567",
-            email="e@mail.com",
-            account_type=AccountTypes.VENDOR,
+        vendor = Vendor(
             name="test-parking-vendor",
             secret="12345678"
         )

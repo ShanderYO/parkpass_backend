@@ -29,6 +29,7 @@ ALLOWED_HOSTS = []
 
 SMS_GATEWAY_API_KEY = "6831k8gxzptd8unfb5fk58rg7sutsjbybrb8faao"
 SMS_SENDER_NAME = "PARKPASS"
+SMS_GATEWAY_ENABLED = not DEBUG
 
 TINKOFF_TERMINAL_KEY = "1516954410942DEMO"
 TINKOFF_TERMINAL_PASSWORD = "dybcdp86npi8s9fv"
@@ -54,6 +55,8 @@ INSTALLED_APPS = (
     'payments',
     'parkings',
     'rps_vendor',
+    'owners',
+    'control'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -63,6 +66,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'base.middleware.TokenAuthenticationMiddleware',
+    # 'base.middleware.LoggingMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -146,6 +150,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 BASE_LOGGER_NAME = "parkpass"
+LOG_FILE = 'parkpass.log'
 
 LOGGING = {
     'version': 1,
@@ -172,7 +177,7 @@ LOGGING = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'parkpass.log',
+            'filename': LOG_FILE,
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
             'formatter': 'verbose'
@@ -214,8 +219,11 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static")
 STATIC_URL = '/api/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
 MEDIA_URL = '/api/media/'
 
 AVATARS_URL = MEDIA_URL + 'avatars/'
 AVATARS_ROOT = os.path.join(BASE_DIR, "media/avatars")
 DEFAULT_AVATAR_URL = MEDIA_URL + 'default'
+
+PAGINATION_OBJECTS_PER_PAGE = 10

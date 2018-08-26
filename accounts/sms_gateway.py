@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import requests
 
 from base.exceptions import NetworkException
@@ -12,13 +13,16 @@ class SMSGateway(object):
         self.sender = settings.SMS_SENDER_NAME
         self.exception = None
 
-    def send_sms(self, phone, code):
+
+    def send_sms(self, phone, code, message='Secret+code+for+login+'):
+        if not settings.SMS_GATEWAY_ENABLED:
+            return
         formatted_phone = self._get_phone_format(phone)
-        content = self._get_sms_content(code)
+        content = message + self._get_sms_content(code)
 
         connect_timeout = 5
-        url = self.SEND_SMS_URL +"?format=json&api_key=%s&phone=%s&sender=%s&text=%s" \
-              % (self.api_key, formatted_phone, self.sender, content)
+        url = self.SEND_SMS_URL + "?format=json&api_key=%s&phone=%s&sender=%s&text=%s" \
+                                % (self.api_key, formatted_phone, self.sender, content)
         try:
             r = requests.get(url, timeout=(connect_timeout, 10.0))
             result = r.json()
@@ -53,8 +57,7 @@ class SMSGateway(object):
             )
 
     def _get_phone_format(self, phone):
-        return phone.replace('+', '').replace('(', '').replace(')', '').replace(' ', '').replace('-', '')
+        return phone.replace('+', '').replace('(', '').replace(')', '').replace(' ', '')
 
     def _get_sms_content(self, code):
-        return "Secret+code+for+login+%s" % code
-
+        return "%s" % code

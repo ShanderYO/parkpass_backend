@@ -1,11 +1,15 @@
-
+import os
 import uuid
 from datetime import datetime, timedelta
+
+import binascii
+from time import timezone
+
 from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
 
-from base.models import BaseAccount
+from base.models import BaseAccount, BaseAccountSession
 from parkpass.settings import EMAIL_HOST_USER
 
 
@@ -43,10 +47,16 @@ class EmailConfirmation(models.Model):
 
 
 class Account(BaseAccount):
-    pass
+    @property
+    def session_class(self):
+        return AccountSession
+
+    @property
+    def type(self):
+        return 'account'
 
 
-class AccountSession(models.Model):
+class AccountSession(BaseAccountSession):
     ACCESS_TOKEN_EXPIRE_SECONDS = 60 * 60 * 24 * 180
     id = models.AutoField(primary_key=True)
     token = models.CharField(max_length=63)

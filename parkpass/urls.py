@@ -25,11 +25,13 @@ urlpatterns = [
     url(r'^api/v1/account/', include("accounts.urls")),
     url(r'^api/v1/parking/', include("parkings.urls")),
     url(r'^api/v1/payments/', include("payments.urls")),
-
+                  url(r'^api/v1/control/', include("control.urls")),
+                  url(r'^api/v1/owner/', include("owners.urls")),
     # Vendor extensions
 
     url(r'^api/v1/parking/', include("rps_vendor.urls")),
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static(settings.MEDIA_URL,
-                                                                                           document_root=settings.MEDIA_ROOT)
+    url(r'^api/v1/vendor/', include("vendors.urls"))
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) \
+              + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 urlpatterns += staticfiles_urlpatterns()
