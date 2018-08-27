@@ -582,9 +582,6 @@ class ForceStopParkingSession(LoginRequiredAPIView):
                 parking_session.suspended_at = pytz.utc.localize(datetime.datetime.now())
                 parking_session.save()
 
-                # Create payment order and pay
-                generate_current_debt_order(id)
-
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -609,8 +606,7 @@ class ResumeParkingSession(LoginRequiredAPIView):
                 parking_session.save()
 
                 if parking_session.is_started_by_vendor():
-                    pass
-                    # TODO make async payments
+                    generate_current_debt_order()
 
         except ObjectDoesNotExist:
             e = ValidationException(

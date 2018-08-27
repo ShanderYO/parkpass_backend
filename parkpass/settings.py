@@ -201,10 +201,9 @@ LOGGING = {
     }
 }
 
-AUTOTASK_IS_ACTIVE = False
+AUTOTASK_IS_ACTIVE = True
 AUTOTASK_WORKER_MONITOR_INTERVALL = 60
 AUTOTASK_HANDLE_TASK_IDLE_TIME = 10
-
 
 STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
