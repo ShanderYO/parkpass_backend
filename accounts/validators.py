@@ -176,8 +176,8 @@ def validate_id(value, key_name):
         if int_value < 1:
             raise ValidationError("Key '%s' requires positive value" % key_name)
 
-        if isinstance(value, str) or isinstance(value, unicode):
-            raise ValidationError("Key '%s' has invalid format. Must be unsigned Int64 type" % key_name)
+        # if isinstance(value, str) or isinstance(value, unicode):
+        #    raise ValidationError("Key '%s' has invalid format. Must be unsigned Int64 type" % key_name)
 
     except (ValueError, TypeError):
         raise ValidationError("Key '%s' has invalid format. Must be unsigned Int64 type" % key_name)
@@ -197,9 +197,9 @@ def validate_email_format(value):
 
 
 def validate_name(value):
-    regex = r'[A-Za-zА-Яа-яЁё]{2,50}'
+    regex = u'[A-Za-zА-Яа-яЁё]{2,50}'
     if not re.match(regex, value):
-        raise ValidationError("Name has invalid format. Please use only letters. Also, length must be <= 41 letters.")
+        raise ValidationError("Name has invalid format. Please use only letters. Also, length must be <= 50 letters.")
 
 
 def validate_phone_number(value):

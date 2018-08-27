@@ -153,6 +153,8 @@ class BaseAccount(models.Model):
         self.send_password_mail(raw_password)
 
     def send_password_mail(self, raw_password):
+        if not self.email:
+            return
         render_data = {
             "password": raw_password,
         }

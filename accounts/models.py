@@ -1,9 +1,5 @@
-import os
 import uuid
 from datetime import datetime, timedelta
-
-import binascii
-from time import timezone
 
 from django.core.mail import send_mail
 from django.db import models
@@ -43,13 +39,18 @@ class EmailConfirmation(models.Model):
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def _generate_confirmation_link(self):
-        return "http://parkpass.ru/api/v1/account/email/confirm/"+self.code
+        return "https://parkpass.ru/api/v1/account/email/confirm/" + self.code + "/"
 
 
 class Account(BaseAccount):
     @property
     def session_class(self):
         return AccountSession
+
+    def save(self, *args, **kwargs):
+        if self.password == 'stub' and self.email:
+            self.create_password_and_send()
+        super(Account, self).save(*args, **kwargs)
 
     @property
     def type(self):

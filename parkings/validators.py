@@ -29,7 +29,7 @@ def validate_id(value, key_name, allow_none=False):
         return True
     try:
         int_value = int(value)
-        if int_value < 1:
+        if int_value < 0:
             raise ValidationError("Key '%s' requires positive value" % key_name)
 
         float_value = float(value)

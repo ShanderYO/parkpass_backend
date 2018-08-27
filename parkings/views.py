@@ -7,12 +7,10 @@ from django.http import JsonResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account
-
 from accounts.tasks import generate_current_debt_order
 from base.exceptions import PermissionException
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
-
 from base.views import LoginRequiredAPIView, SignedRequestAPIView, VendorAPIView, OwnerAPIView
 from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
@@ -560,12 +558,6 @@ class ComplainSessionView(LoginRequiredAPIView):
                 account=request.account,
                 session=parking_session,
             )
-            if not check_permission(request.vendor, parking_session.parking):
-                e = PermissionException(
-                    PermissionException.NO_PERMISSION,
-                    'Permission denied'
-                )
-                return JsonResponse(e.to_dict(), status=400)
             return JsonResponse({}, status=200)
 
         except ObjectDoesNotExist:
