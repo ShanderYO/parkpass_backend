@@ -10,8 +10,12 @@ from accounts.models import Account as UserAccount
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
+from base.utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
+    edit_object_view, PositiveFloatField, PositiveIntField, CustomValidatedField
 from base.utils import datetime_from_unix_timestamp_tz
+from base.utils import generic_pagination_view as pagination
 from base.validators import LoginAndPasswordValidator
+from base.validators import create_generic_validator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
 from owners.models import Owner
@@ -19,56 +23,13 @@ from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIss
 from parkings.validators import validate_longitude, validate_latitude
 from parkpass.settings import LOG_FILE
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
-from validators import create_generic_validator
 from vendors.models import Vendor, Issue
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
-from .utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
-    edit_object_view, PositiveFloatField, PositiveIntField, CustomValidatedField
 
 
-def generic_pagination_view(obj):
-    class GenericPaginationView(LoginRequiredAPIView):
-        def post(self, request, page):
-            filter = {}
-            for key in request.data:
-                try:
-                    attr, modifier = key.split('__') if not hasattr(obj, key) else (key, 'eq')
-                    if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge', 'le', 'in') or not hasattr(obj, attr):
-                        raise ValueError()
-                    if type(True) == type(request.data[key]):
-                        if modifier == 'eq':
-                            filter[attr] = request.data[key]
-                        elif modifier == 'ne':
-                            filter[attr] = not request.data[key]
-                        else:
-                            raise ValueError()
-                    else:
-                        if modifier == 'eq':
-                            filter[attr] = request.data[key]
-                        else:
-                            filter[attr + '__' + modifier] = request.data[key]
-                except ValueError:
-                    e = ValidationException(
-                        ValidationException.VALIDATION_ERROR,
-                        "Invalid filter format"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
-            if filter:
-                objects = obj.objects.filter(**filter)
-            else:
-                objects = obj.objects.all()
-            page = int(page)
-            result = []
-            for o in objects:
-                result.append(serializer(o))
-            length = len(result)
-            count = PAGINATION_OBJECTS_PER_PAGE
-            if length > count:
-                result = result[page * count:(page + 1) * count]
-            return JsonResponse({'count': length, 'objects': result}, status=200)
-
-    return GenericPaginationView
+def generic_pagination_view(x):
+    return pagination(x, LoginRequiredAPIView)
 
 
 class LoginView(APIView):
@@ -114,8 +75,11 @@ class LoginWithPhoneView(APIView):
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:
-            account = Account(phone=phone)
-            success_status = 201
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Administrator with that phone number was not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
         account.create_sms_code()
         account.save()

@@ -1,23 +1,21 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 
-from django.core.exceptions import ObjectDoesNotExist
-from django.http.response import JsonResponse
 from django.views import View
-from dss.Serializer import serializer
 
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.models import EmailConfirmation
-from base.utils import datetime_from_unix_timestamp_tz
-from base.validators import LoginAndPasswordValidator
+from base.utils import *
+from base.validators import *
 from base.views import APIView
 from base.views import OwnerAPIView as LoginRequiredAPIView
 from parkings.models import Parking, ParkingSession
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
-from .models import UpgradeIssue
+from .models import UpgradeIssue, Company
+from .validators import validate_inn, validate_kpp
 
 
 class ParkingStatisticsView(LoginRequiredAPIView):
@@ -102,6 +100,29 @@ class IssueUpgradeView(LoginRequiredAPIView):
         )
         ui.save()
         return JsonResponse({}, status=200)
+
+
+class EditCompanyView(LoginRequiredAPIView):
+    fields = {
+        'name': StringField(required=True, max_length=256),
+        'inn': CustomValidatedField(callable=validate_inn, required=True),
+        'kpp': CustomValidatedField(callable=validate_kpp, required=True),
+        'legal_address': StringField(required=True, max_length=512),
+        'actual_address': StringField(required=True, max_length=512),
+        'email': CustomValidatedField(callable=validate_email, required=True),
+        'phone': CustomValidatedField(callable=validate_phone_number, required=True),
+        'checking_account': StringField(required=True, max_length=64),
+        'checking_kpp': CustomValidatedField(callable=validate_kpp, required=True),
+    }
+
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request, id=-1):
+        return edit_object_view(request=request, id=id, object=Company, fields=self.fields)
+
+
+class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView)):
+    pass
 
 
 class PasswordChangeView(LoginRequiredAPIView):

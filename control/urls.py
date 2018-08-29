@@ -31,8 +31,8 @@ urlpatterns = [
                   url(r'^objects/issue/(?P<id>\w+)/$', EditIssueView.as_view()),
 
                   url(r'^objects/upgradeissue/view/(?P<page>\w+)/$', ShowUpgradeIssueView.as_view()),
-                  url(r'^objects/upgradeissue/create/$', ShowUpgradeIssueView.as_view()),
-                  url(r'^objects/upgradeissue/(?P<id>\w+)/$', ShowUpgradeIssueView.as_view()),
+                  url(r'^objects/upgradeissue/create/$', EditUpgradeIssueView.as_view()),
+                  url(r'^objects/upgradeissue/(?P<id>\w+)/$', EditUpgradeIssueView.as_view()),
 
                   url(r'^statistics/parkings/$', AllParkingsStatisticsView.as_view()),
                   url(r'^statistics/log/$', GetLogView.as_view()),

@@ -16,5 +16,8 @@ urlpatterns = [
                   url(r'^email/confirm/(?P<code>\w+)/$', EmailConfirmationView.as_view()),
                   url(r'^issue_upgrade/$', IssueUpgradeView.as_view()),
                   url(r'^stats/parking/', ParkingStatisticsView.as_view()),
+                  url(r'^company/view/(?P<page>\w+)/$', ListCompanyView.as_view()),
+                  url(r'^company/create/$', EditCompanyView.as_view()),
+                  url(r'^company/(?P<id>\w+)/$', EditCompanyView.as_view()),
 
               ] + staticfiles_urlpatterns()

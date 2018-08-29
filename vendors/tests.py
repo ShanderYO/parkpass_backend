@@ -20,10 +20,11 @@ EMAIL = "test@testing.com"
 SECRET = "secret"
 
 
-def create_account(id=1, fname="Fname", phone=PHONE, email=EMAIL, password=PASSWORD,
+def create_account(display_id=1, fname="Fname", phone=PHONE, email=EMAIL, password=PASSWORD,
                    ven_name=LOGIN):
     account = Vendor.objects.create(
         # id=id,
+        display_id=display_id,
         first_name=fname,
         phone=phone,
         email=email,

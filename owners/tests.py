@@ -1,3 +1,4 @@
+# -!- coding: utf-8 -!-
 import datetime
 import json
 from random import randint
@@ -155,7 +156,8 @@ class Password(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class Statistics(TestCase):
+class Disabled:
+    # class Statistics(TestCase):
     def setUp(self):
         self.account, self.account_session, self.sign = create_vendor_account()
         account, accsession = create_user_account()
@@ -217,4 +219,37 @@ class Statistics(TestCase):
                                  **TOKEN_DICT)
 
         print response.content, 'all'
+        self.assertEqual(200, response.status_code)
+
+
+class Companies(TestCase):
+    def setUp(self):
+        self.owneracc, self.owneraccsess = create_account()
+        self.url = URL_PREFIX + 'company/'
+        Company.objects.create(
+            name='Foobar company',
+            kpp='12345678',
+            inn='12345432',
+            legal_address='erfgef',
+            actual_address='ewrgfbgn',
+            checking_account='12343223423432',
+            checking_kpp='1234532',
+            email='foobar@gmail.com',
+            phone='+2(121)2121212',
+            owner=self.owneracc
+        )
+
+    def test_show(self):
+        url = self.url + '1/'
+        body = '{}'
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        # print response.content, 12321
+        # print json.dumps(json.loads(response.content), indent=4), 111
+        self.assertEqual(200, response.status_code)
+
+    def test_paginate(self):
+        url = self.url + 'view/1/'
+        body = '{}'
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        # print json.dumps(json.loads(response.content), indent=4), 12321
         self.assertEqual(200, response.status_code)

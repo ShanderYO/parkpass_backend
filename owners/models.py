@@ -57,3 +57,20 @@ class UpgradeIssue(models.Model):
 
     def __unicode__(self):
         return self.description
+
+
+class Company(models.Model):
+    owner = models.ForeignKey(to=Owner)
+    name = models.CharField(max_length=256, unique=True)
+    inn = models.CharField(max_length=15)
+    kpp = models.CharField(max_length=15)
+    legal_address = models.CharField(max_length=512)
+    actual_address = models.CharField(max_length=512)
+    email = models.EmailField()
+    phone = models.CharField(max_length=15)
+
+    checking_account = models.CharField(max_length=64)
+    checking_kpp = models.CharField(max_length=15)
+
+    def __unicode__(self):
+        return self.name
