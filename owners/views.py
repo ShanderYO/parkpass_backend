@@ -180,6 +180,10 @@ class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView)):
     pass
 
 
+class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView)):
+    pass
+
+
 class PasswordChangeView(LoginRequiredAPIView):
 
     def post(self, request):
