@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timedelta
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
@@ -64,3 +65,15 @@ class AccountSession(BaseAccountSession):
     expired_at = models.DateTimeField()
     created_at = models.DateField(auto_now_add=True)
     account = models.OneToOneField(Account)
+
+    @classmethod
+    def get_account_by_token(cls, token):
+        try:
+            session = cls.objects.get(token=token)
+            if session.is_expired():
+                session.delete()
+                return None
+            return session.account
+
+        except ObjectDoesNotExist:
+            return None

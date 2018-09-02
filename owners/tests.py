@@ -156,29 +156,40 @@ class Password(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class Disabled:
-    # class Statistics(TestCase):
+class Statistics(TestCase):
     def setUp(self):
         self.account, self.account_session, self.sign = create_vendor_account()
         account, accsession = create_user_account()
         self.owneracc, self.owneraccsess = create_account()
+        company = Company.objects.create(
+            owner=self.owneracc,
+            name="Test company",
+            inn="1234567890",
+            kpp="123456789012",
+            legal_address="ewsfrdg",
+            actual_address="sadfbg",
+            email=EMAIL,
+            phone=PHONE,
+            checking_account="1234",
+            checking_kpp="123456789012"
+        )
         parking_1 = Parking.objects.create(
             name="parking-1",
             description="default",
             latitude=1,
             longitude=1,
-            free_places=5,
+            max_places=5,
             vendor=self.account,
-            owner=self.owneracc
+            company=company
         )
         parking_2 = Parking.objects.create(
             name="parking-2",
             description="second",
             latitude=2,
             longitude=3,
-            free_places=9,
+            max_places=9,
             vendor=self.account,
-            owner=self.owneracc
+            company=company
         )
         for i in range(0, 100, 1):
             ps = ParkingSession.objects.create(
@@ -204,7 +215,7 @@ class Disabled:
         response = Client().post(url, body, content_type='application/json',
                                  **TOKEN_DICT)
 
-        print response.content, 'single'
+        # print response.content, 'single'
         self.assertEqual(200, response.status_code)
 
     def test_parking_stats_all(self):
@@ -218,7 +229,7 @@ class Disabled:
         response = Client().post(url, body, content_type='application/json',
                                  **TOKEN_DICT)
 
-        print response.content, 'all'
+        # print response.content, 'all'
         self.assertEqual(200, response.status_code)
 
 

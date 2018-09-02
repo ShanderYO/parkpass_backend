@@ -19,6 +19,7 @@ class UpdateParkingTestCase(TestCase):
     """
     def setUp(self):
         vendor = Vendor(
+            display_id=127,
             name="test-parking-vendor",
             secret="12345678"
         )
@@ -29,7 +30,7 @@ class UpdateParkingTestCase(TestCase):
             description="default",
             latitude=1,
             longitude=1,
-            free_places=5,
+            max_places=5,
             vendor=vendor
         )
 

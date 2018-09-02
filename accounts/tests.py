@@ -11,7 +11,6 @@ from django.test import TestCase
 from accounts.models import Account, AccountSession
 from parkings.models import Parking, ParkingSession, Wish
 from parkpass.settings import AVATARS_ROOT
-from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order, FiskalNotification
 from vendors.models import Vendor
 
@@ -22,25 +21,27 @@ URL_PREFIX = "/api/v1/account/"
 
 
 def create_account(name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"):
-    account = Account.objects.create(
+    account = Account(
         first_name=name,
         phone=phone,
         email=email
     )
     account.set_password(password)
+    account.save()
     account_session = AccountSession(
         token=TOKEN,
         account=account
     )
     account_session.set_expire_date()
-    #account_session.save(not_generate_token=True)
-    account.save()
+    account_session.save(not_generate_token=True)
+
     return account, account_session
 
 
 def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678", park_enabled=True, approved=True,
                           park_name="parking-1", park_desc="default", park_lat=1, park_lon=1, park_places=5):
     v = Vendor(
+        display_id=1,
         name=ven_name,
         secret=ven_secret
     )
@@ -52,6 +53,7 @@ def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678",
         enabled=park_enabled,
         longitude=park_lon,
         free_places=park_places,
+        max_places=park_places,
         vendor=v,
         approved=approved
     )
@@ -101,7 +103,7 @@ class PasswordTestCase(TestCase):
         """
         Testing case when old password is invalid
         """
-        url = URL_PREFIX + "login/changepw/"
+        url = URL_PREFIX + "password/change/"
 
         body = json.dumps({
             "old": "abracadabra",
@@ -200,7 +202,7 @@ class AccountTestCase(TestCase):
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         j = json.loads(response.content)
-        self.assertEqual(len(j), 6)
+        self.assertEqual(len(j), 7)
         self.assertEqual(1, j['id'])
 
     def test_new_session_without_card(self):
@@ -568,7 +570,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         })
 
         response = Client().post(url, body, **TOKEN_DICT)
-        print response.content, 12321
+        # print response.content, 12321
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
         self.assertEqual(402, j['code'])
@@ -712,17 +714,10 @@ class AccountAvatarTestCase(AccountTestCase):
         path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
         self.assertFalse(isfile(path))
 
-    def test_get_avatar(self):
-        url = URL_PREFIX + "avatar/get/"
-        response = Client().get(url, **TOKEN_DICT)
-        j = json.loads(response.content)
-        self.assertIn(DEFAULT_AVATAR_URL, j['url'])
-        self.assertEqual(response.status_code, 200)
-
 
 class WantedParkingsTestCase(TestCase):
     def setUp(self):
-        account, account_session = create_account()
+        create_account()
         vendor, self.p1 = create_vendor_parking(park_enabled=False)
         self.p2 = Parking.objects.create(
             name="parking-1",
@@ -730,6 +725,7 @@ class WantedParkingsTestCase(TestCase):
             latitude=1,
             enabled=False,
             longitude=1,
+            max_places=5,
             free_places=5,
             vendor=vendor
         )
@@ -739,6 +735,7 @@ class WantedParkingsTestCase(TestCase):
             enabled=True,
             latitude=1,
             longitude=1,
+            max_places=5,
             free_places=5,
             vendor=vendor,
             approved=True
@@ -750,10 +747,17 @@ class WantedParkingsTestCase(TestCase):
     def test_adding_wannamarks(self):
         # print Parking.objects.all()
         resp = []
+
         for i in [2, 4, 6]:
             url = "/api/v1/parking/wish/%d/" % i
             resp.append(Client().get(url, **TOKEN_DICT))
             # print resp[-1].content
+
+        w = []
+        wishes = Wish.objects.all()
+        for wish in wishes:
+            w.append(wish)
+
         self.assertEqual(resp[0].status_code, 200)
         self.assertEqual(resp[1].status_code, 400)
         self.assertEqual(resp[2].status_code, 400)

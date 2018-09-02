@@ -8,6 +8,7 @@ urlpatterns = [
     url(r'^list/$', GetParkingViewList.as_view()),
     url(r'^complain/$', ComplainSessionView.as_view()),
     url(r'^wish/(?P<parking>\d+)/$', WishView.as_view()),
+    url(r'^wish/(?P<parking>\d+)/count/$', CountWishView.as_view()),
     url(r'^test/$', TestSignedRequestView.as_view()),
     url(r'^issue/$', IssueParkingView.as_view()),
     url(r'^ownerissue/$', OwnerIssueParkingView.as_view()),

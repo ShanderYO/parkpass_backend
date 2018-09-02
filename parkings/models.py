@@ -5,6 +5,7 @@ from django.db.models import signals
 from django.template.loader import render_to_string
 
 from accounts.models import Account
+from owners.models import Company
 from owners.models import Owner
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
@@ -46,22 +47,29 @@ class UpgradeIssue(models.Model):
 
 
 class Parking(models.Model):
-    id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=63, null=True, blank=True)
     description = models.TextField()
     address = models.CharField(max_length=63, null=True, blank=True)
     latitude = models.DecimalField(max_digits=10, decimal_places=8)
     longitude = models.DecimalField(max_digits=11, decimal_places=8)
     enabled = models.BooleanField(default=True)
+    parkpass_enabled = models.BooleanField(default=False)  # Is it ParkPass-enabled
     free_places = models.IntegerField()
+    max_places = models.IntegerField()
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     vendor = models.ForeignKey(Vendor, null=True, blank=True)
-    owner = models.ForeignKey(Owner, null=True, blank=True)
+    company = models.ForeignKey(Company, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
+    software_updated_at = models.DateField(blank=True, null=True)
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
 
     objects = models.Manager()
     parking_manager = ParkingManager()
+
+    def save(self, *args, **kwargs):
+        if self.free_places is None:
+            self.free_places = self.max_places
+        super(Parking, self).save(*args, **kwargs)
 
     class Meta:
         ordering = ["-id"]
@@ -263,6 +271,7 @@ def create_test_parking(sender, instance, created, **kwargs):
         latitude=1,
         longitude=2,
         free_places=5,
+        max_places=5,
         vendor=instance,
         enabled=False,
         approved=True

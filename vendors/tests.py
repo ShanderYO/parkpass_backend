@@ -196,7 +196,7 @@ class Statistics(TestCase):
             description="default",
             latitude=1,
             longitude=1,
-            free_places=5,
+            max_places=5,
             vendor=self.account
         )
         parking_2 = Parking.objects.create(
@@ -204,7 +204,7 @@ class Statistics(TestCase):
             description="second",
             latitude=2,
             longitude=3,
-            free_places=9,
+            max_places=9,
             vendor=self.account
         )
         for i in range(0, 100, 1):

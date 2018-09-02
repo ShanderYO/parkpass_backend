@@ -18,6 +18,16 @@ from .models import UpgradeIssue, Company
 from .validators import validate_inn, validate_kpp
 
 
+class AccountInfoView(LoginRequiredAPIView):
+    def get(self, request):
+        account_dict = serializer(request.owner, exclude_attr=("created_at", "sms_code", "password"))
+        parkings = Parking.objects.filter(company__owner=request.owner)
+        en_parkings = parkings.filter(parkpass_enabled=True)
+        account_dict['parkings_total'] = len(parkings)
+        account_dict['parkings_enabled'] = len(en_parkings)
+        return JsonResponse(account_dict, status=200)
+
+
 class ParkingStatisticsView(LoginRequiredAPIView):
     def post(self, request):
         def get_ids_from_list(s):
@@ -35,7 +45,7 @@ class ParkingStatisticsView(LoginRequiredAPIView):
             start_from = int(request.data.get("start", -1))
             stop_at = int(request.data.get("end", -1))
             page = int(request.data.get("page", 0))
-            count = int(request.data.get("count", 10))
+            count = int(request.data.get("count", PAGINATION_OBJECTS_PER_PAGE))
         except ValueError:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -51,9 +61,9 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         ids = get_ids_from_list(id)
         try:
             if not ids:
-                parkings = Parking.objects.filter(owner=request.owner)
+                parkings = Parking.objects.filter(company__owner=request.owner)
             else:
-                parkings = Parking.objects.filter(id__in=ids, owner=request.owner)
+                parkings = Parking.objects.filter(id__in=ids, company__owner=request.owner)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -77,7 +87,23 @@ class ParkingStatisticsView(LoginRequiredAPIView):
                 'parking_id': parking.id,
                 'sessions': sessions_list
             })
-        return JsonResponse({'parkings': parkings_list})
+        return JsonResponse({'count': len(parkings_list),
+                             'parkings': parkings_list[page * count:(page + 1) * count]})
+
+
+class ListParkingsView(LoginRequiredAPIView):
+
+    def post(self, request):
+        company_id = request.data.get('company_id', None)
+        companies = Company.objects.filter(owner=request.owner)
+        if company_id is not None:
+            companies = companies.filter(id=company_id)
+        parkings = Parking.objects.filter(company__in=companies)
+        for p in parkings:
+            r = []
+            r.append(serializer(p))
+        return JsonResponse({'parkings': r})
+
 
 
 class IssueUpgradeView(LoginRequiredAPIView):
@@ -89,7 +115,7 @@ class IssueUpgradeView(LoginRequiredAPIView):
         if type is None or description is None or not type.isdigit() or 0 > len(description) > 1000:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
-                "Both 'issue_type' and 'description fields are required, 'issue_type' must be int"
+                "Both 'issue_type' and 'description' fields are required, 'issue_type' must be int"
             )
             return JsonResponse(e.to_dict(), status=400)
         type = int(type)

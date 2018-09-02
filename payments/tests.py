@@ -19,6 +19,7 @@ class UpdateParkingTestCase(TestCase):
     """
     def setUp(self):
         vendor = Vendor(
+            display_id=1,
             name="test-parking-vendor",
             secret="12345678"
         )
@@ -29,7 +30,7 @@ class UpdateParkingTestCase(TestCase):
             description="default",
             latitude=1,
             longitude=1,
-            free_places=5,
+            max_places=5,
             vendor=vendor
         )
 
@@ -72,14 +73,12 @@ class UpdateParkingTestCase(TestCase):
 
         self.client = Client()
 
-
     def _make_signed_json_post(self, url, body):
         signature = hmac.new("12345678", body, hashlib.sha512)
         response = self.client.post(url, body, content_type="application/json",
                                     **{'HTTP_X_SIGNATURE': signature.hexdigest(),
                                        'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
         return response
-
 
     def test_rps_update_closed_session(self):
         url = '/api/v1/parking/rps/session/list/update/'

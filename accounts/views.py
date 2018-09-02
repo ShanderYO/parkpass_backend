@@ -86,7 +86,7 @@ class DeactivateAccountView(LoginRequiredAPIView):
         account = request.account
         ps = ParkingSession.get_active_session(account)
         if ps is not None:
-            generate_current_debt_order(ParkingSession.get_active_session(account))
+            generate_current_debt_order(ParkingSession.get_active_session(account).id)
             if not ps.is_suspended:
                 ps.is_suspended = True
                 ps.suspended_at = timezone.now()

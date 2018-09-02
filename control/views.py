@@ -18,6 +18,7 @@ from base.validators import LoginAndPasswordValidator
 from base.validators import create_generic_validator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
+from owners.models import Company
 from owners.models import Owner
 from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIssue
 from parkings.validators import validate_longitude, validate_latitude
@@ -173,11 +174,13 @@ class EditParkingView(LoginRequiredAPIView):
         'latitude': CustomValidatedField(validate_latitude, required=True),
         'longitude': CustomValidatedField(validate_longitude, required=True),
         'enabled': BoolField(),
-        'free_places': PositiveIntField(required=True),
+        'parkpass_enabled': BoolField(),
+        'max_places': PositiveIntField(required=True),
+        'free_places': PositiveIntField(),
         'max_client_debt': PositiveFloatField(),
         'created_at': DateField(),
         'vendor': ForeignField(object=Vendor),
-        'owner': ForeignField(object=Owner),
+        'company': ForeignField(object=Company),
         'approved': BoolField(),
     }
     validator_class = create_generic_validator(fields)  # EditParkingValidator
