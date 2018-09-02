@@ -12,6 +12,7 @@ from django.views.generic import View
 
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException
+from base.utils import get_logger
 from base.validators import ValidatePostParametersMixin
 from vendors.models import Vendor
 
@@ -19,6 +20,9 @@ from vendors.models import Vendor
 class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
+        logger = get_logger()
+        logger.info("Accessing URL '%s'" % request.path)
+        logger.info("Request content: '%s'" % request.body)
         # Only application/json Content-type allow
         if not request.META.get('CONTENT_TYPE', "").startswith("application/json") and request.POST:
             return JsonResponse({
@@ -40,8 +44,9 @@ class APIView(View, ValidatePostParametersMixin):
                 exception_response = self.validate_request(request)
                 if exception_response:
                     return exception_response
-
-        return super(APIView, self).dispatch(request, *args, **kwargs)
+        response = super(APIView, self).dispatch(request, *args, **kwargs)
+        logger.info("Sending response '%s' with code '%i'" % (response.content, response.status_code))
+        return response
 
 
 class SignedRequestAPIView(APIView):
