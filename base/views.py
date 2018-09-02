@@ -14,13 +14,14 @@ from django.views.generic import View
 from base.exceptions import ValidationException, AuthException, PermissionException
 from base.utils import get_logger
 from base.validators import ValidatePostParametersMixin
+from parkpass.settings import REQUESTS_LOGGER_NAME
 from vendors.models import Vendor
 
 
 class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-        logger = get_logger()
+        logger = get_logger(REQUESTS_LOGGER_NAME)
         logger.info("Accessing URL '%s'" % request.path)
         logger.info("Request content: '%s'" % request.body)
         # Only application/json Content-type allow
