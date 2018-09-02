@@ -264,3 +264,54 @@ class Companies(TestCase):
         response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
         # print json.dumps(json.loads(response.content), indent=4), 12321
         self.assertEqual(200, response.status_code)
+
+
+class Issue(TestCase):
+
+    def test_full_data(self):
+        url = URL_PREFIX + 'issue/'
+
+        body = json.dumps({
+            'name': 'PashaWNN',
+            'phone': '81234567890',
+            'email': 'wnnpasha@mailg.moc'
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(200, response.status_code)
+
+    def test_partial_data(self):
+        url = URL_PREFIX + 'issue/'
+
+        body = json.dumps({
+            'name': 'PashaWNN',
+            'phone': '81234567890',
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(200, response.status_code)
+
+        url = URL_PREFIX + 'issue/'
+
+        body = json.dumps({
+            'name': 'PashaWNN',
+            'email': 'wnnpasha@mailg.moc'
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(400, response.status_code)
+
+    def test_no_name(self):
+        url = URL_PREFIX + 'issue/'
+
+        body = json.dumps({
+            'phone': '81234567890',
+            'email': 'wnnpasha@mailg.moc'
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(400, response.status_code)

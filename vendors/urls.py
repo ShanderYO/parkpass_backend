@@ -18,7 +18,7 @@ urlpatterns = [
                   # Statistics
                   url(r'^stats/parking/$', ParkingStatisticsView.as_view()),
                   url(r'^stats/summary/$', AllParkingsStatisticsView.as_view()),
-                  url(r'^issue/$', IssueView.as_view()),
+
                   # Test user and parking
                   url(r'^test/$', TestView.as_view()),
               ] + staticfiles_urlpatterns()

@@ -19,12 +19,14 @@ from base.validators import create_generic_validator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
 from owners.models import Company
+from owners.models import Issue
 from owners.models import Owner
 from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIssue
 from parkings.validators import validate_longitude, validate_latitude
 from parkpass.settings import LOG_FILE
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
-from vendors.models import Vendor, Issue
+from payments.models import Order, FiskalNotification
+from vendors.models import Vendor
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
 
@@ -141,6 +143,26 @@ class EditVendorView(LoginRequiredAPIView):
 
     def post(self, request, id=-1):
         return edit_object_view(request=request, id=id, object=Vendor, fields=self.fields)
+
+
+class EditOrderView(LoginRequiredAPIView):
+    fields = {
+        'sum': PositiveFloatField(required=True),
+        'payment_attempts': PositiveIntField(),
+        'authorized': BoolField(),
+        'paid': BoolField(),
+        'paid_card_pan': StringField(),
+        'session': ForeignField(object=ParkingSession),
+        'refund_request': BoolField(),
+        'refunded_sum': PositiveFloatField(),
+        'fiskal_notification': ForeignField(object=FiskalNotification),
+        'created_at': DateField(),
+    }
+
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request, id=-1):
+        return edit_object_view(request=request, id=id, object=Order, fields=self.fields)
 
 
 class EditParkingSessionView(LoginRequiredAPIView):
@@ -297,6 +319,10 @@ class EditIssueView(LoginRequiredAPIView):
 
 
 class ShowUpgradeIssueView(generic_pagination_view(UpgradeIssue)):
+    pass
+
+
+class ShowOrderView(generic_pagination_view(Order)):
     pass
 
 

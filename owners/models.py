@@ -74,3 +74,12 @@ class Company(models.Model):
 
     def __unicode__(self):
         return self.name
+
+
+class Issue(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=13)
+    comment = models.CharField(max_length=1023, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, editable=True)

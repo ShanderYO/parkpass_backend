@@ -79,7 +79,6 @@ class IssueParkingView(VendorAPIView):
             address=self.request.data['address'],
             latitude=float(self.request.data['latitude']),
             longitude=float(self.request.data['longitude']),
-            free_places=int(self.request.data['max_places']),
             max_places=int(self.request.data['max_places']),
             approved=False,
             max_client_debt=int(self.request.data['max_client_debt'])
