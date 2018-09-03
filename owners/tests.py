@@ -315,3 +315,41 @@ class Issue(TestCase):
         response = Client().post(url, body, content_type='application/json')
         print response.content
         self.assertEqual(400, response.status_code)
+
+
+class ConnectIssueTests(TestCase):
+    def setUp(self):
+        create_vendor_account()
+        create_account()
+        p = Parking.objects.get(id=1)
+        p.enabled = True
+        p.save()
+
+    def test_exist_vendor(self):
+        url = URL_PREFIX + 'connectissue/'
+
+        body = json.dumps({
+            'parking_id': 1,
+            'vendor_id': 1,
+            'contact_email': 'abcd@efgh.jk'
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+        ConnectIssue.objects.get(id=1)
+
+    def test_not_exist_vendor(self):
+        url = URL_PREFIX + 'connectissue/'
+
+        body = json.dumps({
+            'parking_id': 1,
+            'org_name': 'Organisation',
+            'email': 'abdf@srvdbg.dcc',
+            'website': 'werefgfb.com',
+            'phone': '89994444444',
+            'contact_email': 'abcd@efgh.jk',
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+        ConnectIssue.objects.get(id=1)

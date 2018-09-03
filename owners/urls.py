@@ -13,6 +13,7 @@ urlpatterns = [
                   url(r'^password/restore/$', PasswordRestoreView.as_view()),
                   url(r'^email/add/$', ChangeEmailView.as_view()),
                   url(r'^email/confirm/(?P<code>\w+)/$', EmailConfirmationView.as_view()),
+                  url(r'^connectissue/$', ConnectIssueView.as_view()),
                   url(r'^upgadeissues/send/$', IssueUpgradeView.as_view()),
                   url(r'^upgradeissues/show/$', ListUpgradeIssuesView.as_view()),
                   url(r'^stats/parking/$', ParkingStatisticsView.as_view()),

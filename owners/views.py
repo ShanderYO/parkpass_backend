@@ -15,11 +15,12 @@ from base.views import APIView
 from base.views import OwnerAPIView as LoginRequiredAPIView
 from parkings.models import Parking, ParkingSession
 from parkpass.settings import EMAIL_HOST_USER
-from .models import Issue
+from vendors.models import Vendor
+from .models import Issue, ConnectIssue
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
 from .models import UpgradeIssue, Company
-from .validators import IssueValidator
+from .validators import IssueValidator, ConnectIssueValidator
 from .validators import validate_inn, validate_kpp
 
 
@@ -96,20 +97,6 @@ class ParkingStatisticsView(LoginRequiredAPIView):
                              'parkings': parkings_list[page * count:(page + 1) * count]})
 
 
-class ListParkingsView(LoginRequiredAPIView):
-
-    def post(self, request):
-        company_id = request.data.get('company_id', None)
-        companies = Company.objects.filter(owner=request.owner)
-        if company_id is not None:
-            companies = companies.filter(id=company_id)
-        parkings = Parking.objects.filter(company__in=companies)
-        for p in parkings:
-            r = []
-            r.append(serializer(p))
-        return JsonResponse({'parkings': r})
-
-
 class IssueUpgradeView(LoginRequiredAPIView):
 
     def post(self, request):
@@ -176,11 +163,64 @@ class EditCompanyView(LoginRequiredAPIView):
         return edit_object_view(request=request, id=id, object=Company, fields=self.fields)
 
 
+class ConnectIssueView(LoginRequiredAPIView):
+    validator_class = ConnectIssueValidator
+
+    def post(self, request):
+        parking_id = self.request.data['parking_id']
+        vendor_id = self.request.data.get('vendor_id', None)
+        org_name = self.request.data.get("org_name", None)
+        email = self.request.data.get("email", None)
+        phone = self.request.data.get("phone", None)
+        website = self.request.data.get("website", None)
+        contact_email = self.request.data["contact_email"]
+
+        try:
+            parking = Parking.objects.get(id=parking_id, approved=True, enabled=True)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                'Parking with such ID does not exist or not enabled/approved by administrator'
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if vendor_id:
+            try:
+                vendor = Vendor.objects.get(id=vendor_id)
+            except ObjectDoesNotExist:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    'Vendor with such ID does not exist'
+                )
+                return JsonResponse(e.to_dict(), status=400)
+            issue = ConnectIssue(
+                owner=self.request.owner,
+                parking=parking,
+                vendor=vendor,
+                contact_email=contact_email,
+            )
+        else:
+            issue = ConnectIssue(
+                owner=self.request.owner,
+                parking=parking,
+                organisation_name=org_name,
+                phone=phone,
+                email=email,
+                contact_email=contact_email,
+                website=website,
+            )
+        issue.save()
+        return JsonResponse({}, status=200)
+
+
 class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView)):
     pass
 
 
 class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView)):
+    pass
+
+
+class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView)):
     pass
 
 
