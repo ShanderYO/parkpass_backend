@@ -376,7 +376,6 @@ class EmailConfirmationView(View):
 
 class TestView(LoginRequiredAPIView):
     def post(self, request):
-        pass
         account = request.vendor
         parking = account.test_parking
         if parking is None:

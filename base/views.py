@@ -23,7 +23,12 @@ class APIView(View, ValidatePostParametersMixin):
     def dispatch(self, request, *args, **kwargs):
         logger = get_logger(REQUESTS_LOGGER_NAME)
         logger.info("Accessing URL '%s'" % request.path)
-        logger.info("Request content: '%s'" % request.body)
+        if request.method == 'GET':
+            logger.info("It's a GET request")
+        elif request.method == 'POST':
+            logger.info("POST request content: '%s'" % request.body)
+        else:
+            logger.info("Unrecognized request method")
         # Only application/json Content-type allow
         if not request.META.get('CONTENT_TYPE', "").startswith("application/json") and request.POST:
             return JsonResponse({

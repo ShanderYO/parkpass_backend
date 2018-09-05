@@ -116,7 +116,7 @@ class OwnerIssueParkingView(OwnerAPIView):
         return JsonResponse({}, status=200)
 
 
-class ParkingStatisticsView(SignedRequestAPIView):
+class ParkingStatisticsView(LoginRequiredAPIView):
     def post(self, request):
         try:
             id = int(request.data.get("pk", -1))
@@ -161,7 +161,7 @@ class ParkingStatisticsView(SignedRequestAPIView):
         return JsonResponse({'sessions': lst, 'count': length})
 
 
-class AllParkingsStatisticsView(SignedRequestAPIView):
+class AllParkingsStatisticsView(LoginRequiredAPIView):
     def post(self, request):
         try:
             ids = map(int, request.data.get('ids', []).replace(' ', '').split(','))

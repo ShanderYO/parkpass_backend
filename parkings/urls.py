@@ -18,8 +18,6 @@ urlpatterns = [
     url(r'^session/update/$', UpdateParkingSessionView.as_view()),
     url(r'^session/complete/$', CompleteParkingSessionView.as_view()),
     url(r'^session/list/update/$', ParkingSessionListUpdateView.as_view()),
-    url(r'^stats/parking/$', ParkingStatisticsView.as_view()),
-    url(r'^stats/summary/$', AllParkingsStatisticsView.as_view())
 ]
 
 urlpatterns += staticfiles_urlpatterns()

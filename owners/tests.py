@@ -53,7 +53,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_login_by_phone(self):
@@ -66,7 +66,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_login_by_email(self):
@@ -81,6 +81,13 @@ class Authorization(TestCase):
 
         print response.content
         self.assertEqual(200, response.status_code)
+
+    def test_account_info(self):
+        url = URL_PREFIX + "stats/info/"
+
+        response = Client().get(url, **TOKEN_DICT)
+
+        print json.dumps(json.loads(response.content), indent=4), 111
 
 
 class Password(TestCase):
