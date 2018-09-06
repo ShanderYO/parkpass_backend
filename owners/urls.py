@@ -17,6 +17,7 @@ urlpatterns = [
                   url(r'^upgadeissues/send/$', IssueUpgradeView.as_view()),
                   url(r'^upgradeissues/show/(?P<page>\w+)/$', ListUpgradeIssuesView.as_view()),
                   url(r'^stats/parking/$', ParkingStatisticsView.as_view()),
+                  url(r'^stats/summary/$', SummaryStatisticsView.as_view()),
                   url(r'^stats/info/$', AccountInfoView.as_view()),
                   url(r'^issue/$', IssueView.as_view()),
                   url(r'^parkings/(?P<page>\w+)/$', ListParkingsView.as_view()),

@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 
 from django.core.mail import send_mail
+from django.db.models import Sum
 from django.template.loader import render_to_string
 from django.views import View
 
@@ -32,6 +33,39 @@ class AccountInfoView(LoginRequiredAPIView):
         account_dict['parkings_total'] = len(parkings)
         account_dict['parkings_enabled'] = len(en_parkings)
         return JsonResponse(account_dict, status=200)
+
+
+class SummaryStatisticsView(LoginRequiredAPIView):
+    def post(self, request):
+        period = request.data.get('period', 'day')
+        if period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        else:
+            td = timedelta(days=30)
+        t = datetime.date.today() - td
+        sessions = ParkingSession.objects.filter(parking__company__owner=request.owner,
+                                                 completed_at__gt=t)
+        count = sessions.count()
+        debt = sessions.aggregate(Sum('debt'))['debt__sum']
+        seen = set()
+        users = 0
+        for s in sessions:
+            if s.client not in seen:
+                seen.add(s.client)
+                users += 1
+        return JsonResponse({
+            'count': count,
+            'debt': debt,
+            'users': users
+        }, status=200)
 
 
 class ParkingStatisticsView(LoginRequiredAPIView):
