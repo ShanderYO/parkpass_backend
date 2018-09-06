@@ -131,6 +131,37 @@ class ParkingStatisticsView(LoginRequiredAPIView):
                              'parkings': parkings_list[page * count:(page + 1) * count]})
 
 
+class ParkingsTopView(LoginRequiredAPIView):
+    def post(self, request):
+        count = request.data.get('count', 3)
+        period = request.data.get('period', 'day')
+        if period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        else:
+            td = timedelta(days=30)
+        t = datetime.date.today() - td
+        parkings = Parking.objects.filter(company__owner=request.owner)
+        r = []
+        for p in parkings:
+            r.append({
+                'company': p.company.name,
+                'address': p.address,
+                'debt': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
+                    'debt__sum'],
+            })
+        r = sorted(r, key=lambda x: -x['debt'] if x['debt'] else 0)
+        return JsonResponse({'top': r[:count + 1]}, status=200)
+
+
+
 class IssueUpgradeView(LoginRequiredAPIView):
 
     def post(self, request):
