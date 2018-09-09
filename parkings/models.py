@@ -55,7 +55,7 @@ class Parking(models.Model):
     enabled = models.BooleanField(default=True)
     parkpass_enabled = models.BooleanField(default=False)  # Is it ParkPass-enabled
     free_places = models.IntegerField()
-    max_places = models.IntegerField()
+    max_places = models.IntegerField(default=0)
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     vendor = models.ForeignKey(Vendor, null=True, blank=True)
     company = models.ForeignKey(Company, null=True, blank=True)
