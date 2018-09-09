@@ -41,6 +41,7 @@ def _create_owner(id=1, fname="Fname", phone='1234', email='email', password='qw
 
 def _create_vendor():
     vendor = Vendor(
+        display_id=1,
         name="test-parking-vendor",
         secret="12345678"
     )
@@ -61,7 +62,7 @@ def _create_parking(vendor,
                     description="default",
                     latitude=1,
                     longitude=1,
-                    free_places=5,
+                    max_places=5,
                     approved=True):
     return Parking.objects.create(
         name=name,
@@ -69,7 +70,7 @@ def _create_parking(vendor,
         description=description,
         latitude=latitude,
         longitude=longitude,
-        free_places=free_places,
+        max_places=max_places,
         approved=approved)
 
 
@@ -840,7 +841,7 @@ class IssueParking(TestCase):
             'longitude': '37.6148268',
             'max_client_debt': '500',
             'address': 'Moscow, Sharikopodshipnikovskaya st., 228',
-            'free_places': '80'
+            'max_places': '80'
         })
 
         response = Client().post(url, body, content_type='application/json',
@@ -859,7 +860,7 @@ class IssueParking(TestCase):
             'longitude': '37.6148268',
             'max_client_debt': '500',
             'address': 'Moscow, Sharikopodshipnikovskaya st., 228',
-            'free_places': '80'
+            'max_places': '80'
         })
         _create_owner()
         response = Client().post(url, body, content_type='application/json',

@@ -151,6 +151,8 @@ STATIC_URL = '/static/'
 
 BASE_LOGGER_NAME = "parkpass"
 LOG_FILE = 'parkpass.log'
+REQUESTS_LOG_FILE = 'requests.log'
+REQUESTS_LOGGER_NAME = 'requests'
 
 LOGGING = {
     'version': 1,
@@ -182,6 +184,14 @@ LOGGING = {
             'backupCount': 5,
             'formatter': 'verbose'
         },
+        'requests_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': REQUESTS_LOG_FILE,
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 1,
+            'formatter': 'verbose'
+        },
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
@@ -194,9 +204,13 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
-        'parkpass': {
+        BASE_LOGGER_NAME: {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
+        },
+        REQUESTS_LOGGER_NAME: {
+            'handlers': ['requests_file'],
+            'level': 'DEBUG'
         }
     }
 }

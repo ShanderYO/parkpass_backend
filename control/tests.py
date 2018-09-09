@@ -292,7 +292,7 @@ class ParkingsStatistics(TestCase):
             description="second",
             latitude=2,
             longitude=3,
-            free_places=9,
+            max_places=9,
             vendor=None
         )
         for i in range(0, 20):
@@ -334,7 +334,7 @@ class FilterPagination(TestCase):
             latitude=2,
             longitude=3,
             approved=True,
-            free_places=9,
+            max_places=9,
             vendor=None
         )
         parking_2 = Parking.objects.create(
@@ -343,7 +343,7 @@ class FilterPagination(TestCase):
             latitude=2,
             longitude=3,
             approved=False,
-            free_places=9,
+            max_places=9,
             vendor=None
         )
         parking_3 = Parking.objects.create(
@@ -352,7 +352,7 @@ class FilterPagination(TestCase):
             latitude=4,
             longitude=5,
             approved=False,
-            free_places=10,
+            max_places=10,
             vendor=None
         )
 

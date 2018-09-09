@@ -57,3 +57,41 @@ class UpgradeIssue(models.Model):
 
     def __unicode__(self):
         return self.description
+
+
+class Company(models.Model):
+    owner = models.ForeignKey(to=Owner)
+    name = models.CharField(max_length=256, unique=True)
+    inn = models.CharField(max_length=15)
+    kpp = models.CharField(max_length=15)
+    legal_address = models.CharField(max_length=512)
+    actual_address = models.CharField(max_length=512)
+    email = models.EmailField()
+    phone = models.CharField(max_length=15)
+
+    checking_account = models.CharField(max_length=64)
+    checking_kpp = models.CharField(max_length=15)
+
+    def __unicode__(self):
+        return self.name
+
+
+class Issue(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=13)
+    comment = models.CharField(max_length=1023, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, editable=True)
+
+
+class ConnectIssue(models.Model):
+    owner = models.ForeignKey(to=Owner, on_delete=models.CASCADE)
+    parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
+    vendor = models.ForeignKey(to='vendors.Vendor', on_delete=models.CASCADE, null=True, blank=True)
+    organisation_name = models.CharField(max_length=255, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    phone = models.CharField(max_length=13, null=True, blank=True)
+    website = models.CharField(max_length=255, null=True, blank=True)
+    contact_email = models.EmailField()
+    created_at = models.DateTimeField(auto_now_add=True)

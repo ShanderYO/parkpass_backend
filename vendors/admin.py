@@ -1,8 +1,9 @@
 from django.contrib import admin
 
+from owners.models import Issue
 from parkings.models import UpgradeIssue
 # Register your models here.
-from vendors.models import Vendor, VendorSession, Issue
+from vendors.models import Vendor, VendorSession
 
 
 @admin.register(Vendor)

@@ -211,7 +211,7 @@ def validate_phone_number(value):
 
 def validate_account_birthday(value):
     if value > datetime.date.today() or value < datetime.date(1900,1,1):
-        raise ValidationError("There can be only since 1990 untill today")
+        raise ValidationError("There can be only since 1990 until today")
 
 
 def validate_account_name(value, field_name="NonameField"):

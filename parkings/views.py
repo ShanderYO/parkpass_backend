@@ -49,9 +49,17 @@ class WishView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         user = request.account
-        wp = Wish(parking=parking, user=user)
-        wp.save()
+        Wish.objects.create(parking=parking, user=user)
         return JsonResponse({}, status=200)
+
+
+class CountWishView(OwnerAPIView):
+    def get(self, request, parking):
+        try:
+            w = Wish.objects.get(parking__id=parking)
+        except ObjectDoesNotExist:
+            return JsonResponse({'count': 0}, status=200)
+        return JsonResponse({'count': len(w)}, status=200)
 
 
 class IssueParkingView(VendorAPIView):
@@ -71,7 +79,7 @@ class IssueParkingView(VendorAPIView):
             address=self.request.data['address'],
             latitude=float(self.request.data['latitude']),
             longitude=float(self.request.data['longitude']),
-            free_places=int(self.request.data['free_places']),
+            max_places=int(self.request.data['max_places']),
             approved=False,
             max_client_debt=int(self.request.data['max_client_debt'])
         )
@@ -92,7 +100,7 @@ class OwnerIssueParkingView(OwnerAPIView):
             address=self.request.data['address'],
             latitude=float(self.request.data['latitude']),
             longitude=float(self.request.data['longitude']),
-            free_places=int(self.request.data['free_places']),
+            max_places=int(self.request.data['max_places']),
             approved=False,
             max_client_debt=int(self.request.data['max_client_debt'])
         )
@@ -108,7 +116,7 @@ class OwnerIssueParkingView(OwnerAPIView):
         return JsonResponse({}, status=200)
 
 
-class ParkingStatisticsView(SignedRequestAPIView):
+class ParkingStatisticsView(LoginRequiredAPIView):
     def post(self, request):
         try:
             id = int(request.data.get("pk", -1))
@@ -153,7 +161,7 @@ class ParkingStatisticsView(SignedRequestAPIView):
         return JsonResponse({'sessions': lst, 'count': length})
 
 
-class AllParkingsStatisticsView(SignedRequestAPIView):
+class AllParkingsStatisticsView(LoginRequiredAPIView):
     def post(self, request):
         try:
             ids = map(int, request.data.get('ids', []).replace(' ', '').split(','))
@@ -225,7 +233,7 @@ class GetParkingView(LoginRequiredAPIView):
                 "Target parking with such id not found"
             )
             return JsonResponse(e.to_dict(), status=400)
-        result_dict = serializer(parking, exclude_attr=("created_at", "enabled", "vendor_id", "max_client_debt",))
+        result_dict = serializer(parking, exclude_attr=("enabled", "vendor_id", "company_id", "max_client_debt",))
         return JsonResponse(result_dict, status=200)
 
 

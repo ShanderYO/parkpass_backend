@@ -1,3 +1,4 @@
+# -!- coding: utf-8 -!-
 import datetime
 import json
 from random import randint
@@ -52,7 +53,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_login_by_phone(self):
@@ -65,7 +66,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_login_by_email(self):
@@ -80,6 +81,13 @@ class Authorization(TestCase):
 
         print response.content
         self.assertEqual(200, response.status_code)
+
+    def test_account_info(self):
+        url = URL_PREFIX + "stats/info/"
+
+        response = Client().get(url, **TOKEN_DICT)
+
+        print json.dumps(json.loads(response.content), indent=4), 111
 
 
 class Password(TestCase):
@@ -160,23 +168,35 @@ class Statistics(TestCase):
         self.account, self.account_session, self.sign = create_vendor_account()
         account, accsession = create_user_account()
         self.owneracc, self.owneraccsess = create_account()
+        company = Company.objects.create(
+            owner=self.owneracc,
+            name="Test company",
+            inn="1234567890",
+            kpp="123456789012",
+            legal_address="ewsfrdg",
+            actual_address="sadfbg",
+            email=EMAIL,
+            phone=PHONE,
+            checking_account="1234",
+            checking_kpp="123456789012"
+        )
         parking_1 = Parking.objects.create(
             name="parking-1",
             description="default",
             latitude=1,
             longitude=1,
-            free_places=5,
+            max_places=5,
             vendor=self.account,
-            owner=self.owneracc
+            company=company
         )
         parking_2 = Parking.objects.create(
             name="parking-2",
             description="second",
             latitude=2,
             longitude=3,
-            free_places=9,
+            max_places=9,
             vendor=self.account,
-            owner=self.owneracc
+            company=company
         )
         for i in range(0, 100, 1):
             ps = ParkingSession.objects.create(
@@ -202,7 +222,7 @@ class Statistics(TestCase):
         response = Client().post(url, body, content_type='application/json',
                                  **TOKEN_DICT)
 
-        print response.content, 'single'
+        # print response.content, 'single'
         self.assertEqual(200, response.status_code)
 
     def test_parking_stats_all(self):
@@ -216,5 +236,127 @@ class Statistics(TestCase):
         response = Client().post(url, body, content_type='application/json',
                                  **TOKEN_DICT)
 
-        print response.content, 'all'
+        # print response.content, 'all'
         self.assertEqual(200, response.status_code)
+
+
+class Companies(TestCase):
+    def setUp(self):
+        self.owneracc, self.owneraccsess = create_account()
+        self.url = URL_PREFIX + 'company/'
+        Company.objects.create(
+            name='Foobar company',
+            kpp='12345678',
+            inn='12345432',
+            legal_address='erfgef',
+            actual_address='ewrgfbgn',
+            checking_account='12343223423432',
+            checking_kpp='1234532',
+            email='foobar@gmail.com',
+            phone='+2(121)2121212',
+            owner=self.owneracc
+        )
+
+    def test_show(self):
+        url = self.url + '1/'
+        body = '{}'
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        # print response.content, 12321
+        # print json.dumps(json.loads(response.content), indent=4), 111
+        self.assertEqual(200, response.status_code)
+
+    def test_paginate(self):
+        url = self.url + 'view/1/'
+        body = '{}'
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        # print json.dumps(json.loads(response.content), indent=4), 12321
+        self.assertEqual(200, response.status_code)
+
+
+class Issue(TestCase):
+
+    def test_full_data(self):
+        url = URL_PREFIX + 'issue/'
+
+        body = json.dumps({
+            'name': 'PashaWNN',
+            'phone': '81234567890',
+            'email': 'wnnpasha@mailg.moc'
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(200, response.status_code)
+
+    def test_partial_data(self):
+        url = URL_PREFIX + 'issue/'
+
+        body = json.dumps({
+            'name': 'PashaWNN',
+            'phone': '81234567890',
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(200, response.status_code)
+
+        url = URL_PREFIX + 'issue/'
+
+        body = json.dumps({
+            'name': 'PashaWNN',
+            'email': 'wnnpasha@mailg.moc'
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(400, response.status_code)
+
+    def test_no_name(self):
+        url = URL_PREFIX + 'issue/'
+
+        body = json.dumps({
+            'phone': '81234567890',
+            'email': 'wnnpasha@mailg.moc'
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(400, response.status_code)
+
+
+class ConnectIssueTests(TestCase):
+    def setUp(self):
+        create_vendor_account()
+        create_account()
+        p = Parking.objects.get(id=1)
+        p.enabled = True
+        p.save()
+
+    def test_exist_vendor(self):
+        url = URL_PREFIX + 'connectissue/'
+
+        body = json.dumps({
+            'parking_id': 1,
+            'vendor_id': 1,
+            'contact_email': 'abcd@efgh.jk'
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+        ConnectIssue.objects.get(id=1)
+
+    def test_not_exist_vendor(self):
+        url = URL_PREFIX + 'connectissue/'
+
+        body = json.dumps({
+            'parking_id': 1,
+            'org_name': 'Organisation',
+            'email': 'abdf@srvdbg.dcc',
+            'website': 'werefgfb.com',
+            'phone': '89994444444',
+            'contact_email': 'abcd@efgh.jk',
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+        ConnectIssue.objects.get(id=1)

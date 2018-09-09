@@ -1,23 +1,71 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 
-from django.core.exceptions import ObjectDoesNotExist
-from django.http.response import JsonResponse
+from django.core.mail import send_mail
+from django.db.models import Sum
+from django.template.loader import render_to_string
 from django.views import View
-from dss.Serializer import serializer
 
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.models import EmailConfirmation
-from base.utils import datetime_from_unix_timestamp_tz
-from base.validators import LoginAndPasswordValidator
+from base.utils import *
+from base.validators import *
 from base.views import APIView
 from base.views import OwnerAPIView as LoginRequiredAPIView
 from parkings.models import Parking, ParkingSession
+from parkpass.settings import EMAIL_HOST_USER
+from vendors.models import Vendor
+from .models import Issue, ConnectIssue
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
-from .models import UpgradeIssue
+from .models import UpgradeIssue, Company
+from .validators import IssueValidator, ConnectIssueValidator
+from .validators import validate_inn, validate_kpp
+
+
+class AccountInfoView(LoginRequiredAPIView):
+    def get(self, request):
+        account_dict = serializer(request.owner, exclude_attr=("created_at", "sms_code", "password"))
+        parkings = Parking.objects.filter(company__owner=request.owner)
+        en_parkings = parkings.filter(parkpass_enabled=True)
+        account_dict['parkings_total'] = len(parkings)
+        account_dict['parkings_enabled'] = len(en_parkings)
+        return JsonResponse(account_dict, status=200)
+
+
+class SummaryStatisticsView(LoginRequiredAPIView):
+    def post(self, request):
+        period = request.data.get('period', 'day')
+        if period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        else:
+            td = timedelta(days=30)
+        t = datetime.date.today() - td
+        sessions = ParkingSession.objects.filter(parking__company__owner=request.owner,
+                                                 completed_at__gt=t)
+        count = sessions.count()
+        debt = sessions.aggregate(Sum('debt'))['debt__sum']
+        seen = set()
+        users = 0
+        for s in sessions:
+            if s.client not in seen:
+                seen.add(s.client)
+                users += 1
+        return JsonResponse({
+            'count': count,
+            'debt': debt,
+            'users': users
+        }, status=200)
 
 
 class ParkingStatisticsView(LoginRequiredAPIView):
@@ -37,7 +85,7 @@ class ParkingStatisticsView(LoginRequiredAPIView):
             start_from = int(request.data.get("start", -1))
             stop_at = int(request.data.get("end", -1))
             page = int(request.data.get("page", 0))
-            count = int(request.data.get("count", 10))
+            count = int(request.data.get("count", PAGINATION_OBJECTS_PER_PAGE))
         except ValueError:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -53,9 +101,9 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         ids = get_ids_from_list(id)
         try:
             if not ids:
-                parkings = Parking.objects.filter(owner=request.owner)
+                parkings = Parking.objects.filter(company__owner=request.owner)
             else:
-                parkings = Parking.objects.filter(id__in=ids, owner=request.owner)
+                parkings = Parking.objects.filter(id__in=ids, company__owner=request.owner)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -79,7 +127,39 @@ class ParkingStatisticsView(LoginRequiredAPIView):
                 'parking_id': parking.id,
                 'sessions': sessions_list
             })
-        return JsonResponse({'parkings': parkings_list})
+        return JsonResponse({'count': len(parkings_list),
+                             'parkings': parkings_list[page * count:(page + 1) * count]})
+
+
+class ParkingsTopView(LoginRequiredAPIView):
+    def post(self, request):
+        count = request.data.get('count', 3)
+        period = request.data.get('period', 'day')
+        if period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        else:
+            td = timedelta(days=30)
+        t = datetime.date.today() - td
+        parkings = Parking.objects.filter(company__owner=request.owner)
+        r = []
+        for p in parkings:
+            r.append({
+                'company': p.company.name,
+                'address': p.address,
+                'debt': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
+                    'debt__sum'],
+            })
+        r = sorted(r, key=lambda x: -x['debt'] if x['debt'] else 0)
+        return JsonResponse({'top': r[:count + 1]}, status=200)
+
 
 
 class IssueUpgradeView(LoginRequiredAPIView):
@@ -91,7 +171,7 @@ class IssueUpgradeView(LoginRequiredAPIView):
         if type is None or description is None or not type.isdigit() or 0 > len(description) > 1000:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
-                "Both 'issue_type' and 'description fields are required, 'issue_type' must be int"
+                "Both 'issue_type' and 'description' fields are required, 'issue_type' must be int"
             )
             return JsonResponse(e.to_dict(), status=400)
         type = int(type)
@@ -102,6 +182,111 @@ class IssueUpgradeView(LoginRequiredAPIView):
         )
         ui.save()
         return JsonResponse({}, status=200)
+
+
+class IssueView(APIView):
+    validator_class = IssueValidator
+
+    def post(self, request):
+        name = request.data.get("name", "")
+        phone = request.data.get("phone", "")
+        email = request.data.get("email", "")
+        i = Issue(
+            name=name,
+            phone=phone,
+            email=email
+        )
+        i.save()
+        text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
+        if phone:
+            sms_gateway = SMSGateway()
+            sms_gateway.send_sms(phone, text, message='')
+        if email:
+            msg_html = render_to_string('emails/issue_accepted.html',
+                                        {'name': name})
+            send_mail('Ваша заявка в ParkPass принята.', "", EMAIL_HOST_USER,
+                      ['%s' % str(email)], html_message=msg_html)
+        return JsonResponse({}, status=200)
+
+
+class EditCompanyView(LoginRequiredAPIView):
+    fields = {
+        'name': StringField(required=True, max_length=256),
+        'inn': CustomValidatedField(callable=validate_inn, required=True),
+        'kpp': CustomValidatedField(callable=validate_kpp, required=True),
+        'legal_address': StringField(required=True, max_length=512),
+        'actual_address': StringField(required=True, max_length=512),
+        'email': CustomValidatedField(callable=validate_email, required=True),
+        'phone': CustomValidatedField(callable=validate_phone_number, required=True),
+        'checking_account': StringField(required=True, max_length=64),
+        'checking_kpp': CustomValidatedField(callable=validate_kpp, required=True),
+    }
+
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request, id=-1):
+        return edit_object_view(request=request, id=id, object=Company, fields=self.fields)
+
+
+class ConnectIssueView(LoginRequiredAPIView):
+    validator_class = ConnectIssueValidator
+
+    def post(self, request):
+        parking_id = self.request.data['parking_id']
+        vendor_id = self.request.data.get('vendor_id', None)
+        org_name = self.request.data.get("org_name", None)
+        email = self.request.data.get("email", None)
+        phone = self.request.data.get("phone", None)
+        website = self.request.data.get("website", None)
+        contact_email = self.request.data["contact_email"]
+
+        try:
+            parking = Parking.objects.get(id=parking_id, approved=True, enabled=True)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                'Parking with such ID does not exist or not enabled/approved by administrator'
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if vendor_id:
+            try:
+                vendor = Vendor.objects.get(id=vendor_id)
+            except ObjectDoesNotExist:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    'Vendor with such ID does not exist'
+                )
+                return JsonResponse(e.to_dict(), status=400)
+            issue = ConnectIssue(
+                owner=self.request.owner,
+                parking=parking,
+                vendor=vendor,
+                contact_email=contact_email,
+            )
+        else:
+            issue = ConnectIssue(
+                owner=self.request.owner,
+                parking=parking,
+                organisation_name=org_name,
+                phone=phone,
+                email=email,
+                contact_email=contact_email,
+                website=website,
+            )
+        issue.save()
+        return JsonResponse({}, status=200)
+
+
+class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView)):
+    pass
+
+
+class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView)):
+    pass
+
+
+class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView)):
+    pass
 
 
 class PasswordChangeView(LoginRequiredAPIView):

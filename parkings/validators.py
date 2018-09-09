@@ -84,7 +84,7 @@ class CreateParkingValidator(BaseValidator):
             'name': self.request.data.get("name", None),
             'description': self.request.data.get("description", None),
             'address': self.request.data.get('address', None),
-            'free_places': self.request.data.get('free_places', None),
+            'max_places': self.request.data.get('max_places', None),
             'latitude': self.request.data.get("latitude", None),
             'longitude': self.request.data.get("longitude", None),
             'max_client_debt': self.request.data.get("max_client_debt", None),
@@ -100,7 +100,7 @@ class CreateParkingValidator(BaseValidator):
             validate_text(a['name'], 'name')
             validate_text(a['description'], 'description')
             validate_text(a['address'], 'address')
-            validate_uint(a['free_places'], 'free_places')
+            validate_uint(a['max_places'], 'max_places')
             validate_uint(a['max_client_debt'], 'max_client_debt')
         except ValidationError as e:
             self.code = e.code,

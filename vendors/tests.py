@@ -20,10 +20,11 @@ EMAIL = "test@testing.com"
 SECRET = "secret"
 
 
-def create_account(id=1, fname="Fname", phone=PHONE, email=EMAIL, password=PASSWORD,
+def create_account(display_id=1, fname="Fname", phone=PHONE, email=EMAIL, password=PASSWORD,
                    ven_name=LOGIN):
     account = Vendor.objects.create(
         # id=id,
+        display_id=display_id,
         first_name=fname,
         phone=phone,
         email=email,
@@ -195,7 +196,7 @@ class Statistics(TestCase):
             description="default",
             latitude=1,
             longitude=1,
-            free_places=5,
+            max_places=5,
             vendor=self.account
         )
         parking_2 = Parking.objects.create(
@@ -203,7 +204,7 @@ class Statistics(TestCase):
             description="second",
             latitude=2,
             longitude=3,
-            free_places=9,
+            max_places=9,
             vendor=self.account
         )
         for i in range(0, 100, 1):
@@ -265,57 +266,6 @@ class Statistics(TestCase):
                                  **TOKEN_DICT)
 
         self.assertEqual(200, response.status_code)
-
-
-class Issue(TestCase):
-
-    def test_full_data(self):
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'phone': '81234567890',
-            'email': 'wnnpasha@mailg.moc'
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        print response.content
-        self.assertEqual(200, response.status_code)
-
-    def test_partial_data(self):
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'phone': '81234567890',
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        print response.content
-        self.assertEqual(200, response.status_code)
-
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'email': 'wnnpasha@mailg.moc'
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        print response.content
-        self.assertEqual(400, response.status_code)
-
-    def test_no_name(self):
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'phone': '81234567890',
-            'email': 'wnnpasha@mailg.moc'
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        print response.content
-        self.assertEqual(400, response.status_code)
 
 
 class TestMethods(TestCase):

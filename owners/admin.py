@@ -8,6 +8,11 @@ class OwnerAdmin(admin.ModelAdmin):
     pass
 
 
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    pass
+
+
 @admin.register(OwnerSession)
 class OwnerSessionAdmin(admin.ModelAdmin):
     pass

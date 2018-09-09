@@ -232,5 +232,4 @@ class BaseAccountSession(models.Model):
                         + timedelta(seconds=self.ACCESS_TOKEN_EXPIRE_SECONDS)
 
     def is_expired(self):
-        print self.expired_at
         return timezone.now() >= self.expired_at
