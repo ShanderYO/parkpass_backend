@@ -402,7 +402,6 @@ class EmailConfirmationView(View):
                     account.email_confirmation = None
                     account.save()
                     confirmation.delete()
-                    account.create_password_and_send()
                     return JsonResponse({"message": "Email is activated successfully"})
 
                 except ObjectDoesNotExist:

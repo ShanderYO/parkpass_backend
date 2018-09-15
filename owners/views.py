@@ -161,11 +161,10 @@ class ParkingsTopView(LoginRequiredAPIView):
         return JsonResponse({'top': r[:count + 1]}, status=200)
 
 
-
 class IssueUpgradeView(LoginRequiredAPIView):
 
     def post(self, request):
-        account = request.vendor
+        account = request.owner
         description = request.data.get('description', None)
         type = request.data.get('issue_type', None)
         if type is None or description is None or not type.isdigit() or 0 > len(description) > 1000:

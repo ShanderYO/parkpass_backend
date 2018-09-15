@@ -14,7 +14,7 @@ urlpatterns = [
                   url(r'^email/add/$', ChangeEmailView.as_view()),
                   url(r'^email/confirm/(?P<code>\w+)/$', EmailConfirmationView.as_view()),
                   url(r'^connectissue/$', ConnectIssueView.as_view()),
-                  url(r'^upgadeissues/send/$', IssueUpgradeView.as_view()),
+                  url(r'^upgradeissues/send/$', IssueUpgradeView.as_view()),
                   url(r'^upgradeissues/show/(?P<page>\w+)/$', ListUpgradeIssuesView.as_view()),
                   url(r'^stats/sessions/$', ParkingStatisticsView.as_view()),
                   url(r'^stats/top/$', ParkingsTopView.as_view()),
