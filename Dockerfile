@@ -21,39 +21,30 @@ RUN apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev \
 RUN apt-get install -y python-openssl
 
 # Install pebbyweb project to /deploy
-RUN mkdir -p /parkpass_backend
-COPY /. /parkpass_backend
+RUN mkdir -p /app
+COPY /. /app
 
 # Upgrade pip manager
 RUN pip install --upgrade pip
 
 # Setup all app requirements
-RUN pip install -r /parkpass_backend/requirements.txt
+RUN pip install -r /app/requirements.txt
 
-# stop supervisor service as we'll run it manually
-RUN service supervisor stop
-RUN mkdir /var/log/gunicorn
+# Setup uwsgi log directory
+RUN mkdir /var/log/uwsgi
 
-RUN echo "daemon off;" >> /etc/nginx/nginx.conf
-RUN rm /etc/nginx/sites-enabled/default
+WORKDIR /app/
 
-WORKDIR /parkpass_backend/
+# Remove overrided file for localhost development
+#RUN rm -f parkpass_backend/local_settings.py
+#RUN rm -f parkpass_backend/local_settings.pyc
 
-# Add service.conf
-ADD ./deploy/service.conf /parkpass_backend/
-RUN ln -s /parkpass_backend/service.conf /etc/nginx/conf.d/
+# Config for socket upstream from nginx
+ARG SOCKNAME_DEFAULT="app.sock"
+ENV SOCKNAME=$SOCKNAME_DEFAULT
+VOLUME /app/socket-dir
 
-# Add supervisor
-ADD ./deploy/supervisord.conf /parkpass_backend/
-
-RUN ln -s /parkpass_backend/supervisord.conf /etc/supervisor/conf.d/
-
-# Install Gunicorn and Supervisor
-RUN apt-get install -y gunicorn
-
-# Expose port(s)
-EXPOSE 80
-
+# Config for Database PostgreSQL
 ARG POSTGRES_DB_NAME="main"
 ARG POSTGRES_USER="parkpass"
 ARG POSTGRES_PASSWORD="parkpass"
@@ -64,10 +55,20 @@ ENV POSTGRES_USER=$POSTGRES_USER
 ENV POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 ENV POSTGRES_DATABASE_HOST=$POSTGRES_DATABASE_HOST
 
-ENV DJANGO_DEBUG_FALSE=False
-ENV MEDIA_HOST="https://parkpass.ru/api"
+# Debug django env
+ARG DJANGO_DEBUG_FALSE=0
+ENV DJANGO_DEBUG=$DJANGO_DEBUG_FALSE
 
-VOLUME /var/logs
-VOLUME /parkpass_backend/media
+# SMS-gateway env
+ARG SMS_GATEWAY_ENABLE=1
+ENV SMS_GATEWAY_ENABLE=$SMS_GATEWAY_ENABLE
 
-CMD ./run_service.sh
+# Root host for media files
+ARG MEDIA_HOST="https://parkpass.ru/api"
+ENV MEDIA_HOST=$MEDIA_HOST
+
+# Set up volume for log-files
+VOLUME /var/log
+
+# Set up volume for static
+VOLUME /app/files
