@@ -1,3 +1,4 @@
+import json
 import re
 
 from django.core.exceptions import ValidationError
@@ -336,3 +337,42 @@ class ComplainSessionValidator(BaseValidator):
             return False
 
         return True
+
+
+def validate_tariff(tariff):
+    days = []
+    try:
+        j = json.loads(tariff)
+    except ValueError:
+        raise ValidationError("Not a valid JSON object")
+    tariff = j.get('tariff', None)
+    if not isinstance(tariff, list):
+        raise ValidationError('Field "tariff" should have "list" type, not %s' % str(type(tariff))[6:-1])
+    for i in tariff:
+        if not isinstance(i, dict):
+            raise ValidationError('Elements of field "tariff" should have "dict" type, not %s' % str(type(i))[6:-1])
+        dayList = i.get('dayList', None)
+        periodList = i.get('periodList', None)
+        if not all((isinstance(dayList, list), isinstance(periodList, list))):
+            raise ValidationError('Child elements of "tariff" elements should have "list" type')
+        for day in dayList:
+            if not isinstance(day, int):
+                raise ValidationError('Elements of field "dayList" should have "int" type, not %s'
+                                      % str(type(day))[6:-1])
+            if day in days:
+                raise ValidationError('Day numbers should not be repeating in tariff')
+            if day not in range(7):
+                raise ValidationError('Day numbers should be in 0..6 range')
+            days += [day]
+        for period in periodList:
+            time_start = period.get('time_start', None)
+            time_end = period.get('time_end', None)
+            description = period.get('description', None)
+            if not all((isinstance(time_start, int), isinstance(time_end, int), isinstance(description, unicode))):
+                raise ValidationError('"time_start" and "time_end" should have type "int", "description" - "str"')
+            if not time_start < time_end:
+                raise ValidationError('"time_start" should be less than "time_end"')
+            if any((time_start < 0, time_end < 0, time_start > 60 * 60 * 24, time_end > 60 * 60 * 24)):
+                raise ValidationError('Time fields should be in range 0..60*60*24')
+    if not [i for i in range(7)] == sorted(days):
+        raise ValidationError("Tariff should contain description for all days of week([0, 1, 2, 3, 4, 5, 6])")
