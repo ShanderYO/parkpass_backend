@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 from datetime import datetime, timedelta
 
 from django.core.mail import send_mail
@@ -21,7 +22,7 @@ from .models import Issue, ConnectIssue
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
 from .models import UpgradeIssue, Company
-from .validators import IssueValidator, ConnectIssueValidator
+from .validators import IssueValidator, ConnectIssueValidator, TariffValidator
 from .validators import validate_inn, validate_kpp
 
 
@@ -225,6 +226,27 @@ class EditCompanyView(LoginRequiredAPIView):
 
     def post(self, request, id=-1):
         return edit_object_view(request=request, id=id, object=Company, fields=self.fields)
+
+
+class TariffView(LoginRequiredAPIView):
+    validator_class = TariffValidator
+
+    def get(self, request, id):
+        try:
+            p = Parking.objects.get(id=id)
+        except ObjectDoesNotExist:
+            e = ValidationException.RESOURCE_NOT_FOUND
+            return JsonResponse(e.to_dict(), status=400)
+        return JsonResponse(json.loads(p.tariff), status=200)
+
+    def post(self, request, id):
+        try:
+            p = Parking.objects.get(id=id)
+        except ObjectDoesNotExist:
+            e = ValidationException.RESOURCE_NOT_FOUND
+            return JsonResponse(e.to_dict(), status=400)
+        p.tariff = request.data
+        return JsonResponse({}, status=200)
 
 
 class ConnectIssueView(LoginRequiredAPIView):
