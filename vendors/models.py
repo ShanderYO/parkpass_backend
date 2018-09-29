@@ -31,13 +31,23 @@ class Vendor(BaseAccount):
         (ACCOUNT_STATE.NORMAL, "Normal"),
         (ACCOUNT_STATE.TEST, "Test only")
     )
+    org_name = models.CharField(max_length=255, null=True, blank=True)
     account_state = models.IntegerField(choices=account_states, default=ACCOUNT_STATE.NORMAL)
     name = models.CharField(max_length=255, unique=True)
     comission = models.FloatField(default=0.02)
     secret = models.CharField(max_length=255, unique=True, default="stub")
+
     test_parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE, blank=True, null=True,
                                      related_name='parking_vendor')
     test_user = models.ForeignKey(to=User, on_delete=models.CASCADE, blank=True, null=True)
+
+    inn = models.CharField(max_length=15, blank=True, null=True)
+    kpp = models.CharField(max_length=15, blank=True, null=True)
+    bik = models.CharField(max_length=15, blank=True, null=True)
+    legal_address = models.CharField(max_length=512, blank=True, null=True)
+    actual_address = models.CharField(max_length=512, blank=True, null=True)
+    checking_account = models.CharField(max_length=64, blank=True, null=True)
+    checking_kpp = models.CharField(max_length=15, blank=True, null=True)
 
     class Meta:
         ordering = ["-id"]

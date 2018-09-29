@@ -5,8 +5,6 @@ from django.db.models import signals
 from django.template.loader import render_to_string
 
 from accounts.models import Account
-from owners.models import Company
-from owners.models import Owner
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
 
@@ -34,7 +32,7 @@ class UpgradeIssue(models.Model):
     )
     id = models.AutoField(primary_key=True)
     vendor = models.ForeignKey(to=Vendor, null=True, blank=True, related_name='issue_by_vendor')
-    owner = models.ForeignKey(to=Owner, null=True, blank=True, related_name='issue_by_owner')
+    owner = models.ForeignKey(to='owners.Owner', null=True, blank=True, related_name='issue_by_owner')
     description = models.CharField(max_length=1000)
     type = models.IntegerField(choices=types)
     issued_at = models.DateTimeField(auto_now_add=True)
@@ -58,7 +56,7 @@ class Parking(models.Model):
     max_places = models.IntegerField(default=0)
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     vendor = models.ForeignKey(Vendor, null=True, blank=True)
-    company = models.ForeignKey(Company, null=True, blank=True)
+    company = models.ForeignKey(to='owners.Company', null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
     software_updated_at = models.DateField(blank=True, null=True)
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")

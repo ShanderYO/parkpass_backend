@@ -1,23 +1,43 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 
-from django.core.exceptions import ObjectDoesNotExist
-from django.http.response import JsonResponse
+from django.db.models import Sum
 from django.views import View
-from dss.Serializer import serializer
 
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.models import EmailConfirmation
-from base.utils import datetime_from_unix_timestamp_tz
-from base.validators import LoginAndPasswordValidator
+from base.utils import *
+from base.validators import *
 from base.views import APIView
 from base.views import VendorAPIView as LoginRequiredAPIView
+from owners.validators import validate_inn, validate_kpp
 from parkings.models import ParkingSession, Parking, UpgradeIssue
-from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
+from .models import Vendor
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
+
+
+class EditVendorView(LoginRequiredAPIView):
+    fields = {
+        'org_name': StringField(max_length=255, required=True),
+        'inn': CustomValidatedField(callable=validate_inn, required=True),
+        'bik': IntField(required=True),
+        'kpp': CustomValidatedField(callable=validate_kpp, required=True),
+        'legal_address': StringField(required=True, max_length=512),
+        'actual_address': StringField(required=True, max_length=512),
+        'email': CustomValidatedField(callable=validate_email, required=True),
+        'phone': CustomValidatedField(callable=validate_phone_number, required=True),
+        'checking_account': StringField(required=True, max_length=64),
+        'checking_kpp': CustomValidatedField(callable=validate_kpp, required=True),
+    }
+
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request):
+        return edit_object_view(request=request, id=request.vendor.id,
+                                object=Vendor, fields=self.fields, incl_attr=list(self.fields))
 
 
 class ParkingStatisticsView(LoginRequiredAPIView):
@@ -147,6 +167,48 @@ class IssueUpgradeView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
+class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView, filter_by_account=True)):
+    pass
+
+
+class ParkingsTopView(LoginRequiredAPIView):
+    def post(self, request):
+        count = request.data.get('count', 3)
+        period = request.data.get('period', 'day')
+        if period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        else:
+            td = timedelta(days=30)
+        t = datetime.date.today() - td
+        parkings = Parking.objects.filter(vendor=request.vendor)
+        r = []
+        for p in parkings:
+            r.append({
+                'title': p.name,
+                'address': p.address,
+                'debt': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
+                    'debt__sum'],
+            })
+        r = sorted(r, key=lambda x: -x['debt'] if x['debt'] else 0)
+        return JsonResponse({
+            'top': r[:count + 1],
+            'comission': request.vendor.comission,
+            'sessions_count': len(r)
+        }, status=200)
+
+
+class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView, filter_by_account=True)):
+    pass
+
+
 class InfoView(LoginRequiredAPIView):
 
     def get(self, request, *args, **kwargs):
@@ -154,7 +216,7 @@ class InfoView(LoginRequiredAPIView):
 
         response = {
             'vendor_name': account.name,
-            'id': account.display_id,
+            'display_id': account.display_id,
             'secret_key': account.secret,
             'comission': account.comission
         }

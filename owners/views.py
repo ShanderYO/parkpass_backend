@@ -298,15 +298,16 @@ class ConnectIssueView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView)):
+class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView, filter_by_account=True)):
     pass
 
 
-class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView)):
+class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView, filter_by_account=True)):
     pass
 
 
-class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView)):
+class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView,
+                                               filter_by_account=True, account_field='company__owner')):
     pass
 
 

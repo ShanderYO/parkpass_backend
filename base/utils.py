@@ -11,7 +11,7 @@ from parkpass.settings import BASE_LOGGER_NAME
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
 
 
-def generic_pagination_view(obj, view_base_class):
+def generic_pagination_view(obj, view_base_class, filter_by_account=False, account_field=None):
     class GenericPaginationView(view_base_class):
         def post(self, request, page):
             filter = {}
@@ -20,7 +20,7 @@ def generic_pagination_view(obj, view_base_class):
                     attr, modifier = key.split('__') if not hasattr(obj, key) else (key, 'eq')
                     if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge', 'le', 'in') or not hasattr(obj, attr):
                         raise ValueError()
-                    if type(True) == type(request.data[key]):
+                    if isinstance(request.data[key], bool):
                         if modifier == 'eq':
                             filter[attr] = request.data[key]
                         elif modifier == 'ne':
@@ -38,10 +38,18 @@ def generic_pagination_view(obj, view_base_class):
                         "Invalid filter format"
                     )
                     return JsonResponse(e.to_dict(), status=400)
+            account_dict = {}
+            if filter_by_account:
+                for i in {'vendor', 'account', 'owner'}:
+                    account = getattr(request, i, None)
+                    if account != None:
+                        _ = account_field if account_field else i
+                        account_dict = {_: account}
             if filter:
+                filter.update(account_dict)
                 objects = obj.objects.filter(**filter)
             else:
-                objects = obj.objects.all()
+                objects = obj.objects.filter(**account_dict)
             page = int(page)
             result = []
             for o in objects:
@@ -211,7 +219,7 @@ class ForeignField(FieldType):
             return self._object.objects.get(id=value)
 
 
-def edit_object_view(request, id, object, fields):
+def edit_object_view(request, id, object, fields, incl_attr=None):
     try:
         if id == -1:
             instance = object()
@@ -249,4 +257,4 @@ def edit_object_view(request, id, object, fields):
         return JsonResponse(e.to_dict(), status=400)
     instance.save()
 
-    return JsonResponse(serializer(instance), status=200)
+    return JsonResponse(serializer(instance, include_attr=incl_attr), status=200)
