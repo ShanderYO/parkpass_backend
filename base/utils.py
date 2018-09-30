@@ -219,12 +219,25 @@ class ForeignField(FieldType):
             return self._object.objects.get(id=value)
 
 
-def edit_object_view(request, id, object, fields, incl_attr=None):
+def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None):
+    """
+    Generic object editing API view
+    :param request: pass request
+    :param id: ID of object, -1 to create new one
+    :param object: DB Model of object
+    :param fields: dict of fields with types
+    :param incl_attr: What attributes to show via serializer
+    :param req_attr: Dict of model attrs to be specified in getter and set to new objects
+    """
+    if req_attr is None:
+        req_attr = {}
     try:
         if id == -1:
             instance = object()
+            for attr, value in req_attr.items():
+                instance.__setattr__(attr, value)
         else:
-            instance = object.objects.get(id=id)
+            instance = object.objects.get(id=id, **req_attr)
     except ObjectDoesNotExist:
         e = ValidationException(
             ValidationException.RESOURCE_NOT_FOUND,

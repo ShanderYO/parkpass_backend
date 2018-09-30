@@ -225,7 +225,8 @@ class EditCompanyView(LoginRequiredAPIView):
     validator_class = create_generic_validator(fields)
 
     def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=Company, fields=self.fields)
+        return edit_object_view(request=request, id=id, object=Company, fields=self.fields,
+                                req_attr={'owner': request.owner})
 
 
 class TariffView(LoginRequiredAPIView):

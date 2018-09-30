@@ -37,7 +37,8 @@ class EditVendorView(LoginRequiredAPIView):
 
     def post(self, request):
         return edit_object_view(request=request, id=request.vendor.id,
-                                object=Vendor, fields=self.fields, incl_attr=list(self.fields))
+                                object=Vendor, fields=self.fields,
+                                incl_attr=list(self.fields))
 
 
 class ParkingStatisticsView(LoginRequiredAPIView):
@@ -209,9 +210,26 @@ class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView, fi
     pass
 
 
+class ParkingView(LoginRequiredAPIView):
+
+    def post(self, request, id):
+        fields = {
+            'name': StringField(max_length=63, required=True),
+            'address': StringField(max_length=63, required=True),
+            'max_places': IntField(required=True)
+        }
+        if id < 0:
+            e = ValidationException(ValidationException.RESOURCE_NOT_FOUND)
+            return JsonResponse(e.to_dict(), status=400)
+        return edit_object_view(request, id, Parking, fields, req_attr={'vendor': request.vendor},
+                                incl_attr=['name', 'address', 'created_at', 'parkpass_enabled'
+                                                                            'max_places', 'company__name',
+                                           'software_updated_at', ])
+
+
 class InfoView(LoginRequiredAPIView):
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request):
         account = request.vendor
 
         response = {
