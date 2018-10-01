@@ -269,5 +269,5 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
         )
         return JsonResponse(e.to_dict(), status=400)
     instance.save()
-
+    # TODO: Fix showing str's
     return JsonResponse(serializer(instance, include_attr=incl_attr), status=200)

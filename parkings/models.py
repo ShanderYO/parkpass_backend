@@ -46,7 +46,7 @@ class UpgradeIssue(models.Model):
 
 class Parking(models.Model):
     name = models.CharField(max_length=63, null=True, blank=True)
-    description = models.TextField()
+    description = models.TextField(null=True, blank=True)
     address = models.CharField(max_length=63, null=True, blank=True)
     latitude = models.DecimalField(max_digits=10, decimal_places=8)
     longitude = models.DecimalField(max_digits=11, decimal_places=8)

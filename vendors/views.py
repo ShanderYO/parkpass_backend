@@ -14,6 +14,7 @@ from base.views import APIView
 from base.views import VendorAPIView as LoginRequiredAPIView
 from owners.validators import validate_inn, validate_kpp
 from parkings.models import ParkingSession, Parking, UpgradeIssue
+from parkings.validators import validate_latitude, validate_longitude
 from .models import Vendor
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
@@ -193,6 +194,7 @@ class ParkingsTopView(LoginRequiredAPIView):
         r = []
         for p in parkings:
             r.append({
+                'id': p.id,
                 'title': p.name,
                 'address': p.address,
                 'debt': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
@@ -211,20 +213,40 @@ class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView, fi
 
 
 class ParkingView(LoginRequiredAPIView):
+    fields = {
+        'name': StringField(max_length=63, required=True),
+        'address': StringField(max_length=63, required=True),
+        'max_places': PositiveIntField(required=True)
+    }
+    validator_class = create_generic_validator(fields)
 
     def post(self, request, id):
-        fields = {
-            'name': StringField(max_length=63, required=True),
-            'address': StringField(max_length=63, required=True),
-            'max_places': IntField(required=True)
-        }
+
         if id < 0:
             e = ValidationException(ValidationException.RESOURCE_NOT_FOUND)
             return JsonResponse(e.to_dict(), status=400)
-        return edit_object_view(request, id, Parking, fields, req_attr={'vendor': request.vendor},
+        return edit_object_view(request, id, Parking, self.fields, req_attr={'vendor': request.vendor},
                                 incl_attr=['name', 'address', 'created_at', 'parkpass_enabled'
                                                                             'max_places', 'company__name',
                                            'software_updated_at', ])
+
+
+class CreateParkingView(LoginRequiredAPIView):
+    fields = {
+        'name': StringField(max_length=63, required=True),
+        'address': StringField(max_length=63, required=True),
+        'description': StringField(max_length=1000),
+        'latitude': CustomValidatedField(callable=validate_latitude, required=True),
+        'longitude': CustomValidatedField(callable=validate_longitude, required=True),
+        'enabled': BoolField(),
+        'max_client_debt': PositiveIntField(),
+        'max_places': PositiveIntField(required=True)
+    }
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request):
+        return edit_object_view(request, -1, Parking, self.fields, incl_attr=list(self.fields) + ['id'],
+                                req_attr={'vendor': request.vendor, 'approved': False})
 
 
 class InfoView(LoginRequiredAPIView):

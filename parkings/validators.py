@@ -14,6 +14,7 @@ def validate_latitude(value, allow_none=False):
     regex = "^(\-)?(?:90(?:(?:\.0{1,7})?)|(?:[0-9]|[1-8][0-9])(?:(?:\.[0-9]{1,7})?))$"
     if not re.match(regex, str(value)):
         raise ValidationError("Invalid latitude of geo position")
+    return float(value)
 
 
 def validate_longitude(value, allow_none=False):
@@ -23,6 +24,7 @@ def validate_longitude(value, allow_none=False):
     regex = "^(\-)?(?:180(?:(?:\.0{1,7})?)|(?:[0-9]|[1-9][0-9]|1[0-7][0-9])(?:(?:\.[0-9]{1,7})?))$"
     if not re.match(regex, str(value)):
         raise ValidationError("Invalid longitude of geo position")
+    return float(value)
 
 
 def validate_id(value, key_name, allow_none=False):
