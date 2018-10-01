@@ -5,7 +5,10 @@ from owners.models import *
 
 @admin.register(Owner)
 class OwnerAdmin(admin.ModelAdmin):
-    pass
+    def save_model(self, request, obj, form, change):
+        if obj.password == 'stub' and obj.email:
+            obj.create_password_and_send()
+        super(OwnerAdmin, self).save_model(request, obj, form, change)
 
 
 @admin.register(Company)
