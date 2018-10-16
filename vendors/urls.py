@@ -14,8 +14,14 @@ urlpatterns = [
                   url(r'^email/add/$', ChangeEmailView.as_view()),
                   url(r'^email/confirm/(?P<code>\w+)/$', EmailConfirmationView.as_view()),
                   url(r'^info/$', InfoView.as_view()),
-                  url(r'^upgradeissue/$', IssueUpgradeView.as_view()),
+                  url(r'^me/$', EditVendorView.as_view()),
+                  url(r'^parking/create/$', CreateParkingView.as_view()),
+                  url(r'^parking/(?P<id>\w+)/$', ParkingView.as_view()),
+                  url(r'^parkings/(?P<page>\w+)/$', ListParkingsView.as_view()),
+                  url(r'^upgradeissues/send/$', IssueUpgradeView.as_view()),
+                  url(r'^upgradeissues/show/(?P<page>\w+)/$', ListUpgradeIssuesView.as_view()),
                   # Statistics
+                  url(r'^stats/top/$', ParkingsTopView.as_view()),
                   url(r'^stats/parking/$', ParkingStatisticsView.as_view()),
                   url(r'^stats/summary/$', AllParkingsStatisticsView.as_view()),
 

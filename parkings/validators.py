@@ -1,3 +1,4 @@
+import json
 import re
 
 from django.core.exceptions import ValidationError
@@ -13,6 +14,7 @@ def validate_latitude(value, allow_none=False):
     regex = "^(\-)?(?:90(?:(?:\.0{1,7})?)|(?:[0-9]|[1-8][0-9])(?:(?:\.[0-9]{1,7})?))$"
     if not re.match(regex, str(value)):
         raise ValidationError("Invalid latitude of geo position")
+    return float(value)
 
 
 def validate_longitude(value, allow_none=False):
@@ -22,6 +24,7 @@ def validate_longitude(value, allow_none=False):
     regex = "^(\-)?(?:180(?:(?:\.0{1,7})?)|(?:[0-9]|[1-9][0-9]|1[0-7][0-9])(?:(?:\.[0-9]{1,7})?))$"
     if not re.match(regex, str(value)):
         raise ValidationError("Invalid longitude of geo position")
+    return float(value)
 
 
 def validate_id(value, key_name, allow_none=False):
@@ -154,7 +157,9 @@ class UpdateParkingSessionValidator(BaseValidator):
     def is_valid(self):
         session_id = self.request.data.get("session_id", None)
         parking_id = self.request.data.get("parking_id", None)
-        debt = self.request.data.get("debt", None)
+        debt = str(self.request.data.get("debt", None))
+        if debt is not None:
+            debt = str(debt)
         updated_at = self.request.data.get("updated_at", None)
 
         if not session_id or not parking_id or not debt or not updated_at:
@@ -176,7 +181,7 @@ class UpdateParkingSessionValidator(BaseValidator):
 
         try:
             float_debt = float(debt)
-            if float_debt <= 0:
+            if float_debt < 0:
                 raise TypeError()
         except (ValueError, TypeError):
             self.code = ValidationException.VALIDATION_ERROR
@@ -198,6 +203,8 @@ class CompleteParkingSessionValidator(BaseValidator):
         session_id = self.request.data.get("session_id", None)
         parking_id = self.request.data.get("parking_id", None)
         debt = self.request.data.get("debt", None)
+        if debt is not None:
+            debt = str(debt)
         completed_at = self.request.data.get("completed_at", None)
 
         if not session_id or not parking_id or not debt or not completed_at:
@@ -219,7 +226,7 @@ class CompleteParkingSessionValidator(BaseValidator):
 
         try:
             float_debt = float(debt)
-            if float_debt <= 0:
+            if float_debt < 0:
                 raise TypeError()
         except (ValueError, TypeError):
             self.code = ValidationException.VALIDATION_ERROR
@@ -336,3 +343,42 @@ class ComplainSessionValidator(BaseValidator):
             return False
 
         return True
+
+
+def validate_tariff(tariff):
+    days = []
+    try:
+        j = json.loads(tariff)
+    except ValueError:
+        raise ValidationError("Not a valid JSON object")
+    tariff = j.get('tariff', None)
+    if not isinstance(tariff, list):
+        raise ValidationError('Field "tariff" should have "list" type, not %s' % str(type(tariff))[6:-1])
+    for i in tariff:
+        if not isinstance(i, dict):
+            raise ValidationError('Elements of field "tariff" should have "dict" type, not %s' % str(type(i))[6:-1])
+        dayList = i.get('dayList', None)
+        periodList = i.get('periodList', None)
+        if not all((isinstance(dayList, list), isinstance(periodList, list))):
+            raise ValidationError('Child elements of "tariff" elements should have "list" type')
+        for day in dayList:
+            if not isinstance(day, int):
+                raise ValidationError('Elements of field "dayList" should have "int" type, not %s'
+                                      % str(type(day))[6:-1])
+            if day in days:
+                raise ValidationError('Day numbers should not be repeating in tariff')
+            if day not in range(7):
+                raise ValidationError('Day numbers should be in 0..6 range')
+            days += [day]
+        for period in periodList:
+            time_start = period.get('time_start', None)
+            time_end = period.get('time_end', None)
+            description = period.get('description', None)
+            if not all((isinstance(time_start, int), isinstance(time_end, int), isinstance(description, unicode))):
+                raise ValidationError('"time_start" and "time_end" should have type "int", "description" - "str"')
+            if not time_start < time_end:
+                raise ValidationError('"time_start" should be less than "time_end"')
+            if any((time_start < 0, time_end < 0, time_start > 60 * 60 * 24, time_end > 60 * 60 * 24)):
+                raise ValidationError('Time fields should be in range 0..60*60*24')
+    if not [i for i in range(7)] == sorted(days):
+        raise ValidationError("Tariff should contain description for all days of week([0, 1, 2, 3, 4, 5, 6])")

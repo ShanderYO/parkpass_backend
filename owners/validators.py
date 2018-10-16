@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import re
 
 from django.core.exceptions import ValidationError
@@ -6,6 +7,7 @@ from django.core.exceptions import ValidationError
 from accounts.validators import validate_email_format, validate_phone_number, validate_id
 from base.exceptions import ValidationException
 from base.validators import BaseValidator
+from parkings.validators import validate_tariff
 
 
 def validate_inn(value):
@@ -39,6 +41,17 @@ class IssueValidator(BaseValidator):
                 validate_email_format(email)
             if phone:
                 validate_phone_number(phone)
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+        return True
+
+
+class TariffValidator(BaseValidator):
+    def is_valid(self):
+        try:
+            validate_tariff(json.dumps(self.request.data))
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e.message)

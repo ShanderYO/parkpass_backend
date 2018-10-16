@@ -369,6 +369,14 @@ class ChangeEmailView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
+        # check non-unique email
+        if Account.objects.filter(email=email).exists():
+            e = ValidationException(
+                ValidationException.EMAIL_ALREADY_USED,
+                "Such email is already binded to another account"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
         # get if already exists
         email_confirmation_list = EmailConfirmation.objects.filter(email=email)
         if email_confirmation_list.exists():
@@ -401,6 +409,7 @@ class EmailConfirmationView(View):
                     account.email = confirmation.email
                     account.email_confirmation = None
                     account.save()
+                    account.create_password_and_send()
                     confirmation.delete()
                     return JsonResponse({"message": "Email is activated successfully"})
 
@@ -634,6 +643,13 @@ class CompleteParkingSession(LoginRequiredAPIView):
                 parking_id=parking_id,
                 client=request.account
             )
+
+            # if session is already not active
+            if parking_session.state == ParkingSession.STATE_VERIFICATION_REQUIRED:
+                e = ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "Parking session verification required")
+                return JsonResponse(e.to_dict(), status=400)
 
             # If session start is not confirm from vendor
             if not parking_session.is_started_by_vendor():

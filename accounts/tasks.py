@@ -16,6 +16,14 @@ def generate_current_debt_order(parking_session_id):
     try:
         active_session = ParkingSession.objects.get(id=parking_session_id)
 
+        # check completed and zero debt
+        if active_session.state in ParkingSession.ACTUAL_COMPLETED_STATES:
+            if active_session.debt < 0.01: # < that 1 penny
+                active_session.state = ParkingSession.STATE_CLOSED
+                active_session.save()
+                get_logger().info("Close session %s with <0.01 debt" % parking_session_id)
+                return
+
         ordered_sum = Order.get_ordered_sum_by_session(active_session)
         new_order_sum = active_session.debt - ordered_sum
 
@@ -119,11 +127,16 @@ def generate_orders_and_pay():
                    ParkingSession.STATE_STARTED_BY_VENDOR,
                    ParkingSession.STATE_COMPLETED_BY_VENDOR,
                    ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY,
+                   ParkingSession.STATE_COMPLETED_BY_CLIENT_FULLY,
                    ParkingSession.STATE_COMPLETED]
     )
     get_logger().info("start generate_dept_orders task: active sessions %s " % len(active_sessions))
 
     for session in active_sessions:
+        # TODO add checker
+        #if session.is_completed_by_vendor() and session.is_completed_by_client() and session.debt == 0:
+        #    session.state = ParkingSession.
+
         ordered_sum = Order.get_ordered_sum_by_session(session)
 
         if ordered_sum < session.debt:

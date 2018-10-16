@@ -211,7 +211,7 @@ class Statistics(TestCase):
             ps.save()
 
     def test_parking_stats_single(self):
-        url = URL_PREFIX + 'stats/parking/'
+        url = URL_PREFIX + 'stats/sessions/'
 
         body = json.dumps({
             'start': 20,
@@ -226,7 +226,7 @@ class Statistics(TestCase):
         self.assertEqual(200, response.status_code)
 
     def test_parking_stats_all(self):
-        url = URL_PREFIX + 'stats/parking/'
+        url = URL_PREFIX + 'stats/sessions/'
 
         body = json.dumps({
             'start': 20,
@@ -322,6 +322,74 @@ class Issue(TestCase):
         response = Client().post(url, body, content_type='application/json')
         print response.content
         self.assertEqual(400, response.status_code)
+
+
+class Tariff(TestCase):
+    def setUp(self):
+        self.account, self.account_session, self.sign = create_vendor_account()
+        self.owneracc, self.owneraccsess = create_account()
+        company = Company.objects.create(
+            owner=self.owneracc,
+            name="Test company",
+            inn="1234567890",
+            kpp="123456789012",
+            legal_address="ewsfrdg",
+            actual_address="sadfbg",
+            email=EMAIL,
+            phone=PHONE,
+            checking_account="1234",
+            checking_kpp="123456789012"
+        )
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            max_places=5,
+            vendor=self.account,
+            company=company
+        )
+        self.tariff = json.dumps({
+            'tariff': [
+                {
+                    'dayList': [0, 1, 2, 3, 4],
+                    'periodList': [
+                        {
+                            'time_start': 8 * 60 * 60,
+                            'time_end': 17 * 60 * 60,
+                            'description': "First 3 hrs: free\nNext: 200 rur"
+                        },
+                        {
+                            'time_start': 17 * 60 * 60,
+                            'time_end': 24 * 60 * 60,
+                            'description': "First 3 hrs: free\nNext: 200 rur"
+                        }
+                    ]
+                },
+                {
+                    'dayList': [5, 6],
+                    'periodList': [
+                        {
+                            'time_start': 8 * 60 * 60,
+                            'time_end': 20 * 60 * 60,
+                            'description': 'First hr: free\nNext: 200 rur'
+                        },
+                        {
+                            'time_start': 20 * 60 * 60,
+                            'time_end': 24 * 60 * 60,
+                            'description': 'Every hr: 300 rur'
+                        }
+                    ]
+                }
+            ]
+        })
+
+    def test_apply_new_tariff(self):
+        url = URL_PREFIX + 'parking/1/tariff/'
+
+        response = Client().post(url, self.tariff, content_type='application/json', **TOKEN_DICT)
+
+        self.assertEqual(response.status_code, 200)
 
 
 class ConnectIssueTests(TestCase):

@@ -102,7 +102,7 @@ class Authorization(TestCase):
         self.assertEqual(200, response.status_code)
 
     def test_issue_upgrade(self):
-        url = URL_PREFIX + "issue_upgrade/"
+        url = URL_PREFIX + "upgradeissues/send/"
 
         body = json.dumps({
             'description': 'Please install Quake III Arena to parking reader',
@@ -111,6 +111,12 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
 
+        self.assertEqual(200, response.status_code)
+
+    def test_get_top_parkings(self):
+        url = URL_PREFIX + 'stats/top/'
+
+        response = Client().post(url, '{}', content_type='application/json', **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
 
 

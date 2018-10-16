@@ -21,6 +21,7 @@ urlpatterns = [
                   url(r'^stats/summary/$', SummaryStatisticsView.as_view()),
                   url(r'^stats/info/$', AccountInfoView.as_view()),
                   url(r'^issue/$', IssueView.as_view()),
+                  url(r'^parking/(?P<id>\w+)/tariff/$', TariffView.as_view()),
                   url(r'^parkings/(?P<page>\w+)/$', ListParkingsView.as_view()),
                   url(r'^company/view/(?P<page>\w+)/$', ListCompanyView.as_view()),
                   url(r'^company/create/$', EditCompanyView.as_view()),

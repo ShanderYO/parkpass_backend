@@ -4,18 +4,20 @@ import hmac
 import json
 
 # Django import
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
+from accounts.validators import validate_phone_number
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException
 from base.utils import get_logger
 from base.validators import ValidatePostParametersMixin
 from parkpass.settings import REQUESTS_LOGGER_NAME
 from vendors.models import Vendor
+from .models import NotifyIssue
 
 
 class APIView(View, ValidatePostParametersMixin):
@@ -156,3 +158,16 @@ class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):
             auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
             return JsonResponse(auth_exception.to_dict(), status=401)
         return super(LoginRequiredFormMultipartView, self).dispatch(request, *args, **kwargs)
+
+
+class NotifyIssueView(APIView):
+    def post(self, request):
+        phone = request.data.get('phone', None)
+        try:
+            validate_phone_number(phone)
+        except ValidationError:
+            e = ValidationException(ValidationException.VALIDATION_ERROR,
+                                    'Invalid phone')
+            return JsonResponse(e.to_dict(), status=400)
+        NotifyIssue.objects.create(phone=phone)
+        return JsonResponse({}, status=200)
