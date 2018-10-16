@@ -375,6 +375,22 @@ class CreateSessionParkingTestCase(TestCase):
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
+    def test_second_active_session(self):
+        url = URL_PREFIX + "session/create/"
+
+        body = json.dumps({
+            "session_id": "valid-session-id",
+            "parking_id": 2,
+            "client_id": 2,
+            "started_at": 1000001
+        })
+
+        response = _make_signed_json_post(url, body)
+        self.assertEqual(response.status_code, 200)
+
+        parkings = ParkingSession.objects.filter(state=ParkingSession.STATE_VERIFICATION_REQUIRED)
+        self.assertEquals(parkings.count(), 1)
+
     def test_create_session_valid(self):
         url = URL_PREFIX + 'session/create/'
 
@@ -405,7 +421,7 @@ class UpdateSessionParkingTestCase(TestCase):
             session_id="exist-session-id",
             client=account,
             parking=parking_1,
-            state=ParkingSession.STATE_COMPLETED,
+            state=ParkingSession.STATE_STARTED,
             started_at=datetime.datetime.now()
         )
 
@@ -552,6 +568,21 @@ class UpdateSessionParkingTestCase(TestCase):
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
 
+    def test_zero_debt_value(self):
+        url = URL_PREFIX + 'session/update/'
+
+        # Set up debt negative sign
+        body = json.dumps({
+            "session_id": "exist-session-id",
+            "parking_id": 2,
+            "debt": 0,
+            "updated_at": 1000000
+        })
+        response = _make_signed_json_post(url, body)
+        self.assertEqual(response.status_code, 200)
+        # Validation error
+        print response.content
+
     def test_update_session_valid(self):
         url = URL_PREFIX + 'session/update/'
 
@@ -563,9 +594,10 @@ class UpdateSessionParkingTestCase(TestCase):
             "updated_at": 1000000
         })
         response = _make_signed_json_post(url, body)
-        self.assertEqual(response.status_code, 400)
-        # VAlidation error
+        self.assertEqual(response.status_code, 200)
+        # Validation error
         print response.content
+
 
 class CompleteSessionParkingTestCase(TestCase):
     """
@@ -595,7 +627,19 @@ class CompleteSessionParkingTestCase(TestCase):
             started_at=datetime.datetime.now()
         )
 
-    # TODO add need tests
+    def test_completed_session_with_zero_debt(self):
+        url = URL_PREFIX + 'session/complete/'
+        # Set up not completed session_id
+        body = json.dumps({
+            "session_id": "exist-session-id",
+            "parking_id": 2,
+            "debt": 0,
+            "completed_at": 1000000
+        })
+
+        response = _make_signed_json_post(url, body)
+        self.assertEqual(response.status_code, 200)
+        print response.content
 
     def test_completed_session_valid(self):
         url = URL_PREFIX + 'session/complete/'
