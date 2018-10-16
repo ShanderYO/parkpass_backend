@@ -370,6 +370,13 @@ class CreateParkingSessionView(SignedRequestAPIView):
             session.add_vendor_start_mark()
 
         except ObjectDoesNotExist:
+            # check active session
+            last_active_session = ParkingSession.get_active_session(account)
+            if last_active_session:
+                last_active_session.state = ParkingSession.STATE_VERIFICATION_REQUIRED
+                last_active_session.suspended_at = started_at
+                last_active_session.save()
+
             session = ParkingSession(
                 session_id=session_id,
                 client=account,

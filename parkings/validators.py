@@ -157,7 +157,9 @@ class UpdateParkingSessionValidator(BaseValidator):
     def is_valid(self):
         session_id = self.request.data.get("session_id", None)
         parking_id = self.request.data.get("parking_id", None)
-        debt = self.request.data.get("debt", None)
+        debt = str(self.request.data.get("debt", None))
+        if debt is not None:
+            debt = str(debt)
         updated_at = self.request.data.get("updated_at", None)
 
         if not session_id or not parking_id or not debt or not updated_at:
@@ -179,7 +181,7 @@ class UpdateParkingSessionValidator(BaseValidator):
 
         try:
             float_debt = float(debt)
-            if float_debt <= 0:
+            if float_debt < 0:
                 raise TypeError()
         except (ValueError, TypeError):
             self.code = ValidationException.VALIDATION_ERROR
@@ -201,6 +203,8 @@ class CompleteParkingSessionValidator(BaseValidator):
         session_id = self.request.data.get("session_id", None)
         parking_id = self.request.data.get("parking_id", None)
         debt = self.request.data.get("debt", None)
+        if debt is not None:
+            debt = str(debt)
         completed_at = self.request.data.get("completed_at", None)
 
         if not session_id or not parking_id or not debt or not completed_at:
@@ -222,7 +226,7 @@ class CompleteParkingSessionValidator(BaseValidator):
 
         try:
             float_debt = float(debt)
-            if float_debt <= 0:
+            if float_debt < 0:
                 raise TypeError()
         except (ValueError, TypeError):
             self.code = ValidationException.VALIDATION_ERROR
