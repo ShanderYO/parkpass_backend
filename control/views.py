@@ -11,6 +11,7 @@ from accounts.validators import *
 from base.exceptions import AuthException
 from base.utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
     edit_object_view, PositiveFloatField, PositiveIntField, CustomValidatedField
+from base.utils import clear_phone
 from base.utils import datetime_from_unix_timestamp_tz
 from base.utils import generic_pagination_view as pagination
 from base.validators import LoginAndPasswordValidator
@@ -71,7 +72,7 @@ class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = request.data["phone"]
+        phone = clear_phone(request.data["phone"])
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:

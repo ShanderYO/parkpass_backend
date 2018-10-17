@@ -8,6 +8,7 @@ from django.test import Client
 from django.test import TestCase
 
 from accounts.tests import create_account as create_user_account
+from base.utils import clear_phone
 from parkings.models import ParkingSession, Parking
 from .models import *
 
@@ -20,7 +21,7 @@ EMAIL = "test@testing.com"
 SECRET = "secret"
 
 
-def create_account(display_id=1, fname="Fname", phone=PHONE, email=EMAIL, password=PASSWORD,
+def create_account(display_id=1, fname="Fname", phone=clear_phone(PHONE), email=EMAIL, password=PASSWORD,
                    ven_name=LOGIN):
     account = Vendor.objects.create(
         # id=id,

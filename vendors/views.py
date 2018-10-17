@@ -348,7 +348,7 @@ class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = request.data["phone"]
+        phone = clear_phone(request.data["phone"])
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:
