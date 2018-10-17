@@ -1,8 +1,6 @@
 from django.contrib import admin
 
-from owners.models import Issue
 from parkings.models import UpgradeIssue
-# Register your models here.
 from vendors.models import Vendor, VendorSession
 
 
@@ -33,11 +31,6 @@ class VendorAdmin(admin.ModelAdmin):
 
 @admin.register(VendorSession)
 class VendorSessionAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(Issue)
-class IssueAdmin(admin.ModelAdmin):
     pass
 
 

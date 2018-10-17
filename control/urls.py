@@ -27,6 +27,7 @@ urlpatterns = [
 
                   url(r'^objects/issue/view/(?P<page>\w+)/$', ShowIssueView.as_view()),
                   url(r'^objects/issue/create/$', EditIssueView.as_view()),
+                  url(r'^objects/issue/accept/(?P<id>\w+)/$', AcceptIssueView.as_view()),
                   url(r'^objects/issue/(?P<id>\w+)/$', EditIssueView.as_view()),
 
                   url(r'^objects/upgradeissue/view/(?P<page>\w+)/$', ShowUpgradeIssueView.as_view()),

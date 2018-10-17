@@ -17,6 +17,7 @@ from base.validators import LoginAndPasswordValidator
 from base.validators import create_generic_validator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
+from owners.admin import accept_issue
 from owners.models import Company
 from owners.models import Issue
 from owners.models import Owner
@@ -292,6 +293,23 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
 
 class ShowIssueView(generic_pagination_view(Issue)):
     pass
+
+
+class AcceptIssueView(LoginRequiredAPIView):
+    def post(self, request, id):
+        try:
+            issue = Issue.objects.get(id=id)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Issue with such id was not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        try:
+            owner = accept_issue(issue)
+        except ValidationError:
+            return JsonResponse({'error': 'Can\'t accept issue: ValidationError'}, status=400)
+        return JsonResponse({'owner_id': owner.id})
 
 
 class EditIssueView(LoginRequiredAPIView):
