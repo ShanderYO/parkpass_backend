@@ -7,7 +7,6 @@ from django.http.response import JsonResponse, HttpResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account as UserAccount
-from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
@@ -50,11 +49,9 @@ class LoginView(APIView):
                     response_dict = serializer(session)
                     return JsonResponse(response_dict)
                 else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
+                    account.login()
+                    session = account.get_session()
+                    return JsonResponse(serializer(session))
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,
@@ -74,7 +71,6 @@ class LoginWithPhoneView(APIView):
 
     def post(self, request):
         phone = request.data["phone"]
-        success_status = 200
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:
@@ -84,16 +80,10 @@ class LoginWithPhoneView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        account.create_sms_code()
-        account.save()
+        account.login()
+        session = account.get_session()
 
-        # Send sms
-        sms_gateway = SMSGateway()
-        sms_gateway.send_sms(account.phone, account.sms_code)
-        if sms_gateway.exception:
-            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
-
-        return JsonResponse({}, status=success_status)
+        return JsonResponse(serializer(session, exclude_attr=("created_at",)), status=200)
 
 
 class ConfirmLoginView(APIView):

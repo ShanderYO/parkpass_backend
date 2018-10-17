@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from django.db.models import Sum
 from django.views import View
 
-from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.models import EmailConfirmation
@@ -297,11 +296,10 @@ class LoginView(APIView):
                     response_dict = serializer(session)
                     return JsonResponse(response_dict)
                 else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
+                    account.login()
+                    session = account.get_session()
+                    response_dict = serializer(session)
+                    return JsonResponse(response_dict)
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,
@@ -321,41 +319,18 @@ class LoginWithPhoneView(APIView):
 
     def post(self, request):
         phone = request.data["phone"]
-        success_status = 200
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:
-            account = Account(phone=phone)
-            success_status = 201
-
-        account.create_sms_code()
-        account.save()
-
-        # Send sms
-        sms_gateway = SMSGateway()
-        sms_gateway.send_sms(account.phone, account.sms_code)
-        if sms_gateway.exception:
-            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
-
-        return JsonResponse({}, status=success_status)
-
-
-class ConfirmLoginView(APIView):
-    validator_class = ConfirmLoginParamValidator
-
-    def post(self, request):
-        sms_code = request.data["sms_code"]
-        try:
-            account = Account.objects.get(sms_code=sms_code)
-            account.login()
-            session = account.get_session()
-            return JsonResponse(serializer(session, exclude_attr=("created_at",)))
-
-        except ObjectDoesNotExist:
-            e = AuthException(
-                AuthException.NOT_FOUND_CODE,
-                "Account with pending sms-code not found")
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Account with such phone number doesn't exist"
+            )
             return JsonResponse(e.to_dict(), status=400)
+
+        account.login()
+        session = account.get_session()
+        return JsonResponse(serializer(session, exclude_attr=("created_at",)))
 
 
 class PasswordRestoreView(APIView):
@@ -392,11 +367,10 @@ class LoginWithEmailView(APIView):
                     response_dict = serializer(session)
                     return JsonResponse(response_dict)
                 else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
+                    account.login()
+                    session = account.get_session()
+                    response_dict = serializer(session)
+                    return JsonResponse(response_dict)
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,

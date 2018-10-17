@@ -7,7 +7,6 @@ urlpatterns = [
 
                   url(r'^login/$', LoginView.as_view()),
                   url(r'^login/phone/$', LoginWithPhoneView.as_view()),
-                  url(r'^login/confirm/$', ConfirmLoginView.as_view()),
                   url(r'^logout/$', LogoutView.as_view()),
 
                   url(r'^objects/parking/view/(?P<page>\w+)/$', ShowParkingView.as_view()),

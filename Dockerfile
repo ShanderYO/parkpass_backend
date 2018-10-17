@@ -1,6 +1,24 @@
-FROM ubuntu:16.04
+# Only for cloning repo
+FROM ubuntu as intermediate
 
-# Install.
+# install git
+RUN apt-get update
+RUN apt-get install -y git
+
+# add credentials on build
+RUN mkdir /root/.ssh/
+COPY ./dockerkey /root/.ssh/id_rsa
+COPY ./dockerkey.pub /root/.ssh/id_rsa.pub
+
+# make sure your domain is accepted
+RUN touch /root/.ssh/known_hosts
+RUN ssh-keyscan bitbucket.org >> /root/.ssh/known_hosts
+RUN git config --global core.sshCommand 'ssh -i /root/.ssh/id_rsa.pub'
+RUN git clone --single-branch -b deploy git@bitbucket.org:strevg/parkpass-backend.git
+
+FROM ubuntu:16.04
+COPY --from=intermediate /parkpass-backend /srv/parkpass-backend
+
 RUN \
   apt-get update && \
   apt-get install -y build-essential && \
@@ -20,24 +38,16 @@ RUN apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev \
 # Install OpenSSL for python
 RUN apt-get install -y python-openssl
 
-# Install pebbyweb project to /deploy
-RUN mkdir -p /app
-COPY /. /app
-
 # Upgrade pip manager
 RUN pip install --upgrade pip
 
 # Setup all app requirements
-RUN pip install -r /app/requirements.txt
+RUN pip install -r /srv/parkpass-backend/requirements.txt
 
 # Setup uwsgi log directory
 RUN mkdir /var/log/uwsgi
 
-WORKDIR /app/
-
-# Remove overrided file for localhost development
-#RUN rm -f parkpass_backend/local_settings.py
-#RUN rm -f parkpass_backend/local_settings.pyc
+WORKDIR /srv/parkpass-backend
 
 # Config for socket upstream from nginx
 ARG SOCKNAME_DEFAULT="app.sock"

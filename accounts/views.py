@@ -365,7 +365,15 @@ class ChangeEmailView(LoginRequiredAPIView):
         if current_account.email == email:
             e = ValidationException(
                 ValidationException.ALREADY_EXISTS,
-                "Such email is already binded to account"
+                "Such email is already binded to this account"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        # check if email is binded to another account
+        if Account.objects.filter(email=email).exists():
+            e = ValidationException(
+                ValidationException.ALREADY_EXISTS,
+                "Such email is already binded to other account"
             )
             return JsonResponse(e.to_dict(), status=400)
 
