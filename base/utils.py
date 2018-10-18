@@ -119,8 +119,8 @@ def clear_phone(phone):
         .replace(')', '') \
         .replace(' ', '') \
         .replace('-', '') \
- \
- \
+
+
 def datetime_from_unix_timestamp_tz(value):
     if value is None:
         return None
