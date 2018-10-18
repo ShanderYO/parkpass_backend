@@ -18,6 +18,7 @@ from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator,
     EmailAndPasswordValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.models import EmailConfirmation
+from base.utils import clear_phone
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
@@ -103,7 +104,7 @@ class LoginView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = request.data["phone"]
+        phone = clear_phone(request.data["phone"])
         success_status = 200
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
@@ -365,7 +366,15 @@ class ChangeEmailView(LoginRequiredAPIView):
         if current_account.email == email:
             e = ValidationException(
                 ValidationException.ALREADY_EXISTS,
-                "Such email is already binded to account"
+                "Such email is already binded to this account"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        # check if email is binded to another account
+        if Account.objects.filter(email=email).exists():
+            e = ValidationException(
+                ValidationException.ALREADY_EXISTS,
+                "Such email is already binded to other account"
             )
             return JsonResponse(e.to_dict(), status=400)
 

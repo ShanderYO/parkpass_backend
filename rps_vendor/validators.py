@@ -51,6 +51,8 @@ class RpsUpdateParkingSessionValidator(BaseValidator):
 
         parking_id = self.request.data.get("parking_id", None)
         debt = self.request.data.get("debt", None)
+        if debt is not None:
+            debt = str(debt)
         updated_at = self.request.data.get("updated_at", None)
 
         if not client_id or not started_at or not parking_id or not debt or not updated_at:
@@ -74,7 +76,7 @@ class RpsUpdateParkingSessionValidator(BaseValidator):
 
         try:
             float_debt = float(debt)
-            if float_debt <= 0:
+            if float_debt < 0:
                 raise TypeError()
         except (ValueError, TypeError):
             self.code = ValidationException.VALIDATION_ERROR
@@ -143,6 +145,8 @@ class RpsCompleteParkingSessionValidator(BaseValidator):
 
         parking_id = self.request.data.get("parking_id", None)
         debt = self.request.data.get("debt", None)
+        if debt is not None:
+            debt = str(debt)
         completed_at = self.request.data.get("completed_at", None)
 
         if not client_id or not started_at or not parking_id or not debt or not completed_at:
@@ -166,7 +170,7 @@ class RpsCompleteParkingSessionValidator(BaseValidator):
 
         try:
             float_debt = float(debt)
-            if float_debt <= 0:
+            if float_debt < 0:
                 raise TypeError()
         except (ValueError, TypeError):
             self.code = ValidationException.VALIDATION_ERROR

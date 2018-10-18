@@ -7,17 +7,18 @@ from django.http.response import JsonResponse, HttpResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account as UserAccount
-from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
     edit_object_view, PositiveFloatField, PositiveIntField, CustomValidatedField
+from base.utils import clear_phone
 from base.utils import datetime_from_unix_timestamp_tz
 from base.utils import generic_pagination_view as pagination
 from base.validators import LoginAndPasswordValidator
 from base.validators import create_generic_validator
 from base.views import APIView
 from base.views import AdminAPIView as LoginRequiredAPIView
+from owners.admin import accept_issue
 from owners.models import Company
 from owners.models import Issue
 from owners.models import Owner
@@ -50,11 +51,9 @@ class LoginView(APIView):
                     response_dict = serializer(session)
                     return JsonResponse(response_dict)
                 else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
+                    account.login()
+                    session = account.get_session()
+                    return JsonResponse(serializer(session))
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,
@@ -73,8 +72,7 @@ class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = request.data["phone"]
-        success_status = 200
+        phone = clear_phone(request.data["phone"])
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:
@@ -84,16 +82,10 @@ class LoginWithPhoneView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        account.create_sms_code()
-        account.save()
+        account.login()
+        session = account.get_session()
 
-        # Send sms
-        sms_gateway = SMSGateway()
-        sms_gateway.send_sms(account.phone, account.sms_code)
-        if sms_gateway.exception:
-            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
-
-        return JsonResponse({}, status=success_status)
+        return JsonResponse(serializer(session, exclude_attr=("created_at",)), status=200)
 
 
 class ConfirmLoginView(APIView):
@@ -302,6 +294,23 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
 
 class ShowIssueView(generic_pagination_view(Issue)):
     pass
+
+
+class AcceptIssueView(LoginRequiredAPIView):
+    def post(self, request, id):
+        try:
+            issue = Issue.objects.get(id=id)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Issue with such id was not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        try:
+            owner = accept_issue(issue)
+        except ValidationError:
+            return JsonResponse({'error': 'Can\'t accept issue: ValidationError'}, status=400)
+        return JsonResponse({'owner_id': owner.id})
 
 
 class EditIssueView(LoginRequiredAPIView):
