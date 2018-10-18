@@ -112,6 +112,15 @@ def parse_float(value, raise_exception=False, allow_none=True, only_positive=Fal
         return None
 
 
+def clear_phone(phone):
+    return phone \
+        .replace('+', '') \
+        .replace('(', '') \
+        .replace(')', '') \
+        .replace(' ', '') \
+        .replace('-', '') \
+ \
+ \
 def datetime_from_unix_timestamp_tz(value):
     if value is None:
         return None
