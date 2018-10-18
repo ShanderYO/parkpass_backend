@@ -199,7 +199,10 @@ class ParkingSession(models.Model):
     @classmethod
     def get_active_session(cls, account):
         try:
-            return ParkingSession.objects.get(client=account, state__gt=0, is_suspended=False)
+            return ParkingSession.objects.get(
+                client=account, state__gt=0,
+                state__lt=ParkingSession.STATE_VERIFICATION_REQUIRED, is_suspended=False)
+
         except ObjectDoesNotExist:
             return None
 
