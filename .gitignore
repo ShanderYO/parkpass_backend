@@ -2,4 +2,4 @@
 .idea/
 *.log
 db.sqlite3
-data/venv
+data/venvmigrations

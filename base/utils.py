@@ -2,7 +2,7 @@ import datetime
 import logging
 
 import pytz
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, FieldError
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
@@ -11,28 +11,41 @@ from parkpass.settings import BASE_LOGGER_NAME
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
 
 
+def strtobool(s):
+    if s.lower() == 'true':
+        return True
+    if s.lower() == 'false':
+        return False
+    raise ValueError('%r must be "true" or "false"' % s)
+
+
 def generic_pagination_view(obj, view_base_class, filter_by_account=False, account_field=None):
     class GenericPaginationView(view_base_class):
-        def post(self, request, page):
+        def get(self, request):
             filter = {}
-            for key in request.data:
+            data = dict(request.GET)
+            page = data.pop('page', 0)
+            count = data.pop('count', PAGINATION_OBJECTS_PER_PAGE)
+            for key in data:
                 try:
                     attr, modifier = key.split('__') if not hasattr(obj, key) else (key, 'eq')
                     if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge', 'le', 'in') or not hasattr(obj, attr):
                         raise ValueError()
-                    if isinstance(request.data[key], bool):
+                    if data[key][0].lower() in {'true', 'false'}:
                         if modifier == 'eq':
-                            filter[attr] = request.data[key]
+                            filter[attr] = strtobool(data[key][0])
                         elif modifier == 'ne':
-                            filter[attr] = not request.data[key]
+                            filter[attr] = not strtobool(data[key][0])
                         else:
                             raise ValueError()
                     else:
                         if modifier == 'eq':
-                            filter[attr] = request.data[key]
+                            filter[attr] = data[key][0]
+                        elif modifier == 'in':
+                            filter[attr + '__in'] = data[key]
                         else:
-                            filter[attr + '__' + modifier] = request.data[key]
-                except ValueError:
+                            filter[attr + '__' + modifier] = data[key][0]
+                except (ValueError, FieldError):
                     e = ValidationException(
                         ValidationException.VALIDATION_ERROR,
                         "Invalid filter format"
@@ -42,9 +55,10 @@ def generic_pagination_view(obj, view_base_class, filter_by_account=False, accou
             if filter_by_account:
                 for i in {'vendor', 'account', 'owner'}:
                     account = getattr(request, i, None)
-                    if account != None:
+                    if account is not None:
                         _ = account_field if account_field else i
                         account_dict = {_: account}
+                        break
             if filter:
                 filter.update(account_dict)
                 objects = obj.objects.filter(**filter)
@@ -55,7 +69,6 @@ def generic_pagination_view(obj, view_base_class, filter_by_account=False, accou
             for o in objects:
                 result.append(serializer(o))
             length = len(result)
-            count = PAGINATION_OBJECTS_PER_PAGE
             if length > count:
                 result = result[page * count:(page + 1) * count]
             return JsonResponse({'count': length, 'objects': result}, status=200)

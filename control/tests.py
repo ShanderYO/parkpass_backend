@@ -275,9 +275,7 @@ class ComplainPagination(TestCase):
             )
 
     def test_show_complains(self):
-        url = self.url + "1/"
-
-        response = Client().post(url, '{}', **TOKEN_DICT)
+        response = Client().get(self.url, **TOKEN_DICT)
         j = json.loads(response.content)
 
         print json.dumps(j, indent=4)
@@ -328,7 +326,7 @@ class FilterPagination(TestCase):
     def setUp(self):
         create_account()
         account, _ = create_user_account()
-        self.url = URL_PREFIX + "objects/parking/view/1/"
+        self.url = URL_PREFIX + "objects/parking/view/"
         parking_1 = Parking.objects.create(
             name="parking-1",
             description="first",
@@ -358,50 +356,33 @@ class FilterPagination(TestCase):
         )
 
     def test_show_approved(self):
-        body = json.dumps({
-            'approved__eq': True
-        })
-
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(self.url + '?approved__eq=true', **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(1, len(j['objects']))
         self.assertEqual(True, j['objects'][0]['approved'])
 
     def test_show_not_approved(self):
-        body = json.dumps({
-            'approved__ne': True
-        })
+        url = self.url + '?approved__ne=True'
 
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(2, len(j['objects']))
         self.assertEqual(False, j['objects'][0]['approved'])
 
     def test_show_free(self):
-        body = json.dumps({
-            'free_places__gt': 0
-        })
-
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(self.url + '?free_places__gt=0', **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(3, len(j['objects']))
 
     def test_show_busy(self):
-        body = json.dumps({
-            'free_places': 0
-        })
-
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(self.url + '?free_places=0', **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(0, len(j['objects']))
 
     def test_description_in(self):
-        body = json.dumps({
-            'description__in': [
-                'second', 'third'
-            ]
-        })
+        params = '?description__in=second&' \
+                 'description__in=third'
 
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(self.url + params, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(2, len(j['objects']))

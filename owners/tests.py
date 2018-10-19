@@ -267,9 +267,8 @@ class Companies(TestCase):
         self.assertEqual(200, response.status_code)
 
     def test_paginate(self):
-        url = self.url + 'view/1/'
-        body = '{}'
-        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        url = self.url + 'view/'
+        response = Client().get(url, **TOKEN_DICT)
         # print json.dumps(json.loads(response.content), indent=4), 12321
         self.assertEqual(200, response.status_code)
 
