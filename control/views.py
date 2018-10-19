@@ -72,38 +72,31 @@ class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = clear_phone(request.data["phone"])
+        phone = clear_phone(request.data.get("phone", None))
+        password = request.data.get('password', None)
+        if not all((phone, password)):
+            e = ValidationException(ValidationException.VALIDATION_ERROR,
+                                    'phone and password are required')
+            return JsonResponse(e.to_dict(), status=400)
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
+            if account.check_password(password):
+                account.login()
+                session = account.get_session()
+            else:
+                e = AuthException(
+                    AuthException.INVALID_PASSWORD,
+                    "Invalid password"
+                )
+                return JsonResponse(e.to_dict(), status=400)
         else:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Administrator with that phone number was not found"
+                "Account with such phone number doesn't exist"
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        account.login()
-        session = account.get_session()
-
-        return JsonResponse(serializer(session, exclude_attr=("created_at",)), status=200)
-
-
-class ConfirmLoginView(APIView):
-    validator_class = ConfirmLoginParamValidator
-
-    def post(self, request):
-        sms_code = request.data["sms_code"]
-        try:
-            account = Account.objects.get(sms_code=sms_code)
-            account.login()
-            session = account.get_session()
-            return JsonResponse(serializer(session, exclude_attr=("created_at",)))
-
-        except ObjectDoesNotExist:
-            e = AuthException(
-                AuthException.NOT_FOUND_CODE,
-                "Account with pending sms-code not found")
-            return JsonResponse(e.to_dict(), status=400)
+        return JsonResponse(serializer(session, exclude_attr=("created_at",)))
 
 
 class LogoutView(LoginRequiredAPIView):

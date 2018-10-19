@@ -367,9 +367,23 @@ class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = clear_phone(request.data["phone"])
+        phone = clear_phone(request.data.get("phone", None))
+        password = request.data.get('password', None)
+        if not all((phone, password)):
+            e = ValidationException(ValidationException.VALIDATION_ERROR,
+                                    'phone and password are required')
+            return JsonResponse(e.to_dict(), status=400)
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
+            if account.check_password(password):
+                account.login()
+                session = account.get_session()
+            else:
+                e = AuthException(
+                    AuthException.INVALID_PASSWORD,
+                    "Invalid password"
+                )
+                return JsonResponse(e.to_dict(), status=400)
         else:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -377,8 +391,6 @@ class LoginWithPhoneView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        account.login()
-        session = account.get_session()
         return JsonResponse(serializer(session, exclude_attr=("created_at",)))
 
 

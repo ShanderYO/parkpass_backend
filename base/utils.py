@@ -293,3 +293,40 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
     instance.save()
     # TODO: Fix showing str's
     return JsonResponse(serializer(instance, include_attr=incl_attr), status=200)
+
+# def generic_edit_view(view_base_class, id, object, fields, incl_attr=None, required_attr=None):
+#     class GenericEditView(view_base_class):
+#         def post(self, request):
+#             if required_attr is None:
+#                 required_attr = {}
+#             try:
+#                 if id == -1:
+#                     instance = object()
+#                     for attr, value in required_attr.items():
+#                         instance.__setattr__(attr, value)
+#                 else:
+#                     instance = object.objects.get(id=id, **required_attr)
+#             except ObjectDoesNotExist:
+#                 e = ValidationException(
+#                     ValidationException.RESOURCE_NOT_FOUND,
+#                     "Object with such ID not found"
+#                 )
+#                 return JsonResponse(e.to_dict(), status=400)
+#             try:
+#                 delete = parse_bool(request.data.get("delete", None))
+#                 if delete:
+#                     instance.delete()
+#                     return JsonResponse({}, status=200)
+#                 for field in fields:
+#                     raw = request.data.get(field, None)
+#                     if raw is not None:
+#                         val = fields[field].parse(raw)
+#                         if val is not None:
+#                             instance.__setattr__(field, val)
+#                     elif fields[field].is_required and id == -1:  # If field is required and action == create
+#                         e = ValidationException(
+#                             ValidationException.VALIDATION_ERROR,
+#                             'Field `%s` is required' % field
+#                         )
+#                         return JsonResponse(e.to_dict(), status=400)
+#     return GenericEditView
