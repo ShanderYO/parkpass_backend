@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import datetime
 import logging
 
@@ -19,19 +20,38 @@ def strtobool(s):
     raise ValueError('%r must be "true" or "false"' % s)
 
 
-def generic_pagination_view(obj, view_base_class, filter_by_account=False, account_field=None):
+def generic_pagination_view(obj, view_base_class, filter_by_account=False, account_field=None, exclude_attr=()):
     class GenericPaginationView(view_base_class):
         def get(self, request):
+            # Кучка непонятного кода, потому что "Rest Framework связывает нас по рукам и ногам, с нуля проще"
             filter = {}
-            data = dict(request.GET)
-            page = data.pop('page', 0)
-            count = data.pop('count', PAGINATION_OBJECTS_PER_PAGE)
+            data = dict(request.GET)  # Кастуем в словарь, чтобы можно было удалять элементы
+
+            for key in data:  # Кастуем в инт все числовые значения, остальные в str
+                values = data[key]
+                data.pop(key)
+                key = key.encode('utf-8')
+                data[key] = []
+                for value in values:
+                    data[key].append(int(value) if value.isdigit() else value.encode('utf-8'))
+
+            page = int(data.pop('page', 0))
+            count = int(data.pop('count', PAGINATION_OBJECTS_PER_PAGE))
+
             for key in data:
                 try:
-                    attr, modifier = key.split('__') if not hasattr(obj, key) else (key, 'eq')
-                    if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge', 'le', 'in') or not hasattr(obj, attr):
+                    if hasattr(obj, key):  # Если указано название существующего поля
+                        attr, modifier = key, 'eq'  # То мы сравниваем точное значение
+                        first_attr = attr
+                    else:
+                        _ = key.split('__')  # Иначе ловим модификатор
+                        attr, modifier = '__'.join(_[:-1]), _[-1]
+                        first_attr = _[0]
+                    if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge',
+                                        'le', 'in', 'tlt', 'tgt') or not hasattr(obj, first_attr):
                         raise ValueError()
-                    if data[key][0].lower() in {'true', 'false'}:
+                    if data[key][0] in {'True', 'False', 'true', 'false'}:
+                        # Кастуем значение в bool, если оно таковым является
                         if modifier == 'eq':
                             filter[attr] = strtobool(data[key][0])
                         elif modifier == 'ne':
@@ -43,6 +63,10 @@ def generic_pagination_view(obj, view_base_class, filter_by_account=False, accou
                             filter[attr] = data[key][0]
                         elif modifier == 'in':
                             filter[attr + '__in'] = data[key]
+                        elif modifier in ('tlt', 'tgt'):
+                            # Для дат используем отдельные модификаторы, так как это реально проще,
+                            # чем дёргать с модели поле для проверки типа(которое может ссылаться и на другую модель)
+                            filter[attr + '__' + modifier[1:]] = datetime_from_unix_timestamp_tz(int(data[key][0]))
                         else:
                             filter[attr + '__' + modifier] = data[key][0]
                 except (ValueError, FieldError):
@@ -52,24 +76,20 @@ def generic_pagination_view(obj, view_base_class, filter_by_account=False, accou
                     )
                     return JsonResponse(e.to_dict(), status=400)
             account_dict = {}
-            if filter_by_account:
-                for i in {'vendor', 'account', 'owner'}:
+            if filter_by_account:  # Если необходимо, фильтруем объекты по аккаунту пользователя, запросившего их
+                for i in {'vendor', 'account', 'owner'}:  # TODO: DEPRECATION
                     account = getattr(request, i, None)
                     if account is not None:
                         _ = account_field if account_field else i
                         account_dict = {_: account}
                         break
-            if filter:
-                filter.update(account_dict)
-                objects = obj.objects.filter(**filter)
-            else:
-                objects = obj.objects.filter(**account_dict)
-            page = int(page)
+            filter.update(account_dict)
+            objects = obj.objects.filter(**filter)
             result = []
             for o in objects:
-                result.append(serializer(o))
+                result.append(serializer(o, exclude_attr=exclude_attr))
             length = len(result)
-            if length > count:
+            if length > count:  # Пагинация
                 result = result[page * count:(page + 1) * count]
             return JsonResponse({'count': length, 'objects': result}, status=200)
 

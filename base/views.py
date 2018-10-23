@@ -115,16 +115,27 @@ class LoginRequiredAPIView(APIView):
         return super(LoginRequiredAPIView, self).dispatch(request, *args, **kwargs)
 
 
-class VendorAPIView(LoginRequiredAPIView):
-    account_type = 'vendor'
+def generic_login_required_view(account_model):
+    class GenericLoginRequiredAPIView(LoginRequiredAPIView):
+        account_type = account_model.__name__.lower()
+
+    print("DEPRECATED: Will be removed due to optimizing accounting architecture")
+    return GenericLoginRequiredAPIView
 
 
-class OwnerAPIView(LoginRequiredAPIView):
-    account_type = 'owner'
+def type_variative_view(view, type):
+    """
+    Fabric of account views for specific account type
+    :param view: APIView with TypeVariativeViewMixin to specify type of it
+    :param type: Type of account
+    :return: Generic view for specified account type
+    """
 
+    class GenericTypeVariativeView(view):
+        __doc__ = view.__doc__
+        account_class = type
 
-class AdminAPIView(LoginRequiredAPIView):
-    account_type = 'admin'
+    return GenericTypeVariativeView
 
 
 class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):

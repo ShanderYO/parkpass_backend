@@ -17,7 +17,7 @@ from base.utils import generic_pagination_view as pagination
 from base.validators import LoginAndPasswordValidator
 from base.validators import create_generic_validator
 from base.views import APIView
-from base.views import AdminAPIView as LoginRequiredAPIView
+from base.views import generic_login_required_view
 from owners.admin import accept_issue
 from owners.models import Company
 from owners.models import Issue
@@ -31,6 +31,7 @@ from vendors.models import Vendor
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
 
+LoginRequiredAPIView = generic_login_required_view(Account)
 
 def generic_pagination_view(x):
     return pagination(x, LoginRequiredAPIView)

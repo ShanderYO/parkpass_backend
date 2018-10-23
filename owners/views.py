@@ -14,7 +14,7 @@ from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
 from base.views import APIView
-from base.views import OwnerAPIView as LoginRequiredAPIView
+from base.views import generic_login_required_view
 from parkings.models import Parking, ParkingSession
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
@@ -25,6 +25,7 @@ from .models import UpgradeIssue, Company
 from .validators import IssueValidator, ConnectIssueValidator, TariffValidator
 from .validators import validate_inn, validate_kpp
 
+LoginRequiredAPIView = generic_login_required_view(Account)
 
 class AccountInfoView(LoginRequiredAPIView):
     def get(self, request):
@@ -69,67 +70,11 @@ class SummaryStatisticsView(LoginRequiredAPIView):
         }, status=200)
 
 
-class ParkingStatisticsView(LoginRequiredAPIView):
-    def post(self, request):
-        def get_ids_from_list(s):
-            if str(s).isdigit():
-                return [int(s)]
-            s = s.replace(' ', '').strip(',').split(',')
-            l = []
-            for i in s:
-                if i.isdigit():
-                    l.append(i)
-            return l
-
-        try:
-            id = request.data.get("pk", '')
-            start_from = int(request.data.get("start", -1))
-            stop_at = int(request.data.get("end", -1))
-            page = int(request.data.get("page", 0))
-            count = int(request.data.get("count", PAGINATION_OBJECTS_PER_PAGE))
-        except ValueError:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                "All fields must be int"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        if stop_at < start_from:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                "`start_from` shouldn't be greater than `stop_at`"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        ids = get_ids_from_list(id)
-        try:
-            if not ids:
-                parkings = Parking.objects.filter(company__owner=request.owner)
-            else:
-                parkings = Parking.objects.filter(id__in=ids, company__owner=request.owner)
-        except ObjectDoesNotExist:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "Target parking with such id not found"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        parkings_list = []
-        for parking in parkings:
-            stat = ParkingSession.objects.filter(
-                parking=parking,
-                started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-                else datetime.datetime.now() - timedelta(days=31),
-                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.datetime.now()
-            )
-            sessions_list = []
-            for ps in stat:
-                sessions_list.append(
-                    serializer(ps, exclude_attr=['try_refund', 'debt', 'current_refund_sum', 'target_refund_sum'])
-                )
-            parkings_list.append({
-                'parking_id': parking.id,
-                'sessions': sessions_list
-            })
-        return JsonResponse({'count': len(parkings_list),
-                             'parkings': parkings_list[page * count:(page + 1) * count]})
+class ParkingSessionsView(generic_pagination_view(ParkingSession, LoginRequiredAPIView, True,
+                                                  'parking__company__owner',
+                                                  exclude_attr=['try_refund', 'debt', 'current_refund_sum',
+                                                                'target_refund_sum'])):
+    pass
 
 
 class ParkingsTopView(LoginRequiredAPIView):

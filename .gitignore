@@ -2,4 +2,8 @@
 .idea/
 *.log
 db.sqlite3
-data/venvmigrations
+data/venv
+
+#migrations
+migrations
+\d{4}.+\.py

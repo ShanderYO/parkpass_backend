@@ -11,14 +11,19 @@ from accounts.tasks import generate_current_debt_order
 from base.exceptions import PermissionException
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
-from base.views import LoginRequiredAPIView, SignedRequestAPIView, VendorAPIView, OwnerAPIView
+from base.views import generic_login_required_view, SignedRequestAPIView
+from owners.models import Owner
 from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, CreateParkingValidator
+from vendors.models import Vendor
 from .models import UpgradeIssue
 
+LoginRequiredAPIView = generic_login_required_view(Account)
+VendorAPIView = generic_login_required_view(Vendor)
+OwnerAPIView = generic_login_required_view(Owner)
 
 def check_permission(vendor, parking=None):
     if vendor.account_state == vendor.ACCOUNT_STATE.DISABLED:

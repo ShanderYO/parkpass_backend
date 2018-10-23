@@ -15,7 +15,7 @@ urlpatterns = [
                   url(r'^connectissue/$', ConnectIssueView.as_view()),
                   url(r'^upgradeissues/send/$', IssueUpgradeView.as_view()),
                   url(r'^upgradeissues/show/$', ListUpgradeIssuesView.as_view()),
-                  url(r'^stats/sessions/$', ParkingStatisticsView.as_view()),
+                  url(r'^stats/sessions/$', ParkingSessionsView.as_view()),
                   url(r'^stats/top/$', ParkingsTopView.as_view()),
                   url(r'^stats/summary/$', SummaryStatisticsView.as_view()),
                   url(r'^stats/info/$', AccountInfoView.as_view()),

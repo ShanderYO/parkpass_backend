@@ -13,7 +13,7 @@ from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
 from base.views import APIView
-from base.views import VendorAPIView as LoginRequiredAPIView
+from base.views import generic_login_required_view
 from owners.validators import IssueValidator
 from owners.validators import validate_inn, validate_kpp
 from parkings.models import ParkingSession, Parking, UpgradeIssue
@@ -22,6 +22,8 @@ from parkpass.settings import EMAIL_HOST_USER
 from .models import Vendor, Issue
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
+
+LoginRequiredAPIView = generic_login_required_view(Vendor)
 
 
 class EditVendorView(LoginRequiredAPIView):

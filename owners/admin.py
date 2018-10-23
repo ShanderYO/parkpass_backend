@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
+from base.admin import AccountAdmin
 from owners.models import *
 
 
@@ -38,14 +39,9 @@ class IssueAdmin(admin.ModelAdmin):
 
 
 @admin.register(Owner)
-class OwnerAdmin(admin.ModelAdmin):
-    list_display = ["name", "first_name", "last_name", "email"]
-    list_filter = ["created_at"]
-
-    def save_model(self, request, obj, form, change):
-        if obj.password == 'stub' and obj.email:
-            obj.create_password_and_send()
-        super(OwnerAdmin, self).save_model(request, obj, form, change)
+class OwnerAdmin(AccountAdmin):
+    list_display = ['name', 'first_name', 'last_name']
+    pass
 
 
 @admin.register(Company)

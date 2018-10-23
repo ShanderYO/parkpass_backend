@@ -212,29 +212,16 @@ class Statistics(TestCase):
             ps.save()
 
     def test_parking_stats_single(self):
-        url = URL_PREFIX + 'stats/sessions/'
-
-        body = json.dumps({
-            'start': 20,
-            'end': 80,
-            'pk': 2,
-        })
-
-        response = Client().post(url, body, content_type='application/json',
+        url = URL_PREFIX + 'stats/sessions/?parking__id__eq=2&started_at__tgt=20&started_at__tlt=80'
+        response = Client().get(url, content_type='application/json',
                                  **TOKEN_DICT)
 
         # print response.content, 'single'
         self.assertEqual(200, response.status_code)
 
     def test_parking_stats_all(self):
-        url = URL_PREFIX + 'stats/sessions/'
-
-        body = json.dumps({
-            'start': 20,
-            'end': 80,
-        })
-
-        response = Client().post(url, body, content_type='application/json',
+        url = URL_PREFIX + 'stats/sessions/?started_at__tgt=20&started_at__tlt=80'
+        response = Client().get(url, content_type='application/json',
                                  **TOKEN_DICT)
 
         # print response.content, 'all'
