@@ -87,6 +87,18 @@ class Issue(models.Model):
     comment = models.CharField(max_length=1023, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, editable=True)
 
+    def accept(self):
+        owner = Owner(
+            phone=self.phone,
+            email=self.email,
+            name=self.name,
+        )
+        owner.full_clean()
+        owner.save()
+        owner.create_password_and_send()
+        self.delete()
+        return owner
+
 
 class ConnectIssue(models.Model):
     owner = models.ForeignKey(to=Owner, on_delete=models.CASCADE)

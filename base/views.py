@@ -37,7 +37,7 @@ class APIView(View, ValidatePostParametersMixin):
                 "error": "HTTP Status 415 - Unsupported Media Type"
             }, status=415)
 
-        if request.method == 'POST':
+        if request.method in {'POST', 'PUT'}:
             # Parse json-string
             try:
                 request.data = json.loads(request.body)

@@ -221,11 +221,11 @@ class IntChoicesField(FieldType):
     def parse(self, value):
         if not self.is_required and value is None:
             return None
-        if value not in map(lambda x: x[0], self._choices):
+        if parse_int(value) not in map(lambda x: x[0], self._choices):
             if self._raise:
                 raise ValidationException(
                     ValidationException.VALIDATION_ERROR,
-                    "Value %s must be one of %s" % (value, self._choices)
+                    "Value %r must be one of %s" % (value, self._choices)
                 )
             return None
         return parse_int(value, raise_exception=self._raise)
@@ -261,7 +261,7 @@ class ForeignField(FieldType):
             return self._object.objects.get(id=value)
 
 
-def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None):
+def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None, create=False, edit=True):
     """
     Generic object editing API view
     :param request: pass request
@@ -271,6 +271,7 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
     :param incl_attr: What attributes to show via serializer
     :param req_attr: Dict of model attrs to be specified in getter and set to new objects
     """
+    return_code = 200
     if req_attr is None:
         req_attr = {}
     try:
@@ -278,8 +279,15 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
             instance = object()
             for attr, value in req_attr.items():
                 instance.__setattr__(attr, value)
+            return_code = 201
         else:
-            instance = object.objects.get(id=id, **req_attr)
+            if create:
+                instance, created = object.objects.get_or_create(id=id, **req_attr)
+                if not created and not edit:
+                    e = ValidationException(ValidationException.ALREADY_EXISTS, 'Use PUT to edit existing objects')
+                    return JsonResponse(e.to_dict(), status=409)
+            else:
+                instance = object.objects.get(id=id, **req_attr)
     except ObjectDoesNotExist:
         e = ValidationException(
             ValidationException.RESOURCE_NOT_FOUND,
@@ -287,10 +295,6 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
         )
         return JsonResponse(e.to_dict(), status=400)
     try:
-        delete = parse_bool(request.data.get("delete", None))
-        if delete:
-            instance.delete()
-            return JsonResponse({}, status=200)
         for field in fields:
             raw = request.data.get(field, None)
             if raw is not None:
@@ -304,49 +308,9 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-    except Exception as exc:
-        e = ValidationException(
-            ValidationException.VALIDATION_ERROR,
-            str(exc)
-        )
-        return JsonResponse(e.to_dict(), status=400)
+    except ValidationException as exc:
+        return JsonResponse(exc.to_dict(), status=400)
+    instance.full_clean()
     instance.save()
     # TODO: Fix showing str's
-    return JsonResponse(serializer(instance, include_attr=incl_attr), status=200)
-
-# def generic_edit_view(view_base_class, id, object, fields, incl_attr=None, required_attr=None):
-#     class GenericEditView(view_base_class):
-#         def post(self, request):
-#             if required_attr is None:
-#                 required_attr = {}
-#             try:
-#                 if id == -1:
-#                     instance = object()
-#                     for attr, value in required_attr.items():
-#                         instance.__setattr__(attr, value)
-#                 else:
-#                     instance = object.objects.get(id=id, **required_attr)
-#             except ObjectDoesNotExist:
-#                 e = ValidationException(
-#                     ValidationException.RESOURCE_NOT_FOUND,
-#                     "Object with such ID not found"
-#                 )
-#                 return JsonResponse(e.to_dict(), status=400)
-#             try:
-#                 delete = parse_bool(request.data.get("delete", None))
-#                 if delete:
-#                     instance.delete()
-#                     return JsonResponse({}, status=200)
-#                 for field in fields:
-#                     raw = request.data.get(field, None)
-#                     if raw is not None:
-#                         val = fields[field].parse(raw)
-#                         if val is not None:
-#                             instance.__setattr__(field, val)
-#                     elif fields[field].is_required and id == -1:  # If field is required and action == create
-#                         e = ValidationException(
-#                             ValidationException.VALIDATION_ERROR,
-#                             'Field `%s` is required' % field
-#                         )
-#                         return JsonResponse(e.to_dict(), status=400)
-#     return GenericEditView
+    return JsonResponse(serializer(instance, include_attr=incl_attr), status=return_code)

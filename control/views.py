@@ -18,7 +18,6 @@ from base.validators import LoginAndPasswordValidator
 from base.validators import create_generic_validator
 from base.views import APIView
 from base.views import generic_login_required_view
-from owners.admin import accept_issue
 from owners.models import Company
 from owners.models import Issue
 from owners.models import Owner
@@ -106,8 +105,9 @@ class LogoutView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class EditVendorView(LoginRequiredAPIView):
-    fields = {
+admin_objects = {
+    'vendor': {
+        'fields': {
         'first_name': StringField(),
         'last_name': StringField(),
         'phone': StringField(required=True),
@@ -123,107 +123,178 @@ class EditVendorView(LoginRequiredAPIView):
         'secret': StringField(),
         'test_parking': ForeignField(object=Parking),
         'test_user': ForeignField(object=UserAccount)
+        },
+        'object': Vendor
+    },
+    'order': {
+        'fields': {
+            'sum': PositiveFloatField(required=True),
+            'payment_attempts': PositiveIntField(),
+            'authorized': BoolField(),
+            'paid': BoolField(),
+            'paid_card_pan': StringField(),
+            'session': ForeignField(object=ParkingSession),
+            'refund_request': BoolField(),
+            'refunded_sum': PositiveFloatField(),
+            'fiskal_notification': ForeignField(object=FiskalNotification),
+            'created_at': DateField(),
+        },
+        'object': Order
+    },
+    'parkingsession': {
+        'fields': {
+            'session_id': StringField(required=True),
+            'client': ForeignField(object=UserAccount, required=True),
+            'parking': ForeignField(object=Parking, required=True),
+            'debt': FloatField(),
+            'state': IntChoicesField(required=True, choices=ParkingSession.STATE_CHOICES),
+            'started_at': DateField(required=True),
+            'updated_at': DateField(),
+            'completed_at': DateField(),
+            'is_suspended': BoolField(),
+            'suspended_at': DateField(),
+            'try_refund': BoolField(),
+            'target_refund_sum': FloatField(),
+            'current_refund_sum': FloatField(),
+            'created_at': DateField()
+        },
+        'object': ParkingSession
+    },
+    'parking': {
+        'object': Parking,
+        'fields': {
+            'name': StringField(),
+            'description': StringField(required=True),
+            'address': StringField(),
+            'latitude': CustomValidatedField(validate_latitude, required=True),
+            'longitude': CustomValidatedField(validate_longitude, required=True),
+            'enabled': BoolField(),
+            'parkpass_enabled': BoolField(),
+            'max_places': PositiveIntField(required=True),
+            'free_places': PositiveIntField(),
+            'max_client_debt': PositiveFloatField(),
+            'created_at': DateField(),
+            'vendor': ForeignField(object=Vendor),
+            'company': ForeignField(object=Company),
+            'approved': BoolField(),
+        }
+    },
+    'complain': {
+        'object': ComplainSession,
+        'fields': {
+            'type': IntChoicesField(choices=ComplainSession.COMPLAIN_TYPE_CHOICES, required=True),
+            'message': StringField(required=True, max_length=1023),
+            'session': ForeignField(object=ParkingSession, required=True),
+            'account': ForeignField(object=UserAccount, required=True),
+        }
+    },
+    'issue': {
+        'object': Issue,
+        'fields': {
+            'name': StringField(required=True, max_length=255),
+            'email': StringField(max_length=255),
+            'phone': StringField(required=True, max_length=13),
+            'comment': StringField(required=True, max_length=1023),
+            'created_at': DateField()
+        },
+        'actions': {
+            'accept': lambda issue: {'owner_id': issue.accept().id}
+        }
     }
-
-    validator_class = create_generic_validator(fields)
-
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=Vendor, fields=self.fields)
+}
 
 
-class EditOrderView(LoginRequiredAPIView):
-    fields = {
-        'sum': PositiveFloatField(required=True),
-        'payment_attempts': PositiveIntField(),
-        'authorized': BoolField(),
-        'paid': BoolField(),
-        'paid_card_pan': StringField(),
-        'session': ForeignField(object=ParkingSession),
-        'refund_request': BoolField(),
-        'refunded_sum': PositiveFloatField(),
-        'fiskal_notification': ForeignField(object=FiskalNotification),
-        'created_at': DateField(),
-    }
+class ObjectView(LoginRequiredAPIView):
 
-    validator_class = create_generic_validator(fields)
+    def put(self, request, name, id=None):
+        try:
+            if id is None:
+                e = ValidationException(ValidationException.VALIDATION_ERROR, 'Specify ID to PUT object')
+                return JsonResponse(e.to_dict(), 405)
+            self.validator_class = create_generic_validator(admin_objects[name]['fields'])
+            self.validate_request(request)
+            return edit_object_view(request=request, id=id,
+                                    object=admin_objects[name]['object'],
+                                    fields=admin_objects[name]['fields'],
+                                    create=False, edit=True)
+        except LookupError:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                'Admin object `%s` was not found' % name)
+            return JsonResponse(e.to_dict(), 404)
 
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=Order, fields=self.fields)
+    def post(self, request, name, id=None):
+        try:
+            self.validator_class = create_generic_validator(admin_objects[name]['fields'])
+            self.validate_request(request)
+            return edit_object_view(request=request, id=id if id else -1,
+                                    object=admin_objects[name]['object'],
+                                    fields=admin_objects[name]['fields'],
+                                    create=True, edit=False)
+        except LookupError:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                'Admin object `%s` was not found' % name)
+            return JsonResponse(e.to_dict(), 404)
 
+    def get(self, request, name, id=None):
+        try:
+            if id is None:
+                pager = generic_pagination_view(admin_objects[name]['object'])
+                return pager().get(request)
+            else:
+                try:
+                    obj = admin_objects[name]['object'].objects.get(id=id)
+                    return JsonResponse(serializer(obj))
+                except ObjectDoesNotExist:
+                    e = ValidationException(ValidationException.RESOURCE_NOT_FOUND, 'Object wasn\'t found')
+                    return JsonResponse(e.to_dict(), status=404)
 
-class EditParkingSessionView(LoginRequiredAPIView):
-    fields = {
-        'session_id': StringField(required=True),
-        'client': ForeignField(object=UserAccount, required=True),
-        'parking': ForeignField(object=Parking, required=True),
-        'debt': FloatField(),
-        'state': IntChoicesField(required=True, choices=ParkingSession.STATE_CHOICES),
-        'started_at': DateField(required=True),
-        'updated_at': DateField(),
-        'completed_at': DateField(),
-        'is_suspended': BoolField(),
-        'suspended_at': DateField(),
-        'try_refund': BoolField(),
-        'target_refund_sum': FloatField(),
-        'current_refund_sum': FloatField(),
-        'created_at': DateField()
-    }
-    validator_class = create_generic_validator(fields)
+        except LookupError:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                'Admin object `%s` was not found' % name)
+            return JsonResponse(e.to_dict(), 404)
 
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=ParkingSession, fields=self.fields)
-
-
-class EditParkingView(LoginRequiredAPIView):
-    fields = {
-        'name': StringField(),
-        'description': StringField(required=True),
-        'address': StringField(),
-        'latitude': CustomValidatedField(validate_latitude, required=True),
-        'longitude': CustomValidatedField(validate_longitude, required=True),
-        'enabled': BoolField(),
-        'parkpass_enabled': BoolField(),
-        'max_places': PositiveIntField(required=True),
-        'free_places': PositiveIntField(),
-        'max_client_debt': PositiveFloatField(),
-        'created_at': DateField(),
-        'vendor': ForeignField(object=Vendor),
-        'company': ForeignField(object=Company),
-        'approved': BoolField(),
-    }
-    validator_class = create_generic_validator(fields)  # EditParkingValidator
-
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=Parking, fields=self.fields)
-
-
-class EditComplainView(LoginRequiredAPIView):
-    fields = {
-        'type': IntChoicesField(choices=None, required=True),
-        'message': StringField(required=True, max_length=1023),
-        'session': ForeignField(object=ParkingSession, required=True),
-        'account': ForeignField(object=UserAccount, required=True),
-    }
-    validator_class = create_generic_validator(fields)
-
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=ComplainSession, fields=self.fields)
+    def delete(self, request, name, id=None):
+        try:
+            if id is None:
+                e = ValidationException(ValidationException.VALIDATION_ERROR, 'Specify ID to DELETE object')
+                return JsonResponse(e.to_dict(), 405)
+            try:
+                obj = admin_objects[name]['object'].objects.get(id=id)
+            except ObjectDoesNotExist:
+                e = ValidationException(ValidationException.RESOURCE_NOT_FOUND, 'Object with that ID wasn\'t found')
+                return JsonResponse(e.to_dict(), status=404)
+            obj.delete()
+            return JsonResponse({}, status=200)
+        except LookupError:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                'Admin object `%s` was not found' % name)
+            return JsonResponse(e.to_dict(), 404)
 
 
-class ShowComplainView(generic_pagination_view(ComplainSession)):
-    pass
-
-
-class ShowVendorView(generic_pagination_view(Vendor)):
-    pass
-
-
-class ShowParkingSessionView(generic_pagination_view(ParkingSession)):
-    pass
-
-
-class ShowParkingView(generic_pagination_view(Parking)):
-    pass
+class ObjectActionView(LoginRequiredAPIView):
+    def post(self, request, name, id, action):
+        try:
+            obj = admin_objects[name]['object']
+            action = admin_objects[name]['actions'][action]
+        except LookupError:
+            e = ValidationException(ValidationException.RESOURCE_NOT_FOUND,
+                                    'Such object(%s) or action for this object(%s) was not found'
+                                    % (name, action))
+            return JsonResponse(e.to_dict(), 400)
+        try:
+            try:
+                result = action(obj.objects.get(id=id))
+            except ValidationException as e:
+                return JsonResponse(e.to_dict(), status=400)
+            return JsonResponse({'result': result}, status=200)
+        except ObjectDoesNotExist:
+            e = ValidationException(ValidationException.RESOURCE_NOT_FOUND,
+                                    'Object with such ID was not found')
+            return JsonResponse(e.to_dict(), status=404)
 
 
 class AllParkingsStatisticsView(LoginRequiredAPIView):
@@ -284,49 +355,6 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
         if len(result) > count:
             result = result[page * count:(page + 1) * count]
         return JsonResponse({'parkings': result, 'count': length}, status=200)
-
-
-class ShowIssueView(generic_pagination_view(Issue)):
-    pass
-
-
-class AcceptIssueView(LoginRequiredAPIView):
-    def post(self, request, id):
-        try:
-            issue = Issue.objects.get(id=id)
-        except ObjectDoesNotExist:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "Issue with such id was not found"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        try:
-            owner = accept_issue(issue)
-        except ValidationError:
-            return JsonResponse({'error': 'Can\'t accept issue: ValidationError'}, status=400)
-        return JsonResponse({'owner_id': owner.id})
-
-
-class EditIssueView(LoginRequiredAPIView):
-    fields = {
-        'name': StringField(required=True, max_length=255),
-        'email': StringField(max_length=255),
-        'phone': StringField(required=True, max_length=13),
-        'comment': StringField(required=True, max_length=1023),
-        'created_at': DateField()
-    }
-    validator_class = create_generic_validator(fields)
-
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=Issue, fields=self.fields)
-
-
-class ShowUpgradeIssueView(generic_pagination_view(UpgradeIssue)):
-    pass
-
-
-class ShowOrderView(generic_pagination_view(Order)):
-    pass
 
 
 class EditUpgradeIssueView(LoginRequiredAPIView):
