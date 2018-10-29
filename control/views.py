@@ -7,6 +7,7 @@ from django.http.response import JsonResponse, HttpResponse
 from dss.Serializer import serializer
 
 from accounts.models import Account as UserAccount
+from accounts.models import EmailConfirmation
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
@@ -200,6 +201,22 @@ admin_objects = {
         'actions': {
             'accept': lambda issue: {'owner_id': issue.accept().id}
         }
+    },
+    'account': {
+        'object': UserAccount,
+        'fields': {
+            'first_name': StringField(max_length=63),
+            'last_name': StringField(max_length=63),
+            'phone': StringField(required=True, max_length=15),
+            'sms_code': StringField(max_length=6),
+            'email': StringField(max_length=255),
+            'password': StringField(max_length=255),
+            'email_confirmation': ForeignField(object=EmailConfirmation),
+            'created_at': DateField()
+        },
+        'actions': {
+            'make_hashed_password': lambda a: {'result': 'stub' if a.make_hashed_password() else 'ok'}  # magic! ^.^
+        }
     }
 }
 
@@ -212,8 +229,8 @@ class ObjectView(LoginRequiredAPIView):
                 e = ValidationException(ValidationException.VALIDATION_ERROR, 'Specify ID to PUT object')
                 return JsonResponse(e.to_dict(), 405)
             self.validator_class = create_generic_validator(admin_objects[name]['fields'])
-            self.validate_request(request)
-            return edit_object_view(request=request, id=id,
+            validation_error = self.validate_request(request)
+            return validation_error if validation_error else edit_object_view(request=request, id=id,
                                     object=admin_objects[name]['object'],
                                     fields=admin_objects[name]['fields'],
                                     create=False, edit=True)

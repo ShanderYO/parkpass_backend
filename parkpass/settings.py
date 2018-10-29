@@ -186,10 +186,10 @@ LOGGING = {
         },
         'requests_file': {
             'level': 'DEBUG',
-            'class': 'logging.handlers.RotatingFileHandler',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': REQUESTS_LOG_FILE,
-            'maxBytes': 10 * 1024 * 1024,
-            'backupCount': 1,
+            'when': 'D',
+            'backupCount': 7,
             'formatter': 'verbose'
         },
         'console': {

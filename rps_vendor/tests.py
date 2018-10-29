@@ -1,4 +1,4 @@
-import datetime
+import hashlib
 import hashlib
 import hmac
 import json
@@ -6,6 +6,7 @@ import time
 
 from django.test import Client
 from django.test import TestCase
+from django.utils import timezone
 
 # Create your tests here.
 from accounts.models import Account
@@ -50,9 +51,9 @@ class UpdateParkingTestCase(TestCase):
             client=account,
             debt=190,
             state = ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now(),
-            updated_at=datetime.datetime.now(),
-            completed_at=datetime.datetime.now()
+            started_at=timezone.now(),
+            updated_at=timezone.now(),
+            completed_at=timezone.now()
         )
         session.add_vendor_start_mark()
         session.add_vendor_complete_mark()
@@ -64,9 +65,9 @@ class UpdateParkingTestCase(TestCase):
             client=account,
             debt=190,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now(),
-            updated_at=datetime.datetime.now(),
-            completed_at=datetime.datetime.now()
+            started_at=timezone.now(),
+            updated_at=timezone.now(),
+            completed_at=timezone.now()
         )
         session2.add_vendor_start_mark()
         session2.save()

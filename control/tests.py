@@ -1,9 +1,9 @@
-import datetime
 import json
 from random import randint
 
 from django.test import Client
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.tests import create_account as create_user_account
 from base.utils import clear_phone
@@ -67,7 +67,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
 
@@ -79,7 +79,7 @@ class ParkingEdit(TestCase):
     def test_show_parking(self):
         url = URL_PREFIX + "objects/parking/1/"
 
-        response = Client().post(url, '{}', **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
         # print json.dumps(j, indent=2)
         self.assertEqual(200, response.status_code)
@@ -102,7 +102,7 @@ class ParkingEdit(TestCase):
             "approved": 'False',
         })
 
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().put(url, body, **TOKEN_DICT)
         # j = json.loads(response.content)
         # print json.dumps(j, indent=2)
         self.assertEqual(200, response.status_code)
@@ -114,7 +114,7 @@ class ParkingEdit(TestCase):
             "approved": 'yeah, sure',
         })
 
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().put(url, body, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(400, response.status_code)
         self.assertEqual('ValidationException', j['exception'])
@@ -122,11 +122,7 @@ class ParkingEdit(TestCase):
     def test_delete(self):
         url = URL_PREFIX + "objects/parking/1/"
 
-        body = json.dumps({
-            "delete": 'true',
-        })
-
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().delete(url, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(200, response.status_code)
         self.assertEqual({}, j)
@@ -134,7 +130,7 @@ class ParkingEdit(TestCase):
             Parking.objects.get(id=1)
 
     def test_create_not_null_empty(self):
-        url = URL_PREFIX + "objects/parking/create/"
+        url = URL_PREFIX + "objects/parking/"
 
         body = json.dumps({
             "description": "My test parking",
@@ -163,13 +159,13 @@ class ParkingSessionEdit(TestCase):
             client=self.account,
             parking=parking,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
 
     def test_show_ps(self):
         url = self.url + "1/"
 
-        response = Client().post(url, '{}', **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         # j = json.loads(response.content)
         # print json.dumps(j, indent=2)
         self.assertEqual(200, response.status_code)
@@ -177,12 +173,7 @@ class ParkingSessionEdit(TestCase):
     def test_delete_ps(self):
         url = self.url + "1/"
 
-        body = json.dumps(
-            {
-                'delete': True
-            })
-
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().delete(url, **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
         with self.assertRaises(ObjectDoesNotExist):
             ParkingSession.objects.get(id=1)
@@ -219,7 +210,7 @@ class VendorEdit(TestCase):
     def test_show_vendor(self):
         url = self.url + "1/"
 
-        response = Client().post(url, '{}', **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
 
         # print json.dumps(j, indent=2)
@@ -227,7 +218,7 @@ class VendorEdit(TestCase):
         self.assertEqual(200, response.status_code)
 
     def test_edit_vendor(self):
-        url = self.url + "1/"
+        url = self.url + '1/'
 
         body = json.dumps(
             {
@@ -249,13 +240,13 @@ class VendorEdit(TestCase):
             }
         )
 
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().put(url, body, **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
 
 
 class ComplainPagination(TestCase):
     def setUp(self):
-        self.url = URL_PREFIX + "objects/complain/view/"
+        self.url = URL_PREFIX + "objects/complain/"
         account, _ = create_user_account()
         create_account()
         vendor = _create_vendor()
@@ -264,7 +255,7 @@ class ComplainPagination(TestCase):
             client=account,
             parking=vendor.test_parking,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
         for i in range(1, 20):
             ComplainSession.objects.create(
@@ -277,8 +268,8 @@ class ComplainPagination(TestCase):
     def test_show_complains(self):
         response = Client().get(self.url, **TOKEN_DICT)
         j = json.loads(response.content)
-
-        print json.dumps(j, indent=4)
+        self.assertEqual(200, response.status_code)
+        # print json.dumps(j, indent=4)
 
 
 class ParkingsStatistics(TestCase):
@@ -300,8 +291,8 @@ class ParkingsStatistics(TestCase):
                 client=account,
                 parking=parking_1,
                 state=ParkingSession.STATE_COMPLETED,
-                started_at=datetime.datetime.fromtimestamp(i),
-                completed_at=datetime.datetime.fromtimestamp(i + randint(10, 100)),
+                started_at=timezone.now(),
+                completed_at=timezone.now() + timezone.timedelta(seconds=randint(0, 200)),
                 debt=(randint(100, 2000))
             )
             ps.save()
@@ -326,7 +317,7 @@ class FilterPagination(TestCase):
     def setUp(self):
         create_account()
         account, _ = create_user_account()
-        self.url = URL_PREFIX + "objects/parking/view/"
+        self.url = URL_PREFIX + "objects/parking/"
         parking_1 = Parking.objects.create(
             name="parking-1",
             description="first",

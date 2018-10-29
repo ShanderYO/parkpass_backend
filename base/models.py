@@ -228,8 +228,8 @@ class BaseAccountSession(models.Model):
         self.token = binascii.hexlify(os.urandom(20)).decode()
 
     def set_expire_date(self):
-        self.expired_at = datetime.now() \
-                        + timedelta(seconds=self.ACCESS_TOKEN_EXPIRE_SECONDS)
+        self.expired_at = timezone.now() \
+                          + timedelta(seconds=self.ACCESS_TOKEN_EXPIRE_SECONDS)
 
     def is_expired(self):
         return timezone.now() >= self.expired_at
