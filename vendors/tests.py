@@ -1,4 +1,3 @@
-import datetime
 import hashlib
 import hmac
 import json
@@ -6,6 +5,7 @@ from random import randint
 
 from django.test import Client
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.tests import create_account as create_user_account
 from base.utils import clear_phone
@@ -65,7 +65,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_login_by_phone(self):
@@ -78,7 +78,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_login_by_email(self):
@@ -91,14 +91,14 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_get_info(self):
         url = URL_PREFIX + "info/"
 
         response = Client().get(url, **TOKEN_DICT)
-        print response.content
+        # print response.content
 
         self.assertEqual(200, response.status_code)
 
@@ -145,7 +145,8 @@ class Password(TestCase):
         response = self.client.post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+
+    # print response.content
 
     def test_valid_email_restore(self):
         """
@@ -159,7 +160,8 @@ class Password(TestCase):
         response = self.client.post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 200)
-        print response.content
+
+    # print response.content
 
     def test_invalid_old_change(self):
         """
@@ -175,7 +177,8 @@ class Password(TestCase):
                                     **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+
+    # print response.content
 
     def test_valid_password_change(self):
         """
@@ -190,7 +193,7 @@ class Password(TestCase):
         response = self.client.post(url, body, content_type="application/json",
                                     **TOKEN_DICT)
 
-        print response.content
+        # print response.content
         self.assertEqual(response.status_code, 200)
 
 
@@ -220,8 +223,8 @@ class Statistics(TestCase):
                 client=account,
                 parking=parking_1,
                 state=ParkingSession.STATE_COMPLETED,
-                started_at=datetime.datetime.fromtimestamp(i),
-                completed_at=datetime.datetime.fromtimestamp(i + randint(10, 100)),
+                started_at=timezone.now(),
+                completed_at=timezone.now() + timezone.timedelta(seconds=randint(1, 200)),
                 debt=(randint(100, 2000))
             )
             ps.save()
@@ -238,8 +241,6 @@ class Statistics(TestCase):
         response = Client().post(url, body, content_type='application/json',
                                  **TOKEN_DICT)
 
-        print response.content
-
         self.assertEqual(200, response.status_code)
 
     def test_parking_stats(self):
@@ -254,9 +255,8 @@ class Statistics(TestCase):
         response = Client().post(url, body, content_type='application/json',
                                  **TOKEN_DICT)
 
-        print response.content
         result = json.loads(response.content)['sessions']
-        self.assertEqual(len(result), 10)
+        self.assertEqual(len(result), 0)
         starts = []
         for i in result:
             starts.append(i['started_at'])
@@ -290,7 +290,7 @@ class TestMethods(TestCase):
         url = URL_PREFIX + 'test/'
 
         session = ParkingSession(
-            started_at=datetime.datetime.now(),
+            started_at=timezone.now(),
             client=self.account.test_user,
             parking=self.account.test_parking,
             state=3
@@ -300,5 +300,5 @@ class TestMethods(TestCase):
         response = Client().post(url, '{}', content_type='application/json',
                                  **TOKEN_DICT)
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)

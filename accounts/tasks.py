@@ -1,8 +1,8 @@
 from decimal import Decimal
 
-import datetime
 from autotask.tasks import periodic_task, delayed_task
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 from base.utils import get_logger
 from parkings.models import ParkingSession
@@ -206,7 +206,7 @@ def _init_refund(parking_session):
 # for 3 day authorized sum
 @periodic_task(seconds=3*24*60*60)
 def confirm_once_per_3_day():
-    _3_days_before = datetime.datetime.now() - datetime.timedelta(days=3)
+    _3_days_before = timezone.now() - timezone.timedelta(days=3)
     authorized_more_that_3_days_orders = Order.objects.filter(authorized=True, created_at__lte=_3_days_before)
     if authorized_more_that_3_days_orders.exists():
         for order in authorized_more_that_3_days_orders:

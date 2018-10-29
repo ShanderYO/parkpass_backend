@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime, timedelta
-
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
 from django.http import JsonResponse
+from django.utils import timezone
 from dss.Serializer import serializer
 
 from accounts.models import Account
@@ -152,8 +151,8 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         stat = ParkingSession.objects.filter(
             parking=parking,
             started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-            else datetime.now() - timedelta(days=31),
-            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now()
+            else timezone.now() - timezone.timedelta(days=31),
+            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else timezone.now()
         )
         lst = []
         length = len(stat)
@@ -197,8 +196,8 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
             ps = ParkingSession.objects.filter(
                 parking=pk,
                 started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-                else datetime.now() - timedelta(days=31),
-                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now(),
+                else timezone.now() - timedelta(days=31),
+                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else timezone.now(),
                 state__gt=3  # Only completed sessions
             )
 

@@ -26,8 +26,8 @@ class TinkoffAPI():
 
     def __init__(self):
         terminal = Terminal.objects.get(is_selected=True)
-        self.terminal_key = str(terminal.terminal_key) #settings.TINKOFF_TERMINAL_KEY "1516954410942DEMO"
-        self.password = str(terminal.password) #settings.TINKOFF_TERMINAL_PASSWORD "dybcdp86npi8s9fv"
+        self.terminal_key = str(terminal.terminal_key)  # settings.TINKOFF_TERMINAL_KEY "1516954410942DEMO"
+        self.password = str(terminal.password)  # settings.TINKOFF_TERMINAL_PASSWORD "dybcdp86npi8s9fv"
 
     def sync_call(self, method, body):
         body["TerminalKey"] = self.terminal_key

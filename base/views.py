@@ -119,7 +119,7 @@ def generic_login_required_view(account_model):
     class GenericLoginRequiredAPIView(LoginRequiredAPIView):
         account_type = account_model.__name__.lower()
 
-    print("DEPRECATED: Will be removed due to optimizing accounting architecture")
+    # print("DEPRECATED: Will be removed due to optimizing accounting architecture")
     return GenericLoginRequiredAPIView
 
 

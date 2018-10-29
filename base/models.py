@@ -2,7 +2,7 @@ import binascii
 import os
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from hashlib import md5
 from io import BytesIO
 
@@ -68,7 +68,7 @@ class EmailConfirmation(models.Model):
     def is_expired(self):
         created_at = (self.created_at +
                       timedelta(0, self.TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
-        return datetime.now() > created_at
+        return timezone.now() > created_at
 
     # TODO make async
     def send_confirm_mail(self):

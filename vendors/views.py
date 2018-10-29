@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime, timedelta
-
 from django.core.mail import send_mail
 from django.db.models import Sum
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.views import View
 
 from accounts.sms_gateway import SMSGateway
@@ -79,8 +78,8 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         stat = ParkingSession.objects.filter(
             parking=parking,
             started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-            else datetime.datetime.now() - timedelta(days=31),
-            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.datetime.now()
+            else timezone.now() - timezone.timedelta(days=31),
+            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else timezone.now()
         )
         lst = []
         length = len(stat)
@@ -124,8 +123,8 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
             ps = ParkingSession.objects.filter(
                 parking=pk,
                 started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-                else datetime.now() - timedelta(days=31),
-                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now(),
+                else timezone.now() - timezone.timedelta(days=31),
+                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else timezone.now(),
                 state__gt=3  # Only completed sessions
             )
 
@@ -190,12 +189,12 @@ class ParkingsTopView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         if period == 'day':
-            td = timedelta(days=1)
+            td = timezone.timedelta(days=1)
         elif period == 'week':
-            td = timedelta(days=7)
+            td = timezone.timedelta(days=7)
         else:
-            td = timedelta(days=30)
-        t = datetime.date.today() - td
+            td = timezone.timedelta(days=30)
+        t = timezone.now() - td
         parkings = Parking.objects.filter(vendor=request.vendor)
         r = []
         for p in parkings:

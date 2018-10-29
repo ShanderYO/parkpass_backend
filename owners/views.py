@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import json
-from datetime import datetime, timedelta
 
 from django.core.mail import send_mail
 from django.db.models import Sum
 from django.template.loader import render_to_string
+from django.utils import timezone
+from django.utils.timezone import timedelta
 from django.views import View
 
 from accounts.sms_gateway import SMSGateway
@@ -52,7 +53,7 @@ class SummaryStatisticsView(LoginRequiredAPIView):
             td = timedelta(days=7)
         else:
             td = timedelta(days=30)
-        t = datetime.date.today() - td
+        t = timezone.now() - td
         sessions = ParkingSession.objects.filter(parking__company__owner=request.owner,
                                                  completed_at__gt=t)
         count = sessions.count()
@@ -93,7 +94,7 @@ class ParkingsTopView(LoginRequiredAPIView):
             td = timedelta(days=7)
         else:
             td = timedelta(days=30)
-        t = datetime.date.today() - td
+        t = timezone.now() - td
         parkings = Parking.objects.filter(company__owner=request.owner)
         r = []
         for p in parkings:

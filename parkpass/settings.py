@@ -205,7 +205,7 @@ LOGGING = {
             'propagate': True,
         },
         BASE_LOGGER_NAME: {
-            'handlers': ['console', 'file'],
+            'handlers': ['file'],
             'level': 'DEBUG',
         },
         REQUESTS_LOGGER_NAME: {
