@@ -143,15 +143,11 @@ USE_L10N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/1.8/howto/static-files/
-
-STATIC_URL = '/static/'
-
 BASE_LOGGER_NAME = "parkpass"
-LOG_FILE = 'parkpass.log'
-REQUESTS_LOG_FILE = 'requests.log'
+LOG_DIR = 'logs'
+LOG_FILE = os.path.join(LOG_DIR, 'parkpass.log')
+REQUESTS_LOG_FILE = os.path.join(LOG_DIR, 'requests.log')
+
 REQUESTS_LOGGER_NAME = 'requests'
 
 LOGGING = {
@@ -165,6 +161,9 @@ LOGGING = {
     'formatters': {
         'verbose': {
             'format': '%(levelname)s %(asctime)s %(name)s.%(module)s.%(funcName)s:%(lineno)s -> %(message)s'
+        },
+        'requests': {
+            'format': '%(asctime)s: %(message)s'
         },
         'notime': {
             'format': '%(levelname)s %(name)s.%(module)s.%(funcName)s:%(lineno)s -> %(message)s'
@@ -190,7 +189,7 @@ LOGGING = {
             'filename': REQUESTS_LOG_FILE,
             'when': 'D',
             'backupCount': 7,
-            'formatter': 'verbose'
+            'formatter': 'requests'
         },
         'console': {
             'level': 'DEBUG',
@@ -223,11 +222,7 @@ STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 )
-"""
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
-]
-"""
+
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 STATIC_URL = '/api/static/'
 

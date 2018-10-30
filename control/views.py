@@ -24,8 +24,8 @@ from owners.models import Issue
 from owners.models import Owner
 from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIssue
 from parkings.validators import validate_longitude, validate_latitude
+from parkpass.settings import LOG_DIR
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
-from parkpass.settings import REQUESTS_LOG_FILE as LOG_FILE
 from payments.models import Order, FiskalNotification
 from vendors.models import Vendor
 from .models import Admin as Account
@@ -392,12 +392,17 @@ class EditUpgradeIssueView(LoginRequiredAPIView):
 
 
 class GetLogView(LoginRequiredAPIView):
-    def post(self, request):
-        try:
-            f = file(LOG_FILE, 'rb')
-        except Exception, e:
-            return JsonResponse({'error': 'Log not found'}, status=400)
-        wrapper = FileWrapper(f)
-        response = HttpResponse(wrapper)
-        response['Content-Length'] = os.path.getsize(LOG_FILE)
-        return response
+    def get(self, request, name=None):
+        if not name:
+            log_list = [i for i in os.walk(LOG_DIR)][0][2]
+            return JsonResponse({'logs': log_list})
+        else:
+            try:
+                fname = os.path.join(LOG_DIR, name)
+                f = file(fname, 'rb')
+            except Exception:
+                return JsonResponse({'error': 'Log not found'}, status=404)
+            wrapper = FileWrapper(f)
+            response = HttpResponse(wrapper)
+            response['Content-Length'] = os.path.getsize(fname)
+            return response
