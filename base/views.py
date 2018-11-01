@@ -4,21 +4,25 @@ import hmac
 import json
 
 # Django import
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError, FieldDoesNotExist
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from dss.Serializer import serializer
 
 from accounts.validators import validate_phone_number
 # App import
-from base.exceptions import ValidationException, AuthException, PermissionException
-from base.utils import get_logger
+from base.exceptions import ValidationException, AuthException, PermissionException, ApiException
+from base.utils import get_logger, datetime_from_unix_timestamp_tz
+from base.utils import parse_get_param as parse
 from base.validators import ValidatePostParametersMixin
-from parkpass.settings import REQUESTS_LOGGER_NAME
+from parkpass.settings import REQUESTS_LOGGER_NAME, PAGINATION_OBJECTS_PER_PAGE
 from vendors.models import Vendor
 from .models import NotifyIssue
 
+_lookups = ('exact', 'iexact', 'contains', 'icontains', 'in', 'gt', 'lt', 'gte', 'lte',
+            'startswith', 'istartswith', 'endswith', 'iendswith', 'range', 'isnull', 'regex', 'iregex',)
 
 class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
@@ -52,7 +56,10 @@ class APIView(View, ValidatePostParametersMixin):
                 exception_response = self.validate_request(request)
                 if exception_response:
                     return exception_response
-        response = super(APIView, self).dispatch(request, *args, **kwargs)
+        try:
+            response = super(APIView, self).dispatch(request, *args, **kwargs)
+        except ApiException, e:
+            return JsonResponse(e.to_dict(), status=e.http_code)
         logger.info("Sending response '%s' with code '%i'" % (response.content, response.status_code))
         return response
 
