@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import datetime
 import logging
+import re
 
 import pytz
 from django.core.exceptions import ObjectDoesNotExist, FieldError
@@ -115,6 +116,24 @@ def parse_int(value, raise_exception=False, allow_none=True, only_positive=False
         return None
 
 
+def parse_get_param(param):
+    result = []
+    for key in param:
+        if key[0] == u'"' and key[-1] == u'"':  # String
+            result.append(key.encode('utf-8')[1:-1])
+        elif key.isdecimal():  # Int
+            result.append(int(key))
+        elif re.match(r'[0-9.]+', key):  # Float
+            result.append(float(key))
+        elif key.lower() == u'true':
+            result.append(True)
+        elif key.lower() == u'false':
+            result.append(False)
+        else:
+            result.append(key.encode('utf-8'))
+    return result if len(result) != 1 else result[0]
+
+
 def parse_bool(value, raise_exception=False, allow_none=True):
     if not allow_none and value is None:
         raise ValueError('Required field isn\'t specified')
@@ -157,7 +176,7 @@ def clear_phone(phone):
 def datetime_from_unix_timestamp_tz(value):
     if value is None:
         return None
-    started_at_date = datetime.datetime.fromtimestamp(value)
+    started_at_date = datetime.datetime.fromtimestamp(float(value))
     return pytz.utc.localize(started_at_date)
 
 

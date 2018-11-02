@@ -17,7 +17,7 @@ from base.utils import datetime_from_unix_timestamp_tz
 from base.utils import generic_pagination_view as pagination
 from base.validators import LoginAndPasswordValidator
 from base.validators import create_generic_validator
-from base.views import APIView
+from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
 from owners.models import Company
 from owners.models import Issue
@@ -32,6 +32,7 @@ from .models import Admin as Account
 from .models import AdminSession as AccountSession
 
 LoginRequiredAPIView = generic_login_required_view(Account)
+
 
 def generic_pagination_view(x):
     return pagination(x, LoginRequiredAPIView)
@@ -217,8 +218,26 @@ admin_objects = {
         'actions': {
             'make_hashed_password': lambda a: {'result': 'stub' if a.make_hashed_password() else 'ok'}  # magic! ^.^
         }
+    },
+    'upgradeissue': {
+        'object': UpgradeIssue,
+        'fields': {
+            'vendor': ForeignField(object=Vendor),
+            'owner': ForeignField(object=Owner),
+            'description': StringField(required=True, max_length=1000),
+            'type': IntChoicesField(choices=UpgradeIssue.types, required=True),
+            'issued_at': DateField(),
+            'updated_at': DateField(),
+            'completed_at': DateField(),
+            'status': IntChoicesField(choices=UpgradeIssue.statuses)
+        },
     }
 }
+
+
+class TestUIView(APIView, ObjectView):
+    object = UpgradeIssue
+    readonly_fields = ('owner')
 
 
 class ObjectView(LoginRequiredAPIView):
@@ -372,23 +391,6 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
         if len(result) > count:
             result = result[page * count:(page + 1) * count]
         return JsonResponse({'parkings': result, 'count': length}, status=200)
-
-
-class EditUpgradeIssueView(LoginRequiredAPIView):
-    fields = {
-        'vendor': ForeignField(object=Vendor),
-        'owner': ForeignField(object=Owner),
-        'description': StringField(required=True, max_length=1000),
-        'type': IntChoicesField(choices=UpgradeIssue.types, required=True),
-        'issued_at': DateField(),
-        'updated_at': DateField(),
-        'completed_at': DateField(),
-        'status': IntChoicesField(choices=UpgradeIssue.statuses)
-    }
-    validator_class = create_generic_validator(fields)
-
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=UpgradeIssue, fields=self.fields)
 
 
 class GetLogView(LoginRequiredAPIView):

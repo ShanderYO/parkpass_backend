@@ -13,6 +13,9 @@ urlpatterns = [
                   url(r'^objects/(?P<name>\w+)/(?P<id>\d+)/$', ObjectView.as_view()),
                   url(r'^objects/(?P<name>\w+)/(?P<id>\d+)/(?P<action>\w+)/$', ObjectActionView.as_view()),
 
+                  url(r'test/$', TestUIView.as_view()),
+                  url(r'test/(?P<id>\d+)/$', TestUIView.as_view()),
+
                   url(r'^statistics/parkings/$', AllParkingsStatisticsView.as_view()),
                   url(r'^statistics/log/(?P<name>.+)/$', GetLogView.as_view()),
                   url(r'^statistics/log/$', GetLogView.as_view()),

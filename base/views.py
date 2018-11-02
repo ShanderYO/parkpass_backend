@@ -24,15 +24,16 @@ from .models import NotifyIssue
 _lookups = ('exact', 'iexact', 'contains', 'icontains', 'in', 'gt', 'lt', 'gte', 'lte',
             'startswith', 'istartswith', 'endswith', 'iendswith', 'range', 'isnull', 'regex', 'iregex',)
 
+
 class APIView(View, ValidatePostParametersMixin):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
         logger = get_logger(REQUESTS_LOGGER_NAME)
         logger.info("Accessing URL '%s'" % request.path)
-        if request.method == 'GET':
-            logger.info("It's a GET request")
-        elif request.method == 'POST':
-            logger.info("POST request content: '%s'" % request.body)
+        if request.method in {'GET', 'DELETE'}:
+            logger.info("It's a %s request" % request.method)
+        elif request.method in {'POST', 'PUT'}:
+            logger.info("%s request content: '%s'" % (request.method, request.body))
         else:
             logger.info("Unrecognized request method")
         # Only application/json Content-type allow
@@ -188,4 +189,165 @@ class NotifyIssueView(APIView):
                                     'Invalid phone')
             return JsonResponse(e.to_dict(), status=400)
         NotifyIssue.objects.create(phone=phone)
+        return JsonResponse({}, status=200)
+
+
+class ObjectView:
+    object = None  # models.Model of necessary object
+    readonly_fields = None  # Names of fields that can not be changed
+    show_fields = None  # Names of fields to be shown and editable. If empty, all fields will be shown
+    hide_fields = None  # Names of fields to be hidden(and readonly)
+    account_filter = None  # field to check owner.
+
+    def dispatch(self, *args, **kwargs):
+        if object is None:
+            raise NotImplemented('Object must be specified in self.object')
+        return super(ObjectView, self).dispatch(*args, **kwargs)
+
+    def _account_filter(self, request, queryset):
+        if self.account_filter:
+            account = request.account
+            #######DEPRECATED CODE#######
+            for i in {'vendor', 'account', 'owner'}:  # TODO: DEPRECATION
+                acc = getattr(request, i, None)
+                if acc is not None:
+                    account = acc
+                    break
+            #######DEPRECATED CODE#######
+            flt = {self.account_filter: account} if self.account_filter else {}
+            return queryset.filter(**flt)
+        else:
+            return queryset
+
+    def _get_object(self, request, id):
+        qs = self.object.objects.filter(id=id)
+        if len(qs) == 0:
+            raise ValidationException(ValidationException.RESOURCE_NOT_FOUND,
+                                      "Object with such id wasn't found.")
+        qs = self._account_filter(request, qs)
+
+        if len(qs) == 0:
+            raise PermissionException(PermissionException.NOT_PRIVELEGIED, "You're not privelegied to see"
+                                                                           " this object")
+        return qs[0]
+
+    def _get_field_type(self, key):
+        lookups = key.split('__')
+        lookups = lookups[:-1] if lookups[-1] in _lookups else lookups
+        current_model = self.object
+        for lookup in lookups[:-1]:
+            current_model = current_model._meta.get_field(lookup).rel.to
+        return current_model._meta.get_field(lookups[-1]).__class__.__name__
+
+    @staticmethod
+    def _prepare_value(field, value):
+        try:
+            t = field.__class__.__name__
+            value = parse([value])
+            if t == 'ForeignKey':
+                to = field.rel.to
+                try:
+                    return to.objects.get(id=value)
+                except ObjectDoesNotExist:
+                    raise ValidationException(ValidationException.RESOURCE_NOT_FOUND,
+                                              '%s with ID %s does not exist' %
+                                              (field.name, value))
+            if t in ('DateField', 'DateTimeField'):
+                return datetime_from_unix_timestamp_tz(value)
+        except (TypeError, ValueError):
+            raise ValidationException(ValidationException.VALIDATION_ERROR, 'Invalid value(%s) for field %s'
+                                      % (value, field.name))
+        return value
+
+    def _create_or_edit(self, request, id):
+        if id is None and request.method == 'PUT':
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      'Specify ID to edit object or use POST to create a new one',
+                                      http_code=405)
+        elif id is not None and request.method == 'POST':
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      'Use PUT to edit object',
+                                      http_code=405)
+        obj = self._get_object(request, id) if id else self.object()
+        editable_fields = []
+        readonly = lambda x: ValidationException(ValidationException.VALIDATION_ERROR,
+                                                 'Field %s is read-only' % x.name)
+        for field in obj._meta.fields:
+            if self.readonly_fields and field.name in self.readonly_fields and request.method == 'PUT' \
+                    and field.name in request.data:
+                raise readonly(field)
+            if (self.show_fields and field.name not in self.show_fields) or \
+                    (self.hide_fields and field.name in self.hide_fields) or \
+                    (field.name not in request.data):
+                continue
+            editable_fields.append(field)
+
+        for field in editable_fields:
+            value = self._prepare_value(field, request.data.pop(field.name))
+            setattr(obj, field.name, value)
+
+        for key in request.data:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      'No such field: %s' % key)
+        try:
+            obj.full_clean()
+        except ValidationError, e:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      e.message_dict)
+        obj.save()
+        location = request.path if id else request.path + unicode(obj.id) + u'/'
+        response = JsonResponse({}, status=200)
+        response['Location'] = location
+        return response
+
+    def put(self, request, id=None):
+        return self._create_or_edit(request, id)
+
+    def post(self, request, id=None):
+        return self._create_or_edit(request, id)
+
+    def get(self, request, id=None):
+        if id is None:
+            data = dict(request.GET)
+            flt = {}
+            page = int(data.pop('page', 0))
+            count = int(data.pop('count', PAGINATION_OBJECTS_PER_PAGE))
+            for key, value in data.items():
+                key = key.encode('utf-8')
+                value = parse(value)
+                try:
+                    fieldtype = self._get_field_type(key)
+                except FieldDoesNotExist:
+                    raise ValidationException(ValidationException.VALIDATION_ERROR, 'Invalid filter %s' % key)
+                if fieldtype == 'ForeignKey':
+                    key = key + '__id'
+                elif fieldtype in ('DateField', 'DateTimeField'):
+                    value = datetime_from_unix_timestamp_tz(value)
+                flt[key.encode('utf-8')] = value
+            qs = self._account_filter(request, self.object.objects.filter(**flt))
+            result = []
+            for o in qs:
+                result.append(serializer(o,
+                                         include_attr=self.show_fields,
+                                         exclude_attr=self.hide_fields))
+            length = len(result)
+            if length > count:
+                result = result[page * count:(page + 1) * count]
+
+            return JsonResponse({'count': length, 'objects': result}, status=200)
+
+        else:
+            obj = self._get_object(request, id)
+            serialized = serializer(obj, include_attr=self.show_fields,
+                                    exclude_attr=self.hide_fields)
+            return JsonResponse(serialized, status=200)
+
+    def delete(self, request, id=None):
+        if id is None:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      'Specify ID to DELETE object',
+                                      http_code=405)
+        obj = self._get_object(request, id)
+
+        obj.delete()
         return JsonResponse({}, status=200)
