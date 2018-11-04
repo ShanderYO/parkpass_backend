@@ -215,7 +215,7 @@ class Statistics(TestCase):
             ps.save()
 
     def test_parking_stats_single(self):
-        url = URL_PREFIX + 'stats/sessions/?parking__id__eq=2&started_at__tgt=20&started_at__tlt=80'
+        url = URL_PREFIX + 'stats/sessions/?parking__id=2&started_at__gt=20&started_at__lt=80'
         response = Client().get(url, content_type='application/json',
                                  **TOKEN_DICT)
 
@@ -223,7 +223,7 @@ class Statistics(TestCase):
         self.assertEqual(200, response.status_code)
 
     def test_parking_stats_all(self):
-        url = URL_PREFIX + 'stats/sessions/?started_at__tgt=20&started_at__tlt=80'
+        url = URL_PREFIX + 'stats/sessions/?started_at__gt=20&started_at__lt=80'
         response = Client().get(url, content_type='application/json',
                                  **TOKEN_DICT)
 
@@ -250,14 +250,13 @@ class Companies(TestCase):
 
     def test_show(self):
         url = self.url + '1/'
-        body = '{}'
-        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         # print response.content, 12321
         # print json.dumps(json.loads(response.content), indent=4), 111
         self.assertEqual(200, response.status_code)
 
     def test_paginate(self):
-        url = self.url + 'view/'
+        url = self.url
         response = Client().get(url, **TOKEN_DICT)
         # print json.dumps(json.loads(response.content), indent=4), 12321
         self.assertEqual(200, response.status_code)
@@ -375,7 +374,7 @@ class Tariff(TestCase):
         })
 
     def test_apply_new_tariff(self):
-        url = URL_PREFIX + 'parking/1/tariff/'
+        url = URL_PREFIX + 'parkings/1/tariff/'
 
         response = Client().post(url, self.tariff, content_type='application/json', **TOKEN_DICT)
 

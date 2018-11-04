@@ -123,3 +123,10 @@ def create_generic_validator(fields):
             return True
 
     return GenericValidator
+
+
+def validate_phone_number(value):
+    # Format (+code1) code2+number
+    regex = r'^\+?\d[\( ]?\d\d\d[\) ]?-? ?\d\d\d[ -]?\d\d[ -]?\d\d$'
+    if not re.match(regex, value):
+        raise ValidationError("Phone number has invalid format. Please, send like something +7(909)1234332")

@@ -92,19 +92,19 @@ class ParkingEdit(TestCase):
             "description": "My test parking",
             "name": 'NameParking',
             "created_at": 1534291200.0,
-            "vendor_id": 1,
+            "vendor": 1,
             "enabled": True,
             "longitude": 2.0,
             "free_places": 3,
             "address": 'addr',
             "latitude": 2.0,
             "max_client_debt": 50,
-            "approved": 'False',
+            "approved": False,
         })
 
         response = Client().put(url, body, **TOKEN_DICT)
-        # j = json.loads(response.content)
-        # print json.dumps(j, indent=2)
+        j = json.loads(response.content)
+        print json.dumps(j, indent=2), '!@#'
         self.assertEqual(200, response.status_code)
 
     def test_invalid_changes(self):
@@ -225,15 +225,15 @@ class VendorEdit(TestCase):
                 "display_id": 3,
                 "first_name": "Fname",
                 "last_name": "Lname",
-                "test_parking_id": 1,
+                "test_parking": 1,
                 "name": "tst-parking-vendor",
                 "phone": "1234",
                 "created_at": 0534464000.0,
                 "sms_code": "smsms",
                 "secret": "123regr8",
                 "email": "mail@mail.ur",
-                "test_user_id": 1,
-                "email_confirmation_id": "confirm_me",
+                "test_user": 1,
+                "email_confirmation": None,
                 "password": "sttt",
                 "account_state": 2,
                 "comission": 0.22
@@ -241,6 +241,7 @@ class VendorEdit(TestCase):
         )
 
         response = Client().put(url, body, **TOKEN_DICT)
+        print response.content
         self.assertEqual(200, response.status_code)
 
 
@@ -347,13 +348,14 @@ class FilterPagination(TestCase):
         )
 
     def test_show_approved(self):
-        response = Client().get(self.url + '?approved__eq=true', **TOKEN_DICT)
+        response = Client().get(self.url + '?approved=true', **TOKEN_DICT)
         j = json.loads(response.content)
+        self.assertEqual(200, response.status_code)
         self.assertEqual(1, len(j['objects']))
         self.assertEqual(True, j['objects'][0]['approved'])
 
     def test_show_not_approved(self):
-        url = self.url + '?approved__ne=True'
+        url = self.url + '?approved=False'
 
         response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)

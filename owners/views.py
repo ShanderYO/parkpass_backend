@@ -14,7 +14,7 @@ from base.exceptions import AuthException
 from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
-from base.views import APIView
+from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
 from parkings.models import Parking, ParkingSession
 from parkpass.settings import EMAIL_HOST_USER
@@ -23,8 +23,7 @@ from .models import Issue, ConnectIssue
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
 from .models import UpgradeIssue, Company
-from .validators import IssueValidator, ConnectIssueValidator, TariffValidator
-from .validators import validate_inn, validate_kpp
+from .validators import ConnectIssueValidator, TariffValidator
 
 LoginRequiredAPIView = generic_login_required_view(Account)
 
@@ -71,11 +70,11 @@ class SummaryStatisticsView(LoginRequiredAPIView):
         }, status=200)
 
 
-class ParkingSessionsView(generic_pagination_view(ParkingSession, LoginRequiredAPIView, True,
-                                                  'parking__company__owner',
-                                                  exclude_attr=['try_refund', 'debt', 'current_refund_sum',
-                                                                'target_refund_sum'])):
-    pass
+class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
+    object = ParkingSession
+    account_filter = 'parking__company__owner'
+    hide_fields = ('try_refund', 'debt', 'current_refund_sum', 'target_refund_sum')
+    methods = ('GET',)
 
 
 class ParkingsTopView(LoginRequiredAPIView):
@@ -108,41 +107,22 @@ class ParkingsTopView(LoginRequiredAPIView):
         return JsonResponse({'top': r[:count + 1]}, status=200)
 
 
-class IssueUpgradeView(LoginRequiredAPIView):
-
-    def post(self, request):
-        account = request.owner
-        description = request.data.get('description', None)
-        type = request.data.get('issue_type', None)
-        if type is None or description is None or not type.isdigit() or 0 > len(description) > 1000:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                "Both 'issue_type' and 'description' fields are required, 'issue_type' must be int"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        type = int(type)
-        ui = UpgradeIssue(
-            owner=account,
-            description=description,
-            type=type,
-        )
-        ui.save()
-        return JsonResponse({}, status=200)
+class UpgradeIssueView(LoginRequiredAPIView, ObjectView):
+    object = UpgradeIssue
+    author_field = 'owner'
+    show_fields = ('description', 'type')
+    account_filter = 'owner'
 
 
-class IssueView(APIView):
-    validator_class = IssueValidator
+class IssueView(APIView, ObjectView):
+    object = Issue
+    methods = ('POST',)
+    show_fields = ('name', 'phone', 'email')
 
-    def post(self, request):
+    def on_create(self, request, obj):
         name = request.data.get("name", "")
         phone = request.data.get("phone", "")
         email = request.data.get("email", "")
-        i = Issue(
-            name=name,
-            phone=phone,
-            email=email
-        )
-        i.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if phone:
             sms_gateway = SMSGateway()
@@ -152,27 +132,14 @@ class IssueView(APIView):
                                         {'name': name})
             send_mail('Ваша заявка в ParkPass принята.', "", EMAIL_HOST_USER,
                       ['%s' % str(email)], html_message=msg_html)
-        return JsonResponse({}, status=200)
 
 
-class EditCompanyView(LoginRequiredAPIView):
-    fields = {
-        'name': StringField(required=True, max_length=256),
-        'inn': CustomValidatedField(callable=validate_inn, required=True),
-        'kpp': CustomValidatedField(callable=validate_kpp, required=True),
-        'legal_address': StringField(required=True, max_length=512),
-        'actual_address': StringField(required=True, max_length=512),
-        'email': CustomValidatedField(callable=validate_email, required=True),
-        'phone': CustomValidatedField(callable=validate_phone_number, required=True),
-        'checking_account': StringField(required=True, max_length=64),
-        'checking_kpp': CustomValidatedField(callable=validate_kpp, required=True),
-    }
-
-    validator_class = create_generic_validator(fields)
-
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=Company, fields=self.fields,
-                                req_attr={'owner': request.owner})
+class CompanyView(LoginRequiredAPIView, ObjectView):
+    object = Company
+    show_fields = ('name', 'inn', 'kpp', 'legal_address',
+                   'actual_address', 'email', 'phone', 'checking_account',
+                   'checking_kpp')
+    account_filter = 'owner'
 
 
 class TariffView(LoginRequiredAPIView):
@@ -245,17 +212,10 @@ class ConnectIssueView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView, filter_by_account=True)):
-    pass
-
-
-class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView, filter_by_account=True)):
-    pass
-
-
-class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView,
-                                               filter_by_account=True, account_field='company__owner')):
-    pass
+class ParkingsView(LoginRequiredAPIView, ObjectView):
+    object = Parking
+    account_filter = 'company__owner'
+    methods = ('GET',)
 
 
 class PasswordChangeView(LoginRequiredAPIView):

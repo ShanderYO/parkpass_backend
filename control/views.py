@@ -7,26 +7,19 @@ from django.utils import timezone
 from dss.Serializer import serializer
 
 from accounts.models import Account as UserAccount
-from accounts.models import EmailConfirmation
 from accounts.validators import *
 from base.exceptions import AuthException
-from base.utils import IntField, ForeignField, FloatField, IntChoicesField, BoolField, DateField, StringField, \
-    edit_object_view, PositiveFloatField, PositiveIntField, CustomValidatedField
 from base.utils import clear_phone
 from base.utils import datetime_from_unix_timestamp_tz
 from base.utils import generic_pagination_view as pagination
 from base.validators import LoginAndPasswordValidator
-from base.validators import create_generic_validator
 from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
-from owners.models import Company
-from owners.models import Issue
-from owners.models import Owner
+from owners.models import Issue, Owner
 from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIssue
-from parkings.validators import validate_longitude, validate_latitude
 from parkpass.settings import LOG_DIR
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
-from payments.models import Order, FiskalNotification
+from payments.models import Order
 from vendors.models import Vendor
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
@@ -107,208 +100,56 @@ class LogoutView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
+def generic_object_view(model):
+    class GenericObjectView(LoginRequiredAPIView, ObjectView):
+        object = admin_objects[model]['object']
+        show_fields = admin_objects[model].get('show_fields', None)
+        hide_fields = admin_objects[model].get('hide_fields', None)
+        readonly_fields = admin_objects[model].get('readonly_fields', None)
+
+    return GenericObjectView
+
+
+
 admin_objects = {
     'vendor': {
-        'fields': {
-        'first_name': StringField(),
-        'last_name': StringField(),
-        'phone': StringField(required=True),
-        'sms_code': StringField(),
-        'email': StringField(),
-        'password': StringField(),
-        'email_confirmation': StringField(),
-        'created_at': DateField(),
-        'display_id': IntField(),
-        'account_state': IntChoicesField(choices=Vendor.account_states),
-        'name': StringField(required=True),
-        'comission': FloatField(),
-        'secret': StringField(),
-        'test_parking': ForeignField(object=Parking),
-        'test_user': ForeignField(object=UserAccount)
-        },
-        'object': Vendor
+        'object': Vendor,
+        'readonly_fields': ('secret')
     },
     'order': {
-        'fields': {
-            'sum': PositiveFloatField(required=True),
-            'payment_attempts': PositiveIntField(),
-            'authorized': BoolField(),
-            'paid': BoolField(),
-            'paid_card_pan': StringField(),
-            'session': ForeignField(object=ParkingSession),
-            'refund_request': BoolField(),
-            'refunded_sum': PositiveFloatField(),
-            'fiskal_notification': ForeignField(object=FiskalNotification),
-            'created_at': DateField(),
-        },
-        'object': Order
+        'object': Order,
     },
     'parkingsession': {
-        'fields': {
-            'session_id': StringField(required=True),
-            'client': ForeignField(object=UserAccount, required=True),
-            'parking': ForeignField(object=Parking, required=True),
-            'debt': FloatField(),
-            'state': IntChoicesField(required=True, choices=ParkingSession.STATE_CHOICES),
-            'started_at': DateField(required=True),
-            'updated_at': DateField(),
-            'completed_at': DateField(),
-            'is_suspended': BoolField(),
-            'suspended_at': DateField(),
-            'try_refund': BoolField(),
-            'target_refund_sum': FloatField(),
-            'current_refund_sum': FloatField(),
-            'created_at': DateField()
-        },
-        'object': ParkingSession
+        'object': ParkingSession,
+        'readonly_fields': ('id', 'session_id', 'client', 'parking', 'debt', 'state', 'started_at', 'updated_at',
+                            'completed_at', 'suspended_at', 'try_refund', 'target_refund_sum',
+                            'current_refund_sum', 'created_at',)
     },
     'parking': {
         'object': Parking,
-        'fields': {
-            'name': StringField(),
-            'description': StringField(required=True),
-            'address': StringField(),
-            'latitude': CustomValidatedField(validate_latitude, required=True),
-            'longitude': CustomValidatedField(validate_longitude, required=True),
-            'enabled': BoolField(),
-            'parkpass_enabled': BoolField(),
-            'max_places': PositiveIntField(required=True),
-            'free_places': PositiveIntField(),
-            'max_client_debt': PositiveFloatField(),
-            'created_at': DateField(),
-            'vendor': ForeignField(object=Vendor),
-            'company': ForeignField(object=Company),
-            'approved': BoolField(),
-        }
     },
     'complain': {
         'object': ComplainSession,
-        'fields': {
-            'type': IntChoicesField(choices=ComplainSession.COMPLAIN_TYPE_CHOICES, required=True),
-            'message': StringField(required=True, max_length=1023),
-            'session': ForeignField(object=ParkingSession, required=True),
-            'account': ForeignField(object=UserAccount, required=True),
-        }
     },
     'issue': {
         'object': Issue,
-        'fields': {
-            'name': StringField(required=True, max_length=255),
-            'email': StringField(max_length=255),
-            'phone': StringField(required=True, max_length=13),
-            'comment': StringField(required=True, max_length=1023),
-            'created_at': DateField()
-        },
         'actions': {
             'accept': lambda issue: {'owner_id': issue.accept().id}
         }
     },
     'account': {
         'object': UserAccount,
-        'fields': {
-            'first_name': StringField(max_length=63),
-            'last_name': StringField(max_length=63),
-            'phone': StringField(required=True, max_length=15),
-            'sms_code': StringField(max_length=6),
-            'email': StringField(max_length=255),
-            'password': StringField(max_length=255),
-            'email_confirmation': ForeignField(object=EmailConfirmation),
-            'created_at': DateField()
-        },
         'actions': {
             'make_hashed_password': lambda a: {'result': 'stub' if a.make_hashed_password() else 'ok'}  # magic! ^.^
         }
     },
     'upgradeissue': {
         'object': UpgradeIssue,
-        'fields': {
-            'vendor': ForeignField(object=Vendor),
-            'owner': ForeignField(object=Owner),
-            'description': StringField(required=True, max_length=1000),
-            'type': IntChoicesField(choices=UpgradeIssue.types, required=True),
-            'issued_at': DateField(),
-            'updated_at': DateField(),
-            'completed_at': DateField(),
-            'status': IntChoicesField(choices=UpgradeIssue.statuses)
-        },
+    },
+    'owner': {
+        'object': Owner
     }
 }
-
-
-class TestUIView(APIView, ObjectView):
-    object = UpgradeIssue
-    readonly_fields = ('owner')
-
-
-class ObjectView(LoginRequiredAPIView):
-
-    def put(self, request, name, id=None):
-        try:
-            if id is None:
-                e = ValidationException(ValidationException.VALIDATION_ERROR, 'Specify ID to PUT object')
-                return JsonResponse(e.to_dict(), 405)
-            self.validator_class = create_generic_validator(admin_objects[name]['fields'])
-            validation_error = self.validate_request(request)
-            return validation_error if validation_error else edit_object_view(request=request, id=id,
-                                    object=admin_objects[name]['object'],
-                                    fields=admin_objects[name]['fields'],
-                                    create=False, edit=True)
-        except LookupError:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                'Admin object `%s` was not found' % name)
-            return JsonResponse(e.to_dict(), 404)
-
-    def post(self, request, name, id=None):
-        try:
-            self.validator_class = create_generic_validator(admin_objects[name]['fields'])
-            self.validate_request(request)
-            return edit_object_view(request=request, id=id if id else -1,
-                                    object=admin_objects[name]['object'],
-                                    fields=admin_objects[name]['fields'],
-                                    create=True, edit=False)
-        except LookupError:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                'Admin object `%s` was not found' % name)
-            return JsonResponse(e.to_dict(), 404)
-
-    def get(self, request, name, id=None):
-        try:
-            if id is None:
-                pager = generic_pagination_view(admin_objects[name]['object'])
-                return pager().get(request)
-            else:
-                try:
-                    obj = admin_objects[name]['object'].objects.get(id=id)
-                    return JsonResponse(serializer(obj))
-                except ObjectDoesNotExist:
-                    e = ValidationException(ValidationException.RESOURCE_NOT_FOUND, 'Object wasn\'t found')
-                    return JsonResponse(e.to_dict(), status=404)
-
-        except LookupError:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                'Admin object `%s` was not found' % name)
-            return JsonResponse(e.to_dict(), 404)
-
-    def delete(self, request, name, id=None):
-        try:
-            if id is None:
-                e = ValidationException(ValidationException.VALIDATION_ERROR, 'Specify ID to DELETE object')
-                return JsonResponse(e.to_dict(), 405)
-            try:
-                obj = admin_objects[name]['object'].objects.get(id=id)
-            except ObjectDoesNotExist:
-                e = ValidationException(ValidationException.RESOURCE_NOT_FOUND, 'Object with that ID wasn\'t found')
-                return JsonResponse(e.to_dict(), status=404)
-            obj.delete()
-            return JsonResponse({}, status=200)
-        except LookupError:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                'Admin object `%s` was not found' % name)
-            return JsonResponse(e.to_dict(), 404)
 
 
 class ObjectActionView(LoginRequiredAPIView):

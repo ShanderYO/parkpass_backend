@@ -11,6 +11,7 @@ from base.exceptions import AuthException
 from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
+from base.validators import validate_phone_number
 from base.views import APIView
 from base.views import generic_login_required_view
 from owners.validators import IssueValidator

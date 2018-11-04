@@ -119,11 +119,13 @@ def parse_int(value, raise_exception=False, allow_none=True, only_positive=False
 def parse_get_param(param):
     result = []
     for key in param:
-        if key[0] == u'"' and key[-1] == u'"':  # String
+        if not isinstance(key, unicode) and not isinstance(key, str):
+            result.append(key)
+        elif key[0] == u'"' and key[-1] == u'"':  # String
             result.append(key.encode('utf-8')[1:-1])
         elif key.isdecimal():  # Int
             result.append(int(key))
-        elif re.match(r'[0-9.]+', key):  # Float
+        elif re.match(r'^[0-9.]+$', key):  # Float
             result.append(float(key))
         elif key.lower() == u'true':
             result.append(True)

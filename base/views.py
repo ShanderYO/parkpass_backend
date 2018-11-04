@@ -11,17 +11,16 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from dss.Serializer import serializer
 
-from accounts.validators import validate_phone_number
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException, ApiException
 from base.utils import get_logger, datetime_from_unix_timestamp_tz
 from base.utils import parse_get_param as parse
-from base.validators import ValidatePostParametersMixin
+from base.validators import ValidatePostParametersMixin, validate_phone_number
 from parkpass.settings import REQUESTS_LOGGER_NAME, PAGINATION_OBJECTS_PER_PAGE
 from vendors.models import Vendor
 from .models import NotifyIssue
 
-_lookups = ('exact', 'iexact', 'contains', 'icontains', 'in', 'gt', 'lt', 'gte', 'lte',
+_lookups = ('exact', 'iexact', 'contains', 'icontains', 'in', 'gt', 'lt', 'gte', 'lte', 'eq', 'ne'
             'startswith', 'istartswith', 'endswith', 'iendswith', 'range', 'isnull', 'regex', 'iregex',)
 
 
@@ -197,11 +196,25 @@ class ObjectView:
     readonly_fields = None  # Names of fields that can not be changed
     show_fields = None  # Names of fields to be shown and editable. If empty, all fields will be shown
     hide_fields = None  # Names of fields to be hidden(and readonly)
+    author_field = None
     account_filter = None  # field to check owner.
+    methods = ('GET', 'POST', 'PUT', 'DELETE')
+
+    def on_delete(self, request):
+        pass
+
+    def on_create(self, request, obj):
+        pass
+
+    def on_edit(self, request, obj):
+        pass
 
     def dispatch(self, *args, **kwargs):
         if object is None:
             raise NotImplemented('Object must be specified in self.object')
+        if kwargs['request'].method not in self.methods:
+            raise PermissionException(PermissionException.NO_PERMISSION, '%s method is not allowed' %
+                                      kwargs['request'].method)
         return super(ObjectView, self).dispatch(*args, **kwargs)
 
     def _account_filter(self, request, queryset):
@@ -236,7 +249,10 @@ class ObjectView:
         lookups = lookups[:-1] if lookups[-1] in _lookups else lookups
         current_model = self.object
         for lookup in lookups[:-1]:
-            current_model = current_model._meta.get_field(lookup).rel.to
+            rel = current_model._meta.get_field(lookup).rel
+            if rel is None:
+                raise ValidationException(ValidationException.VALIDATION_ERROR, '%s can not be parsed as field' % key)
+            current_model = rel.to
         return current_model._meta.get_field(lookups[-1]).__class__.__name__
 
     @staticmethod
@@ -244,6 +260,8 @@ class ObjectView:
         try:
             t = field.__class__.__name__
             value = parse([value])
+            if value is None:
+                return None
             if t == 'ForeignKey':
                 to = field.rel.to
                 try:
@@ -276,6 +294,8 @@ class ObjectView:
             if self.readonly_fields and field.name in self.readonly_fields and request.method == 'PUT' \
                     and field.name in request.data:
                 raise readonly(field)
+            if field.name == self.author_field and field.name in request.data:
+                raise readonly(field)
             if (self.show_fields and field.name not in self.show_fields) or \
                     (self.hide_fields and field.name in self.hide_fields) or \
                     (field.name not in request.data):
@@ -289,6 +309,16 @@ class ObjectView:
         for key in request.data:
             raise ValidationException(ValidationException.VALIDATION_ERROR,
                                       'No such field: %s' % key)
+        if self.author_field and request.method == 'POST':
+            account = request.account
+            #######DEPRECATED CODE#######
+            for i in {'vendor', 'account', 'owner'}:  # TODO: DEPRECATION
+                acc = getattr(request, i, None)
+                if acc is not None:
+                    account = acc
+                    break
+            #######DEPRECATED CODE#######
+            setattr(obj, self.author_field, account)
         try:
             obj.full_clean()
         except ValidationError, e:
@@ -298,6 +328,10 @@ class ObjectView:
         location = request.path if id else request.path + unicode(obj.id) + u'/'
         response = JsonResponse({}, status=200)
         response['Location'] = location
+        if request.method == 'POST':
+            self.on_create(request, obj)
+        else:
+            self.on_edit(request, obj)
         return response
 
     def put(self, request, id=None):
@@ -350,4 +384,5 @@ class ObjectView:
         obj = self._get_object(request, id)
 
         obj.delete()
+        self.on_delete(request)
         return JsonResponse({}, status=200)
