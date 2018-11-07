@@ -15,7 +15,7 @@ from base.utils import generic_pagination_view as pagination
 from base.validators import LoginAndPasswordValidator
 from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
-from owners.models import Issue, Owner
+from owners.models import Issue, Owner, Company
 from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIssue
 from parkpass.settings import LOG_DIR
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
@@ -110,7 +110,6 @@ def generic_object_view(model):
     return GenericObjectView
 
 
-
 admin_objects = {
     'vendor': {
         'object': Vendor,
@@ -148,6 +147,9 @@ admin_objects = {
     },
     'owner': {
         'object': Owner
+    },
+    'company': {
+        'object': Company
     }
 }
 
@@ -249,3 +251,8 @@ class GetLogView(LoginRequiredAPIView):
             response = HttpResponse(wrapper)
             response['Content-Length'] = os.path.getsize(fname)
             return response
+
+
+class ListObjectsView(LoginRequiredAPIView):
+    def get(self, request):
+        return JsonResponse([i for i in admin_objects], status=200, safe=False)

@@ -13,6 +13,7 @@ urlpatterns = [
                   url(r'^statistics/parkings/$', AllParkingsStatisticsView.as_view()),
                   url(r'^statistics/log/(?P<name>.+)/$', GetLogView.as_view()),
                   url(r'^statistics/log/$', GetLogView.as_view()),
+                  url(r'^objects/$', ListObjectsView.as_view())
 
               ] + staticfiles_urlpatterns() + [
                   url(r'^objects/%s/$' % i, generic_object_view(i).as_view()) for i in admin_objects
