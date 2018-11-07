@@ -41,7 +41,11 @@ class Terminal(models.Model):
             settings.TINKOFF_TERMINAL_KEY = self.terminal_key
             settings.TINKOFF_TERMINAL_PASSWORD = self.password
 
-        super(Terminal, self).save(*args, **kwargs)
+        if len(Terminal.objects.all()) == 0 and not kwargs.get('prevent_recursion', False):
+            self.is_selected = True
+            self.save(prevent_recursion=True)
+
+        super(Terminal, self).save()
 
 
 class EmailConfirmation(models.Model):

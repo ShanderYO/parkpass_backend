@@ -104,7 +104,7 @@ class ParkingEdit(TestCase):
 
         response = Client().put(url, body, **TOKEN_DICT)
         j = json.loads(response.content)
-        print json.dumps(j, indent=2), '!@#'
+        # print json.dumps(j, indent=2), '!@#'
         self.assertEqual(200, response.status_code)
 
     def test_invalid_changes(self):
@@ -230,7 +230,7 @@ class VendorEdit(TestCase):
                 "phone": "1234",
                 "created_at": 0534464000.0,
                 "sms_code": "smsms",
-                "secret": "123regr8",
+                # "secret": "123regr8",
                 "email": "mail@mail.ur",
                 "test_user": 1,
                 "email_confirmation": None,
@@ -241,7 +241,7 @@ class VendorEdit(TestCase):
         )
 
         response = Client().put(url, body, **TOKEN_DICT)
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
 
