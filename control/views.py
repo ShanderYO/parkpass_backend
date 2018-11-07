@@ -114,7 +114,7 @@ def generic_object_view(model):
 admin_objects = {
     'vendor': {
         'object': Vendor,
-        'readonly_fields': ('secret')
+        'readonly_fields': ('secret',)
     },
     'order': {
         'object': Order,
