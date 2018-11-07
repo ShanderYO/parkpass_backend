@@ -27,19 +27,34 @@ from .validators import ConnectIssueValidator, TariffValidator
 
 LoginRequiredAPIView = generic_login_required_view(Account)
 
+
 class AccountInfoView(LoginRequiredAPIView):
     def get(self, request):
-        account_dict = serializer(request.owner, exclude_attr=("created_at", "sms_code", "password"))
+        account_dict = serializer(request.owner, exclude_attr=("name", "created_at", "sms_code", "password"))
         parkings = Parking.objects.filter(company__owner=request.owner)
         en_parkings = parkings.filter(parkpass_enabled=True)
         account_dict['parkings_total'] = len(parkings)
         account_dict['parkings_enabled'] = len(en_parkings)
         return JsonResponse(account_dict, status=200)
 
+    def put(self, request):
+        fname = request.data.get('first_name', None)
+        lname = request.data.get('last_name', None)
+        if fname is not None:
+            request.owner.first_name = fname
+        if lname is not None:
+            request.owner.last_name = lname
+        try:
+            request.owner.full_clean()
+        except ValidationError, e:
+            raise ValidationException(ValidationException.VALIDATION_ERROR, e.message_dict)
+        request.owner.save()
+        return JsonResponse({}, status=200)
+
 
 class SummaryStatisticsView(LoginRequiredAPIView):
-    def post(self, request):
-        period = request.data.get('period', 'day')
+    def get(self, request):
+        period = request.GET.get('period', ['day'])[0]
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -64,8 +79,8 @@ class SummaryStatisticsView(LoginRequiredAPIView):
                 seen.add(s.client)
                 users += 1
         return JsonResponse({
-            'count': count,
-            'debt': debt,
+            'sessions': count,
+            'income': debt if debt else 0,
             'users': users
         }, status=200)
 
@@ -78,9 +93,9 @@ class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
 
 
 class ParkingsTopView(LoginRequiredAPIView):
-    def post(self, request):
-        count = request.data.get('count', 3)
-        period = request.data.get('period', 'day')
+    def get(self, request):
+        count = request.GET.get('count', [3])[0]
+        period = request.GET.get('period', ['day'])[0]
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -98,13 +113,14 @@ class ParkingsTopView(LoginRequiredAPIView):
         r = []
         for p in parkings:
             r.append({
+                'id': p.id,
                 'company': p.company.name,
                 'address': p.address,
                 'debt': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
                     'debt__sum'],
             })
         r = sorted(r, key=lambda x: -x['debt'] if x['debt'] else 0)
-        return JsonResponse({'top': r[:count + 1]}, status=200)
+        return JsonResponse(r[:count + 1], status=200, safe=False)
 
 
 class UpgradeIssueView(LoginRequiredAPIView, ObjectView):
