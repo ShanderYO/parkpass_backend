@@ -32,7 +32,8 @@ class TinkoffAPI():
         except ObjectDoesNotExist:
             terminal = Terminal.objects.create(
                 terminal_key=settings.TINKOFF_TERMINAL_KEY,
-                password=settings.TINKOFF_TERMINAL_PASSWORD
+                password=settings.TINKOFF_TERMINAL_PASSWORD,
+                is_selected=True,
             )
         self.terminal_key = str(terminal.terminal_key)  # settings.TINKOFF_TERMINAL_KEY "1516954410942DEMO"
         self.password = str(terminal.password)  # settings.TINKOFF_TERMINAL_PASSWORD "dybcdp86npi8s9fv"
