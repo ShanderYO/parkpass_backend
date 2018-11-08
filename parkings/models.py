@@ -171,6 +171,8 @@ class ParkingSession(models.Model):
     target_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     current_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
 
+    extra_data = models.TextField(null=True, blank=True)
+
     created_at = models.DateField(auto_now_add=True)
 
     class Meta:
