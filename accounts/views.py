@@ -302,7 +302,7 @@ class DebtParkingSessionView(LoginRequiredAPIView):
         if current_parking_session:
             debt_dict = serializer(current_parking_session, exclude_attr=("session_id", "client_id", "extra_data", "created_at",))
             orders = Order.objects.filter(session=current_parking_session)
-            orders_dict = serializer(orders, foreign=False, include_attr=("id", "sum", "paid"))
+            orders_dict = serializer(orders, foreign=False, include_attr=("id", "sum", "authorized", "paid"))
             debt_dict["orders"] = orders_dict
             return JsonResponse(debt_dict, status=200)
         else:
