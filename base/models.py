@@ -91,7 +91,7 @@ class BaseAccount(models.Model):
     last_name = models.CharField(max_length=63, null=True, blank=True)
     phone = models.CharField(max_length=15)
     sms_code = models.CharField(max_length=6, null=True, blank=True)
-    email = models.EmailField(null=True, blank=True, unique=True)
+    email = models.EmailField(null=True, blank=True)
     password = models.CharField(max_length=255, default="stub")
     email_confirmation = models.ForeignKey(EmailConfirmation, null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateField(auto_now_add=True)
