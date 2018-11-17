@@ -246,6 +246,9 @@ class ParkingSession(models.Model):
     def is_available_for_vendor_update(self):
         return self.state not in [self.STATE_CANCELED, self.STATE_COMPLETED, self.STATE_CLOSED]
 
+    def reset_client_completed_state(self):
+        self.state = self.state - (self.state & self.COMPLETED_BY_CLIENT_MASK)
+
     def is_cancelable(self):
         return self.state in [
             self.STATE_STARTED_BY_CLIENT,
