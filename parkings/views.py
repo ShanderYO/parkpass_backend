@@ -415,6 +415,7 @@ class CancelParkingSessionView(SignedRequestAPIView):
                     'Permission denied'
                 )
                 return JsonResponse(e.to_dict(), status=400)
+
             # Check if session is is_cancelable
             if not session.is_cancelable():
                 e = ValidationException(
@@ -424,6 +425,7 @@ class CancelParkingSessionView(SignedRequestAPIView):
                 return JsonResponse(e.to_dict(), status=400)
 
             session.state = ParkingSession.STATE_CANCELED
+            session.reset_client_completed_state()
             session.save()
 
         except ObjectDoesNotExist:
