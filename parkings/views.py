@@ -420,7 +420,7 @@ class CancelParkingSessionView(SignedRequestAPIView):
             if not session.is_cancelable():
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
-                    "Parking session cancelling error. Current state: %s" % self.state
+                    "Parking session cancelling error. Current state: %s" % session.state
                 )
                 return JsonResponse(e.to_dict(), status=400)
 

@@ -253,7 +253,9 @@ class ParkingSession(models.Model):
         return self.state in [
             self.STATE_STARTED_BY_CLIENT,
             self.STATE_STARTED_BY_VENDOR,
-            self.STATE_STARTED
+            self.STATE_STARTED,
+            self.STATE_COMPLETED_BY_CLIENT,
+            self.STATE_COMPLETED_BY_CLIENT_FULLY
         ]
 
     # TODO make async
