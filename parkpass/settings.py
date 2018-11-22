@@ -150,8 +150,8 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 BASE_LOGGER_NAME = "parkpass"
-LOG_FILE = 'parkpass.log'
-REQUESTS_LOG_FILE = 'requests.log'
+LOG_FILE = 'media/logs/parkpass.log'
+REQUESTS_LOG_FILE = 'media/logs/requests.log'
 REQUESTS_LOGGER_NAME = 'requests'
 
 LOGGING = {
