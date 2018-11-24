@@ -73,7 +73,7 @@ class EmailConfirmation(models.Model):
     # TODO make async
     def send_confirm_mail(self):
         render_data = {
-            "emails": self.email,
+            "email": self.email,
             "confirmation_href": self._generate_confirmation_link()
         }
         msg_html = render_to_string('emails/email_confirm_mail.html',

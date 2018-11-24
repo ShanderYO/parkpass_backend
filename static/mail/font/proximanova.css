@@ -1,0 +1,12 @@
+@font-face {
+    font-family: 'Proxima Nova';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Proxima Nova'), local('Proxima-Nova'), url(http://webwhistler.ru/parkapp/mail/font/proximanova/Proxima_Nova.woff2) format('woff2');
+  }
+@font-face {
+    font-family: 'Proxima Nova';
+    font-style: bold;
+    font-weight: 600;
+    src: local('Proxima Nova Bold'), local('Proxima-Nova-Bold'), url(http://webwhistler.ru/parkapp/mail/font/proximanova/Proxima_Nova_Bold.woff2) format('woff2');
+  }
