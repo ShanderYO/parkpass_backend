@@ -70,6 +70,15 @@ class PasswordTestCase(TestCase):
         account, account_session = create_account()
         account.save()
 
+    def test_add_email_test(self):
+        url = URL_PREFIX + "email/add/"
+
+        body = json.dumps({
+            "email": "diman-mich@yandex.ru"
+        })
+        response = Client().post(url, body, **TOKEN_DICT)
+        self.assertEqual(response.status_code, 200)
+
     def test_invalid_email_restore(self):
         """
         Testing case when invalid email is entered when attempting to restore password
