@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import binascii
 import os
 import random
@@ -78,7 +79,7 @@ class EmailConfirmation(models.Model):
         }
         msg_html = render_to_string('emails/email_confirm_mail.html',
                                     render_data)
-        send_mail('Request to bind mail', "", EMAIL_HOST_USER,
+        send_mail('Изменение адреса электронной почты в системе Parkpass', "", EMAIL_HOST_USER,
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def _generate_confirmation_link(self):
@@ -160,7 +161,7 @@ class BaseAccount(models.Model):
         }
         msg_html = render_to_string('emails/password_mail.html',
                                     render_data)
-        send_mail('Parkpass password', "", EMAIL_HOST_USER,
+        send_mail('Пароль для личного кабинета системы Parkpass', "", EMAIL_HOST_USER,
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def generate_random_password(self):

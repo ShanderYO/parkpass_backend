@@ -1,6 +1,5 @@
 <!doctype html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-{% load static %}
 <head>
     <title>
         PARKPASS | Подтверждение e-mail
@@ -82,13 +81,11 @@
         <![endif]-->
 
     <!--[if !mso]><!-->
-    <link href="{% static 'mail/font/proximanova.css' %}" rel="stylesheet" type="text/css">
+    <link href="https://parkpass.ru/api/static/mail/font/proximanova.css" rel="stylesheet" type="text/css">
     <style type="text/css">
-        @import url({% static 'mail/font/proximanova.css' %};
+        @import url(https://parkpass.ru/api/static/mail/font/proximanova.css);
     </style>
     <!--<![endif]-->
-
-
 
     <style type="text/css">
         @media only screen and (min-width:480px) {
@@ -102,7 +99,6 @@
             }
         }
     </style>
-
 
     <style type="text/css">
         @media only screen and (max-width:480px) {
@@ -193,7 +189,7 @@
                                                     <tr>
                                                         <td style="width:79px;">
 
-                                                            <img height="40" src="{% static 'mail/img/pp_logo.png' %}" style="border:0;display:block;outline:none;text-decoration:none;height:40px;width:100%;" width="79" />
+                                                            <img height="40" src="https://parkpass.ru/api/static/mail/img/pp_logo.png" style="border:0;display:block;outline:none;text-decoration:none;height:40px;width:100%;" width="79" />
 
                                                         </td>
                                                     </tr>
@@ -460,7 +456,7 @@
                                                         <td align="right" class="support-phone" style="font-size:0px;padding:10px 25px;word-break:break-word;">
 
                                                             <div style="font-family:Proxima Nova, Arial;font-size:16px;line-height:25px;text-align:right;color:#050D9E;">
-                                                                <span style="background:url({% static 'mail/img/telephone.png' %}) left center no-repeat; padding-left:30px;color:#050D9E">8 800 600-46-70</span>
+                                                                <span style="background:url(https://parkpass.ru/api/static/mail/img/telephone.png) left center no-repeat; padding-left:30px;color:#050D9E">8 800 600-46-70</span>
                                                             </div>
 
                                                         </td>
@@ -491,7 +487,7 @@
                                         <td align="left" class="support-email" style="font-size:0px;padding:10px 25px;word-break:break-word;">
 
                                             <div style="font-family:Proxima Nova, Arial;font-size:16px;line-height:25px;text-align:left;color:#050D9E;">
-                                                <span style="background:url({% static 'mail/img/mail.png' %}) left center no-repeat; padding-left:30px; color:#050D9E">support@parkpass.ru</span>
+                                                <span style="background:url(https://parkpass.ru/api/static/mail/img/mail.png) left center no-repeat; padding-left:30px; color:#050D9E">support@parkpass.ru</span>
                                             </div>
 
                                         </td>
@@ -553,7 +549,7 @@
                                         <td align="center" style="font-size:0px;padding:10px 25px;padding-bottom:8px;word-break:break-word;">
 
                                             <div style="font-family:Proxima Nova, Arial;font-size:16px;line-height:25px;text-align:center;color:#4E5A7C;">
-                                                <a href="#" class="link-nostyle link_blue" style="font-size:13px;">Открыть в браузере</a>
+                                                <!--<a href="#" class="link-nostyle link_blue" style="font-size:13px;">Открыть в браузере</a>-->
                                             </div>
 
                                         </td>
@@ -563,8 +559,8 @@
                                         <td align="center" style="font-size:0px;padding:10px 25px;padding-bottom:8px;word-break:break-word;">
 
                                             <div style="font-family:Proxima Nova, Arial;font-size:16px;line-height:25px;text-align:center;color:#4E5A7C;">
-                                                <a href="https://parkpass.ru/vendors" width="26px"><img class="foo_img_link" src="{% static 'mail/img/instagram.png' %}" style="margin-right:1px"/></a>
-                                                <a href="https://parkpass.ru/vendors" width="26px"><img class="foo_img_link" src="{% static 'mail/img/vk.png' %}" style="margin-left:1px"/></a>
+                                                <a href="https://parkpass.ru/vendors" width="26px"><img class="foo_img_link" src="https://parkpass.ru/api/static/mail/img/instagram.png" style="margin-right:1px"/></a>
+                                                <a href="https://parkpass.ru/vendors" width="26px"><img class="foo_img_link" src="https://parkpass.ru/api/static/mail/img/vk.png" style="margin-left:1px"/></a>
                                             </div>
 
                                         </td>
