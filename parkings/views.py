@@ -424,8 +424,12 @@ class CancelParkingSessionView(SignedRequestAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-            session.state = ParkingSession.STATE_CANCELED
+            # Anyway reset mask
             session.reset_client_completed_state()
+
+            # If user didn't get in
+            if not session.is_started_by_vendor():
+                session.state = ParkingSession.STATE_CANCELED
             session.save()
 
         except ObjectDoesNotExist:
