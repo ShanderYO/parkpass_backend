@@ -19,7 +19,7 @@ urlpatterns = [
                   url(r'^stats/sessions/(?P<id>\d+)/$', ParkingSessionsView.as_view()),
                   url(r'^stats/top/$', ParkingsTopView.as_view()),
                   url(r'^stats/summary/$', SummaryStatisticsView.as_view()),
-                  url(r'^stats/info/$', AccountInfoView.as_view()),
+                  url(r'^profile/$', AccountInfoView.as_view()),
                   url(r'^issue/$', IssueView.as_view()),
                   url(r'^parkings/(?P<id>\d+)/tariff/$', TariffView.as_view()),
                   url(r'^parkings/$', ParkingsView.as_view()),
