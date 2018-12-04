@@ -8,4 +8,3 @@ venv
 #migrations
 migrations
 0*_*.py
-logs

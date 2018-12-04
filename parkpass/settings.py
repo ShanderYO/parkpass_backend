@@ -2,13 +2,13 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'vpqbqbi3@8t4wig82x6fj4_a2o$9zf=_bzh(^d2-n0xdqi#c%s'
-DEBUG = True if int(os.environ.get("DJANGO_DEBUG", 1)) else False
+DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 ALLOWED_HOSTS = ["parkpass.ru"]
 
 
 SMS_GATEWAY_API_KEY = "6831k8gxzptd8unfb5fk58rg7sutsjbybrb8faao"
 SMS_SENDER_NAME = "PARKPASS"
-SMS_GATEWAY_ENABLED = True if int(os.environ.get("SMS_GATEWAY_ENABLE", 1)) else False
+SMS_GATEWAY_ENABLED = int(os.environ.get("SMS_GATEWAY_ENABLE", 1)) == 1
 
 TINKOFF_DEFAULT_TERMINAL_KEY = "1516954410942DEMO"
 TINKOFF_DEFAULT_TERMINAL_PASSWORD = "dybcdp86npi8s9fv"
