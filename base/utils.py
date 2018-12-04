@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 import datetime
 import logging
+import re
 
 import pytz
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, FieldError
 from django.http import JsonResponse
 from dss.Serializer import serializer
 
@@ -11,52 +13,84 @@ from parkpass.settings import BASE_LOGGER_NAME
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
 
 
-def generic_pagination_view(obj, view_base_class, filter_by_account=False, account_field=None):
+def strtobool(s):
+    if s.lower() == 'true':
+        return True
+    if s.lower() == 'false':
+        return False
+    raise ValueError('%r must be "true" or "false"' % s)
+
+
+def generic_pagination_view(obj, view_base_class, filter_by_account=False, account_field=None, exclude_attr=()):
     class GenericPaginationView(view_base_class):
-        def post(self, request, page):
+        def get(self, request):
+            # Кучка непонятного кода, потому что "Rest Framework связывает нас по рукам и ногам, с нуля проще"
             filter = {}
-            for key in request.data:
+            data = dict(request.GET)  # Кастуем в словарь, чтобы можно было удалять элементы
+
+            for key in data:  # Кастуем в инт все числовые значения, остальные в str
+                values = data[key]
+                data.pop(key)
+                key = key.encode('utf-8')
+                data[key] = []
+                for value in values:
+                    data[key].append(int(value) if value.isdigit() else value.encode('utf-8'))
+
+            page = int(data.pop('page', 0))
+            count = int(data.pop('count', PAGINATION_OBJECTS_PER_PAGE))
+
+            for key in data:
                 try:
-                    attr, modifier = key.split('__') if not hasattr(obj, key) else (key, 'eq')
-                    if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge', 'le', 'in') or not hasattr(obj, attr):
+                    if hasattr(obj, key):  # Если указано название существующего поля
+                        attr, modifier = key, 'eq'  # То мы сравниваем точное значение
+                        first_attr = attr
+                    else:
+                        _ = key.split('__')  # Иначе ловим модификатор
+                        attr, modifier = '__'.join(_[:-1]), _[-1]
+                        first_attr = _[0]
+                    if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge',
+                                        'le', 'in', 'tlt', 'tgt') or not hasattr(obj, first_attr):
                         raise ValueError()
-                    if isinstance(request.data[key], bool):
+                    if data[key][0] in {'True', 'False', 'true', 'false'}:
+                        # Кастуем значение в bool, если оно таковым является
                         if modifier == 'eq':
-                            filter[attr] = request.data[key]
+                            filter[attr] = strtobool(data[key][0])
                         elif modifier == 'ne':
-                            filter[attr] = not request.data[key]
+                            filter[attr] = not strtobool(data[key][0])
                         else:
                             raise ValueError()
                     else:
                         if modifier == 'eq':
-                            filter[attr] = request.data[key]
+                            filter[attr] = data[key][0]
+                        elif modifier == 'in':
+                            filter[attr + '__in'] = data[key]
+                        elif modifier in ('tlt', 'tgt'):
+                            # Для дат используем отдельные модификаторы, так как это реально проще,
+                            # чем дёргать с модели поле для проверки типа(которое может ссылаться и на другую модель)
+                            filter[attr + '__' + modifier[1:]] = datetime_from_unix_timestamp_tz(int(data[key][0]))
                         else:
-                            filter[attr + '__' + modifier] = request.data[key]
-                except ValueError:
+                            filter[attr + '__' + modifier] = data[key][0]
+                except (ValueError, FieldError):
                     e = ValidationException(
                         ValidationException.VALIDATION_ERROR,
                         "Invalid filter format"
                     )
                     return JsonResponse(e.to_dict(), status=400)
             account_dict = {}
-            if filter_by_account:
-                for i in {'vendor', 'account', 'owner'}:
+            if filter_by_account:  # Если необходимо, фильтруем объекты по аккаунту пользователя, запросившего их
+                for i in {'vendor', 'account', 'owner'}:  # TODO: DEPRECATION
                     account = getattr(request, i, None)
-                    if account != None:
+                    if account is not None:
                         _ = account_field if account_field else i
                         account_dict = {_: account}
-            if filter:
-                filter.update(account_dict)
-                objects = obj.objects.filter(**filter)
-            else:
-                objects = obj.objects.filter(**account_dict)
-            page = int(page)
+                        break
+            filter.update(account_dict)
+            objects = obj.objects.filter(**filter)
             result = []
             for o in objects:
-                result.append(serializer(o))
+                result.append(serializer(o, exclude_attr=exclude_attr))
             length = len(result)
-            count = PAGINATION_OBJECTS_PER_PAGE
-            if length > count:
+            if length > count:  # Пагинация
                 result = result[page * count:(page + 1) * count]
             return JsonResponse({'count': length, 'objects': result}, status=200)
 
@@ -80,6 +114,26 @@ def parse_int(value, raise_exception=False, allow_none=True, only_positive=False
         if raise_exception:
             raise
         return None
+
+
+def parse_get_param(param):
+    result = []
+    for key in param:
+        if not isinstance(key, unicode) and not isinstance(key, str):
+            result.append(key)
+        elif key[0] == u'"' and key[-1] == u'"':  # String
+            result.append(key.encode('utf-8')[1:-1])
+        elif key.isdecimal():  # Int
+            result.append(int(key))
+        elif re.match(r'^[0-9.]+$', key):  # Float
+            result.append(float(key))
+        elif key.lower() == u'true':
+            result.append(True)
+        elif key.lower() == u'false':
+            result.append(False)
+        else:
+            result.append(key.encode('utf-8'))
+    return result if len(result) != 1 else result[0]
 
 
 def parse_bool(value, raise_exception=False, allow_none=True):
@@ -124,7 +178,7 @@ def clear_phone(phone):
 def datetime_from_unix_timestamp_tz(value):
     if value is None:
         return None
-    started_at_date = datetime.datetime.fromtimestamp(value)
+    started_at_date = datetime.datetime.fromtimestamp(float(value))
     return pytz.utc.localize(started_at_date)
 
 
@@ -188,11 +242,11 @@ class IntChoicesField(FieldType):
     def parse(self, value):
         if not self.is_required and value is None:
             return None
-        if value not in map(lambda x: x[0], self._choices):
+        if parse_int(value) not in map(lambda x: x[0], self._choices):
             if self._raise:
                 raise ValidationException(
                     ValidationException.VALIDATION_ERROR,
-                    "Value %s must be one of %s" % (value, self._choices)
+                    "Value %r must be one of %s" % (value, self._choices)
                 )
             return None
         return parse_int(value, raise_exception=self._raise)
@@ -228,7 +282,7 @@ class ForeignField(FieldType):
             return self._object.objects.get(id=value)
 
 
-def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None):
+def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None, create=False, edit=True):
     """
     Generic object editing API view
     :param request: pass request
@@ -238,6 +292,7 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
     :param incl_attr: What attributes to show via serializer
     :param req_attr: Dict of model attrs to be specified in getter and set to new objects
     """
+    return_code = 200
     if req_attr is None:
         req_attr = {}
     try:
@@ -245,8 +300,15 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
             instance = object()
             for attr, value in req_attr.items():
                 instance.__setattr__(attr, value)
+            return_code = 201
         else:
-            instance = object.objects.get(id=id, **req_attr)
+            if create:
+                instance, created = object.objects.get_or_create(id=id, **req_attr)
+                if not created and not edit:
+                    e = ValidationException(ValidationException.ALREADY_EXISTS, 'Use PUT to edit existing objects')
+                    return JsonResponse(e.to_dict(), status=409)
+            else:
+                instance = object.objects.get(id=id, **req_attr)
     except ObjectDoesNotExist:
         e = ValidationException(
             ValidationException.RESOURCE_NOT_FOUND,
@@ -254,10 +316,6 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
         )
         return JsonResponse(e.to_dict(), status=400)
     try:
-        delete = parse_bool(request.data.get("delete", None))
-        if delete:
-            instance.delete()
-            return JsonResponse({}, status=200)
         for field in fields:
             raw = request.data.get(field, None)
             if raw is not None:
@@ -271,12 +329,9 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None)
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-    except Exception as exc:
-        e = ValidationException(
-            ValidationException.VALIDATION_ERROR,
-            str(exc)
-        )
-        return JsonResponse(e.to_dict(), status=400)
+    except ValidationException as exc:
+        return JsonResponse(exc.to_dict(), status=400)
+    instance.full_clean()
     instance.save()
     # TODO: Fix showing str's
-    return JsonResponse(serializer(instance, include_attr=incl_attr), status=200)
+    return JsonResponse(serializer(instance, include_attr=incl_attr), status=return_code)

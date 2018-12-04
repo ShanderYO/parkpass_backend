@@ -4,6 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
 from base.models import BaseAccount, BaseAccountSession
+from base.validators import validate_phone_number
+from owners.validators import validate_inn, validate_kpp, validate_name
 
 
 class Owner(BaseAccount):
@@ -62,12 +64,12 @@ class UpgradeIssue(models.Model):
 class Company(models.Model):
     owner = models.ForeignKey(to=Owner)
     name = models.CharField(max_length=256, unique=True)
-    inn = models.CharField(max_length=15)
-    kpp = models.CharField(max_length=15)
+    inn = models.CharField(max_length=15, validators=(validate_inn,))
+    kpp = models.CharField(max_length=15, validators=(validate_kpp,))
     legal_address = models.CharField(max_length=512)
     actual_address = models.CharField(max_length=512)
     email = models.EmailField()
-    phone = models.CharField(max_length=15)
+    phone = models.CharField(max_length=15, validators=(validate_phone_number,))
 
     checking_account = models.CharField(max_length=64)
     checking_kpp = models.CharField(max_length=15)
@@ -81,11 +83,23 @@ class Issue(models.Model):
         return '%s %s' % (self.name, self.created_at)
 
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, validators=(validate_name,))
     email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=13)
+    phone = models.CharField(max_length=13, validators=(validate_phone_number,))
     comment = models.CharField(max_length=1023, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, editable=True)
+
+    def accept(self):
+        owner = Owner(
+            phone=self.phone,
+            email=self.email,
+            name=self.name,
+        )
+        owner.full_clean()
+        owner.save()
+        owner.create_password_and_send()
+        self.delete()
+        return owner
 
 
 class ConnectIssue(models.Model):

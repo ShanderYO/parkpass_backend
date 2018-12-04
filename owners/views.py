@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import json
-from datetime import datetime, timedelta
 
 from django.core.mail import send_mail
 from django.db.models import Sum
 from django.template.loader import render_to_string
+from django.utils import timezone
+from django.utils.timezone import timedelta
 from django.views import View
 
 from accounts.sms_gateway import SMSGateway
@@ -13,8 +14,8 @@ from base.exceptions import AuthException
 from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
-from base.views import APIView
-from base.views import OwnerAPIView as LoginRequiredAPIView
+from base.views import APIView, ObjectView
+from base.views import generic_login_required_view
 from parkings.models import Parking, ParkingSession
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
@@ -22,23 +23,38 @@ from .models import Issue, ConnectIssue
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
 from .models import UpgradeIssue, Company
-from .validators import IssueValidator, ConnectIssueValidator, TariffValidator
-from .validators import validate_inn, validate_kpp
+from .validators import ConnectIssueValidator, TariffValidator
+
+LoginRequiredAPIView = generic_login_required_view(Account)
 
 
 class AccountInfoView(LoginRequiredAPIView):
     def get(self, request):
-        account_dict = serializer(request.owner, exclude_attr=("created_at", "sms_code", "password"))
+        account_dict = serializer(request.owner, exclude_attr=("name", "created_at", "sms_code", "password"))
         parkings = Parking.objects.filter(company__owner=request.owner)
         en_parkings = parkings.filter(parkpass_enabled=True)
         account_dict['parkings_total'] = len(parkings)
         account_dict['parkings_enabled'] = len(en_parkings)
         return JsonResponse(account_dict, status=200)
 
+    def put(self, request):
+        fname = request.data.get('first_name', None)
+        lname = request.data.get('last_name', None)
+        if fname is not None:
+            request.owner.first_name = fname
+        if lname is not None:
+            request.owner.last_name = lname
+        try:
+            request.owner.full_clean()
+        except ValidationError, e:
+            raise ValidationException(ValidationException.VALIDATION_ERROR, e.message_dict)
+        request.owner.save()
+        return JsonResponse({}, status=200)
+
 
 class SummaryStatisticsView(LoginRequiredAPIView):
-    def post(self, request):
-        period = request.data.get('period', 'day')
+    def get(self, request):
+        period = request.GET.get('period', ['day'])[0]
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -51,7 +67,7 @@ class SummaryStatisticsView(LoginRequiredAPIView):
             td = timedelta(days=7)
         else:
             td = timedelta(days=30)
-        t = datetime.date.today() - td
+        t = timezone.now() - td
         sessions = ParkingSession.objects.filter(parking__company__owner=request.owner,
                                                  completed_at__gt=t)
         count = sessions.count()
@@ -63,79 +79,23 @@ class SummaryStatisticsView(LoginRequiredAPIView):
                 seen.add(s.client)
                 users += 1
         return JsonResponse({
-            'count': count,
-            'debt': debt,
+            'sessions': count,
+            'income': debt if debt else 0,
             'users': users
         }, status=200)
 
 
-class ParkingStatisticsView(LoginRequiredAPIView):
-    def post(self, request):
-        def get_ids_from_list(s):
-            if str(s).isdigit():
-                return [int(s)]
-            s = s.replace(' ', '').strip(',').split(',')
-            l = []
-            for i in s:
-                if i.isdigit():
-                    l.append(i)
-            return l
-
-        try:
-            id = request.data.get("pk", '')
-            start_from = int(request.data.get("start", -1))
-            stop_at = int(request.data.get("end", -1))
-            page = int(request.data.get("page", 0))
-            count = int(request.data.get("count", PAGINATION_OBJECTS_PER_PAGE))
-        except ValueError:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                "All fields must be int"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        if stop_at < start_from:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                "`start_from` shouldn't be greater than `stop_at`"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        ids = get_ids_from_list(id)
-        try:
-            if not ids:
-                parkings = Parking.objects.filter(company__owner=request.owner)
-            else:
-                parkings = Parking.objects.filter(id__in=ids, company__owner=request.owner)
-        except ObjectDoesNotExist:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "Target parking with such id not found"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        parkings_list = []
-        for parking in parkings:
-            stat = ParkingSession.objects.filter(
-                parking=parking,
-                started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-                else datetime.datetime.now() - timedelta(days=31),
-                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.datetime.now()
-            )
-            sessions_list = []
-            for ps in stat:
-                sessions_list.append(
-                    serializer(ps, exclude_attr=['try_refund', 'debt', 'current_refund_sum', 'target_refund_sum'])
-                )
-            parkings_list.append({
-                'parking_id': parking.id,
-                'sessions': sessions_list
-            })
-        return JsonResponse({'count': len(parkings_list),
-                             'parkings': parkings_list[page * count:(page + 1) * count]})
+class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
+    object = ParkingSession
+    account_filter = 'parking__company__owner'
+    hide_fields = ('try_refund', 'debt', 'current_refund_sum', 'target_refund_sum')
+    methods = ('GET',)
 
 
 class ParkingsTopView(LoginRequiredAPIView):
-    def post(self, request):
-        count = request.data.get('count', 3)
-        period = request.data.get('period', 'day')
+    def get(self, request):
+        count = request.GET.get('count', [3])[0]
+        period = request.GET.get('period', ['day'])[0]
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -148,55 +108,37 @@ class ParkingsTopView(LoginRequiredAPIView):
             td = timedelta(days=7)
         else:
             td = timedelta(days=30)
-        t = datetime.date.today() - td
+        t = timezone.now() - td
         parkings = Parking.objects.filter(company__owner=request.owner)
         r = []
         for p in parkings:
             r.append({
+                'id': p.id,
                 'company': p.company.name,
                 'address': p.address,
                 'debt': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
                     'debt__sum'],
             })
         r = sorted(r, key=lambda x: -x['debt'] if x['debt'] else 0)
-        return JsonResponse({'top': r[:count + 1]}, status=200)
+        return JsonResponse(r[:count + 1], status=200, safe=False)
 
 
-class IssueUpgradeView(LoginRequiredAPIView):
-
-    def post(self, request):
-        account = request.owner
-        description = request.data.get('description', None)
-        type = request.data.get('issue_type', None)
-        if type is None or description is None or not type.isdigit() or 0 > len(description) > 1000:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                "Both 'issue_type' and 'description' fields are required, 'issue_type' must be int"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        type = int(type)
-        ui = UpgradeIssue(
-            owner=account,
-            description=description,
-            type=type,
-        )
-        ui.save()
-        return JsonResponse({}, status=200)
+class UpgradeIssueView(LoginRequiredAPIView, ObjectView):
+    object = UpgradeIssue
+    author_field = 'owner'
+    show_fields = ('description', 'type')
+    account_filter = 'owner'
 
 
-class IssueView(APIView):
-    validator_class = IssueValidator
+class IssueView(APIView, ObjectView):
+    object = Issue
+    methods = ('POST',)
+    show_fields = ('name', 'phone', 'email')
 
-    def post(self, request):
+    def on_create(self, request, obj):
         name = request.data.get("name", "")
         phone = request.data.get("phone", "")
         email = request.data.get("email", "")
-        i = Issue(
-            name=name,
-            phone=phone,
-            email=email
-        )
-        i.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if phone:
             sms_gateway = SMSGateway()
@@ -206,27 +148,14 @@ class IssueView(APIView):
                                         {'name': name})
             send_mail('Ваша заявка в ParkPass принята.', "", EMAIL_HOST_USER,
                       ['%s' % str(email)], html_message=msg_html)
-        return JsonResponse({}, status=200)
 
 
-class EditCompanyView(LoginRequiredAPIView):
-    fields = {
-        'name': StringField(required=True, max_length=256),
-        'inn': CustomValidatedField(callable=validate_inn, required=True),
-        'kpp': CustomValidatedField(callable=validate_kpp, required=True),
-        'legal_address': StringField(required=True, max_length=512),
-        'actual_address': StringField(required=True, max_length=512),
-        'email': CustomValidatedField(callable=validate_email, required=True),
-        'phone': CustomValidatedField(callable=validate_phone_number, required=True),
-        'checking_account': StringField(required=True, max_length=64),
-        'checking_kpp': CustomValidatedField(callable=validate_kpp, required=True),
-    }
-
-    validator_class = create_generic_validator(fields)
-
-    def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=Company, fields=self.fields,
-                                req_attr={'owner': request.owner})
+class CompanyView(LoginRequiredAPIView, ObjectView):
+    object = Company
+    show_fields = ('name', 'inn', 'kpp', 'legal_address',
+                   'actual_address', 'email', 'phone', 'checking_account',
+                   'checking_kpp')
+    account_filter = 'owner'
 
 
 class TariffView(LoginRequiredAPIView):
@@ -299,17 +228,10 @@ class ConnectIssueView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView, filter_by_account=True)):
-    pass
-
-
-class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView, filter_by_account=True)):
-    pass
-
-
-class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView,
-                                               filter_by_account=True, account_field='company__owner')):
-    pass
+class ParkingsView(LoginRequiredAPIView, ObjectView):
+    object = Parking
+    account_filter = 'company__owner'
+    methods = ('GET',)
 
 
 class PasswordChangeView(LoginRequiredAPIView):
@@ -367,9 +289,23 @@ class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = clear_phone(request.data["phone"])
+        phone = clear_phone(request.data.get("phone", None))
+        password = request.data.get('password', None)
+        if not all((phone, password)):
+            e = ValidationException(ValidationException.VALIDATION_ERROR,
+                                    'phone and password are required')
+            return JsonResponse(e.to_dict(), status=400)
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
+            if account.check_password(password):
+                account.login()
+                session = account.get_session()
+            else:
+                e = AuthException(
+                    AuthException.INVALID_PASSWORD,
+                    "Invalid password"
+                )
+                return JsonResponse(e.to_dict(), status=400)
         else:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -377,8 +313,6 @@ class LoginWithPhoneView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        account.login()
-        session = account.get_session()
         return JsonResponse(serializer(session, exclude_attr=("created_at",)))
 
 

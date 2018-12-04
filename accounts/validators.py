@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 
 from base.exceptions import ValidationException
-from base.validators import BaseValidator
+from base.validators import BaseValidator, validate_phone_number
 
 
 class IdValidator(BaseValidator):
@@ -200,13 +200,6 @@ def validate_name(value):
     regex = u'[A-Za-zА-Яа-яЁё]{2,50}'
     if not re.match(regex, value):
         raise ValidationError("Name has invalid format. Please use only letters. Also, length must be <= 50 letters.")
-
-
-def validate_phone_number(value):
-    # Format (+code1) code2+number
-    regex = r'^\+?\d[\( ]?\d\d\d[\) ]?-? ?\d\d\d[ -]?\d\d[ -]?\d\d$'
-    if not re.match(regex, value):
-        raise ValidationError("Phone number has invalid format. Please, send like something +7(909)1234332")
 
 
 def validate_account_birthday(value):

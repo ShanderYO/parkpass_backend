@@ -1,5 +1,4 @@
 import base64
-import datetime
 import json
 from hashlib import md5
 from os import remove
@@ -7,6 +6,7 @@ from os.path import isfile
 
 from django.test import Client
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.models import Account, AccountSession
 from parkings.models import Parking, ParkingSession, Wish
@@ -249,9 +249,9 @@ class AccountDeactivateTestCase(AccountTestCase):
             parking=parking,
             debt=100,
             state=ParkingSession.STATE_CLOSED,
-            started_at=datetime.datetime(2016, 12, 14),
-            updated_at=datetime.datetime(2016, 12, 14),
-            completed_at=datetime.datetime(2016, 12, 15),
+            started_at=timezone.now(),
+            updated_at=timezone.now(),
+            completed_at=timezone.now(),
         )
 
         ParkingSession.objects.create(
@@ -261,9 +261,9 @@ class AccountDeactivateTestCase(AccountTestCase):
             parking=parking,
             debt=120,
             state=ParkingSession.STATE_STARTED_BY_CLIENT,
-            started_at=datetime.datetime(2016, 12, 13),
-            updated_at=datetime.datetime(2016, 12, 13),
-            # completed_at=datetime.datetime(2016, 12, 14),
+            started_at=timezone.now(),
+            updated_at=timezone.now(),
+            # completed_at=timezone.now(),
         )
         self.account = account
 
@@ -366,9 +366,9 @@ class AccountSessionsTestCase(TestCase):
             parking=parking,
             debt=100,
             state=ParkingSession.STATE_CLOSED,
-            started_at=datetime.datetime(2016, 12, 14),
-            updated_at=datetime.datetime(2016, 12, 14),
-            completed_at=datetime.datetime(2016, 12, 15),
+            started_at=timezone.now(),
+            updated_at=timezone.now(),
+            completed_at=timezone.now(),
         )
 
         ParkingSession.objects.create(
@@ -378,9 +378,9 @@ class AccountSessionsTestCase(TestCase):
             parking=parking,
             debt=120,
             state=ParkingSession.STATE_CLOSED,
-            started_at=datetime.datetime(2016, 12, 13),
-            updated_at=datetime.datetime(2016, 12, 13),
-            completed_at=datetime.datetime(2016, 12, 14),
+            started_at=timezone.now(),
+            updated_at=timezone.now(),
+            completed_at=timezone.now(),
         )
 
         # For pagination test
@@ -391,9 +391,9 @@ class AccountSessionsTestCase(TestCase):
                 parking=parking,
                 debt=120,
                 state=ParkingSession.STATE_CLOSED,
-                started_at=datetime.datetime(2016, i, i),
-                updated_at=datetime.datetime(2016, i, i+1),
-                completed_at=datetime.datetime(2016, i, i+1),
+                started_at=timezone.now() + timezone.timedelta(days=i - 1),
+                updated_at=timezone.now() + timezone.timedelta(days=i),
+                completed_at=timezone.now() + timezone.timedelta(days=i),
             )
 
         # Create active account session
@@ -404,8 +404,8 @@ class AccountSessionsTestCase(TestCase):
             parking=parking,
             debt=120,
             state=ParkingSession.STATE_COMPLETED,
-            started_at=datetime.datetime(2017, 12, 13),
-            updated_at=datetime.datetime(2017, 12, 14)
+            started_at=timezone.now(),
+            updated_at=timezone.now(),
         )
 
         # Create order for account session
@@ -520,8 +520,8 @@ class StartAccountTestCaseWithDebt(TestCase):
             parking=parking,
             debt=120,
             state=ParkingSession.STATE_CLOSED,
-            started_at=datetime.datetime(2016, 12, 12),
-            updated_at=datetime.datetime(2016, 12, 13)
+            started_at=timezone.now() + timezone.timedelta(days=-1),
+            updated_at=timezone.now()
         )
 
         # Create active account session
@@ -532,8 +532,8 @@ class StartAccountTestCaseWithDebt(TestCase):
             parking=parking,
             debt=120,
             state=ParkingSession.STATE_COMPLETED,
-            started_at=datetime.datetime(2016, 12, 13),
-            updated_at=datetime.datetime(2016, 12, 14)
+            started_at=timezone.now(),
+            updated_at=timezone.now()
         )
 
     def test_denied_start_session(self):
@@ -613,15 +613,15 @@ class ReceiptTestCase(TestCase):
             parking=parking,
             debt=100,
             state=ParkingSession.STATE_CLOSED,
-            started_at=datetime.datetime(2016, 12, 14),
-            updated_at=datetime.datetime(2016, 12, 14),
-            completed_at=datetime.datetime(2016, 12, 15),
+            started_at=timezone.now(),
+            updated_at=timezone.now(),
+            completed_at=timezone.now(),
         )
 
         fiskal = FiskalNotification.objects.create(
             fiscal_number=100,
             shift_number=101,
-            receipt_datetime = datetime.datetime.now(),
+            receipt_datetime=timezone.now(),
             fn_number="fn_number_sample",
             ecr_reg_number="ecr_reg_number_sample",
             fiscal_document_number=102,

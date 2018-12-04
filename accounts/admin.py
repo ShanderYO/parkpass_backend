@@ -1,15 +1,13 @@
 from django.contrib import admin
 
+from base.admin import AccountAdmin
 # Register your models here.
 from models import Account, AccountSession
 
 
 @admin.register(Account)
-class AccountAdmin(admin.ModelAdmin):
-    def save_model(self, request, obj, form, change):
-        if obj.password == 'stub' and obj.email:
-            obj.create_password_and_send()
-        super(AccountAdmin, self).save_model(request, obj, form, change)
+class AccountAdmin(AccountAdmin):
+    pass
 
 
 @admin.register(AccountSession)

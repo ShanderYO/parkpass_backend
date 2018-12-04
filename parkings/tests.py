@@ -1,4 +1,3 @@
-import datetime
 import hashlib
 import hmac
 import json
@@ -6,6 +5,7 @@ import json
 from django.core.exceptions import ValidationError
 from django.test import Client
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.models import Account, AccountSession
 from base.exceptions import ValidationException
@@ -106,7 +106,8 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_update_incomplete_body(self):
         url = URL_PREFIX + 'update/'
@@ -120,7 +121,7 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+        # print response.content
 
         # Not set up free_places
         body = json.dumps({
@@ -131,7 +132,8 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_update_invalid_body(self):
         url = URL_PREFIX + 'update/'
@@ -146,7 +148,7 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+        # print response.content
 
         # Set parking_id negative sign
         body = json.dumps({
@@ -158,7 +160,7 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+        # print response.content
 
         # Set free_places not int
         body = json.dumps({
@@ -171,7 +173,7 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+        # print response.content
 
         # Set free_places negative sign
         body = json.dumps({
@@ -183,7 +185,8 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
 
     def test_update_undefined_parking(self):
@@ -199,7 +202,8 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
     def test_update_forbidden_parking(self):
         url = URL_PREFIX + 'update/'
@@ -214,7 +218,8 @@ class UpdateParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
 
     def test_update_valid(self):
@@ -227,7 +232,7 @@ class UpdateParkingTestCase(TestCase):
         })
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
-        print response.content
+    # print response.content
 
 
 class CreateSessionParkingTestCase(TestCase):
@@ -247,7 +252,7 @@ class CreateSessionParkingTestCase(TestCase):
             client=account,
             parking=parking_1,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
 
     def test_empty_body(self):
@@ -259,7 +264,8 @@ class CreateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_incomplete_body(self):
         url = URL_PREFIX + 'session/create/'
@@ -275,7 +281,7 @@ class CreateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+        # print response.content
 
         # Not set up session_id
         body = json.dumps({
@@ -288,7 +294,8 @@ class CreateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_invalid_session_id(self):
         url = URL_PREFIX + 'session/create/'
@@ -305,7 +312,8 @@ class CreateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_invalid_client_id(self):
         url = URL_PREFIX + 'session/create/'
@@ -322,7 +330,8 @@ class CreateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
     def test_invalid_parking_id(self):
         url = URL_PREFIX + 'session/create/'
@@ -339,7 +348,8 @@ class CreateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
     def test_forbidden_parking(self):
         url = URL_PREFIX + 'session/create/'
@@ -356,7 +366,8 @@ class CreateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
     def test_already_exist_session_id(self):
         url = URL_PREFIX + 'session/create/'
@@ -373,7 +384,8 @@ class CreateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_second_active_session(self):
         url = URL_PREFIX + "session/create/"
@@ -422,7 +434,7 @@ class UpdateSessionParkingTestCase(TestCase):
             client=account,
             parking=parking_1,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
 
         ParkingSession.objects.create(
@@ -430,7 +442,7 @@ class UpdateSessionParkingTestCase(TestCase):
             client=account,
             parking=parking_1,
             state=ParkingSession.STATE_COMPLETED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
 
 
@@ -445,7 +457,8 @@ class UpdateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_invalid_session_id(self):
         url = URL_PREFIX + 'session/update/'
@@ -462,7 +475,8 @@ class UpdateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_invalid_debt_negative_value(self):
         url = URL_PREFIX + 'session/update/'
@@ -479,7 +493,8 @@ class UpdateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_invalid_debt_string_value(self):
         url = URL_PREFIX + 'session/update/'
@@ -496,7 +511,8 @@ class UpdateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_not_existing_session_id(self):
         url = URL_PREFIX + 'session/update/'
@@ -513,7 +529,8 @@ class UpdateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
     def test_not_existing_parking_id(self):
         url = URL_PREFIX + 'session/update/'
@@ -530,7 +547,8 @@ class UpdateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
     def test_not_forbidden_parking_id(self):
         url = URL_PREFIX + 'session/update/'
@@ -547,7 +565,8 @@ class UpdateSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
     def test_update_already_completed(self):
         url = URL_PREFIX + 'session/update/'
@@ -562,8 +581,8 @@ class UpdateSessionParkingTestCase(TestCase):
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
-        print "test_update_already_completed"
-        print response.content
+        # print "test_update_already_completed"
+        # print response.content
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
@@ -581,7 +600,8 @@ class UpdateSessionParkingTestCase(TestCase):
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
         # Validation error
-        print response.content
+
+    # print response.content
 
     def test_update_session_valid(self):
         url = URL_PREFIX + 'session/update/'
@@ -596,7 +616,7 @@ class UpdateSessionParkingTestCase(TestCase):
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
         # Validation error
-        print response.content
+    # print response.content
 
 
 class CompleteSessionParkingTestCase(TestCase):
@@ -616,7 +636,7 @@ class CompleteSessionParkingTestCase(TestCase):
             client=account,
             parking=parking_1,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
 
         ParkingSession.objects.create(
@@ -624,7 +644,7 @@ class CompleteSessionParkingTestCase(TestCase):
             client=account,
             parking=parking_1,
             state=ParkingSession.STATE_COMPLETED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
 
     def test_completed_session_with_zero_debt(self):
@@ -639,7 +659,8 @@ class CompleteSessionParkingTestCase(TestCase):
 
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
-        print response.content
+
+    # print response.content
 
     def test_completed_session_valid(self):
         url = URL_PREFIX + 'session/complete/'
@@ -653,7 +674,7 @@ class CompleteSessionParkingTestCase(TestCase):
         })
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
-        print response.content
+    # print response.content
 
 
 class UpdateListSessionParkingTestCase(TestCase):
@@ -676,7 +697,8 @@ class UpdateListSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_empty_parking_id_body(self):
         url = URL_PREFIX + 'session/list/update/'
@@ -695,7 +717,8 @@ class UpdateListSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_empty_session_body(self):
         url = URL_PREFIX + 'session/list/update/'
@@ -709,7 +732,8 @@ class UpdateListSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_invalid_sessions_type_body(self):
         url = URL_PREFIX + 'session/list/update/'
@@ -723,7 +747,8 @@ class UpdateListSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_invalid_inner_sessions_type_body(self):
         url = URL_PREFIX + 'session/list/update/'
@@ -741,7 +766,8 @@ class UpdateListSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def test_update_list_session_forbidden_parking(self):
         url = URL_PREFIX + 'session/list/update/'
@@ -767,7 +793,8 @@ class UpdateListSessionParkingTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.RESOURCE_NOT_FOUND)
-        print response.content
+
+    # print response.content
 
     def test_update_list_session_valid(self):
         url = URL_PREFIX + 'session/list/update/'
@@ -790,7 +817,7 @@ class UpdateListSessionParkingTestCase(TestCase):
         })
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 202)
-        print response.content
+    # print response.content
 
 
 class ComplainTestCase(TestCase):
@@ -816,7 +843,7 @@ class ComplainTestCase(TestCase):
             client=account,
             parking=parking_1,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
 
     def complain_invalid_session_test(self):
@@ -832,7 +859,8 @@ class ComplainTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def complain_type_session_test(self):
         url = '/parking/complain/'
@@ -847,7 +875,8 @@ class ComplainTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+
+    # print response.content
 
     def complain_valid_test(self):
         url = URL_PREFIX + 'complain/'
@@ -862,7 +891,7 @@ class ComplainTestCase(TestCase):
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
-        print response.content
+    # print response.content
 
 
 class IssueParking(TestCase):
@@ -892,7 +921,7 @@ class IssueParking(TestCase):
 
         response = Client().post(url, body, content_type='application/json',
                                  **VENDOR_TOKEN)
-        print response.content
+        # print response.content
         self.assertEqual(response.status_code, 200)
 
     def test_issue_parking_by_owner(self):
@@ -911,7 +940,7 @@ class IssueParking(TestCase):
         _create_owner()
         response = Client().post(url, body, content_type='application/json',
                                  **OWNER_TOKEN)
-        print response.content
+        # print response.content
         self.assertEqual(response.status_code, 200)
 
 
@@ -929,7 +958,7 @@ class VendorPermissions(TestCase):
             'free_places': 3
         })
         response = _make_signed_json_post(url, body)
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_disabled_state(self):
@@ -958,14 +987,14 @@ class VendorPermissions(TestCase):
             'free_places': 3
         })
         response = _make_signed_json_post(url, body)
-        print response.content, response.status_code
+        # print response.content, response.status_code
         self.assertEqual(400, response.status_code)
         body = json.dumps({
             'parking_id': 1,
             'free_places': 3
         })
         response = _make_signed_json_post(url, body)
-        print response.content, response.status_code
+        # print response.content, response.status_code
         self.assertEqual(200, response.status_code)
 
 

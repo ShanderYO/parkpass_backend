@@ -4,9 +4,9 @@ import re
 
 from django.core.exceptions import ValidationError
 
-from accounts.validators import validate_email_format, validate_phone_number, validate_id
+from accounts.validators import validate_email_format, validate_id
 from base.exceptions import ValidationException
-from base.validators import BaseValidator
+from base.validators import BaseValidator, validate_phone_number
 from parkings.validators import validate_tariff
 
 
