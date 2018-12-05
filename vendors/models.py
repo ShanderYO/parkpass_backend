@@ -43,7 +43,7 @@ class Vendor(BaseAccount):
 
     inn = models.CharField(max_length=15, blank=True, null=True)
     kpp = models.CharField(max_length=15, blank=True, null=True)
-    bik = models.CharField(max_length=15, blank=True, null=True)
+    bic = models.CharField(max_length=15, blank=True, null=True)
     legal_address = models.CharField(max_length=512, blank=True, null=True)
     actual_address = models.CharField(max_length=512, blank=True, null=True)
     checking_account = models.CharField(max_length=64, blank=True, null=True)
