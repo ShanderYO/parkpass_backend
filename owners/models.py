@@ -66,11 +66,12 @@ class Company(models.Model):
     name = models.CharField(max_length=256, unique=True)
     inn = models.CharField(max_length=15, validators=(validate_inn,))
     kpp = models.CharField(max_length=15, validators=(validate_kpp,))
+    bic = models.CharField(max_length=20, null=True, blank=True)
     legal_address = models.CharField(max_length=512)
     actual_address = models.CharField(max_length=512)
     email = models.EmailField()
     phone = models.CharField(max_length=15, validators=(validate_phone_number,))
-    use_user_data = models.BooleanField(default=False)
+    use_profile_contacts = models.BooleanField(default=False)
 
     checking_account = models.CharField(max_length=64)
     checking_kpp = models.CharField(max_length=15)
