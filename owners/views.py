@@ -234,6 +234,11 @@ class ParkingsView(LoginRequiredAPIView, ObjectView):
     readonly_fields = ()
 
 
+class VendorsView(LoginRequiredAPIView, ObjectView):
+    object = Vendor
+    methods = ('GET',)
+
+
 class PasswordChangeView(LoginRequiredAPIView):
 
     def post(self, request):

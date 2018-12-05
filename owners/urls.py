@@ -24,6 +24,8 @@ urlpatterns = [
                   url(r'^parkings/(?P<id>\d+)/tariff/$', TariffView.as_view()),
                   url(r'^parkings/$', ParkingsView.as_view()),
                   url(r'^parkings/(?P<id>\d+)/$', ParkingsView.as_view()),
+                  url(r'^vendors/$', VendorsView.as_view()),
+                  url(r'^vendors/(?P<id>\d+)/$', VendorsView.as_view()),
                   url(r'^company/$', CompanyView.as_view()),
                   url(r'^company/(?P<id>\d+)/$', CompanyView.as_view()),
               ] + staticfiles_urlpatterns()
