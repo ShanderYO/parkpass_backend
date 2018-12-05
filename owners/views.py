@@ -32,7 +32,7 @@ class AccountInfoView(LoginRequiredAPIView):
     def get(self, request):
         account_dict = serializer(request.owner, exclude_attr=("name", "created_at", "sms_code", "password"))
         parkings = Parking.objects.filter(company__owner=request.owner)
-        en_parkings = parkings.filter(parkpass_enabled=True)
+        en_parkings = parkings.filter(parkpass_status=Parking.CONNECTED)
         account_dict['parkings_total'] = len(parkings)
         account_dict['parkings_enabled'] = len(en_parkings)
         return JsonResponse(account_dict, status=200)
@@ -154,7 +154,7 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
     object = Company
     show_fields = ('name', 'inn', 'kpp', 'legal_address',
                    'actual_address', 'email', 'phone', 'checking_account',
-                   'checking_kpp')
+                   'checking_kpp', 'use_user_data')
     account_filter = 'owner'
 
 
@@ -231,7 +231,7 @@ class ConnectIssueView(LoginRequiredAPIView):
 class ParkingsView(LoginRequiredAPIView, ObjectView):
     object = Parking
     account_filter = 'company__owner'
-    methods = ('GET',)
+    readonly_fields = ()
 
 
 class PasswordChangeView(LoginRequiredAPIView):
