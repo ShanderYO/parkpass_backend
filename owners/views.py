@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 from datetime import datetime, timedelta
 
 from django.core.mail import send_mail
@@ -21,7 +22,7 @@ from .models import Issue, ConnectIssue
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
 from .models import UpgradeIssue, Company
-from .validators import IssueValidator, ConnectIssueValidator
+from .validators import IssueValidator, ConnectIssueValidator, TariffValidator
 from .validators import validate_inn, validate_kpp
 
 
@@ -161,11 +162,10 @@ class ParkingsTopView(LoginRequiredAPIView):
         return JsonResponse({'top': r[:count + 1]}, status=200)
 
 
-
 class IssueUpgradeView(LoginRequiredAPIView):
 
     def post(self, request):
-        account = request.vendor
+        account = request.owner
         description = request.data.get('description', None)
         type = request.data.get('issue_type', None)
         if type is None or description is None or not type.isdigit() or 0 > len(description) > 1000:
@@ -225,7 +225,29 @@ class EditCompanyView(LoginRequiredAPIView):
     validator_class = create_generic_validator(fields)
 
     def post(self, request, id=-1):
-        return edit_object_view(request=request, id=id, object=Company, fields=self.fields)
+        return edit_object_view(request=request, id=id, object=Company, fields=self.fields,
+                                req_attr={'owner': request.owner})
+
+
+class TariffView(LoginRequiredAPIView):
+    validator_class = TariffValidator
+
+    def get(self, request, id):
+        try:
+            p = Parking.objects.get(id=id)
+        except ObjectDoesNotExist:
+            e = ValidationException.RESOURCE_NOT_FOUND
+            return JsonResponse(e.to_dict(), status=400)
+        return JsonResponse(json.loads(p.tariff), status=200)
+
+    def post(self, request, id):
+        try:
+            p = Parking.objects.get(id=id)
+        except ObjectDoesNotExist:
+            e = ValidationException.RESOURCE_NOT_FOUND
+            return JsonResponse(e.to_dict(), status=400)
+        p.tariff = request.data
+        return JsonResponse({}, status=200)
 
 
 class ConnectIssueView(LoginRequiredAPIView):
@@ -277,15 +299,16 @@ class ConnectIssueView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView)):
+class ListCompanyView(generic_pagination_view(Company, LoginRequiredAPIView, filter_by_account=True)):
     pass
 
 
-class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView)):
+class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView, filter_by_account=True)):
     pass
 
 
-class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView)):
+class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView,
+                                               filter_by_account=True, account_field='company__owner')):
     pass
 
 
@@ -322,11 +345,10 @@ class LoginView(APIView):
                     response_dict = serializer(session)
                     return JsonResponse(response_dict)
                 else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
+                    account.login()
+                    session = account.get_session()
+                    response_dict = serializer(session)
+                    return JsonResponse(response_dict)
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,
@@ -345,42 +367,19 @@ class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = request.data["phone"]
-        success_status = 200
+        phone = clear_phone(request.data["phone"])
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:
-            account = Account(phone=phone)
-            success_status = 201
-
-        account.create_sms_code()
-        account.save()
-
-        # Send sms
-        sms_gateway = SMSGateway()
-        sms_gateway.send_sms(account.phone, account.sms_code)
-        if sms_gateway.exception:
-            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
-
-        return JsonResponse({}, status=success_status)
-
-
-class ConfirmLoginView(APIView):
-    validator_class = ConfirmLoginParamValidator
-
-    def post(self, request):
-        sms_code = request.data["sms_code"]
-        try:
-            account = Account.objects.get(sms_code=sms_code)
-            account.login()
-            session = account.get_session()
-            return JsonResponse(serializer(session, exclude_attr=("created_at",)))
-
-        except ObjectDoesNotExist:
-            e = AuthException(
-                AuthException.NOT_FOUND_CODE,
-                "Account with pending sms-code not found")
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Account with such phone number doesn't exist"
+            )
             return JsonResponse(e.to_dict(), status=400)
+
+        account.login()
+        session = account.get_session()
+        return JsonResponse(serializer(session, exclude_attr=("created_at",)))
 
 
 class PasswordRestoreView(APIView):
@@ -414,14 +413,12 @@ class LoginWithEmailView(APIView):
             if account.check_password(raw_password=password):
                 if AccountSession.objects.filter(owner=account).exists():
                     session = AccountSession.objects.filter(owner=account).order_by('-created_at')[0]
-                    response_dict = serializer(session)
+                    response_dict = serializer(session, exclude_attr=("created_at",))
                     return JsonResponse(response_dict)
                 else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
+                    account.login()
+                    session = account.get_session()
+                    return JsonResponse(serializer(session, exclude_attr=("created_at",)))
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,

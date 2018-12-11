@@ -1,23 +1,49 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 
-from django.core.exceptions import ObjectDoesNotExist
-from django.http.response import JsonResponse
+from django.core.mail import send_mail
+from django.db.models import Sum
+from django.template.loader import render_to_string
 from django.views import View
-from dss.Serializer import serializer
 
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.models import EmailConfirmation
-from base.utils import datetime_from_unix_timestamp_tz
-from base.validators import LoginAndPasswordValidator
+from base.utils import *
+from base.validators import *
 from base.views import APIView
 from base.views import VendorAPIView as LoginRequiredAPIView
+from owners.validators import IssueValidator
+from owners.validators import validate_inn, validate_kpp
 from parkings.models import ParkingSession, Parking, UpgradeIssue
-from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
+from parkings.validators import validate_latitude, validate_longitude
+from parkpass.settings import EMAIL_HOST_USER
+from .models import Vendor, Issue
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
+
+
+class EditVendorView(LoginRequiredAPIView):
+    fields = {
+        'org_name': StringField(max_length=255, required=True),
+        'inn': CustomValidatedField(callable=validate_inn, required=True),
+        'bik': IntField(required=True),
+        'kpp': CustomValidatedField(callable=validate_kpp, required=True),
+        'legal_address': StringField(required=True, max_length=512),
+        'actual_address': StringField(required=True, max_length=512),
+        'email': CustomValidatedField(callable=validate_email, required=True),
+        'phone': CustomValidatedField(callable=validate_phone_number, required=True),
+        'checking_account': StringField(required=True, max_length=64),
+        'checking_kpp': CustomValidatedField(callable=validate_kpp, required=True),
+    }
+
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request):
+        return edit_object_view(request=request, id=request.vendor.id,
+                                object=Vendor, fields=self.fields,
+                                incl_attr=list(self.fields))
 
 
 class ParkingStatisticsView(LoginRequiredAPIView):
@@ -147,14 +173,94 @@ class IssueUpgradeView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
+class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView, filter_by_account=True)):
+    pass
+
+
+class ParkingsTopView(LoginRequiredAPIView):
+    def post(self, request):
+        count = request.data.get('count', 3)
+        period = request.data.get('period', 'day')
+        if period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        else:
+            td = timedelta(days=30)
+        t = datetime.date.today() - td
+        parkings = Parking.objects.filter(vendor=request.vendor)
+        r = []
+        for p in parkings:
+            r.append({
+                'id': p.id,
+                'title': p.name,
+                'address': p.address,
+                'debt': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
+                    'debt__sum'],
+            })
+        r = sorted(r, key=lambda x: -x['debt'] if x['debt'] else 0)
+        return JsonResponse({
+            'top': r[:count + 1],
+            'comission': request.vendor.comission,
+            'sessions_count': len(r)
+        }, status=200)
+
+
+class ListParkingsView(generic_pagination_view(Parking, LoginRequiredAPIView, filter_by_account=True)):
+    pass
+
+
+class ParkingView(LoginRequiredAPIView):
+    fields = {
+        'name': StringField(max_length=63, required=True),
+        'address': StringField(max_length=63, required=True),
+        'max_places': PositiveIntField(required=True)
+    }
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request, id):
+
+        if id < 0:
+            e = ValidationException(ValidationException.RESOURCE_NOT_FOUND)
+            return JsonResponse(e.to_dict(), status=400)
+        return edit_object_view(request, id, Parking, self.fields, req_attr={'vendor': request.vendor},
+                                incl_attr=['name', 'address', 'created_at', 'parkpass_enabled'
+                                                                            'max_places', 'company__name',
+                                           'software_updated_at', ])
+
+
+class CreateParkingView(LoginRequiredAPIView):
+    fields = {
+        'name': StringField(max_length=63, required=True),
+        'address': StringField(max_length=63, required=True),
+        'description': StringField(max_length=1000),
+        'latitude': CustomValidatedField(callable=validate_latitude, required=True),
+        'longitude': CustomValidatedField(callable=validate_longitude, required=True),
+        'enabled': BoolField(),
+        'max_client_debt': PositiveIntField(),
+        'max_places': PositiveIntField(required=True)
+    }
+    validator_class = create_generic_validator(fields)
+
+    def post(self, request):
+        return edit_object_view(request, -1, Parking, self.fields, incl_attr=list(self.fields) + ['id'],
+                                req_attr={'vendor': request.vendor, 'approved': False})
+
+
 class InfoView(LoginRequiredAPIView):
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request):
         account = request.vendor
 
         response = {
             'vendor_name': account.name,
-            'id': account.display_id,
+            'display_id': account.display_id,
             'secret_key': account.secret,
             'comission': account.comission
         }
@@ -195,11 +301,10 @@ class LoginView(APIView):
                     response_dict = serializer(session)
                     return JsonResponse(response_dict)
                 else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
+                    account.login()
+                    session = account.get_session()
+                    response_dict = serializer(session)
+                    return JsonResponse(response_dict)
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,
@@ -214,46 +319,48 @@ class LoginView(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
 
+class IssueView(APIView):
+    validator_class = IssueValidator
+
+    def post(self, request):
+        name = request.data.get("name", "")
+        phone = request.data.get("phone", "")
+        email = request.data.get("email", "")
+        i = Issue(
+            name=name,
+            phone=phone,
+            email=email
+        )
+        i.save()
+        text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
+        if phone:
+            sms_gateway = SMSGateway()
+            sms_gateway.send_sms(phone, text, message='')
+        if email:
+            msg_html = render_to_string('emails/issue_accepted.html',
+                                        {'name': name})
+            send_mail('Ваша заявка в ParkPass принята.', "", EMAIL_HOST_USER,
+                      ['%s' % str(email)], html_message=msg_html)
+        return JsonResponse({}, status=200)
+
+
 class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = request.data["phone"]
-        success_status = 200
+        phone = clear_phone(request.data["phone"])
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
         else:
-            account = Account(phone=phone)
-            success_status = 201
-
-        account.create_sms_code()
-        account.save()
-
-        # Send sms
-        sms_gateway = SMSGateway()
-        sms_gateway.send_sms(account.phone, account.sms_code)
-        if sms_gateway.exception:
-            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
-
-        return JsonResponse({}, status=success_status)
-
-
-class ConfirmLoginView(APIView):
-    validator_class = ConfirmLoginParamValidator
-
-    def post(self, request):
-        sms_code = request.data["sms_code"]
-        try:
-            account = Account.objects.get(sms_code=sms_code)
-            account.login()
-            session = account.get_session()
-            return JsonResponse(serializer(session, exclude_attr=("created_at",)))
-
-        except ObjectDoesNotExist:
-            e = AuthException(
-                AuthException.NOT_FOUND_CODE,
-                "Account with pending sms-code not found")
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Account with such phone number doesn't exist"
+            )
             return JsonResponse(e.to_dict(), status=400)
+
+        account.login()
+        session = account.get_session()
+        return JsonResponse(serializer(session, exclude_attr=("created_at",)))
 
 
 class PasswordRestoreView(APIView):
@@ -290,11 +397,10 @@ class LoginWithEmailView(APIView):
                     response_dict = serializer(session)
                     return JsonResponse(response_dict)
                 else:
-                    e = AuthException(
-                        AuthException.INVALID_SESSION,
-                        "Invalid session. Login with phone required"
-                    )
-                    return JsonResponse(e.to_dict(), status=400)
+                    account.login()
+                    session = account.get_session()
+                    response_dict = serializer(session)
+                    return JsonResponse(response_dict)
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,

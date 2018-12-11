@@ -11,7 +11,7 @@ from parkpass.settings import BASE_LOGGER_NAME
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
 
 
-def generic_pagination_view(obj, view_base_class):
+def generic_pagination_view(obj, view_base_class, filter_by_account=False, account_field=None):
     class GenericPaginationView(view_base_class):
         def post(self, request, page):
             filter = {}
@@ -20,7 +20,7 @@ def generic_pagination_view(obj, view_base_class):
                     attr, modifier = key.split('__') if not hasattr(obj, key) else (key, 'eq')
                     if modifier not in ('eq', 'gt', 'lt', 'ne', 'ge', 'le', 'in') or not hasattr(obj, attr):
                         raise ValueError()
-                    if type(True) == type(request.data[key]):
+                    if isinstance(request.data[key], bool):
                         if modifier == 'eq':
                             filter[attr] = request.data[key]
                         elif modifier == 'ne':
@@ -38,10 +38,18 @@ def generic_pagination_view(obj, view_base_class):
                         "Invalid filter format"
                     )
                     return JsonResponse(e.to_dict(), status=400)
+            account_dict = {}
+            if filter_by_account:
+                for i in {'vendor', 'account', 'owner'}:
+                    account = getattr(request, i, None)
+                    if account != None:
+                        _ = account_field if account_field else i
+                        account_dict = {_: account}
             if filter:
+                filter.update(account_dict)
                 objects = obj.objects.filter(**filter)
             else:
-                objects = obj.objects.all()
+                objects = obj.objects.filter(**account_dict)
             page = int(page)
             result = []
             for o in objects:
@@ -102,6 +110,15 @@ def parse_float(value, raise_exception=False, allow_none=True, only_positive=Fal
         if raise_exception:
             raise
         return None
+
+
+def clear_phone(phone):
+    return phone \
+        .replace('+', '') \
+        .replace('(', '') \
+        .replace(')', '') \
+        .replace(' ', '') \
+        .replace('-', '') \
 
 
 def datetime_from_unix_timestamp_tz(value):
@@ -211,12 +228,25 @@ class ForeignField(FieldType):
             return self._object.objects.get(id=value)
 
 
-def edit_object_view(request, id, object, fields):
+def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None):
+    """
+    Generic object editing API view
+    :param request: pass request
+    :param id: ID of object, -1 to create new one
+    :param object: DB Model of object
+    :param fields: dict of fields with types
+    :param incl_attr: What attributes to show via serializer
+    :param req_attr: Dict of model attrs to be specified in getter and set to new objects
+    """
+    if req_attr is None:
+        req_attr = {}
     try:
         if id == -1:
             instance = object()
+            for attr, value in req_attr.items():
+                instance.__setattr__(attr, value)
         else:
-            instance = object.objects.get(id=id)
+            instance = object.objects.get(id=id, **req_attr)
     except ObjectDoesNotExist:
         e = ValidationException(
             ValidationException.RESOURCE_NOT_FOUND,
@@ -248,5 +278,5 @@ def edit_object_view(request, id, object, fields):
         )
         return JsonResponse(e.to_dict(), status=400)
     instance.save()
-
-    return JsonResponse(serializer(instance), status=200)
+    # TODO: Fix showing str's
+    return JsonResponse(serializer(instance, include_attr=incl_attr), status=200)

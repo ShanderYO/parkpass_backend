@@ -6,8 +6,8 @@ from accounts.views import (
     SetDefaultCardView, DebtParkingSessionView, StartParkingSession, CompleteParkingSession,
     ForceStopParkingSession, ForcePayView, ResumeParkingSession, AccountParkingListView,
     GetReceiptView, ChangeEmailView, EmailConfirmationView, SendReceiptToEmailView, LoginWithEmailView,
-    PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView
-)
+    PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
+    GetParkingSessionView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -27,6 +27,7 @@ urlpatterns = [
     url(r'^email/add/$', ChangeEmailView.as_view()),
     url(r'^email/confirm/(?P<code>\w+)/$', EmailConfirmationView.as_view()),
 
+    url(r'^session/(?P<pk>\d+)/$', GetParkingSessionView.as_view()),
     url(r'^session/create/$', StartParkingSession.as_view()),
     url(r'^session/complete/$', CompleteParkingSession.as_view()),
     url(r'^session/stop/$', ForceStopParkingSession.as_view()),

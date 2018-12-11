@@ -5,8 +5,6 @@ from django.db.models import signals
 from django.template.loader import render_to_string
 
 from accounts.models import Account
-from owners.models import Company
-from owners.models import Owner
 from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
 
@@ -34,7 +32,7 @@ class UpgradeIssue(models.Model):
     )
     id = models.AutoField(primary_key=True)
     vendor = models.ForeignKey(to=Vendor, null=True, blank=True, related_name='issue_by_vendor')
-    owner = models.ForeignKey(to=Owner, null=True, blank=True, related_name='issue_by_owner')
+    owner = models.ForeignKey(to='owners.Owner', null=True, blank=True, related_name='issue_by_owner')
     description = models.CharField(max_length=1000)
     type = models.IntegerField(choices=types)
     issued_at = models.DateTimeField(auto_now_add=True)
@@ -48,7 +46,7 @@ class UpgradeIssue(models.Model):
 
 class Parking(models.Model):
     name = models.CharField(max_length=63, null=True, blank=True)
-    description = models.TextField()
+    description = models.TextField(null=True, blank=True)
     address = models.CharField(max_length=63, null=True, blank=True)
     latitude = models.DecimalField(max_digits=10, decimal_places=8)
     longitude = models.DecimalField(max_digits=11, decimal_places=8)
@@ -58,11 +56,11 @@ class Parking(models.Model):
     max_places = models.IntegerField(default=0)
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     vendor = models.ForeignKey(Vendor, null=True, blank=True)
-    company = models.ForeignKey(Company, null=True, blank=True)
+    company = models.ForeignKey(to='owners.Company', null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
     software_updated_at = models.DateField(blank=True, null=True)
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
-
+    tariff = models.CharField(max_length=2000, default='{}', verbose_name="Tariff object JSON")
     objects = models.Manager()
     parking_manager = ParkingManager()
 
@@ -120,13 +118,23 @@ class ParkingSession(models.Model):
     STATE_COMPLETED = 14 # (STARTED_BY_VENDOR_MASK + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
     STATE_COMPLETED_FULLY = 15  # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
 
+    STATE_VERIFICATION_REQUIRED = 21
+
     SESSION_STATES = [
         STATE_CANCELED,
         STATE_STARTED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_STARTED, # Stage 1
         STATE_COMPLETED_BY_CLIENT, STATE_COMPLETED_BY_CLIENT_FULLY, # Stage 2
         STATE_COMPLETED_BY_VENDOR, STATE_COMPLETED_BY_VENDOR_FULLY, # Stage 2
         STATE_COMPLETED, STATE_COMPLETED_FULLY, # Stage 3
-        STATE_CLOSED # Stage 4
+        STATE_CLOSED, # Stage 4
+        STATE_VERIFICATION_REQUIRED # Stage 5
+    ]
+
+    ACTUAL_COMPLETED_STATES = [
+        STATE_COMPLETED_BY_VENDOR,
+        STATE_COMPLETED_BY_VENDOR_FULLY,
+        STATE_COMPLETED,
+        STATE_COMPLETED_FULLY
     ]
 
     STATE_CHOICES = (
@@ -140,6 +148,7 @@ class ParkingSession(models.Model):
         (STATE_COMPLETED_BY_VENDOR_FULLY, 'Completed_by_vendor_fully'),
         (STATE_COMPLETED, 'Completed'),
         (STATE_CLOSED, 'Closed'),
+        (STATE_VERIFICATION_REQUIRED, 'Verification required')
     )
 
     id = models.AutoField(unique=True, primary_key=True)
@@ -161,6 +170,8 @@ class ParkingSession(models.Model):
     try_refund = models.BooleanField(default=False)
     target_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     current_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+
+    extra_data = models.TextField(null=True, blank=True)
 
     created_at = models.DateField(auto_now_add=True)
 
@@ -190,7 +201,10 @@ class ParkingSession(models.Model):
     @classmethod
     def get_active_session(cls, account):
         try:
-            return ParkingSession.objects.get(client=account, state__gt=0, is_suspended=False)
+            return ParkingSession.objects.get(
+                client=account, state__gt=0,
+                state__lt=ParkingSession.STATE_VERIFICATION_REQUIRED, is_suspended=False)
+
         except ObjectDoesNotExist:
             return None
 
@@ -232,11 +246,16 @@ class ParkingSession(models.Model):
     def is_available_for_vendor_update(self):
         return self.state not in [self.STATE_CANCELED, self.STATE_COMPLETED, self.STATE_CLOSED]
 
+    def reset_client_completed_state(self):
+        self.state = self.state - (self.state & self.COMPLETED_BY_CLIENT_MASK)
+
     def is_cancelable(self):
         return self.state in [
             self.STATE_STARTED_BY_CLIENT,
             self.STATE_STARTED_BY_VENDOR,
-            self.STATE_STARTED
+            self.STATE_STARTED,
+            self.STATE_COMPLETED_BY_CLIENT,
+            self.STATE_COMPLETED_BY_CLIENT_FULLY
         ]
 
     # TODO make async

@@ -77,6 +77,9 @@ class Company(models.Model):
 
 
 class Issue(models.Model):
+    def __unicode__(self):
+        return '%s %s' % (self.name, self.created_at)
+
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
     email = models.EmailField(blank=True, null=True)

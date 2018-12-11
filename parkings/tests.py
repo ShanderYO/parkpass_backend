@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 
+from django.core.exceptions import ValidationError
 from django.test import Client
 from django.test import TestCase
 
@@ -11,6 +12,7 @@ from base.exceptions import ValidationException
 from owners.models import Owner, OwnerSession
 from parkings.models import Vendor, Parking, ParkingSession
 from vendors.models import VendorSession
+from .validators import validate_tariff
 
 URL_PREFIX = '/api/v1/parking/'
 TOKEN = '0ff08840935eb00fad198ef5387423bc24cd15e1'
@@ -373,6 +375,22 @@ class CreateSessionParkingTestCase(TestCase):
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
         print response.content
 
+    def test_second_active_session(self):
+        url = URL_PREFIX + "session/create/"
+
+        body = json.dumps({
+            "session_id": "valid-session-id",
+            "parking_id": 2,
+            "client_id": 2,
+            "started_at": 1000001
+        })
+
+        response = _make_signed_json_post(url, body)
+        self.assertEqual(response.status_code, 200)
+
+        parkings = ParkingSession.objects.filter(state=ParkingSession.STATE_VERIFICATION_REQUIRED)
+        self.assertEquals(parkings.count(), 1)
+
     def test_create_session_valid(self):
         url = URL_PREFIX + 'session/create/'
 
@@ -403,7 +421,7 @@ class UpdateSessionParkingTestCase(TestCase):
             session_id="exist-session-id",
             client=account,
             parking=parking_1,
-            state=ParkingSession.STATE_COMPLETED,
+            state=ParkingSession.STATE_STARTED,
             started_at=datetime.datetime.now()
         )
 
@@ -550,6 +568,21 @@ class UpdateSessionParkingTestCase(TestCase):
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)
 
+    def test_zero_debt_value(self):
+        url = URL_PREFIX + 'session/update/'
+
+        # Set up debt negative sign
+        body = json.dumps({
+            "session_id": "exist-session-id",
+            "parking_id": 2,
+            "debt": 0,
+            "updated_at": 1000000
+        })
+        response = _make_signed_json_post(url, body)
+        self.assertEqual(response.status_code, 200)
+        # Validation error
+        print response.content
+
     def test_update_session_valid(self):
         url = URL_PREFIX + 'session/update/'
 
@@ -561,9 +594,10 @@ class UpdateSessionParkingTestCase(TestCase):
             "updated_at": 1000000
         })
         response = _make_signed_json_post(url, body)
-        self.assertEqual(response.status_code, 400)
-        # VAlidation error
+        self.assertEqual(response.status_code, 200)
+        # Validation error
         print response.content
+
 
 class CompleteSessionParkingTestCase(TestCase):
     """
@@ -593,7 +627,19 @@ class CompleteSessionParkingTestCase(TestCase):
             started_at=datetime.datetime.now()
         )
 
-    # TODO add need tests
+    def test_completed_session_with_zero_debt(self):
+        url = URL_PREFIX + 'session/complete/'
+        # Set up not completed session_id
+        body = json.dumps({
+            "session_id": "exist-session-id",
+            "parking_id": 2,
+            "debt": 0,
+            "completed_at": 1000000
+        })
+
+        response = _make_signed_json_post(url, body)
+        self.assertEqual(response.status_code, 200)
+        print response.content
 
     def test_completed_session_valid(self):
         url = URL_PREFIX + 'session/complete/'
@@ -921,3 +967,57 @@ class VendorPermissions(TestCase):
         response = _make_signed_json_post(url, body)
         print response.content, response.status_code
         self.assertEqual(200, response.status_code)
+
+
+class Tariff(TestCase):
+    def setUp(self):
+        self.tariff = json.dumps({
+            'tariff': [
+                {
+                    'dayList': [0, 1, 2, 3, 4],
+                    'periodList': [
+                        {
+                            'time_start': 8 * 60 * 60,
+                            'time_end': 17 * 60 * 60,
+                            'description': "First 3 hrs: free\nNext: 200 rur"
+                        },
+                        {
+                            'time_start': 17 * 60 * 60,
+                            'time_end': 24 * 60 * 60,
+                            'description': "First 3 hrs: free\nNext: 200 rur"
+                        }
+                    ]
+                },
+                {
+                    'dayList': [5, 6],
+                    'periodList': [
+                        {
+                            'time_start': 8 * 60 * 60,
+                            'time_end': 20 * 60 * 60,
+                            'description': 'First hr: free\nNext: 200 rur'
+                        },
+                        {
+                            'time_start': 20 * 60 * 60,
+                            'time_end': 24 * 60 * 60,
+                            'description': 'Every hr: 300 rur'
+                        }
+                    ]
+                }
+            ]
+        })
+
+    def test_valid_tariff(self):
+        tariff = self.tariff
+        validate_tariff(tariff)
+
+    def test_invalid_tariff(self):
+        tariff = json.loads(self.tariff)
+        invalid1 = tariff
+        invalid1['tariff'][0]['dayList'] = [2]
+        invalid2 = tariff
+        invalid2['tariff'][1]['time_start'] = -5
+        invalid3 = tariff
+        invalid3['tariff'][1]['time_end'] = '18:00'
+        for i in (invalid1, invalid2, invalid3):
+            with self.assertRaises(ValidationError):
+                validate_tariff(json.dumps(i))

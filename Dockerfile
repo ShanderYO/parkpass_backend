@@ -20,8 +20,10 @@ RUN apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev \
 # Install OpenSSL for python
 RUN apt-get install -y python-openssl
 
-# Install pebbyweb project to /deploy
+# Install parkpass project to /deploy
 RUN mkdir -p /app
+RUN mkdir  -p /app/media/logs
+
 COPY /. /app
 
 # Upgrade pip manager

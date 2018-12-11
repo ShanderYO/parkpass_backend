@@ -18,6 +18,7 @@ from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator,
     EmailAndPasswordValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.models import EmailConfirmation
+from base.utils import clear_phone
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView
 from parkings.models import ParkingSession, Parking
@@ -103,7 +104,7 @@ class LoginView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = request.data["phone"]
+        phone = clear_phone(request.data["phone"])
         success_status = 200
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
@@ -278,7 +279,7 @@ class AccountParkingListView(LoginRequiredAPIView):
             result_query = result_query.filter(pk__lt=id).order_by("-id")
 
         object_list = result_query[:self.max_paginate_length]
-        data = serializer(object_list, foreign=False, exclude_attr=("session_id", "client_id",
+        data = serializer(object_list, foreign=False, exclude_attr=("session_id", "extra_data", "client_id",
                                                                     "parking_id", "created_at"))
         for index, obj in enumerate(object_list):
             parking_dict = {
@@ -299,9 +300,9 @@ class DebtParkingSessionView(LoginRequiredAPIView):
     def get(self, request):
         current_parking_session = ParkingSession.get_active_session(request.account)
         if current_parking_session:
-            debt_dict = serializer(current_parking_session, exclude_attr=("session_id", "client_id", "created_at",))
+            debt_dict = serializer(current_parking_session, exclude_attr=("session_id", "client_id", "extra_data", "created_at",))
             orders = Order.objects.filter(session=current_parking_session)
-            orders_dict = serializer(orders, foreign=False, include_attr=("id", "sum", "paid"))
+            orders_dict = serializer(orders, foreign=False, include_attr=("id", "sum", "authorized", "paid"))
             debt_dict["orders"] = orders_dict
             return JsonResponse(debt_dict, status=200)
         else:
@@ -365,7 +366,23 @@ class ChangeEmailView(LoginRequiredAPIView):
         if current_account.email == email:
             e = ValidationException(
                 ValidationException.ALREADY_EXISTS,
-                "Such email is already binded to account"
+                "Such email is already binded to this account"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        # check if email is binded to another account
+        if Account.objects.filter(email=email).exists():
+            e = ValidationException(
+                ValidationException.ALREADY_EXISTS,
+                "Such email is already binded to other account"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        # check non-unique email
+        if Account.objects.filter(email=email).exists():
+            e = ValidationException(
+                ValidationException.EMAIL_ALREADY_USED,
+                "Such email is already binded to another account"
             )
             return JsonResponse(e.to_dict(), status=400)
 
@@ -402,6 +419,7 @@ class EmailConfirmationView(View):
                     account.email_confirmation = None
                     account.create_password_and_send()
                     account.save()
+
                     confirmation.delete()
                     return JsonResponse({"message": "Email is activated successfully"})
 
@@ -516,6 +534,21 @@ class SetDefaultCardView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
+class GetParkingSessionView(LoginRequiredAPIView):
+    def get(self, request, **kwargs):
+        parking_id = int(kwargs["pk"])
+        try:
+            parking_session = ParkingSession.objects.get(id=parking_id, client=request.account)
+            result_dict = serializer(parking_session, foreign=False, exclude_attr=("client_id",))
+            return JsonResponse(result_dict, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking with id %s does not exist" % parking_id)
+            return JsonResponse(e.to_dict(), status=400)
+
+
 class StartParkingSession(LoginRequiredAPIView):
     validator_class = StartAccountParkingSessionValidator
 
@@ -523,12 +556,13 @@ class StartParkingSession(LoginRequiredAPIView):
         session_id = request.data["session_id"]
         parking_id = int(request.data["parking_id"])
         started_at = int(request.data["started_at"])
+        extra_data = request.data.get("extra_data", None)
 
         # It's needed only for account session creation
         started_at = datetime_from_unix_timestamp_tz(started_at)
 
         # Check open session
-        if ParkingSession.objects.filter(client=request.account, is_suspended=False, state__gt=0).exists():
+        if ParkingSession.get_active_session(request.account):
             e = PermissionException(
                 PermissionException.ONLY_ONE_ACTIVE_SESSION_REQUIRED,
                 "It's impossible to create second active session")
@@ -545,6 +579,7 @@ class StartParkingSession(LoginRequiredAPIView):
             parking_session = ParkingSession.objects.get(
                 session_id=session_id, parking_id=parking_id
             )
+            parking_session.extra_data = extra_data
             parking_session.add_client_start_mark()
             parking_session.save()
             return JsonResponse({"id": parking_session.id}, status=200)
@@ -562,6 +597,7 @@ class StartParkingSession(LoginRequiredAPIView):
                 session_id=session_id,
                 client=request.account,
                 parking=parking,
+                extra_data=extra_data,
                 state=ParkingSession.STATE_STARTED_BY_CLIENT,
                 started_at=started_at
             )
@@ -636,12 +672,21 @@ class CompleteParkingSession(LoginRequiredAPIView):
                 client=request.account
             )
 
+            # if session is already not active
+            if parking_session.state == ParkingSession.STATE_VERIFICATION_REQUIRED:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Parking session verification required")
+                return JsonResponse(e.to_dict(), status=400)
+
             # If session start is not confirm from vendor
             if not parking_session.is_started_by_vendor():
                 parking_session.is_suspended = True
                 parking_session.suspended_at = completed_at
                 parking_session.save()
                 return JsonResponse({}, status=200)
+            else:
+                parking_session.is_suspended = False
 
             # Set up completed time if not specified by vendor
             if not parking_session.is_completed_by_vendor():

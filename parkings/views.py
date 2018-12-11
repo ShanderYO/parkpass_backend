@@ -370,6 +370,13 @@ class CreateParkingSessionView(SignedRequestAPIView):
             session.add_vendor_start_mark()
 
         except ObjectDoesNotExist:
+            # check active session
+            last_active_session = ParkingSession.get_active_session(account)
+            if last_active_session:
+                last_active_session.state = ParkingSession.STATE_VERIFICATION_REQUIRED
+                last_active_session.suspended_at = started_at
+                last_active_session.save()
+
             session = ParkingSession(
                 session_id=session_id,
                 client=account,
@@ -408,15 +415,17 @@ class CancelParkingSessionView(SignedRequestAPIView):
                     'Permission denied'
                 )
                 return JsonResponse(e.to_dict(), status=400)
+
             # Check if session is is_cancelable
             if not session.is_cancelable():
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
-                    "Parking session cancelling error. Current state: %s" % self.state
+                    "Parking session cancelling error. Current state: %s" % session.state
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
             session.state = ParkingSession.STATE_CANCELED
+            session.reset_client_completed_state()
             session.save()
 
         except ObjectDoesNotExist:

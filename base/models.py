@@ -233,3 +233,7 @@ class BaseAccountSession(models.Model):
 
     def is_expired(self):
         return timezone.now() >= self.expired_at
+
+
+class NotifyIssue(models.Model):
+    phone = models.CharField(max_length=15)
