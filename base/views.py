@@ -384,7 +384,6 @@ class ObjectView(object):
                                       'Specify ID to DELETE object',
                                       http_code=405)
         obj = self._get_object(request, id)
-
+        self.on_delete(request, obj)
         obj.delete()
-        self.on_delete(request)
         return JsonResponse({}, status=200)
