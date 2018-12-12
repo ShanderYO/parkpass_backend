@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime, timedelta
-
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
 from django.http import JsonResponse
+from django.utils import timezone
 from dss.Serializer import serializer
 
 from accounts.models import Account
@@ -11,14 +10,19 @@ from accounts.tasks import generate_current_debt_order
 from base.exceptions import PermissionException
 from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz
-from base.views import LoginRequiredAPIView, SignedRequestAPIView, VendorAPIView, OwnerAPIView
+from base.views import generic_login_required_view, SignedRequestAPIView
+from owners.models import Owner
 from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, CreateParkingValidator
+from vendors.models import Vendor
 from .models import UpgradeIssue
 
+LoginRequiredAPIView = generic_login_required_view(Account)
+VendorAPIView = generic_login_required_view(Vendor)
+OwnerAPIView = generic_login_required_view(Owner)
 
 def check_permission(vendor, parking=None):
     if vendor.account_state == vendor.ACCOUNT_STATE.DISABLED:
@@ -147,8 +151,8 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         stat = ParkingSession.objects.filter(
             parking=parking,
             started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-            else datetime.now() - timedelta(days=31),
-            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now()
+            else timezone.now() - timezone.timedelta(days=31),
+            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else timezone.now()
         )
         lst = []
         length = len(stat)
@@ -192,8 +196,8 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
             ps = ParkingSession.objects.filter(
                 parking=pk,
                 started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-                else datetime.now() - timedelta(days=31),
-                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now(),
+                else timezone.now() - timedelta(days=31),
+                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else timezone.now(),
                 state__gt=3  # Only completed sessions
             )
 
@@ -424,8 +428,12 @@ class CancelParkingSessionView(SignedRequestAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-            session.state = ParkingSession.STATE_CANCELED
+            # Anyway reset mask
             session.reset_client_completed_state()
+
+            # If user didn't get in
+            if not session.is_started_by_vendor():
+                session.state = ParkingSession.STATE_CANCELED
             session.save()
 
         except ObjectDoesNotExist:

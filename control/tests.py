@@ -1,9 +1,9 @@
-import datetime
 import json
 from random import randint
 
 from django.test import Client
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.tests import create_account as create_user_account
 from base.utils import clear_phone
@@ -67,7 +67,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
 
@@ -79,7 +79,7 @@ class ParkingEdit(TestCase):
     def test_show_parking(self):
         url = URL_PREFIX + "objects/parking/1/"
 
-        response = Client().post(url, '{}', **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
         # print json.dumps(j, indent=2)
         self.assertEqual(200, response.status_code)
@@ -92,19 +92,19 @@ class ParkingEdit(TestCase):
             "description": "My test parking",
             "name": 'NameParking',
             "created_at": 1534291200.0,
-            "vendor_id": 1,
+            "vendor": 1,
             "enabled": True,
             "longitude": 2.0,
             "free_places": 3,
             "address": 'addr',
             "latitude": 2.0,
             "max_client_debt": 50,
-            "approved": 'False',
+            "approved": False,
         })
 
-        response = Client().post(url, body, **TOKEN_DICT)
-        # j = json.loads(response.content)
-        # print json.dumps(j, indent=2)
+        response = Client().put(url, body, **TOKEN_DICT)
+        j = json.loads(response.content)
+        # print json.dumps(j, indent=2), '!@#'
         self.assertEqual(200, response.status_code)
 
     def test_invalid_changes(self):
@@ -114,7 +114,7 @@ class ParkingEdit(TestCase):
             "approved": 'yeah, sure',
         })
 
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().put(url, body, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(400, response.status_code)
         self.assertEqual('ValidationException', j['exception'])
@@ -122,11 +122,7 @@ class ParkingEdit(TestCase):
     def test_delete(self):
         url = URL_PREFIX + "objects/parking/1/"
 
-        body = json.dumps({
-            "delete": 'true',
-        })
-
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().delete(url, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(200, response.status_code)
         self.assertEqual({}, j)
@@ -134,7 +130,7 @@ class ParkingEdit(TestCase):
             Parking.objects.get(id=1)
 
     def test_create_not_null_empty(self):
-        url = URL_PREFIX + "objects/parking/create/"
+        url = URL_PREFIX + "objects/parking/"
 
         body = json.dumps({
             "description": "My test parking",
@@ -163,13 +159,13 @@ class ParkingSessionEdit(TestCase):
             client=self.account,
             parking=parking,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
 
     def test_show_ps(self):
         url = self.url + "1/"
 
-        response = Client().post(url, '{}', **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         # j = json.loads(response.content)
         # print json.dumps(j, indent=2)
         self.assertEqual(200, response.status_code)
@@ -177,12 +173,7 @@ class ParkingSessionEdit(TestCase):
     def test_delete_ps(self):
         url = self.url + "1/"
 
-        body = json.dumps(
-            {
-                'delete': True
-            })
-
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().delete(url, **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
         with self.assertRaises(ObjectDoesNotExist):
             ParkingSession.objects.get(id=1)
@@ -219,7 +210,7 @@ class VendorEdit(TestCase):
     def test_show_vendor(self):
         url = self.url + "1/"
 
-        response = Client().post(url, '{}', **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
 
         # print json.dumps(j, indent=2)
@@ -227,35 +218,36 @@ class VendorEdit(TestCase):
         self.assertEqual(200, response.status_code)
 
     def test_edit_vendor(self):
-        url = self.url + "1/"
+        url = self.url + '1/'
 
         body = json.dumps(
             {
                 "display_id": 3,
                 "first_name": "Fname",
                 "last_name": "Lname",
-                "test_parking_id": 1,
+                "test_parking": 1,
                 "name": "tst-parking-vendor",
                 "phone": "1234",
                 "created_at": 0534464000.0,
                 "sms_code": "smsms",
-                "secret": "123regr8",
+                # "secret": "123regr8",
                 "email": "mail@mail.ur",
-                "test_user_id": 1,
-                "email_confirmation_id": "confirm_me",
+                "test_user": 1,
+                "email_confirmation": None,
                 "password": "sttt",
                 "account_state": 2,
                 "comission": 0.22
             }
         )
 
-        response = Client().post(url, body, **TOKEN_DICT)
+        response = Client().put(url, body, **TOKEN_DICT)
+        # print response.content
         self.assertEqual(200, response.status_code)
 
 
 class ComplainPagination(TestCase):
     def setUp(self):
-        self.url = URL_PREFIX + "objects/complain/view/"
+        self.url = URL_PREFIX + "objects/complain/"
         account, _ = create_user_account()
         create_account()
         vendor = _create_vendor()
@@ -264,7 +256,7 @@ class ComplainPagination(TestCase):
             client=account,
             parking=vendor.test_parking,
             state=ParkingSession.STATE_STARTED,
-            started_at=datetime.datetime.now()
+            started_at=timezone.now()
         )
         for i in range(1, 20):
             ComplainSession.objects.create(
@@ -275,12 +267,10 @@ class ComplainPagination(TestCase):
             )
 
     def test_show_complains(self):
-        url = self.url + "1/"
-
-        response = Client().post(url, '{}', **TOKEN_DICT)
+        response = Client().get(self.url, **TOKEN_DICT)
         j = json.loads(response.content)
-
-        print json.dumps(j, indent=4)
+        self.assertEqual(200, response.status_code)
+        # print json.dumps(j, indent=4)
 
 
 class ParkingsStatistics(TestCase):
@@ -302,8 +292,8 @@ class ParkingsStatistics(TestCase):
                 client=account,
                 parking=parking_1,
                 state=ParkingSession.STATE_COMPLETED,
-                started_at=datetime.datetime.fromtimestamp(i),
-                completed_at=datetime.datetime.fromtimestamp(i + randint(10, 100)),
+                started_at=timezone.now(),
+                completed_at=timezone.now() + timezone.timedelta(seconds=randint(0, 200)),
                 debt=(randint(100, 2000))
             )
             ps.save()
@@ -328,7 +318,7 @@ class FilterPagination(TestCase):
     def setUp(self):
         create_account()
         account, _ = create_user_account()
-        self.url = URL_PREFIX + "objects/parking/view/1/"
+        self.url = URL_PREFIX + "objects/parking/"
         parking_1 = Parking.objects.create(
             name="parking-1",
             description="first",
@@ -358,50 +348,34 @@ class FilterPagination(TestCase):
         )
 
     def test_show_approved(self):
-        body = json.dumps({
-            'approved__eq': True
-        })
-
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(self.url + '?approved=true', **TOKEN_DICT)
         j = json.loads(response.content)
+        self.assertEqual(200, response.status_code)
         self.assertEqual(1, len(j['objects']))
         self.assertEqual(True, j['objects'][0]['approved'])
 
     def test_show_not_approved(self):
-        body = json.dumps({
-            'approved__ne': True
-        })
+        url = self.url + '?approved=False'
 
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(2, len(j['objects']))
         self.assertEqual(False, j['objects'][0]['approved'])
 
     def test_show_free(self):
-        body = json.dumps({
-            'free_places__gt': 0
-        })
-
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(self.url + '?free_places__gt=0', **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(3, len(j['objects']))
 
     def test_show_busy(self):
-        body = json.dumps({
-            'free_places': 0
-        })
-
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(self.url + '?free_places=0', **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(0, len(j['objects']))
 
     def test_description_in(self):
-        body = json.dumps({
-            'description__in': [
-                'second', 'third'
-            ]
-        })
+        params = '?description__in=second&' \
+                 'description__in=third'
 
-        response = Client().post(self.url, body, **TOKEN_DICT)
+        response = Client().get(self.url + params, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(2, len(j['objects']))

@@ -5,9 +5,11 @@ class ApiException(Exception, SerializableException):
     """
         Base class for all API-exceptions
     """
-    def __init__(self, message):
+
+    def __init__(self, message, code=400):
         super(Exception, self).__init__(message)
         self.exception = self.__class__.__name__
+        self.http_code = code
 
 
 class AuthException(ApiException):
@@ -19,8 +21,8 @@ class AuthException(ApiException):
     INVALID_TOKEN = 102
     INVALID_SESSION = 103
 
-    def __init__(self, code, message):
-        super(AuthException, self).__init__(message)
+    def __init__(self, code, message, http_code=400):
+        super(AuthException, self).__init__(message, http_code)
         self.code = code
 
 
@@ -32,8 +34,8 @@ class NetworkException(ApiException):
     SMS_GATEWAY_NOT_AVAILABLE = 201
     SMD_GATEWAY_ERROR = 202
 
-    def __init__(self, code, message):
-        super(NetworkException, self).__init__(message)
+    def __init__(self, code, message, http_code=400):
+        super(NetworkException, self).__init__(message, http_code)
         self.code = code
 
 
@@ -49,8 +51,9 @@ class PermissionException(ApiException):
     CREDIT_CARD_REQUIRED = 305
     EMAIL_REQUIRED = 306
     NOT_PRIVELEGIED = 307
-    def __init__(self, code, message):
-        super(PermissionException, self).__init__(message)
+
+    def __init__(self, code, message, http_code=400):
+        super(PermissionException, self).__init__(message, http_code)
         self.code = code
 
 
@@ -69,9 +72,10 @@ class ValidationException(ApiException):
     # Raised when input data is not valid json object
     UNKNOWN_VALIDATION_CODE = 499
 
-    def __init__(self, code, message):
-        super(ValidationException, self).__init__(message)
+    def __init__(self, code, message, http_code=400):
+        super(ValidationException, self).__init__(message, http_code)
         self.code = code
+
 
 class PaymentException(ApiException):
     """
@@ -86,6 +90,6 @@ class PaymentException(ApiException):
     EXCEPTION_MANY_MONEY = 606
     EXCEPTION_INTERNAL_ERROR = 607
 
-    def __init__(self, code, message):
-        super(PaymentException, self).__init__(message)
+    def __init__(self, code, message, http_code=400):
+        super(PaymentException, self).__init__(message, http_code)
         self.code = code

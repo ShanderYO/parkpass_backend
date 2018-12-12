@@ -1,8 +1,8 @@
 from decimal import Decimal
 
-import datetime
 from autotask.tasks import periodic_task, delayed_task
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 from base.utils import get_logger
 from parkings.models import ParkingSession
@@ -128,7 +128,8 @@ def generate_orders_and_pay():
                    ParkingSession.STATE_COMPLETED_BY_VENDOR,
                    ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY,
                    ParkingSession.STATE_COMPLETED_BY_CLIENT_FULLY,
-                   ParkingSession.STATE_COMPLETED]
+                   ParkingSession.STATE_COMPLETED],
+        is_suspended=False,
     )
     get_logger().info("start generate_dept_orders task: active sessions %s " % len(active_sessions))
 
@@ -141,7 +142,10 @@ def generate_orders_and_pay():
 
         if ordered_sum < session.debt:
             order = None
-            if session.state == ParkingSession.STATE_COMPLETED or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR:
+            if session.state == ParkingSession.STATE_COMPLETED \
+                    or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR\
+                    or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY:
+
                 current_account_debt = session.debt - ordered_sum
                 order = Order(
                     sum=current_account_debt, session=session
@@ -206,7 +210,7 @@ def _init_refund(parking_session):
 # for 3 day authorized sum
 @periodic_task(seconds=3*24*60*60)
 def confirm_once_per_3_day():
-    _3_days_before = datetime.datetime.now() - datetime.timedelta(days=3)
+    _3_days_before = timezone.now() - timezone.timedelta(days=3)
     authorized_more_that_3_days_orders = Order.objects.filter(authorized=True, created_at__lte=_3_days_before)
     if authorized_more_that_3_days_orders.exists():
         for order in authorized_more_that_3_days_orders:

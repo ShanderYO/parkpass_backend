@@ -3,9 +3,11 @@ import hashlib
 import json
 
 import requests
+from django.core.exceptions import ObjectDoesNotExist
 
 from base.models import Terminal
 from base.utils import get_logger
+from parkpass import settings
 
 
 class TinkoffApiException:
@@ -25,9 +27,16 @@ class TinkoffAPI():
     CANCEL = "https://securepay.tinkoff.ru/v2/Cancel"
 
     def __init__(self):
-        terminal = Terminal.objects.get(is_selected=True)
-        self.terminal_key = str(terminal.terminal_key) #settings.TINKOFF_TERMINAL_KEY "1516954410942DEMO"
-        self.password = str(terminal.password) #settings.TINKOFF_TERMINAL_PASSWORD "dybcdp86npi8s9fv"
+        try:
+            terminal = Terminal.objects.get(is_selected=True)
+        except ObjectDoesNotExist:
+            terminal = Terminal.objects.create(
+                terminal_key=settings.TINKOFF_TERMINAL_KEY,
+                password=settings.TINKOFF_TERMINAL_PASSWORD,
+                is_selected=True,
+            )
+        self.terminal_key = str(terminal.terminal_key)  # settings.TINKOFF_TERMINAL_KEY "1516954410942DEMO"
+        self.password = str(terminal.password)  # settings.TINKOFF_TERMINAL_PASSWORD "dybcdp86npi8s9fv"
 
     def sync_call(self, method, body):
         body["TerminalKey"] = self.terminal_key

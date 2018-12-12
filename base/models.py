@@ -1,8 +1,9 @@
+# -*- coding: utf-8 -*-
 import binascii
 import os
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from hashlib import md5
 from io import BytesIO
 
@@ -41,7 +42,11 @@ class Terminal(models.Model):
             settings.TINKOFF_TERMINAL_KEY = self.terminal_key
             settings.TINKOFF_TERMINAL_PASSWORD = self.password
 
-        super(Terminal, self).save(*args, **kwargs)
+        if len(Terminal.objects.all()) == 0 and not kwargs.get('prevent_recursion', False):
+            self.is_selected = True
+            self.save(prevent_recursion=True)
+
+        super(Terminal, self).save()
 
 
 class EmailConfirmation(models.Model):
@@ -68,17 +73,17 @@ class EmailConfirmation(models.Model):
     def is_expired(self):
         created_at = (self.created_at +
                       timedelta(0, self.TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
-        return datetime.now() > created_at
+        return timezone.now() > created_at
 
     # TODO make async
     def send_confirm_mail(self):
         render_data = {
-            "emails": self.email,
+            "email": self.email,
             "confirmation_href": self._generate_confirmation_link()
         }
         msg_html = render_to_string('emails/email_confirm_mail.html',
                                     render_data)
-        send_mail('Request to bind mail', "", EMAIL_HOST_USER,
+        send_mail('Изменение адреса электронной почты в системе Parkpass', "", EMAIL_HOST_USER,
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def _generate_confirmation_link(self):
@@ -160,7 +165,7 @@ class BaseAccount(models.Model):
         }
         msg_html = render_to_string('emails/password_mail.html',
                                     render_data)
-        send_mail('Parkpass password', "", EMAIL_HOST_USER,
+        send_mail('Пароль для личного кабинета системы Parkpass', "", EMAIL_HOST_USER,
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def generate_random_password(self):
@@ -228,8 +233,8 @@ class BaseAccountSession(models.Model):
         self.token = binascii.hexlify(os.urandom(20)).decode()
 
     def set_expire_date(self):
-        self.expired_at = datetime.now() \
-                        + timedelta(seconds=self.ACCESS_TOKEN_EXPIRE_SECONDS)
+        self.expired_at = timezone.now() \
+                          + timedelta(seconds=self.ACCESS_TOKEN_EXPIRE_SECONDS)
 
     def is_expired(self):
         return timezone.now() >= self.expired_at

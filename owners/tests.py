@@ -1,10 +1,10 @@
 # -!- coding: utf-8 -!-
-import datetime
 import json
 from random import randint
 
 from django.test import Client
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.tests import create_account as create_user_account
 from base.utils import clear_phone
@@ -80,7 +80,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_account_info(self):
@@ -88,7 +88,7 @@ class Authorization(TestCase):
 
         response = Client().get(url, **TOKEN_DICT)
 
-        print json.dumps(json.loads(response.content), indent=4), 111
+        # print json.dumps(json.loads(response.content), indent=4), 111
 
 
 class Password(TestCase):
@@ -115,7 +115,8 @@ class Password(TestCase):
         response = self.client.post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+
+    # print response.content
 
     def test_valid_email_restore(self):
         """
@@ -129,7 +130,8 @@ class Password(TestCase):
         response = self.client.post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 200)
-        print response.content
+
+    # print response.content
 
     def test_invalid_old_change(self):
         """
@@ -145,7 +147,8 @@ class Password(TestCase):
                                     **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        print response.content
+
+    # print response.content
 
     def test_valid_password_change(self):
         """
@@ -160,7 +163,7 @@ class Password(TestCase):
         response = self.client.post(url, body, content_type="application/json",
                                     **TOKEN_DICT)
 
-        print response.content
+        # print response.content
         self.assertEqual(response.status_code, 200)
 
 
@@ -205,36 +208,23 @@ class Statistics(TestCase):
                 client=account,
                 parking=parking_1,
                 state=ParkingSession.STATE_COMPLETED,
-                started_at=datetime.datetime.fromtimestamp(i),
-                completed_at=datetime.datetime.fromtimestamp(i + randint(10, 100)),
+                started_at=timezone.now(),
+                completed_at=timezone.now() + timezone.timedelta(seconds=randint(10, 100)),
                 debt=(randint(100, 2000))
             )
             ps.save()
 
     def test_parking_stats_single(self):
-        url = URL_PREFIX + 'stats/sessions/'
-
-        body = json.dumps({
-            'start': 20,
-            'end': 80,
-            'pk': 2,
-        })
-
-        response = Client().post(url, body, content_type='application/json',
+        url = URL_PREFIX + 'stats/sessions/?parking__id=2&started_at__gt=20&started_at__lt=80'
+        response = Client().get(url, content_type='application/json',
                                  **TOKEN_DICT)
 
         # print response.content, 'single'
         self.assertEqual(200, response.status_code)
 
     def test_parking_stats_all(self):
-        url = URL_PREFIX + 'stats/sessions/'
-
-        body = json.dumps({
-            'start': 20,
-            'end': 80,
-        })
-
-        response = Client().post(url, body, content_type='application/json',
+        url = URL_PREFIX + 'stats/sessions/?started_at__gt=20&started_at__lt=80'
+        response = Client().get(url, content_type='application/json',
                                  **TOKEN_DICT)
 
         # print response.content, 'all'
@@ -260,16 +250,14 @@ class Companies(TestCase):
 
     def test_show(self):
         url = self.url + '1/'
-        body = '{}'
-        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        response = Client().get(url, **TOKEN_DICT)
         # print response.content, 12321
         # print json.dumps(json.loads(response.content), indent=4), 111
         self.assertEqual(200, response.status_code)
 
     def test_paginate(self):
-        url = self.url + 'view/1/'
-        body = '{}'
-        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        url = self.url
+        response = Client().get(url, **TOKEN_DICT)
         # print json.dumps(json.loads(response.content), indent=4), 12321
         self.assertEqual(200, response.status_code)
 
@@ -286,7 +274,7 @@ class Issue(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
     def test_partial_data(self):
@@ -298,7 +286,7 @@ class Issue(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        print response.content
+        # print response.content
         self.assertEqual(200, response.status_code)
 
         url = URL_PREFIX + 'issue/'
@@ -309,7 +297,7 @@ class Issue(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        print response.content
+        # print response.content
         self.assertEqual(400, response.status_code)
 
     def test_no_name(self):
@@ -321,7 +309,7 @@ class Issue(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        print response.content
+        # print response.content
         self.assertEqual(400, response.status_code)
 
 
@@ -386,7 +374,7 @@ class Tariff(TestCase):
         })
 
     def test_apply_new_tariff(self):
-        url = URL_PREFIX + 'parking/1/tariff/'
+        url = URL_PREFIX + 'parkings/1/tariff/'
 
         response = Client().post(url, self.tariff, content_type='application/json', **TOKEN_DICT)
 

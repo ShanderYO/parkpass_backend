@@ -1,10 +1,14 @@
+# -*- coding: utf-8 -*-
+from django.core.mail import send_mail
 from django.db import models
+from django.template.loader import render_to_string
 
 from dss.Serializer import serializer
 
 from accounts.models import Account
 from base.utils import get_logger
 from parkings.models import ParkingSession
+from parkpass.settings import EMAIL_HOST_USER
 from payments.payment_api import TinkoffAPI
 
 
@@ -118,7 +122,6 @@ class CreditCard(models.Model):
 
 
 class Order(models.Model):
-
     id = models.AutoField(primary_key=True)
     sum = models.DecimalField(max_digits=7, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
@@ -273,6 +276,19 @@ class Order(models.Model):
             TinkoffAPI.CONFIRM, request_data
         )
         get_logger().info(str(result))
+
+
+    def send_receipt_to_email(self):
+        email = self.session.client.email
+        render_data = {
+            "order":self,
+            "nds":round(float(self.sum) * 1.10 * 0.10, 2),
+            "email":email
+        }
+        msg_html = render_to_string('emails/fiscal_template_mail.html', render_data)
+        send_mail('Кассовый чек оплаты в сервисе Parkpass', "", EMAIL_HOST_USER,
+                  ['%s' % str(email)], html_message=msg_html)
+
 
 PAYMENT_STATUS_UNKNOWN = -1
 PAYMENT_STATUS_INIT = 0

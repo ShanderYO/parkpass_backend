@@ -1,11 +1,12 @@
 from django.contrib import admin
 
+from base.admin import AccountAdmin
 from parkings.models import UpgradeIssue
 from vendors.models import Vendor, VendorSession, Issue
 
 
 @admin.register(Vendor)
-class VendorAdmin(admin.ModelAdmin):
+class VendorAdmin(AccountAdmin):
     list_display = ["display_id", "first_name", "last_name"]
     list_filter = ["account_state", "created_at"]
     fieldsets = (

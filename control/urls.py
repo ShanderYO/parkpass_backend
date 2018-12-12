@@ -8,37 +8,15 @@ urlpatterns = [
                   url(r'^login/$', LoginView.as_view()),
                   url(r'^login/phone/$', LoginWithPhoneView.as_view()),
                   url(r'^logout/$', LogoutView.as_view()),
-
-                  url(r'^objects/parking/view/(?P<page>\w+)/$', ShowParkingView.as_view()),
-                  url(r'^objects/parking/create/$', EditParkingView.as_view()),
-                  url(r'^objects/parking/(?P<id>\w+)/$', EditParkingView.as_view()),
-
-                  url(r'^objects/parkingsession/view/(?P<page>\w+)/$', ShowParkingSessionView.as_view()),
-                  url(r'^objects/parkingsession/create/$', EditParkingSessionView.as_view()),
-                  url(r'^objects/parkingsession/(?P<id>\w+)/$', EditParkingSessionView.as_view()),
-
-                  url(r'^objects/vendor/view/(?P<page>\w+)/$', ShowVendorView.as_view()),
-                  url(r'^objects/vendor/create/$', EditVendorView.as_view()),
-                  url(r'^objects/vendor/(?P<id>\w+)/$', EditVendorView.as_view()),
-
-                  url(r'^objects/complain/view/(?P<page>\w+)/$', ShowComplainView.as_view()),
-                  url(r'^objects/complain/create/$', EditComplainView.as_view()),
-                  url(r'^objects/complain/(?P<id>\w+)/$', EditComplainView.as_view()),
-
-                  url(r'^objects/issue/view/(?P<page>\w+)/$', ShowIssueView.as_view()),
-                  url(r'^objects/issue/create/$', EditIssueView.as_view()),
-                  url(r'^objects/issue/accept/(?P<id>\w+)/$', AcceptIssueView.as_view()),
-                  url(r'^objects/issue/(?P<id>\w+)/$', EditIssueView.as_view()),
-
-                  url(r'^objects/upgradeissue/view/(?P<page>\w+)/$', ShowUpgradeIssueView.as_view()),
-                  url(r'^objects/upgradeissue/create/$', EditUpgradeIssueView.as_view()),
-                  url(r'^objects/upgradeissue/(?P<id>\w+)/$', EditUpgradeIssueView.as_view()),
-
-                  url(r'^objects/order/view/(?P<page>\w+)/$', ShowOrderView.as_view()),
-                  url(r'^objects/order/create/$', EditOrderView.as_view()),
-                  url(r'^objects/order/(?P<id>\w+)/$', EditOrderView.as_view()),
+                  url(r'^objects/(?P<name>\w+)/(?P<id>\d+)/(?P<action>\w+)/$', ObjectActionView.as_view()),
 
                   url(r'^statistics/parkings/$', AllParkingsStatisticsView.as_view()),
+                  url(r'^statistics/log/(?P<name>.+)/$', GetLogView.as_view()),
                   url(r'^statistics/log/$', GetLogView.as_view()),
+                  url(r'^objects/$', ListObjectsView.as_view())
 
-              ] + staticfiles_urlpatterns()
+              ] + staticfiles_urlpatterns() + [
+                  url(r'^objects/%s/$' % i, generic_object_view(i).as_view()) for i in admin_objects
+              ] + [
+                  url(r'^objects/%s/(?P<id>\d+)/$' % i, generic_object_view(i).as_view()) for i in admin_objects
+              ]

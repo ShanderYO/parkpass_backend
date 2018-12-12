@@ -1,8 +1,6 @@
 import base64
-import datetime
 from os.path import isfile
 
-import pytz
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import JsonResponse
@@ -344,7 +342,8 @@ class SendReceiptToEmailView(LoginRequiredAPIView):
 
         try:
             parking_session = ParkingSession.objects.get(id=id)
-            parking_session.send_receipt_to_email()
+            for order in Order.objects.filter(session=parking_session):
+                order.send_receipt_to_email()
             return JsonResponse({}, status=200)
 
         except ObjectDoesNotExist:
@@ -615,7 +614,7 @@ class ForceStopParkingSession(LoginRequiredAPIView):
             parking_session = ParkingSession.objects.get(id=id)
             if not parking_session.is_suspended:
                 parking_session.is_suspended = True
-                parking_session.suspended_at = pytz.utc.localize(datetime.datetime.now())
+                parking_session.suspended_at = timezone.now()
                 parking_session.save()
 
         except ObjectDoesNotExist:

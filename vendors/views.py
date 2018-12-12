@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime, timedelta
-
 from django.core.mail import send_mail
 from django.db.models import Sum
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.views import View
 
 from accounts.sms_gateway import SMSGateway
@@ -12,8 +11,9 @@ from base.exceptions import AuthException
 from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
+from base.validators import validate_phone_number
 from base.views import APIView
-from base.views import VendorAPIView as LoginRequiredAPIView
+from base.views import generic_login_required_view
 from owners.validators import IssueValidator
 from owners.validators import validate_inn, validate_kpp
 from parkings.models import ParkingSession, Parking, UpgradeIssue
@@ -22,6 +22,8 @@ from parkpass.settings import EMAIL_HOST_USER
 from .models import Vendor, Issue
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
+
+LoginRequiredAPIView = generic_login_required_view(Vendor)
 
 
 class EditVendorView(LoginRequiredAPIView):
@@ -77,8 +79,8 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         stat = ParkingSession.objects.filter(
             parking=parking,
             started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-            else datetime.datetime.now() - timedelta(days=31),
-            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.datetime.now()
+            else timezone.now() - timezone.timedelta(days=31),
+            started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else timezone.now()
         )
         lst = []
         length = len(stat)
@@ -122,8 +124,8 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
             ps = ParkingSession.objects.filter(
                 parking=pk,
                 started_at__gt=datetime_from_unix_timestamp_tz(start_from) if start_from > -1
-                else datetime.now() - timedelta(days=31),
-                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else datetime.now(),
+                else timezone.now() - timezone.timedelta(days=31),
+                started_at__lt=datetime_from_unix_timestamp_tz(stop_at) if stop_at > -1 else timezone.now(),
                 state__gt=3  # Only completed sessions
             )
 
@@ -188,12 +190,12 @@ class ParkingsTopView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         if period == 'day':
-            td = timedelta(days=1)
+            td = timezone.timedelta(days=1)
         elif period == 'week':
-            td = timedelta(days=7)
+            td = timezone.timedelta(days=7)
         else:
-            td = timedelta(days=30)
-        t = datetime.date.today() - td
+            td = timezone.timedelta(days=30)
+        t = timezone.now() - td
         parkings = Parking.objects.filter(vendor=request.vendor)
         r = []
         for p in parkings:
@@ -326,20 +328,20 @@ class IssueView(APIView):
         name = request.data.get("name", "")
         phone = request.data.get("phone", "")
         email = request.data.get("email", "")
-        i = Issue(
+        issue = Issue(
             name=name,
             phone=phone,
             email=email
         )
-        i.save()
+        issue.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if phone:
             sms_gateway = SMSGateway()
             sms_gateway.send_sms(phone, text, message='')
         if email:
             msg_html = render_to_string('emails/issue_accepted.html',
-                                        {'name': name})
-            send_mail('Ваша заявка в ParkPass принята.', "", EMAIL_HOST_USER,
+                                        {'number': str(issue.id)})
+            send_mail('Заявка в систему Parkpass принята', "", EMAIL_HOST_USER,
                       ['%s' % str(email)], html_message=msg_html)
         return JsonResponse({}, status=200)
 
@@ -348,9 +350,23 @@ class LoginWithPhoneView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
-        phone = clear_phone(request.data["phone"])
+        phone = clear_phone(request.data.get("phone", None))
+        password = request.data.get('password', None)
+        if not all((phone, password)):
+            e = ValidationException(ValidationException.VALIDATION_ERROR,
+                                    'phone and password are required')
+            return JsonResponse(e.to_dict(), status=400)
         if Account.objects.filter(phone=phone).exists():
             account = Account.objects.get(phone=phone)
+            if account.check_password(password):
+                account.login()
+                session = account.get_session()
+            else:
+                e = AuthException(
+                    AuthException.INVALID_PASSWORD,
+                    "Invalid password"
+                )
+                return JsonResponse(e.to_dict(), status=400)
         else:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -358,8 +374,6 @@ class LoginWithPhoneView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        account.login()
-        session = account.get_session()
         return JsonResponse(serializer(session, exclude_attr=("created_at",)))
 
 
