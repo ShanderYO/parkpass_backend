@@ -139,14 +139,20 @@ class IssueView(APIView, ObjectView):
         name = request.data.get("name", "")
         phone = request.data.get("phone", "")
         email = request.data.get("email", "")
+        issue = Issue(
+            name=name,
+            phone=phone,
+            email=email
+        )
+        issue.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if phone:
             sms_gateway = SMSGateway()
             sms_gateway.send_sms(phone, text, message='')
         if email:
             msg_html = render_to_string('emails/issue_accepted.html',
-                                        {'name': name})
-            send_mail('Ваша заявка в ParkPass принята.', "", EMAIL_HOST_USER,
+                                        {'number': str(issue.id)})
+            send_mail('Заявка в систему Parkpass принята', "", EMAIL_HOST_USER,
                       ['%s' % str(email)], html_message=msg_html)
 
 

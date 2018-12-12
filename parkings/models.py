@@ -258,15 +258,6 @@ class ParkingSession(models.Model):
             self.STATE_COMPLETED_BY_CLIENT_FULLY
         ]
 
-    # TODO make async
-    def send_receipt_to_email(self):
-        email = self.client.email
-        render_data = {
-        }
-        msg_html = render_to_string('emails/fiscal_template_mail.html', render_data)
-        send_mail('Fiscal report', "", EMAIL_HOST_USER,
-                  ['%s' % str(email)], html_message=msg_html)
-
 
 class ComplainSession(models.Model):
     COMPLAIN_TYPE_CHOICES = (

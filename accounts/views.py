@@ -342,7 +342,8 @@ class SendReceiptToEmailView(LoginRequiredAPIView):
 
         try:
             parking_session = ParkingSession.objects.get(id=id)
-            parking_session.send_receipt_to_email()
+            for order in Order.objects.filter(session=parking_session):
+                order.send_receipt_to_email()
             return JsonResponse({}, status=200)
 
         except ObjectDoesNotExist:
