@@ -45,13 +45,24 @@ class UpgradeIssue(models.Model):
 
 
 class Parking(models.Model):
+
+    DISCONNECTED = 0
+    PENDING = 1
+    CONNECTED = 2
+
+    PARKPASS_STATUSES = (
+        (DISCONNECTED, "Disconnected"),
+        (PENDING, "Pending"),
+        (CONNECTED, "Connected")
+    )
     name = models.CharField(max_length=63, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     address = models.CharField(max_length=63, null=True, blank=True)
+    city = models.CharField(max_length=63, null=True, blank=True)
     latitude = models.DecimalField(max_digits=10, decimal_places=8)
     longitude = models.DecimalField(max_digits=11, decimal_places=8)
     enabled = models.BooleanField(default=True)
-    parkpass_enabled = models.BooleanField(default=False)  # Is it ParkPass-enabled
+    parkpass_status = models.IntegerField(choices=PARKPASS_STATUSES, default=DISCONNECTED)
     free_places = models.IntegerField()
     max_places = models.IntegerField(default=0)
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)

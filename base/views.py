@@ -191,7 +191,7 @@ class NotifyIssueView(APIView):
         return JsonResponse({}, status=200)
 
 
-class ObjectView:
+class ObjectView(object):
     object = None  # models.Model of necessary object
     readonly_fields = None  # Names of fields that can not be changed
     show_fields = None  # Names of fields to be shown and editable. If empty, all fields will be shown
@@ -200,7 +200,7 @@ class ObjectView:
     account_filter = None  # field to check owner.
     methods = ('GET', 'POST', 'PUT', 'DELETE')
 
-    def on_delete(self, request):
+    def on_delete(self, request, obj):
         pass
 
     def on_create(self, request, obj):
@@ -233,6 +233,8 @@ class ObjectView:
             return queryset
 
     def _get_object(self, request, id):
+        if id is None:
+            return self.object()
         qs = self.object.objects.filter(id=id)
         if len(qs) == 0:
             raise ValidationException(ValidationException.RESOURCE_NOT_FOUND,
@@ -286,7 +288,7 @@ class ObjectView:
             raise ValidationException(ValidationException.VALIDATION_ERROR,
                                       'Use PUT to edit object',
                                       http_code=405)
-        obj = self._get_object(request, id) if id else self.object()
+        obj = self._get_object(request, id)
         editable_fields = []
         readonly = lambda x: ValidationException(ValidationException.VALIDATION_ERROR,
                                                  'Field %s is read-only' % x.name)
