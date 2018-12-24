@@ -54,7 +54,7 @@ class AccountInfoView(LoginRequiredAPIView):
 
 class SummaryStatisticsView(LoginRequiredAPIView):
     def get(self, request):
-        period = request.GET.get('period', ['day'])[0]
+        period = request.GET.get('period', 'day').encode('utf-8')
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
