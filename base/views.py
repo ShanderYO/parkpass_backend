@@ -206,6 +206,9 @@ class ObjectView(object):
     def on_create(self, request, obj):
         pass
 
+    def on_post_create(self, request, obj):
+        pass
+
     def on_edit(self, request, obj):
         pass
 
@@ -327,6 +330,9 @@ class ObjectView(object):
         else:
             self.on_edit(request, obj)
         obj.save()
+
+        response_data = self.on_post_create(request, obj)
+
         try:
             obj.full_clean()
         except ValidationError, e:
@@ -334,7 +340,8 @@ class ObjectView(object):
                                       e.message_dict)
 
         location = request.path if id else request.path + unicode(obj.id) + u'/'
-        response = JsonResponse({}, status=200)
+
+        response = JsonResponse(response_data if response_data else {}, status=200)
         response['Location'] = location
         return response
 

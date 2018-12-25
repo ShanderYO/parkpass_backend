@@ -251,14 +251,33 @@ class Companies(TestCase):
     def test_show(self):
         url = self.url + '1/'
         response = Client().get(url, **TOKEN_DICT)
-        # print response.content, 12321
-        # print json.dumps(json.loads(response.content), indent=4), 111
+        #print response.content, 12321
+        #print json.dumps(json.loads(response.content), indent=4), 111
+        self.assertEqual(200, response.status_code)
+
+    def test_create(self):
+        url = self.url
+
+        body = json.dumps({
+            "name": "Foobar company",
+            "kpp": 123456789,
+            "inn": 1234567891,
+            "legal_address":"legal address",
+            "actual_address":"actual address",
+            "checking_account": "12343223423432",
+            "checking_kpp": 123453298,
+            "email": 'foobar@gmail.com',
+            "phone": '+2(121)2121212',
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        #print response.content
         self.assertEqual(200, response.status_code)
 
     def test_paginate(self):
         url = self.url
         response = Client().get(url, **TOKEN_DICT)
-        # print json.dumps(json.loads(response.content), indent=4), 12321
+        #print json.dumps(json.loads(response.content), indent=4), 12321
         self.assertEqual(200, response.status_code)
 
 
