@@ -160,8 +160,32 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
     object = Company
     show_fields = ('name', 'inn', 'kpp', 'legal_address',
                    'actual_address', 'email', 'phone', 'checking_account',
-                   'checking_kpp', 'use_profile_contacts')
+                   'checking_kpp', 'use_profile_contacts', 'bank')
     account_filter = 'owner'
+
+    def set_owner_and_validate(self, request, obj):
+        obj.owner = request.owner
+        if not obj.use_profile_contacts:
+            if not all((obj.email, obj.phone)):
+                raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                          {'use_profile_contacts': ['If this field is False, '
+                                                                    'email and phone'
+                                                                    ' is required.']})
+
+    def on_create(self, request, obj):
+        self.set_owner_and_validate(request, obj)
+
+    def on_edit(self, request, obj):
+        self.set_owner_and_validate(request, obj)
+        if not obj.checking_kpp:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      {'checking_kpp': ['This field cannot be blank.']})
+        if not obj.checking_account:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      {'checking_account': ['This field cannot be blank.']})
+        if not obj.bank:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      {'bank': ['This field cannot be blank.']})
 
 
 class TariffView(LoginRequiredAPIView):

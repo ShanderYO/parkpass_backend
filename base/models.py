@@ -161,12 +161,13 @@ class BaseAccount(models.Model):
         if not self.email:
             return
         render_data = {
+            "email": self.email,
             "password": raw_password,
         }
         msg_html = render_to_string('emails/password_mail.html',
                                     render_data)
         send_mail('Пароль для личного кабинета системы Parkpass', "", EMAIL_HOST_USER,
-                  ['%s' % str(self.email)], html_message=msg_html)
+                  [str(self.email)], html_message=msg_html)
 
     def generate_random_password(self):
         raw_password = User.objects.make_random_password(8)

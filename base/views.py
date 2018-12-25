@@ -321,19 +321,21 @@ class ObjectView(object):
                     break
             #######DEPRECATED CODE#######
             setattr(obj, self.author_field, account)
+
+        if request.method == 'POST':
+            self.on_create(request, obj)
+        else:
+            self.on_edit(request, obj)
+        obj.save()
         try:
             obj.full_clean()
         except ValidationError, e:
             raise ValidationException(ValidationException.VALIDATION_ERROR,
                                       e.message_dict)
-        obj.save()
+
         location = request.path if id else request.path + unicode(obj.id) + u'/'
         response = JsonResponse({}, status=200)
         response['Location'] = location
-        if request.method == 'POST':
-            self.on_create(request, obj)
-        else:
-            self.on_edit(request, obj)
         return response
 
     def put(self, request, id=None):
