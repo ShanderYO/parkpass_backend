@@ -158,7 +158,7 @@ class IssueView(APIView, ObjectView):
 
 class CompanyView(LoginRequiredAPIView, ObjectView):
     object = Company
-    show_fields = ('name', 'inn', 'kpp', 'legal_address',
+    show_fields = ('id', 'name', 'inn', 'kpp', 'legal_address',
                    'actual_address', 'email', 'phone', 'checking_account',
                    'checking_kpp', 'use_profile_contacts', 'bank')
     account_filter = 'owner'
@@ -174,6 +174,9 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
 
     def on_create(self, request, obj):
         self.set_owner_and_validate(request, obj)
+
+    def on_post_create(self, request, obj):
+        return {'id': obj.id}
 
     def on_edit(self, request, obj):
         self.set_owner_and_validate(request, obj)

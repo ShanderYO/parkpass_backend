@@ -63,7 +63,7 @@ class UpgradeIssue(models.Model):
 
 class Company(models.Model):
     owner = models.ForeignKey(to=Owner)
-    name = models.CharField(max_length=256, unique=True)
+    name = models.CharField(max_length=256)
     inn = models.CharField(max_length=15, validators=(validate_inn,))
     kpp = models.CharField(max_length=15, validators=(validate_kpp,))
     bic = models.CharField(max_length=20, null=True, blank=True)
