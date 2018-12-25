@@ -54,7 +54,7 @@ class AccountInfoView(LoginRequiredAPIView):
 
 class SummaryStatisticsView(LoginRequiredAPIView):
     def get(self, request):
-        period = request.GET.get('period', ['day'])[0]
+        period = request.GET.get('period', 'day').encode('utf-8')
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -160,7 +160,7 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
     object = Company
     show_fields = ('name', 'inn', 'kpp', 'legal_address',
                    'actual_address', 'email', 'phone', 'checking_account',
-                   'checking_kpp', 'use_user_data')
+                   'checking_kpp', 'use_profile_contacts')
     account_filter = 'owner'
 
 
