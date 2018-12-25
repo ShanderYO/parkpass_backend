@@ -69,12 +69,13 @@ class Company(models.Model):
     bic = models.CharField(max_length=20, null=True, blank=True)
     legal_address = models.CharField(max_length=512)
     actual_address = models.CharField(max_length=512)
-    email = models.EmailField()
-    phone = models.CharField(max_length=15, validators=(validate_phone_number,))
+    email = models.EmailField(null=True, blank=True)
+    phone = models.CharField(max_length=15, null=True, blank=True, validators=(validate_phone_number,))
     use_profile_contacts = models.BooleanField(default=False)
 
-    checking_account = models.CharField(max_length=64)
-    checking_kpp = models.CharField(max_length=15)
+    bank = models.CharField(max_length=256, null=True, blank=True)
+    checking_account = models.CharField(max_length=64, null=True, blank=True)
+    checking_kpp = models.CharField(max_length=15, null=True, blank=True, validators=(validate_kpp,))
 
     def __unicode__(self):
         return self.name
