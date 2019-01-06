@@ -280,6 +280,24 @@ class Companies(TestCase):
         #print json.dumps(json.loads(response.content), indent=4), 12321
         self.assertEqual(200, response.status_code)
 
+    def change_company(self):
+        url = self.url + '1/'
+
+        body = json.dumps({
+            "name": "Foobar company",
+            "kpp": 123456789,
+            "inn": 1234567891,
+            "legal_address": "legal address",
+            "actual_address": "actual address",
+            "checking_account": "12343223423432",
+            "checking_kpp": 123453298,
+            "email": 'foobar@gmail.com',
+            "phone": '+2(121)2121212',
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+
 
 class Issue(TestCase):
 
@@ -436,3 +454,84 @@ class ConnectIssueTests(TestCase):
         response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
         ConnectIssue.objects.get(id=1)
+
+
+class Parking(TestCase):
+    def setUp(self):
+        self.account, self.account_session, self.sign = create_vendor_account()
+        self.owneracc, self.owneraccsess = create_account()
+
+        company = Company.objects.create(
+            owner=self.owneracc,
+            name="Test company",
+            inn="1234567890",
+            kpp="123456789012",
+            legal_address="ewsfrdg",
+            actual_address="sadfbg",
+            email=EMAIL,
+            phone=PHONE,
+            checking_account="1234",
+            checking_kpp="123456789012"
+        )
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            max_places=5,
+            vendor=self.account,
+            company=company
+        )
+
+        parking_2 = Parking.objects.create(
+            name="parking-2",
+            description="default",
+            latitude=1,
+            longitude=1,
+            max_places=5,
+            company=company
+        )
+
+    def test_owner_parkings(self):
+        url = URL_PREFIX + 'parkings/'
+        response = Client().get(url, content_type='application/json', **TOKEN_DICT)
+        print response
+        self.assertEqual(200, response.status_code)
+
+    def test_owner_create_parking(self):
+        url = URL_PREFIX + 'parking'
+
+        body = json.dumps({
+            'name':"fres",
+            'longitude': 1.093323,
+            'latitude': 10.111212,
+            'free_places': 210,
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(2, Parking.objects.all().count())
+
+    def test_parking_forbidden_test(self):
+        url = URL_PREFIX + 'parking/1/'
+
+        body = json.dumps({
+            'name': "name1",
+            'longitude': 1.093323,
+            'latitude': 10.111212,
+            'free_places': 210,
+        })
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(400, response.status_code)
+
+    def test_owner_parking_change(self):
+        url = URL_PREFIX + 'parking/2/'
+
+        body = json.dumps({
+            'name': "name1",
+            'longitude': 1.093323,
+            'latitude': 10.111212,
+            'free_places': 210,
+        })
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)

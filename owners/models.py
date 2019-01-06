@@ -6,6 +6,7 @@ from django.db import models
 from base.models import BaseAccount, BaseAccountSession
 from base.validators import validate_phone_number
 from owners.validators import validate_inn, validate_kpp, validate_name
+from parkings.models import Parking
 
 
 class Owner(BaseAccount):
@@ -79,6 +80,9 @@ class Company(models.Model):
 
     def __unicode__(self):
         return self.name
+
+    def get_parking_queryset(self):
+        return Parking.objects.filter(company=self)
 
 
 class Issue(models.Model):

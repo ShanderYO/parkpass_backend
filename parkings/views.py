@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import decimal
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
 from django.http import JsonResponse
@@ -81,8 +82,8 @@ class IssueParkingView(VendorAPIView):
             name=self.request.data['name'],
             description=self.request.data['description'],
             address=self.request.data['address'],
-            latitude=float(self.request.data['latitude']),
-            longitude=float(self.request.data['longitude']),
+            latitude=decimal.Decimal(self.request.data['latitude']),
+            longitude=decimal.Decimal(self.request.data['longitude']),
             max_places=int(self.request.data['max_places']),
             approved=False,
             max_client_debt=int(self.request.data['max_client_debt'])

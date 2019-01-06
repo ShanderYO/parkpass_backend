@@ -198,6 +198,7 @@ class ObjectView(object):
     hide_fields = None  # Names of fields to be hidden(and readonly)
     author_field = None
     account_filter = None  # field to check owner.
+    foreign_field = []
     methods = ('GET', 'POST', 'PUT', 'DELETE')
 
     def on_delete(self, request, obj):
@@ -211,6 +212,30 @@ class ObjectView(object):
 
     def on_edit(self, request, obj):
         pass
+
+    def serialize_obj(self, obj):
+        return serializer(obj, include_attr=self.show_fields,
+                                exclude_attr=self.hide_fields)
+
+    def serialize_list(self, qs):
+        result = []
+        for o in qs:
+            root_item = serializer(o,
+                                   include_attr=self.show_fields,
+                                   exclude_attr=self.hide_fields)
+            for key, fields in self.foreign_field:
+                inner_item = serializer(
+                    getattr(o, key),
+                    include_attr=fields)
+
+                root_item[key] = inner_item
+                del root_item[key + "_id"]
+
+            result.append(root_item)
+        page = None
+        if len(qs) > 0:
+            page = str(qs[len(qs) - 1].id)
+        return result, page
 
     def dispatch(self, *args, **kwargs):
         if object is None:
@@ -355,8 +380,16 @@ class ObjectView(object):
         if id is None:
             data = dict(request.GET)
             flt = {}
-            page = int(data.pop('page', 0))
-            count = int(data.pop('count', PAGINATION_OBJECTS_PER_PAGE))
+            page = data.pop('page', 0)
+
+            # TODO delete it
+            if type(page) == list:
+                page = int(page[0])
+
+            count = data.pop('count', PAGINATION_OBJECTS_PER_PAGE)
+            if type(count) == list:
+                count = int(count[0])
+
             for key, value in data.items():
                 key = key.encode('utf-8')
                 value = parse(value)
@@ -369,22 +402,17 @@ class ObjectView(object):
                 elif fieldtype in ('DateField', 'DateTimeField'):
                     value = datetime_from_unix_timestamp_tz(value)
                 flt[key.encode('utf-8')] = value
-            qs = self._account_filter(request, self.object.objects.filter(**flt))
-            result = []
-            for o in qs:
-                result.append(serializer(o,
-                                         include_attr=self.show_fields,
-                                         exclude_attr=self.hide_fields))
-            length = len(result)
-            if length > count:
-                result = result[page * count:(page + 1) * count]
 
-            return JsonResponse({'count': length, 'objects': result}, status=200)
+            qs = self._account_filter(request, self.object.objects.filter(**flt))
+
+            # Add id pagination
+            qs = qs.filter(id__gte=page).order_by('id')[page * count:(page + 1) * count]
+            result, page = self.serialize_list(qs)
+            return JsonResponse({'page': page, 'result': result}, status=200)
 
         else:
             obj = self._get_object(request, id)
-            serialized = serializer(obj, include_attr=self.show_fields,
-                                    exclude_attr=self.hide_fields)
+            serialized = self.serialize_obj(obj)
             return JsonResponse(serialized, status=200)
 
     def delete(self, request, id=None):

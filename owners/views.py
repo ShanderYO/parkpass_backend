@@ -10,7 +10,7 @@ from django.views import View
 
 from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
-from base.exceptions import AuthException
+from base.exceptions import AuthException, PermissionException
 from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
@@ -52,15 +52,18 @@ class AccountInfoView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class SummaryStatisticsView(LoginRequiredAPIView):
+class ParkingStatisticsView(LoginRequiredAPIView):
     def get(self, request):
         period = request.GET.get('period', 'day').encode('utf-8')
+        parking_id = request.GET.get('parking_id')
+
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 "`period` must be in (`day`, `week`, `month`)"
             )
             return JsonResponse(e.to_dict(), status=400)
+
         if period == 'day':
             td = timedelta(days=1)
         elif period == 'week':
@@ -68,8 +71,16 @@ class SummaryStatisticsView(LoginRequiredAPIView):
         else:
             td = timedelta(days=30)
         t = timezone.now() - td
-        sessions = ParkingSession.objects.filter(parking__company__owner=request.owner,
-                                                 completed_at__gt=t)
+
+        sessions = ParkingSession.objects.filter(
+            parking__company__owner=request.owner,
+            completed_at__gt=t
+        )
+
+        if parking_id:
+            id = parse_int(parking_id)
+            sessions.filter(id=id)
+
         count = sessions.count()
         debt = sessions.aggregate(Sum('debt'))['debt__sum']
         seen = set()
@@ -90,6 +101,16 @@ class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
     account_filter = 'parking__company__owner'
     hide_fields = ('try_refund', 'debt', 'current_refund_sum', 'target_refund_sum')
     methods = ('GET',)
+
+    def serialize_list(self, qs):
+        result, page = super(ObjectView, self).serialize_list(qs)
+
+        # TODO improve it
+        for obj_dict in result:
+            parkings = Parking.objects.filter(company__id=obj_dict['id'])
+            serialized = serializer(parkings, include_attr=('id', 'name'))
+            obj_dict["parkings"] = serialized
+        return result, page
 
 
 class ParkingsTopView(LoginRequiredAPIView):
@@ -161,6 +182,7 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
     show_fields = ('id', 'name', 'inn', 'kpp', 'bic', 'legal_address',
                    'actual_address', 'email', 'phone', 'checking_account',
                    'checking_kpp', 'use_profile_contacts', 'bank')
+
     account_filter = 'owner'
 
     def set_owner_and_validate(self, request, obj):
@@ -172,6 +194,22 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
                                                                     'email and phone'
                                                                     ' is required.']})
 
+    def serialize_list(self, qs):
+        result, page = super(ObjectView, self).serialize_list(qs)
+        # TODO improve it
+        for obj_dict in result:
+            parkings = Parking.objects.filter(company__id=obj_dict['id'])
+            serialized = serializer(parkings, include_attr=('id', 'name'))
+            obj_dict["parkings"] = serialized
+        return result, page
+
+    def serialize_obj(self, obj):
+        result_dict = super(ObjectView, self).serialize_obj(obj)
+        parkings = Parking.objects.filter(company__id=result_dict['id'])
+        serialized = serializer(parkings, include_attr=('id', 'name'))
+        result_dict["parkings"] = serialized
+        return result_dict
+
     def on_create(self, request, obj):
         self.set_owner_and_validate(request, obj)
 
@@ -180,6 +218,13 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
 
     def on_edit(self, request, obj):
         self.set_owner_and_validate(request, obj)
+
+        if obj.get_parking_queryset():
+            raise PermissionException(
+                PermissionException.FORBIDDEN_CHANGING,
+                "Company should have no parking for changing"
+            )
+
         if not obj.checking_kpp:
             raise ValidationException(ValidationException.VALIDATION_ERROR,
                                       {'checking_kpp': ['This field cannot be blank.']})
@@ -189,6 +234,12 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
         if not obj.bank:
             raise ValidationException(ValidationException.VALIDATION_ERROR,
                                       {'bank': ['This field cannot be blank.']})
+
+
+class EventsView(LoginRequiredAPIView, ObjectView):
+    object = Company
+    show_fields = ('id',)
+    account_filter = 'owner'
 
 
 class TariffView(LoginRequiredAPIView):
@@ -264,7 +315,27 @@ class ConnectIssueView(LoginRequiredAPIView):
 class ParkingsView(LoginRequiredAPIView, ObjectView):
     object = Parking
     account_filter = 'company__owner'
+    foreign_field = [('company', ('id', 'name',)), ('vendor', ('id', 'name',))]
     readonly_fields = ()
+
+    def on_edit(self, request, obj):
+        self.set_owner_and_validate(request, obj)
+
+        if obj.parkpass_status != Parking.DISCONNECTED:
+            raise PermissionException(
+                PermissionException.FORBIDDEN_CHANGING,
+                "Parking should have DISCONNECTED state for changing"
+            )
+
+        if not obj.checking_kpp:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      {'checking_kpp': ['This field cannot be blank.']})
+        if not obj.checking_account:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      {'checking_account': ['This field cannot be blank.']})
+        if not obj.bank:
+            raise ValidationException(ValidationException.VALIDATION_ERROR,
+                                      {'bank': ['This field cannot be blank.']})
 
 
 class VendorsView(LoginRequiredAPIView, ObjectView):
