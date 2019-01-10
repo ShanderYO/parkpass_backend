@@ -280,56 +280,23 @@ class Companies(TestCase):
         #print json.dumps(json.loads(response.content), indent=4), 12321
         self.assertEqual(200, response.status_code)
 
-
-class Issue(TestCase):
-
-    def test_full_data(self):
-        url = URL_PREFIX + 'issue/'
+    def change_company(self):
+        url = self.url + '1/'
 
         body = json.dumps({
-            'name': 'PashaWNN',
-            'phone': '81234567890',
-            'email': 'wnnpasha@mailg.moc'
+            "name": "Foobar company",
+            "kpp": 123456789,
+            "inn": 1234567891,
+            "legal_address": "legal address",
+            "actual_address": "actual address",
+            "checking_account": "12343223423432",
+            "checking_kpp": 123453298,
+            "email": 'foobar@gmail.com',
+            "phone": '+2(121)2121212',
         })
 
-        response = Client().post(url, body, content_type='application/json')
-        # print response.content
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
-
-    def test_partial_data(self):
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'phone': '81234567890',
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        # print response.content
-        self.assertEqual(200, response.status_code)
-
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'email': 'wnnpasha@mailg.moc'
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        # print response.content
-        self.assertEqual(400, response.status_code)
-
-    def test_no_name(self):
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'phone': '81234567890',
-            'email': 'wnnpasha@mailg.moc'
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        # print response.content
-        self.assertEqual(400, response.status_code)
 
 
 class Tariff(TestCase):
@@ -403,36 +370,114 @@ class Tariff(TestCase):
 class ConnectIssueTests(TestCase):
     def setUp(self):
         create_vendor_account()
-        create_account()
-        p = Parking.objects.get(id=1)
-        p.enabled = True
-        p.save()
+
+        self.owneracc, self.owneraccsess = create_account()
+
+        company = Company.objects.create(
+            owner=self.owneracc,
+            name="Test company",
+            inn="1234567890",
+            kpp="123456789012",
+            legal_address="ewsfrdg",
+            actual_address="sadfbg",
+            email=EMAIL,
+            phone=PHONE,
+            checking_account="1234",
+            checking_kpp="123456789012"
+        )
 
     def test_exist_vendor(self):
-        url = URL_PREFIX + 'connectissue/'
+        url = URL_PREFIX + 'connect/'
 
         body = json.dumps({
             'parking_id': 1,
             'vendor_id': 1,
-            'contact_email': 'abcd@efgh.jk'
+            'company_id':1,
+            'contact_email': 'abcd@efgh.jk',
+            'contact_phone': '+7(916)1793970'
         })
 
         response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
-        ConnectIssue.objects.get(id=1)
 
     def test_not_exist_vendor(self):
-        url = URL_PREFIX + 'connectissue/'
+        url = URL_PREFIX + 'connect/'
 
         body = json.dumps({
             'parking_id': 1,
-            'org_name': 'Organisation',
-            'email': 'abdf@srvdbg.dcc',
-            'website': 'werefgfb.com',
-            'phone': '89994444444',
+            'vendor_id': 2,
+            'company_id':1,
+            'contact_phone': '+7(916)1793970',
             'contact_email': 'abcd@efgh.jk',
         })
 
         response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(400, response.status_code)
+
+
+class ParkingTest(TestCase):
+    def setUp(self):
+        self.account, self.account_session, self.sign = create_vendor_account()
+        self.owneracc, self.owneraccsess = create_account()
+
+        company = Company.objects.create(
+            owner=self.owneracc,
+            name="Test company",
+            inn="1234567890",
+            kpp="123456789012",
+            legal_address="ewsfrdg",
+            actual_address="sadfbg",
+            email=EMAIL,
+            phone=PHONE,
+            checking_account="1234",
+            checking_kpp="123456789012"
+        )
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            max_places=5,
+            vendor=self.account,
+            company=company
+        )
+
+        parking_2 = Parking.objects.create(
+            name="parking-2",
+            description="default",
+            latitude=1,
+            longitude=1,
+            max_places=5,
+            company=company
+        )
+
+    def test_owner_parkings(self):
+        url = URL_PREFIX + 'parkings/'
+        response = Client().get(url, content_type='application/json', **TOKEN_DICT)
+        print response
         self.assertEqual(200, response.status_code)
-        ConnectIssue.objects.get(id=1)
+
+    def test_owner_create_parking(self):
+        url = URL_PREFIX + 'parkings/'
+
+        body = json.dumps({
+            'name':'abc',
+            'longitude': 1.093323,
+            'latitude': 10.111212,
+            'free_places': 210,
+        })
+
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+
+    def test_parking_forbidden_test(self):
+        url = URL_PREFIX + 'parkings/1/'
+
+        body = json.dumps({
+            'name': "name1",
+            'longitude': 1.093323,
+            'latitude': 10.111212,
+            'free_places': 210,
+        })
+        response = Client().put(url, body, content_type='application/json', **TOKEN_DICT)
+        self.assertEqual(400, response.status_code)

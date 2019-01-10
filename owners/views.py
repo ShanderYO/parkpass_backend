@@ -1,28 +1,24 @@
 # -*- coding: utf-8 -*-
 import json
 
-from django.core.mail import send_mail
 from django.db.models import Sum
-from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.timezone import timedelta
 from django.views import View
 
-from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
-from base.exceptions import AuthException
+from base.exceptions import AuthException, PermissionException
 from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
 from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
 from parkings.models import Parking, ParkingSession
-from parkpass.settings import EMAIL_HOST_USER
 from vendors.models import Vendor
-from .models import Issue, ConnectIssue
+from .models import OwnerApplication
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
-from .models import UpgradeIssue, Company
+from .models import Company
 from .validators import ConnectIssueValidator, TariffValidator
 
 LoginRequiredAPIView = generic_login_required_view(Account)
@@ -52,15 +48,19 @@ class AccountInfoView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class SummaryStatisticsView(LoginRequiredAPIView):
+class ParkingStatisticsView(LoginRequiredAPIView):
     def get(self, request):
+        print request.GET
         period = request.GET.get('period', 'day').encode('utf-8')
+        parking_id = request.GET.get('parking_id').encode('utf-8')
+
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 "`period` must be in (`day`, `week`, `month`)"
             )
             return JsonResponse(e.to_dict(), status=400)
+
         if period == 'day':
             td = timedelta(days=1)
         elif period == 'week':
@@ -68,8 +68,17 @@ class SummaryStatisticsView(LoginRequiredAPIView):
         else:
             td = timedelta(days=30)
         t = timezone.now() - td
-        sessions = ParkingSession.objects.filter(parking__company__owner=request.owner,
-                                                 completed_at__gt=t)
+
+        sessions = ParkingSession.objects.filter(
+            parking__owner=request.owner,
+            completed_at__gt=t
+        )
+
+        if parking_id:
+            id = parse_int(parking_id)
+            if id:
+                sessions = sessions.filter(parking=id)
+
         count = sessions.count()
         debt = sessions.aggregate(Sum('debt'))['debt__sum']
         seen = set()
@@ -87,9 +96,21 @@ class SummaryStatisticsView(LoginRequiredAPIView):
 
 class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
     object = ParkingSession
-    account_filter = 'parking__company__owner'
+    account_filter = 'parking__owner'
     hide_fields = ('try_refund', 'debt', 'current_refund_sum', 'target_refund_sum')
+    foreign_field = [('parking', ('id', 'name',))]
+
     methods = ('GET',)
+
+    def serialize_list(self, qs):
+        result, page = super(ParkingSessionsView, self).serialize_list(qs)
+
+        # TODO improve it
+        for obj_dict in result:
+            parkings = Parking.objects.filter(company__id=obj_dict['id'])[0]
+            serialized = serializer(parkings, include_attr=('id', 'name'))
+            obj_dict["parking"] = serialized
+        return result, page
 
 
 class ParkingsTopView(LoginRequiredAPIView):
@@ -114,46 +135,20 @@ class ParkingsTopView(LoginRequiredAPIView):
         for p in parkings:
             r.append({
                 'id': p.id,
-                'company': p.company.name,
+                'name': p.name,
                 'address': p.address,
-                'debt': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
+                'income': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
                     'debt__sum'],
             })
-        r = sorted(r, key=lambda x: -x['debt'] if x['debt'] else 0)
+        r = sorted(r, key=lambda x: -x['income'] if x['income'] else 0)
         return JsonResponse(r[:count + 1], status=200, safe=False)
 
 
-class UpgradeIssueView(LoginRequiredAPIView, ObjectView):
-    object = UpgradeIssue
+class ApplicationsView(LoginRequiredAPIView, ObjectView):
+    object = OwnerApplication
     author_field = 'owner'
     show_fields = ('description', 'type')
     account_filter = 'owner'
-
-
-class IssueView(APIView, ObjectView):
-    object = Issue
-    methods = ('POST',)
-    show_fields = ('name', 'phone', 'email')
-
-    def on_create(self, request, obj):
-        name = request.data.get("name", "")
-        phone = request.data.get("phone", "")
-        email = request.data.get("email", "")
-        issue = Issue(
-            name=name,
-            phone=phone,
-            email=email
-        )
-        issue.save()
-        text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
-        if phone:
-            sms_gateway = SMSGateway()
-            sms_gateway.send_sms(phone, text, message='')
-        if email:
-            msg_html = render_to_string('emails/issue_accepted.html',
-                                        {'number': str(issue.id)})
-            send_mail('Заявка в систему Parkpass принята', "", EMAIL_HOST_USER,
-                      ['%s' % str(email)], html_message=msg_html)
 
 
 class CompanyView(LoginRequiredAPIView, ObjectView):
@@ -161,6 +156,7 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
     show_fields = ('id', 'name', 'inn', 'kpp', 'bic', 'legal_address',
                    'actual_address', 'email', 'phone', 'checking_account',
                    'checking_kpp', 'use_profile_contacts', 'bank')
+
     account_filter = 'owner'
 
     def set_owner_and_validate(self, request, obj):
@@ -172,6 +168,22 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
                                                                     'email and phone'
                                                                     ' is required.']})
 
+    def serialize_list(self, qs):
+        result, page = super(CompanyView, self).serialize_list(qs)
+        # TODO improve it
+        for obj_dict in result:
+            parkings = Parking.objects.filter(company__id=obj_dict['id'])
+            serialized = serializer(parkings, include_attr=('id', 'name'))
+            obj_dict["parkings"] = serialized
+        return result, page
+
+    def serialize_obj(self, obj):
+        result_dict = super(CompanyView, self).serialize_obj(obj)
+        parkings = Parking.objects.filter(company__id=result_dict['id'])
+        serialized = serializer(parkings, include_attr=('id', 'name'))
+        result_dict["parkings"] = serialized
+        return result_dict
+
     def on_create(self, request, obj):
         self.set_owner_and_validate(request, obj)
 
@@ -180,6 +192,13 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
 
     def on_edit(self, request, obj):
         self.set_owner_and_validate(request, obj)
+
+        if obj.get_parking_queryset():
+            raise PermissionException(
+                PermissionException.FORBIDDEN_CHANGING,
+                "Company should have no parking for changing"
+            )
+        """
         if not obj.checking_kpp:
             raise ValidationException(ValidationException.VALIDATION_ERROR,
                                       {'checking_kpp': ['This field cannot be blank.']})
@@ -189,6 +208,13 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
         if not obj.bank:
             raise ValidationException(ValidationException.VALIDATION_ERROR,
                                       {'bank': ['This field cannot be blank.']})
+        """
+
+
+class EventsView(LoginRequiredAPIView, ObjectView):
+    object = OwnerApplication
+    show_fields = ('owner_id', 'type', 'owner_id', 'parking_id', 'vendor_id', 'company_id', 'status', 'description', 'created_at', )
+    account_filter = 'owner'
 
 
 class TariffView(LoginRequiredAPIView):
@@ -212,64 +238,80 @@ class TariffView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class ConnectIssueView(LoginRequiredAPIView):
+class ConnectParkingView(LoginRequiredAPIView):
     validator_class = ConnectIssueValidator
 
     def post(self, request):
         parking_id = self.request.data['parking_id']
-        vendor_id = self.request.data.get('vendor_id', None)
-        org_name = self.request.data.get("org_name", None)
-        email = self.request.data.get("email", None)
-        phone = self.request.data.get("phone", None)
-        website = self.request.data.get("website", None)
+        vendor_id = self.request.data['vendor_id']
+        company_id = self.request.data['company_id']
         contact_email = self.request.data["contact_email"]
+        contact_phone = self.request.data["contact_phone"]
 
         try:
-            parking = Parking.objects.get(id=parking_id, approved=True, enabled=True)
+            parking = Parking.objects.get(id=parking_id, parkpass_status=Parking.DISCONNECTED)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
-                'Parking with such ID does not exist or not enabled/approved by administrator'
+                'Parking with such ID has already connecting or processing state'
             )
             return JsonResponse(e.to_dict(), status=400)
-        if vendor_id:
-            try:
-                vendor = Vendor.objects.get(id=vendor_id)
-            except ObjectDoesNotExist:
-                e = ValidationException(
-                    ValidationException.VALIDATION_ERROR,
-                    'Vendor with such ID does not exist'
-                )
-                return JsonResponse(e.to_dict(), status=400)
-            issue = ConnectIssue(
-                owner=self.request.owner,
-                parking=parking,
-                vendor=vendor,
-                contact_email=contact_email,
+
+        try:
+            vendor = Vendor.objects.get(id=vendor_id)
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                'Vendor with such ID does not exist'
             )
-        else:
-            issue = ConnectIssue(
-                owner=self.request.owner,
-                parking=parking,
-                organisation_name=org_name,
-                phone=phone,
-                email=email,
-                contact_email=contact_email,
-                website=website,
+            return JsonResponse(e.to_dict(), status=400)
+
+        try:
+            company = Company.objects.get(id=company_id, owner=request.owner)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                'Your company does not found'
             )
-        issue.save()
+            return JsonResponse(e.to_dict(), status=400)
+
+        OwnerApplication.objects.create(
+            type=OwnerApplication.TYPE_CONNECT_PARKING,
+            owner=self.request.owner,
+            parking=parking,
+            vendor=vendor,
+            company=company,
+            contact_email=contact_email,
+            contact_phone=contact_phone,
+        )
         return JsonResponse({}, status=200)
 
 
 class ParkingsView(LoginRequiredAPIView, ObjectView):
     object = Parking
-    account_filter = 'company__owner'
+    account_filter = 'owner'
+    foreign_field = [('company', ('id', 'name',)), ('vendor', ('id', 'name',))]
     readonly_fields = ()
 
+    def on_create(self, request, obj):
+        if not obj.latitude or not obj.longitude:
+            raise ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Longitude and latitude are required"
+            )
+
+    def on_edit(self, request, obj):
+        if obj.parkpass_status != Parking.DISCONNECTED:
+            raise PermissionException(
+                PermissionException.FORBIDDEN_CHANGING,
+                "Parking should have DISCONNECTED state for changing"
+            )
 
 class VendorsView(LoginRequiredAPIView, ObjectView):
     object = Vendor
     methods = ('GET',)
+    show_fields = ('id','name',)
 
 
 class PasswordChangeView(LoginRequiredAPIView):

@@ -77,3 +77,4 @@ class AccountSession(BaseAccountSession):
 
         except ObjectDoesNotExist:
             return None
+

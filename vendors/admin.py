@@ -1,8 +1,8 @@
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 
 from base.admin import AccountAdmin
-from parkings.models import UpgradeIssue
-from vendors.models import Vendor, VendorSession, Issue
+from vendors.models import Vendor, VendorSession, VendorIssue
 
 
 @admin.register(Vendor)
@@ -37,12 +37,21 @@ class VendorSessionAdmin(admin.ModelAdmin):
     pass
 
 
-@admin.register(UpgradeIssue)
-class UpgradeIssueAdmin(admin.ModelAdmin):
-    list_display = ["id", "type", "status", "description"]
-    list_filter = ["type", "status", "vendor", "owner"]
-
-
-@admin.register(Issue)
+@admin.register(VendorIssue)
 class IssueAdmin(admin.ModelAdmin):
-    list_display = ["name", "email", "comment"]
+    actions = ["accept_issue", "reject_issue"]
+    list_display = ["name", "email", "phone"]
+
+    def accept_issue(self, request, queryset):
+        for issue in queryset:
+            try:
+                issue.accept()
+            except ValidationError:
+                self.message_user(request, '%s issue was not accepted: ValidationError' % issue)
+
+    accept_issue.short_description = 'Accept these issues'
+
+    def reject_issue(self, request, queryset):
+        queryset.delete()
+
+    reject_issue.short_description = 'Reject these issues'

@@ -5,7 +5,28 @@ from base.admin import AccountAdmin
 from owners.models import *
 
 
-@admin.register(Issue)
+@admin.register(Owner)
+class OwnerAdmin(AccountAdmin):
+    list_display = ['name', 'first_name', 'last_name']
+    pass
+
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(OwnerSession)
+class OwnerSessionAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(OwnerApplication)
+class OwnerApplicationAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(OwnerIssue)
 class IssueAdmin(admin.ModelAdmin):
     actions = ["accept_issue", "reject_issue"]
     list_display = ["name", "email", "phone"]
@@ -23,24 +44,3 @@ class IssueAdmin(admin.ModelAdmin):
         queryset.delete()
 
     reject_issue.short_description = 'Reject these issues'
-
-
-@admin.register(Owner)
-class OwnerAdmin(AccountAdmin):
-    list_display = ['name', 'first_name', 'last_name']
-    pass
-
-
-@admin.register(Company)
-class CompanyAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(OwnerSession)
-class OwnerSessionAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(UpgradeIssue)
-class UpgradeIssueAdmin(admin.ModelAdmin):
-    pass

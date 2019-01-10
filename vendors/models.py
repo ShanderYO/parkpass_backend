@@ -8,7 +8,26 @@ from django.db import models
 
 from owners.validators import validate_inn, validate_kpp
 from accounts.models import Account as User
-from base.models import BaseAccount, BaseAccountSession
+from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
+
+
+class VendorIssue(BaseAccountIssue):
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.type = BaseAccountIssue.VENDOR_ISSUE_TYPE
+        super(VendorIssue, self).save(*args, **kwargs)
+
+    def accept(self):
+        vendor = Vendor(
+            phone=self.phone,
+            email=self.email,
+            name=self.name,
+        )
+        vendor.full_clean()
+        vendor.save()
+        vendor.create_password_and_send()
+        self.delete()
+        return vendor
 
 
 class Vendor(BaseAccount):
@@ -107,15 +126,3 @@ class VendorSession(BaseAccountSession):
 
         except ObjectDoesNotExist:
             return None
-
-
-class Issue(models.Model):
-    def __unicode__(self):
-        return '%s %s' % (self.name, self.created_at)
-
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=255)
-    email = models.EmailField(blank=True, null=True)
-    phone = models.CharField(max_length=13)
-    comment = models.CharField(max_length=1023, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, editable=True)

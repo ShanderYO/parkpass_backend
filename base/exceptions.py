@@ -51,6 +51,7 @@ class PermissionException(ApiException):
     CREDIT_CARD_REQUIRED = 305
     EMAIL_REQUIRED = 306
     NOT_PRIVELEGIED = 307
+    FORBIDDEN_CHANGING = 308
 
     def __init__(self, code, message, http_code=400):
         super(PermissionException, self).__init__(message, http_code)
