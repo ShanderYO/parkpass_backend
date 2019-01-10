@@ -1,9 +1,13 @@
+# -*- coding: utf-8 -*-
+
 import base64
 from os.path import isfile
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
 from django.db.models import Q
 from django.http import JsonResponse
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views import View
 from dss.Serializer import serializer
@@ -18,11 +22,13 @@ from base.exceptions import AuthException, ValidationException, PermissionExcept
 from base.models import EmailConfirmation
 from base.utils import clear_phone
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
-from base.views import APIView, LoginRequiredAPIView
+from base.views import APIView, LoginRequiredAPIView, ObjectView
+from owners.models import OwnerIssue
 from parkings.models import ParkingSession, Parking
-from parkpass.settings import DEFAULT_AVATAR_URL
+from parkpass.settings import DEFAULT_AVATAR_URL, EMAIL_HOST_USER
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
+from vendors.models import VendorIssue
 
 
 class SetAvatarView(LoginRequiredAPIView):
@@ -96,6 +102,58 @@ class DeactivateAccountView(LoginRequiredAPIView):
             card.delete()
 
         return JsonResponse({}, status=200)
+
+
+class OwnerIssueView(APIView, ObjectView):
+    object = OwnerIssue
+    methods = ('POST',)
+    show_fields = ('name', 'phone', 'email')
+
+    def on_create(self, request, obj):
+        name = request.data.get("name", "")
+        phone = request.data.get("phone", "")
+        email = request.data.get("email", "")
+        issue = OwnerIssue(
+            name=name,
+            phone=phone,
+            email=email
+        )
+        issue.save()
+        text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
+        if phone:
+            sms_gateway = SMSGateway()
+            sms_gateway.send_sms(phone, text, message='')
+        if email:
+            msg_html = render_to_string('emails/issue_accepted.html',
+                                        {'number': str(issue.id)})
+            send_mail('Заявка в систему Parkpass принята', "", EMAIL_HOST_USER,
+                      ['%s' % str(email)], html_message=msg_html)
+
+
+class VendorIssueView(APIView, ObjectView):
+    object = VendorIssue
+    methods = ('POST',)
+    show_fields = ('name', 'phone', 'email')
+
+    def on_create(self, request, obj):
+        name = request.data.get("name", "")
+        phone = request.data.get("phone", "")
+        email = request.data.get("email", "")
+        issue = VendorIssue(
+            name=name,
+            phone=phone,
+            email=email
+        )
+        issue.save()
+        text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
+        if phone:
+            sms_gateway = SMSGateway()
+            sms_gateway.send_sms(phone, text, message='')
+        if email:
+            msg_html = render_to_string('emails/issue_accepted.html',
+                                        {'number': str(issue.id)})
+            send_mail('Заявка в систему Parkpass принята', "", EMAIL_HOST_USER,
+                      ['%s' % str(email)], html_message=msg_html)
 
 
 class LoginView(APIView):

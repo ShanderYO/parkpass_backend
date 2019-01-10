@@ -13,7 +13,7 @@ from dss.Serializer import serializer
 
 # App import
 from base.exceptions import ValidationException, AuthException, PermissionException, ApiException
-from base.utils import get_logger, datetime_from_unix_timestamp_tz
+from base.utils import get_logger, datetime_from_unix_timestamp_tz, parse_int
 from base.utils import parse_get_param as parse
 from base.validators import ValidatePostParametersMixin, validate_phone_number
 from parkpass.settings import REQUESTS_LOGGER_NAME, PAGINATION_OBJECTS_PER_PAGE
@@ -214,8 +214,16 @@ class ObjectView(object):
         pass
 
     def serialize_obj(self, obj):
-        return serializer(obj, include_attr=self.show_fields,
+        root_item = serializer(obj, include_attr=self.show_fields,
                                 exclude_attr=self.hide_fields)
+        for key, fields in self.foreign_field:
+            inner_item = serializer(
+                getattr(obj, key),
+                include_attr=fields
+            )
+            root_item[key] = inner_item
+            del root_item[key + "_id"]
+        return root_item
 
     def serialize_list(self, qs):
         result = []
@@ -354,15 +362,17 @@ class ObjectView(object):
             self.on_create(request, obj)
         else:
             self.on_edit(request, obj)
-        obj.save()
 
+        obj.save()
         response_data = self.on_post_create(request, obj)
 
+        """
         try:
             obj.full_clean()
         except ValidationError, e:
             raise ValidationException(ValidationException.VALIDATION_ERROR,
                                       e.message_dict)
+        """
 
         location = request.path if id else request.path + unicode(obj.id) + u'/'
 
@@ -382,9 +392,9 @@ class ObjectView(object):
             flt = {}
             page = data.pop('page', 0)
 
-            # TODO delete it
+            # TODO modify it
             if type(page) == list:
-                page = int(page[0])
+                page = parse_int(page[0]) if parse_int(page[0]) else 0
 
             count = data.pop('count', PAGINATION_OBJECTS_PER_PAGE)
             if type(count) == list:

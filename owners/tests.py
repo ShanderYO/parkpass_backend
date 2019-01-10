@@ -299,57 +299,6 @@ class Companies(TestCase):
         self.assertEqual(200, response.status_code)
 
 
-class Issue(TestCase):
-
-    def test_full_data(self):
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'phone': '81234567890',
-            'email': 'wnnpasha@mailg.moc'
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        # print response.content
-        self.assertEqual(200, response.status_code)
-
-    def test_partial_data(self):
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'phone': '81234567890',
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        # print response.content
-        self.assertEqual(200, response.status_code)
-
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'email': 'wnnpasha@mailg.moc'
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        # print response.content
-        self.assertEqual(400, response.status_code)
-
-    def test_no_name(self):
-        url = URL_PREFIX + 'issue/'
-
-        body = json.dumps({
-            'phone': '81234567890',
-            'email': 'wnnpasha@mailg.moc'
-        })
-
-        response = Client().post(url, body, content_type='application/json')
-        # print response.content
-        self.assertEqual(400, response.status_code)
-
-
 class Tariff(TestCase):
     def setUp(self):
         self.account, self.account_session, self.sign = create_vendor_account()
@@ -421,42 +370,52 @@ class Tariff(TestCase):
 class ConnectIssueTests(TestCase):
     def setUp(self):
         create_vendor_account()
-        create_account()
-        p = Parking.objects.get(id=1)
-        p.enabled = True
-        p.save()
+
+        self.owneracc, self.owneraccsess = create_account()
+
+        company = Company.objects.create(
+            owner=self.owneracc,
+            name="Test company",
+            inn="1234567890",
+            kpp="123456789012",
+            legal_address="ewsfrdg",
+            actual_address="sadfbg",
+            email=EMAIL,
+            phone=PHONE,
+            checking_account="1234",
+            checking_kpp="123456789012"
+        )
 
     def test_exist_vendor(self):
-        url = URL_PREFIX + 'connectissue/'
+        url = URL_PREFIX + 'connect/'
 
         body = json.dumps({
             'parking_id': 1,
             'vendor_id': 1,
-            'contact_email': 'abcd@efgh.jk'
+            'company_id':1,
+            'contact_email': 'abcd@efgh.jk',
+            'contact_phone': '+7(916)1793970'
         })
 
         response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
-        ConnectIssue.objects.get(id=1)
 
     def test_not_exist_vendor(self):
-        url = URL_PREFIX + 'connectissue/'
+        url = URL_PREFIX + 'connect/'
 
         body = json.dumps({
             'parking_id': 1,
-            'org_name': 'Organisation',
-            'email': 'abdf@srvdbg.dcc',
-            'website': 'werefgfb.com',
-            'phone': '89994444444',
+            'vendor_id': 2,
+            'company_id':1,
+            'contact_phone': '+7(916)1793970',
             'contact_email': 'abcd@efgh.jk',
         })
 
         response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
-        self.assertEqual(200, response.status_code)
-        ConnectIssue.objects.get(id=1)
+        self.assertEqual(400, response.status_code)
 
 
-class Parking(TestCase):
+class ParkingTest(TestCase):
     def setUp(self):
         self.account, self.account_session, self.sign = create_vendor_account()
         self.owneracc, self.owneraccsess = create_account()
@@ -499,10 +458,10 @@ class Parking(TestCase):
         self.assertEqual(200, response.status_code)
 
     def test_owner_create_parking(self):
-        url = URL_PREFIX + 'parking'
+        url = URL_PREFIX + 'parkings/'
 
         body = json.dumps({
-            'name':"fres",
+            'name':'abc',
             'longitude': 1.093323,
             'latitude': 10.111212,
             'free_places': 210,
@@ -510,10 +469,9 @@ class Parking(TestCase):
 
         response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
-        self.assertEqual(2, Parking.objects.all().count())
 
     def test_parking_forbidden_test(self):
-        url = URL_PREFIX + 'parking/1/'
+        url = URL_PREFIX + 'parkings/1/'
 
         body = json.dumps({
             'name': "name1",
@@ -521,17 +479,5 @@ class Parking(TestCase):
             'latitude': 10.111212,
             'free_places': 210,
         })
-        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
+        response = Client().put(url, body, content_type='application/json', **TOKEN_DICT)
         self.assertEqual(400, response.status_code)
-
-    def test_owner_parking_change(self):
-        url = URL_PREFIX + 'parking/2/'
-
-        body = json.dumps({
-            'name': "name1",
-            'longitude': 1.093323,
-            'latitude': 10.111212,
-            'free_places': 210,
-        })
-        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
-        self.assertEqual(200, response.status_code)

@@ -18,7 +18,9 @@ from django.db.models import BigAutoField
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from accounts.validators import validate_name
 from base.exceptions import ValidationException
+from base.validators import validate_phone_number
 from parkpass import settings
 from parkpass.settings import EMAIL_HOST_USER, AVATARS_URL, AVATARS_ROOT
 
@@ -243,3 +245,27 @@ class BaseAccountSession(models.Model):
 
 class NotifyIssue(models.Model):
     phone = models.CharField(max_length=15)
+
+
+class BaseAccountIssue(models.Model):
+    OWNER_ISSUE_TYPE = 1
+    VENDOR_ISSUE_TYPE = 2
+
+    types = (
+        (OWNER_ISSUE_TYPE, "Type owner"),
+        (VENDOR_ISSUE_TYPE, "Type vendor"),
+    )
+
+    id = models.AutoField(primary_key=True)
+    type = models.PositiveSmallIntegerField(choices=types)
+    name = models.CharField(max_length=255, validators=(validate_name,))
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=13, validators=(validate_phone_number,))
+    comment = models.CharField(max_length=1023, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, editable=True)
+
+    class Meta:
+        abstract = True
+
+    def __unicode__(self):
+        return '%s %s' % (self.name, self.created_at)

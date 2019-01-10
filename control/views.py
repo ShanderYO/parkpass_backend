@@ -15,12 +15,12 @@ from base.utils import generic_pagination_view as pagination
 from base.validators import LoginAndPasswordValidator
 from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
-from owners.models import Issue, Owner, Company
-from parkings.models import Parking, ParkingSession, ComplainSession, UpgradeIssue
+from owners.models import Owner, Company, OwnerApplication, OwnerIssue
+from parkings.models import Parking, ParkingSession, ComplainSession
 from parkpass.settings import LOG_DIR
 from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
 from payments.models import Order
-from vendors.models import Vendor
+from vendors.models import Vendor, VendorIssue
 from .models import Admin as Account
 from .models import AdminSession as AccountSession
 
@@ -115,6 +115,12 @@ admin_objects = {
         'object': Vendor,
         'readonly_fields': ('secret',)
     },
+    'vendorissue': {
+        'object': VendorIssue,
+        'actions': {
+            'accept': lambda issue: {'vendor_id': issue.accept().id}
+        }
+    },
     'order': {
         'object': Order,
     },
@@ -130,8 +136,8 @@ admin_objects = {
     'complain': {
         'object': ComplainSession,
     },
-    'issue': {
-        'object': Issue,
+    'ownerissue': {
+        'object': OwnerIssue,
         'actions': {
             'accept': lambda issue: {'owner_id': issue.accept().id}
         }
@@ -142,8 +148,8 @@ admin_objects = {
             'make_hashed_password': lambda a: {'result': 'stub' if a.make_hashed_password() else 'ok'}  # magic! ^.^
         }
     },
-    'upgradeissue': {
-        'object': UpgradeIssue,
+    'ownerapplication': {
+        'object': OwnerApplication,
     },
     'owner': {
         'object': Owner

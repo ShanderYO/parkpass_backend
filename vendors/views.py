@@ -15,11 +15,12 @@ from base.validators import validate_phone_number
 from base.views import APIView
 from base.views import generic_login_required_view
 from owners.validators import IssueValidator
+from owners.models import OwnerApplication
 from owners.validators import validate_inn, validate_kpp
-from parkings.models import ParkingSession, Parking, UpgradeIssue
+from parkings.models import ParkingSession, Parking
 from parkings.validators import validate_latitude, validate_longitude
 from parkpass.settings import EMAIL_HOST_USER
-from .models import Vendor, Issue
+from .models import Vendor
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
 
@@ -166,7 +167,7 @@ class IssueUpgradeView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         type = int(type)
-        ui = UpgradeIssue(
+        ui = OwnerApplication(
             vendor=account,
             description=description,
             type=type,
@@ -175,7 +176,7 @@ class IssueUpgradeView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class ListUpgradeIssuesView(generic_pagination_view(UpgradeIssue, LoginRequiredAPIView, filter_by_account=True)):
+class ListUpgradeIssuesView(generic_pagination_view(OwnerApplication, LoginRequiredAPIView, filter_by_account=True)):
     pass
 
 

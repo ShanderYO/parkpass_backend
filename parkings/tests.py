@@ -905,6 +905,7 @@ class IssueParking(TestCase):
         account_session.set_expire_date()
         account_session.save(not_generate_token=True)
 
+    """
     def test_issue_parking_valid(self):
         url = URL_PREFIX + 'issue/'
 
@@ -923,7 +924,8 @@ class IssueParking(TestCase):
                                  **VENDOR_TOKEN)
         # print response.content
         self.assertEqual(response.status_code, 200)
-
+    """
+    """
     def test_issue_parking_by_owner(self):
         url = URL_PREFIX + 'ownerissue/'
 
@@ -942,6 +944,7 @@ class IssueParking(TestCase):
                                  **OWNER_TOKEN)
         # print response.content
         self.assertEqual(response.status_code, 200)
+    """
 
 
 class VendorPermissions(TestCase):

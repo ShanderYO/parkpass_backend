@@ -351,26 +351,26 @@ class FilterPagination(TestCase):
         response = Client().get(self.url + '?approved=true', **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(200, response.status_code)
-        self.assertEqual(1, len(j['objects']))
-        self.assertEqual(True, j['objects'][0]['approved'])
+        self.assertEqual(1, len(j['result']))
+        self.assertEqual(True, j['result'][0]['approved'])
 
     def test_show_not_approved(self):
         url = self.url + '?approved=False'
 
         response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
-        self.assertEqual(2, len(j['objects']))
-        self.assertEqual(False, j['objects'][0]['approved'])
+        self.assertEqual(2, len(j['result']))
+        self.assertEqual(False, j['result'][0]['approved'])
 
     def test_show_free(self):
         response = Client().get(self.url + '?free_places__gt=0', **TOKEN_DICT)
         j = json.loads(response.content)
-        self.assertEqual(3, len(j['objects']))
+        self.assertEqual(3, len(j['result']))
 
     def test_show_busy(self):
         response = Client().get(self.url + '?free_places=0', **TOKEN_DICT)
         j = json.loads(response.content)
-        self.assertEqual(0, len(j['objects']))
+        self.assertEqual(0, len(j['result']))
 
     def test_description_in(self):
         params = '?description__in=second&' \
@@ -378,4 +378,4 @@ class FilterPagination(TestCase):
 
         response = Client().get(self.url + params, **TOKEN_DICT)
         j = json.loads(response.content)
-        self.assertEqual(2, len(j['objects']))
+        self.assertEqual(2, len(j['result']))
