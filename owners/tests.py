@@ -480,4 +480,5 @@ class ParkingTest(TestCase):
             'free_places': 210,
         })
         response = Client().put(url, body, content_type='application/json', **TOKEN_DICT)
+        print response.content
         self.assertEqual(400, response.status_code)

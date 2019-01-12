@@ -418,7 +418,7 @@ class ObjectView(object):
             # Add id pagination
             qs = qs.filter(id__gte=page).order_by('id')[page * count:(page + 1) * count]
             result, page = self.serialize_list(qs)
-            return JsonResponse({'page': page, 'result': result}, status=200)
+            return JsonResponse({'next': page, 'result': result}, status=200)
 
         else:
             obj = self._get_object(request, id)

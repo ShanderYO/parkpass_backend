@@ -21,6 +21,7 @@ from .models import OwnerSession as AccountSession
 from .models import Company
 from .validators import ConnectIssueValidator, TariffValidator
 
+
 LoginRequiredAPIView = generic_login_required_view(Account)
 
 
@@ -198,18 +199,6 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
                 PermissionException.FORBIDDEN_CHANGING,
                 "Company should have no parking for changing"
             )
-        """
-        if not obj.checking_kpp:
-            raise ValidationException(ValidationException.VALIDATION_ERROR,
-                                      {'checking_kpp': ['This field cannot be blank.']})
-        if not obj.checking_account:
-            raise ValidationException(ValidationException.VALIDATION_ERROR,
-                                      {'checking_account': ['This field cannot be blank.']})
-        if not obj.bank:
-            raise ValidationException(ValidationException.VALIDATION_ERROR,
-                                      {'bank': ['This field cannot be blank.']})
-        """
-
 
 class EventsView(LoginRequiredAPIView, ObjectView):
     object = OwnerApplication
@@ -295,6 +284,7 @@ class ParkingsView(LoginRequiredAPIView, ObjectView):
     readonly_fields = ()
 
     def on_create(self, request, obj):
+        obj.owner = request.owner # add owner
         if not obj.latitude or not obj.longitude:
             raise ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -307,6 +297,10 @@ class ParkingsView(LoginRequiredAPIView, ObjectView):
                 PermissionException.FORBIDDEN_CHANGING,
                 "Parking should have DISCONNECTED state for changing"
             )
+
+    def on_post_create(self, request, obj):
+        return {'id': obj.id}
+
 
 class VendorsView(LoginRequiredAPIView, ObjectView):
     object = Vendor
