@@ -69,8 +69,7 @@ class Company(models.Model):
     use_profile_contacts = models.BooleanField(default=False)
 
     bank = models.CharField(max_length=256, null=True, blank=True)
-    checking_account = models.CharField(max_length=64, null=True, blank=True)
-    checking_kpp = models.CharField(max_length=15, null=True, blank=True, validators=(validate_kpp,))
+    account = models.CharField(max_length=64, null=True, blank=True)
 
     def __unicode__(self):
         return self.name
