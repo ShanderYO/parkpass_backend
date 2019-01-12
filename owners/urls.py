@@ -30,7 +30,7 @@ urlpatterns = [
                   url(r'^connect/$', ConnectParkingView.as_view()),
                   url(r'^vendors/$', VendorsView.as_view()),
                   url(r'^vendors/(?P<id>\d+)/$', VendorsView.as_view()),
-                  url(r'^company/$', CompanyView.as_view()),
-                  url(r'^company/(?P<id>\d+)/$', CompanyView.as_view()),
+                  url(r'^companies/$', CompanyView.as_view()),
+                  url(r'^companies/(?P<id>\d+)/$', CompanyView.as_view()),
                   url(r'^events/$', EventsView.as_view()),
               ] + staticfiles_urlpatterns()
