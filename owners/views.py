@@ -154,8 +154,8 @@ class ApplicationsView(LoginRequiredAPIView, ObjectView):
 class CompanyView(LoginRequiredAPIView, ObjectView):
     object = Company
     show_fields = ('id', 'name', 'inn', 'kpp', 'bic', 'legal_address',
-                   'actual_address', 'email', 'phone', 'checking_account',
-                   'checking_kpp', 'use_profile_contacts', 'bank')
+                   'actual_address', 'email', 'phone', 'account',
+                   'use_profile_contacts', 'bank')
 
     account_filter = 'owner'
 
