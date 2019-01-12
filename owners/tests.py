@@ -230,11 +230,17 @@ class Statistics(TestCase):
         # print response.content, 'all'
         self.assertEqual(200, response.status_code)
 
+    def test_parking_stats_period(self):
+        url = URL_PREFIX + 'stats/parkings/?period=day'
+        response = Client().get(url, content_type='application/json',
+                                **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+
 
 class Companies(TestCase):
     def setUp(self):
         self.owneracc, self.owneraccsess = create_account()
-        self.url = URL_PREFIX + 'company/'
+        self.url = URL_PREFIX + 'companies/'
         Company.objects.create(
             name='Foobar company',
             kpp='12345678',

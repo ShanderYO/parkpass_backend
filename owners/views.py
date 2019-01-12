@@ -51,9 +51,8 @@ class AccountInfoView(LoginRequiredAPIView):
 
 class ParkingStatisticsView(LoginRequiredAPIView):
     def get(self, request):
-        print request.GET
         period = request.GET.get('period', 'day').encode('utf-8')
-        parking_id = request.GET.get('parking_id').encode('utf-8')
+        parking_id = request.GET.get('parking_id',"0").encode('utf-8')
 
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
