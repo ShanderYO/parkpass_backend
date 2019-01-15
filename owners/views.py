@@ -112,36 +112,93 @@ class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
             obj_dict["parking"] = serialized
         return result, page
 
+# TODO refactor this method
 
 class ParkingsTopView(LoginRequiredAPIView):
     def get(self, request):
-        count = request.GET.get('count', [3])[0]
+        count = parse_int(request.GET.get('count', [3])[0])
         period = request.GET.get('period', ['day'])[0]
-        if period not in ('day', 'week', 'month'):
+
+        from_date = parse_int(request.GET.get("from_date", None))
+        to_date = parse_int(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        page = parse_int(request.GET.get('page', None))
+        if period and period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 "`period` must be in (`day`, `week`, `month`)"
             )
             return JsonResponse(e.to_dict(), status=400)
+
+        td = None
+
         if period == 'day':
             td = timedelta(days=1)
         elif period == 'week':
             td = timedelta(days=7)
-        else:
+        elif period == "month":
             td = timedelta(days=30)
-        t = timezone.now() - td
+        else:
+            pass
+
+        parking_session_qs = ParkingSession.objects.filter(completed_at__isnull=False)
+        if td:
+            t = timezone.now() - td
+            parking_session_qs = parking_session_qs.filter(completed_at__gt=t)
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            parking_session_qs = parking_session_qs.filter(
+                created_at__gt=from_date_datetime,
+                created_at__lt=to_date_datetime
+            )
+        else:
+            pass
+
         parkings = Parking.objects.filter(company__owner=request.owner)
+
         r = []
+
+        # TODO create sql raw query
         for p in parkings:
             r.append({
                 'id': p.id,
                 'name': p.name,
                 'address': p.address,
-                'income': ParkingSession.objects.filter(parking=p, completed_at__gt=t).aggregate(Sum('debt'))[
+                'income': parking_session_qs.filter(parking=p).aggregate(Sum('debt'))[
                     'debt__sum'],
             })
         r = sorted(r, key=lambda x: -x['income'] if x['income'] else 0)
-        return JsonResponse(r[:count + 1], status=200, safe=False)
+        #end_index = count if len(r) >= count else count - (count- len(r))
+        if page is None:
+            page=0
+
+        response_dict = {
+            "result": r[page*count:(page+1)*count],
+        }
+
+        if not len(r) <= (page + 1) * count:
+            response_dict["next"] = page + 1
+        else:
+            response_dict["next"] = None
+
+        return JsonResponse(response_dict, status=200, safe=False)
 
 
 class ApplicationsView(LoginRequiredAPIView, ObjectView):
@@ -154,8 +211,8 @@ class ApplicationsView(LoginRequiredAPIView, ObjectView):
 class CompanyView(LoginRequiredAPIView, ObjectView):
     object = Company
     show_fields = ('id', 'name', 'inn', 'kpp', 'bic', 'legal_address',
-                   'actual_address', 'email', 'phone', 'checking_account',
-                   'checking_kpp', 'use_profile_contacts', 'bank')
+                   'actual_address', 'email', 'phone', 'account',
+                   'use_profile_contacts', 'bank')
 
     account_filter = 'owner'
 
@@ -233,8 +290,8 @@ class ConnectParkingView(LoginRequiredAPIView):
         parking_id = self.request.data['parking_id']
         vendor_id = self.request.data['vendor_id']
         company_id = self.request.data['company_id']
-        contact_email = self.request.data["contact_email"]
-        contact_phone = self.request.data["contact_phone"]
+        contact_email = self.request.data.get("contact_email")
+        contact_phone = self.request.data.get("contact_phone")
 
         try:
             parking = Parking.objects.get(id=parking_id, parkpass_status=Parking.DISCONNECTED)

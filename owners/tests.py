@@ -181,8 +181,7 @@ class Statistics(TestCase):
             actual_address="sadfbg",
             email=EMAIL,
             phone=PHONE,
-            checking_account="1234",
-            checking_kpp="123456789012"
+            account="1234",
         )
         parking_1 = Parking.objects.create(
             name="parking-1",
@@ -206,7 +205,7 @@ class Statistics(TestCase):
             ps = ParkingSession.objects.create(
                 session_id="exist-session-id%d" % i,
                 client=account,
-                parking=parking_1,
+                parking=parking_1 if (i % 2 == 0) else parking_2,
                 state=ParkingSession.STATE_COMPLETED,
                 started_at=timezone.now(),
                 completed_at=timezone.now() + timezone.timedelta(seconds=randint(10, 100)),
@@ -236,6 +235,20 @@ class Statistics(TestCase):
                                 **TOKEN_DICT)
         self.assertEqual(200, response.status_code)
 
+    def test_parking_stats_top(self):
+        url = URL_PREFIX + 'stats/top/?count=1?period=day'
+        response = Client().get(url, content_type='application/json',
+                                **TOKEN_DICT)
+        print response.content
+        self.assertEqual(200, response.status_code)
+
+    def test_parking_stats_period(self):
+        url = URL_PREFIX + 'stats/top/?count=1&from_date=1&to_date=1547544251'
+        response = Client().get(url, content_type='application/json',
+                                **TOKEN_DICT)
+        print response.content
+        self.assertEqual(200, response.status_code)
+
 
 class Companies(TestCase):
     def setUp(self):
@@ -247,8 +260,7 @@ class Companies(TestCase):
             inn='12345432',
             legal_address='erfgef',
             actual_address='ewrgfbgn',
-            checking_account='12343223423432',
-            checking_kpp='1234532',
+            account='12343223423432',
             email='foobar@gmail.com',
             phone='+2(121)2121212',
             owner=self.owneracc
@@ -270,8 +282,7 @@ class Companies(TestCase):
             "inn": 1234567891,
             "legal_address":"legal address",
             "actual_address":"actual address",
-            "checking_account": "12343223423432",
-            "checking_kpp": 123453298,
+            "account": "12343223423432",
             "email": 'foobar@gmail.com',
             "phone": '+2(121)2121212',
         })
@@ -295,8 +306,7 @@ class Companies(TestCase):
             "inn": 1234567891,
             "legal_address": "legal address",
             "actual_address": "actual address",
-            "checking_account": "12343223423432",
-            "checking_kpp": 123453298,
+            "account": "12343223423432",
             "email": 'foobar@gmail.com',
             "phone": '+2(121)2121212',
         })
@@ -318,9 +328,9 @@ class Tariff(TestCase):
             actual_address="sadfbg",
             email=EMAIL,
             phone=PHONE,
-            checking_account="1234",
-            checking_kpp="123456789012"
+            account="1234"
         )
+
         parking_1 = Parking.objects.create(
             name="parking-1",
             description="default",
@@ -328,8 +338,8 @@ class Tariff(TestCase):
             longitude=1,
             max_places=5,
             vendor=self.account,
-            company=company
-        )
+            company=company)
+
         self.tariff = json.dumps({
             'tariff': [
                 {
@@ -388,8 +398,7 @@ class ConnectIssueTests(TestCase):
             actual_address="sadfbg",
             email=EMAIL,
             phone=PHONE,
-            checking_account="1234",
-            checking_kpp="123456789012"
+            account="1234",
         )
 
     def test_exist_vendor(self):
@@ -435,8 +444,7 @@ class ParkingTest(TestCase):
             actual_address="sadfbg",
             email=EMAIL,
             phone=PHONE,
-            checking_account="1234",
-            checking_kpp="123456789012"
+            account="1234"
         )
         parking_1 = Parking.objects.create(
             name="parking-1",
