@@ -116,7 +116,7 @@ class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
 
 class ParkingsTopView(LoginRequiredAPIView):
     def get(self, request):
-        count = request.GET.get('count', [3])[0]
+        count = parse_int(request.GET.get('count', [3])[0])
         period = request.GET.get('period', ['day'])[0]
 
         from_date = parse_int(request.GET.get("from_date", None))
@@ -137,15 +137,7 @@ class ParkingsTopView(LoginRequiredAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-            if (to_date - from_date) > self.max_select_time_interval:
-                e = ValidationException(
-                    ValidationException.VALIDATION_ERROR,
-                    "Max time interval exceeded. Max value %s, accepted %s" % (self.max_select_time_interval,
-                                                                               (to_date - from_date))
-                )
-                return JsonResponse(e.to_dict(), status=400)
-
-        page = request.GET.get('page', None)
+        page = parse_int(request.GET.get('page', None))
         if period and period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -164,7 +156,7 @@ class ParkingsTopView(LoginRequiredAPIView):
         else:
             pass
 
-        parking_session_qs = ParkingSession.objects.filter(completed_at__ne=None)
+        parking_session_qs = ParkingSession.objects.filter(completed_at__isnull=False)
         if td:
             t = timezone.now() - td
             parking_session_qs = parking_session_qs.filter(completed_at__gt=t)
@@ -193,12 +185,19 @@ class ParkingsTopView(LoginRequiredAPIView):
                     'debt__sum'],
             })
         r = sorted(r, key=lambda x: -x['income'] if x['income'] else 0)
-        end_slice = count if len(r) >= count else count - (len(r) - count)
-        #result = r[:end_slice]
+        #end_index = count if len(r) >= count else count - (count- len(r))
+        if page is None:
+            page=0
+
         response_dict = {
-            "result": r,
-            "next": None
+            "result": r[page*count:(page+1)*count],
         }
+
+        if not len(r) <= (page + 1) * count:
+            response_dict["next"] = page + 1
+        else:
+            response_dict["next"] = None
+
         return JsonResponse(response_dict, status=200, safe=False)
 
 
