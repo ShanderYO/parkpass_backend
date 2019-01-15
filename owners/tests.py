@@ -236,7 +236,7 @@ class Statistics(TestCase):
         self.assertEqual(200, response.status_code)
 
     def test_parking_stats_top(self):
-        url = URL_PREFIX + 'stats/top/?count=1?period=day'
+        url = URL_PREFIX + 'stats/top/?count=1&period=day'
         response = Client().get(url, content_type='application/json',
                                 **TOKEN_DICT)
         print response.content
