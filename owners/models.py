@@ -101,8 +101,9 @@ class OwnerApplication(models.Model):
     vendor = models.ForeignKey(to='vendors.Vendor', on_delete=models.CASCADE, null=True, blank=True)
     company = models.ForeignKey(to=Company, on_delete=models.CASCADE, null=True, blank=True)
 
-    contact_email = models.EmailField()
+    contact_email = models.EmailField(null=True, blank=True)
     contact_phone = models.CharField(max_length=13, null=True, blank=True)
+
     description = models.CharField(max_length=1000)
     status = models.PositiveSmallIntegerField(choices=statuses, default=1)
 

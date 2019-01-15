@@ -67,18 +67,19 @@ class ConnectIssueValidator(BaseValidator):
         email = self.request.data.get("contact_email", None)
         phone = self.request.data.get("contact_phone", None)
 
-        if not all([parking_id, vendor_id, company_id, email, phone]):
+        if not all([parking_id, vendor_id, company_id]):
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Keys parking_id, vendor_id, company_id, contact_email and contact_phone are required"
+            self.message = "Keys parking_id, vendor_id, company_id are required"
             return False
 
         try:
             validate_id(parking_id, 'parking_id')
             validate_id(vendor_id, 'validate_id')
             validate_id(company_id, 'company_id')
-
-            validate_phone_number(phone)
-            validate_email_format(email)
+            if phone:
+                validate_phone_number(phone)
+            if email:
+                validate_email_format(email)
 
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
