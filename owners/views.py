@@ -117,7 +117,7 @@ class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
 class ParkingsTopView(LoginRequiredAPIView):
     def get(self, request):
         count = parse_int(request.GET.get('count', [3])[0])
-        period = request.GET.get('period', ['day'])[0]
+        period = request.GET.get('period', None)
 
         from_date = parse_int(request.GET.get("from_date", None))
         to_date = parse_int(request.GET.get("to_date", None))
@@ -171,7 +171,7 @@ class ParkingsTopView(LoginRequiredAPIView):
         else:
             pass
 
-        parkings = Parking.objects.filter(company__owner=request.owner)
+        parkings = Parking.objects.filter(owner=request.owner)
 
         r = []
 
