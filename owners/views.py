@@ -181,6 +181,7 @@ class ParkingsTopView(LoginRequiredAPIView):
                 'id': p.id,
                 'name': p.name,
                 'address': p.address,
+                'city': p.city,
                 'income': parking_session_qs.filter(parking=p).aggregate(Sum('debt'))[
                     'debt__sum'],
             })
@@ -330,6 +331,12 @@ class ConnectParkingView(LoginRequiredAPIView):
             contact_email=contact_email,
             contact_phone=contact_phone,
         )
+
+        parking.vendor = vendor
+        parking.company = company
+        parking.parkpass_status = Parking.PENDING
+        parking.save()
+
         return JsonResponse({}, status=200)
 
 
