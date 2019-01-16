@@ -231,14 +231,14 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
         # TODO improve it
         for obj_dict in result:
             parkings = Parking.objects.filter(company__id=obj_dict['id'])
-            serialized = serializer(parkings, include_attr=('id', 'name'))
+            serialized = serializer(parkings, include_attr=('id', 'name', 'address', 'city', 'parkpass_status'))
             obj_dict["parkings"] = serialized
         return result, page
 
     def serialize_obj(self, obj):
         result_dict = super(CompanyView, self).serialize_obj(obj)
         parkings = Parking.objects.filter(company__id=result_dict['id'])
-        serialized = serializer(parkings, include_attr=('id', 'name'))
+        serialized = serializer(parkings, include_attr=('id', 'name', 'address', 'city', 'parkpass_status'))
         result_dict["parkings"] = serialized
         return result_dict
 
