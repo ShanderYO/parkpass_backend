@@ -126,7 +126,7 @@ class BaseAccount(models.Model):
         return check_password(raw_password, self.password, setter)
 
     def update_avatar(self, f):
-        path = AVATARS_ROOT + '/' + md5(self.phone).hexdigest()
+        path = AVATARS_ROOT + '/' + md5(self.phone).hexdigest() + '.jpg'
         im = Image.open(BytesIO(f))
         width, height = im.size
         format = im.format
