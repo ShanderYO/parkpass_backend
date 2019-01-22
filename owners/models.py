@@ -111,4 +111,7 @@ class OwnerApplication(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __unicode__(self):
-        return self.description
+        return "Application #%s " % self.pk
+
+    def __str__(self):
+        return "Application #%s " % self.pk
