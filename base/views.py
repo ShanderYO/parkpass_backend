@@ -271,6 +271,7 @@ class ObjectView(object):
     def _get_object(self, request, id):
         if id is None:
             return self.object()
+
         qs = self.object.objects.filter(id=id)
         if len(qs) == 0:
             raise ValidationException(ValidationException.RESOURCE_NOT_FOUND,
