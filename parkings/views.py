@@ -243,7 +243,7 @@ class GetAvailableParkingsView(APIView):
         else:
             parkings_list = serializer(Parking.objects.all(),
                                        include_attr=('id', 'name', 'description', 'address',
-                                                     'latitude', 'longitude', 'free_places',))
+                                                     'latitude', 'longitude', 'free_places','max_permitted_time'))
             return JsonResponse({"result":parkings_list}, status=200)
 
 

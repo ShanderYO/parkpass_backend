@@ -141,10 +141,10 @@ class BaseAccount(models.Model):
             dest.write(f)
 
     def get_avatar_url(self):
-        return AVATARS_URL + md5(self.phone).hexdigest()
+        return AVATARS_URL + md5(self.phone).hexdigest() + ".jpg"
 
     def get_avatar_path(self):
-        return AVATARS_ROOT + '/' + md5(self.phone).hexdigest()
+        return AVATARS_ROOT + '/' + md5(self.phone).hexdigest() + ".jpg"
 
     def set_password(self, raw_password):
         self.password = make_password(raw_password)
