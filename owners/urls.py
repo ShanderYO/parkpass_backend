@@ -17,14 +17,13 @@ urlpatterns = [
 
                   url(r'^stats/top/$', ParkingsTopView.as_view()),
                   url(r'^stats/parkings/$', ParkingStatisticsView.as_view()),
-                  url(r'^stats/sessions/$', ParkingSessionsView.as_view()),
 
                   url(r'^profile/$', AccountInfoView.as_view()),
                   url(r'^parkings/$', ParkingsView.as_view()),
                   url(r'^parkings/(?P<id>\d+)/$', ParkingsView.as_view()),
                   url(r'^parkings/(?P<id>\d+)/tariff/$', TariffView.as_view()),
 
-                  url(r'^sessions/$', ParkingSessionsView.as_view()),
+                  url(r'^sessions/$', SessionsView.as_view()),
                   url(r'^sessions/(?P<id>\d+)/$', ParkingSessionsView.as_view()),
 
                   url(r'^connect/$', ConnectParkingView.as_view()),

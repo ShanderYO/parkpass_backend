@@ -94,25 +94,34 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         }, status=200)
 
 
-class ParkingSessionsView(LoginRequiredAPIView, ObjectView):
+class SessionsView(LoginRequiredAPIView, ObjectView):
     object = ParkingSession
     account_filter = 'parking__owner'
-    hide_fields = ('try_refund', 'debt', 'current_refund_sum', 'target_refund_sum')
+    hide_fields = ('try_refund', 'current_refund_sum', 'target_refund_sum')
     foreign_field = [('parking', ('id', 'name',))]
 
     methods = ('GET',)
 
-    def serialize_list(self, qs):
-        result, page = super(ParkingSessionsView, self).serialize_list(qs)
 
-        # TODO improve it
-        for obj_dict in result:
-            parkings = Parking.objects.filter(company__id=obj_dict['id'])[0]
-            serialized = serializer(parkings, include_attr=('id', 'name'))
-            obj_dict["parking"] = serialized
-        return result, page
+class ParkingSessionsView(LoginRequiredAPIView):
+    def get(self, request, **kwargs):
+        parking_id = kwargs.get('id', "0").encode('utf-8')
+        page = parse_int(request.GET.get('page', 0))
+        qs = ParkingSession.objects.filter(parking__id=parking_id, parking__owner=request.owner)
+        result_list = []
+        for session in qs.filter(id__gt=page).order_by('id')[:2]:
+            parking_dict = serializer(session.parking, include_attr=('id', 'name',))
+            session_dict = serializer(session, exclude_attr=('parking_id', 'try_refund', 'current_refund_sum', 'target_refund_sum'))
+            session_dict["parking"] = parking_dict
+            result_list.append(session_dict)
 
-# TODO refactor this method
+        response_dict = {
+            "result":result_list,
+            "next":result_list[len(result_list)-1]["id"]
+        }
+
+        return JsonResponse(response_dict)
+
 
 class ParkingsTopView(LoginRequiredAPIView):
     def get(self, request):
