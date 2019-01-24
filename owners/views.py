@@ -109,7 +109,12 @@ class ParkingSessionsView(LoginRequiredAPIView):
         page = parse_int(request.GET.get('page', 0))
         qs = ParkingSession.objects.filter(parking__id=parking_id, parking__owner=request.owner)
         result_list = []
-        for session in qs.filter(id__gt=page).order_by('id')[:2]:
+        if page != 0:
+            qs = qs.filter(id__lt=page).order_by('-id')[:10]
+        else:
+            qs = qs.filter().order_by('-id')[:10]
+
+        for session in qs:
             parking_dict = serializer(session.parking, include_attr=('id', 'name',))
             session_dict = serializer(session, exclude_attr=('parking_id', 'try_refund', 'current_refund_sum', 'target_refund_sum'))
             session_dict["parking"] = parking_dict

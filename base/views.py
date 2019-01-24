@@ -417,7 +417,11 @@ class ObjectView(object):
             qs = self._account_filter(request, self.object.objects.filter(**flt))
 
             # Add id pagination
-            qs = qs.filter(id__gte=page).order_by('id')[page * count:(page + 1) * count]
+            if page != 0:
+                qs = qs.filter(id__lt=page).order_by('-id')[0:count]
+            else:
+                qs = qs.filter().order_by('-id')[0:count]
+
             result, page = self.serialize_list(qs)
             return JsonResponse({'next': page, 'result': result}, status=200)
 

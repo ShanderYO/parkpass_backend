@@ -550,11 +550,11 @@ class ParkingSessionTest(TestCase):
         url = URL_PREFIX + 'sessions/1/?page=9'
         response = Client().get(url, content_type='application/json', **TOKEN_DICT)
 
-        #print response.content
+        print response.content
         self.assertEqual(200, response.status_code)
 
     def test_all_parkings(self):
-        url = URL_PREFIX + 'sessions/'
+        url = URL_PREFIX + 'sessions/?page=2'
         response = Client().get(url, content_type='application/json', **TOKEN_DICT)
 
         #print "ss", response.content
