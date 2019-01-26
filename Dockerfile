@@ -22,7 +22,7 @@ RUN apt-get install -y python-openssl
 
 # Install parkpass project to /deploy
 RUN mkdir -p /app
-RUN mkdir  -p /app/media/logs
+RUN mkdir -p /app/media/logs
 
 COPY /. /app
 
