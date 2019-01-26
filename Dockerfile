@@ -76,4 +76,4 @@ ENV MEDIA_HOST=$MEDIA_HOST
 VOLUME /var/log
 
 # Set up volume for static
-VOLUME /app/files
+VOLUME /app/media

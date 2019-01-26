@@ -116,7 +116,7 @@ USE_L10N = True
 USE_TZ = True
 
 BASE_LOGGER_NAME = "parkpass"
-LOG_DIR = 'logs'
+LOG_DIR = 'media/logs'
 LOG_FILE = os.path.join(LOG_DIR, 'parkpass.log')
 REQUESTS_LOG_FILE = os.path.join(LOG_DIR, 'requests.log')
 REQUESTS_LOGGER_NAME = 'requests'
@@ -198,6 +198,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/api/media/'
 AVATARS_URL = MEDIA_URL + 'avatars/'
 AVATARS_ROOT = os.path.join(BASE_DIR, "media/avatars")
-DEFAULT_AVATAR_URL = MEDIA_URL + 'default'
+DEFAULT_AVATAR_URL = MEDIA_URL + 'default.jpg'
 
 PAGINATION_OBJECTS_PER_PAGE = 10

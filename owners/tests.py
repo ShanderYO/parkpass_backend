@@ -550,12 +550,35 @@ class ParkingSessionTest(TestCase):
         url = URL_PREFIX + 'sessions/1/?page=9'
         response = Client().get(url, content_type='application/json', **TOKEN_DICT)
 
-        print response.content
+        self.assertEqual(200, response.status_code)
+
+    def test_id_parking_with_period_month(self):
+        url = URL_PREFIX + 'sessions/1/?period=month'
+        response = Client().get(url, content_type='application/json', **TOKEN_DICT)
+
+        self.assertEqual(200, response.status_code)
+
+    def test_id_parking_with_period_day(self):
+        url = URL_PREFIX + 'sessions/1/?period=day'
+        response = Client().get(url, content_type='application/json', **TOKEN_DICT)
+
+        self.assertEqual(200, response.status_code)
+
+    def test_id_parking_with_from_date(self):
+        url = URL_PREFIX + 'sessions/1/?from_date=1%to_date=100000'
+        response = Client().get(url, content_type='application/json', **TOKEN_DICT)
+
         self.assertEqual(200, response.status_code)
 
     def test_all_parkings(self):
         url = URL_PREFIX + 'sessions/?page=2'
         response = Client().get(url, content_type='application/json', **TOKEN_DICT)
 
-        #print "ss", response.content
+        print response.content
+        self.assertEqual(200, response.status_code)
+
+    def test_all_parkings_with_period(self):
+        url = URL_PREFIX + 'sessions/?pediod=day'
+        response = Client().get(url, content_type='application/json', **TOKEN_DICT)
+        print response.content
         self.assertEqual(200, response.status_code)

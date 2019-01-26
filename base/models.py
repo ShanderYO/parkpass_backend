@@ -101,6 +101,7 @@ class BaseAccount(models.Model):
     email = models.EmailField(null=True, blank=True)
     password = models.CharField(max_length=255, default="stub")
     email_confirmation = models.ForeignKey(EmailConfirmation, null=True, blank=True, on_delete=models.CASCADE)
+    avatar = models.CharField(max_length=64, null=True, default=True)
     created_at = models.DateField(auto_now_add=True)
 
     class Meta:
@@ -126,7 +127,10 @@ class BaseAccount(models.Model):
         return check_password(raw_password, self.password, setter)
 
     def update_avatar(self, f):
-        path = AVATARS_ROOT + '/' + md5(self.phone).hexdigest() + '.jpg'
+        path = '/' + md5(self.phone + str(random.randint(1,1000))).hexdigest() + '.jpg'
+        write_path = AVATARS_ROOT + path
+        url_path = AVATARS_URL + path
+
         im = Image.open(BytesIO(f))
         width, height = im.size
         format = im.format
@@ -137,8 +141,11 @@ class BaseAccount(models.Model):
                     ValidationException.INVALID_IMAGE,
                     "Image must be JPEG and not be larger than 300x300 px"
                    )
-        with open(path, "w") as dest:
+        with open(write_path, "w") as dest:
             dest.write(f)
+
+        self.avatar = url_path
+        self.save()
 
     def get_avatar_url(self):
         return AVATARS_URL + md5(self.phone).hexdigest() + ".jpg"
