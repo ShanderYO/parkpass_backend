@@ -101,7 +101,7 @@ class BaseAccount(models.Model):
     email = models.EmailField(null=True, blank=True)
     password = models.CharField(max_length=255, default="stub")
     email_confirmation = models.ForeignKey(EmailConfirmation, null=True, blank=True, on_delete=models.CASCADE)
-    avatar = models.CharField(max_length=64, null=True, default=True)
+    avatar = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
 
     class Meta:
@@ -127,8 +127,8 @@ class BaseAccount(models.Model):
         return check_password(raw_password, self.password, setter)
 
     def update_avatar(self, f):
-        path = '/' + md5(self.phone + str(random.randint(1,1000))).hexdigest() + '.jpg'
-        write_path = AVATARS_ROOT + path
+        path = md5(self.phone + str(random.randint(1,1000))).hexdigest() + '.jpg'
+        write_path = '/' + AVATARS_ROOT + path
         url_path = AVATARS_URL + path
 
         im = Image.open(BytesIO(f))
@@ -146,12 +146,6 @@ class BaseAccount(models.Model):
 
         self.avatar = url_path
         self.save()
-
-    def get_avatar_url(self):
-        return AVATARS_URL + md5(self.phone).hexdigest() + ".jpg"
-
-    def get_avatar_path(self):
-        return AVATARS_ROOT + '/' + md5(self.phone).hexdigest() + ".jpg"
 
     def set_password(self, raw_password):
         self.password = make_password(raw_password)
