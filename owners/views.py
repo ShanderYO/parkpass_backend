@@ -94,20 +94,157 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         }, status=200)
 
 
-class SessionsView(LoginRequiredAPIView, ObjectView):
+class SessionsView(LoginRequiredAPIView): #, ObjectView):
+    """
     object = ParkingSession
     account_filter = 'parking__owner'
     hide_fields = ('try_refund', 'current_refund_sum', 'target_refund_sum')
     foreign_field = [('parking', ('id', 'name',))]
 
     methods = ('GET',)
+    """
+
+    def get(self, request, **kwargs):
+        page = parse_int(request.GET.get('page', 0))
+        period = request.GET.get('period', None)
+
+        from_date = parse_int(request.GET.get("from_date", None))
+        to_date = parse_int(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        if period and period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        td = None
+
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        elif period == "month":
+            td = timedelta(days=30)
+        else:
+            pass
+
+        qs = ParkingSession.objects.filter(
+            parking__owner=request.owner
+        )
+
+        if td:
+            t = timezone.now() - td
+            qs = qs.filter(created_at__gt=t)
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            qs = qs.filter(
+                created_at__gt=from_date_datetime,
+                created_at__lt=to_date_datetime
+            )
+        else:
+            pass
+
+        result_list = []
+        if page != 0:
+            qs = qs.filter(id__lt=page).order_by('-id')[:10]
+        else:
+            qs = qs.filter().order_by('-id')[:10]
+
+        for session in qs:
+            parking_dict = serializer(session.parking, include_attr=('id', 'name',))
+            session_dict = serializer(session,
+                                      exclude_attr=('parking_id', 'try_refund',
+                                                    'current_refund_sum', 'target_refund_sum'))
+            session_dict["parking"] = parking_dict
+            result_list.append(session_dict)
+
+        response_dict = {
+            "result": result_list,
+            "next": result_list[len(result_list) - 1]["id"]
+        }
+
+        return JsonResponse(response_dict)
 
 
 class ParkingSessionsView(LoginRequiredAPIView):
     def get(self, request, **kwargs):
         parking_id = kwargs.get('id', "0").encode('utf-8')
         page = parse_int(request.GET.get('page', 0))
-        qs = ParkingSession.objects.filter(parking__id=parking_id, parking__owner=request.owner)
+        period = request.GET.get('period', None)
+
+        from_date = parse_int(request.GET.get("from_date", None))
+        to_date = parse_int(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        if period and period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        td = None
+
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        elif period == "month":
+            td = timedelta(days=30)
+        else:
+            pass
+
+        qs = ParkingSession.objects.filter(
+            parking__id=parking_id,
+            parking__owner=request.owner
+        )
+
+        if td:
+            t = timezone.now() - td
+            qs = qs.filter(created_at__gt=t)
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            qs = qs.filter(
+                created_at__gt=from_date_datetime,
+                created_at__lt=to_date_datetime
+            )
+        else:
+            pass
+
         result_list = []
         if page != 0:
             qs = qs.filter(id__lt=page).order_by('-id')[:10]

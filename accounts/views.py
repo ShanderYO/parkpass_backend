@@ -46,15 +46,6 @@ class SetAvatarView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class GetAvatarView(LoginRequiredAPIView):
-    def get(self, request):
-        path = DEFAULT_AVATAR_URL if not isfile(request.account.get_avatar_path()) else request.account.get_avatar_url()
-        body = {
-            'url': request.get_host() + path
-        }
-        return JsonResponse(body, status=200)
-
-
 class PasswordChangeView(LoginRequiredAPIView):
     """
     API View for url /login/changepw
@@ -271,8 +262,12 @@ class AccountView(LoginRequiredAPIView):
         account_dict = serializer(request.account, exclude_attr=("created_at", "sms_code", "password"))
         card_list = CreditCard.get_card_by_account(request.account)
         account_dict["cards"] = serializer(card_list, include_attr=("id", "pan", "exp_date", "is_default"))
-        path = DEFAULT_AVATAR_URL if not isfile(request.account.get_avatar_path()) else request.account.get_avatar_url()
-        account_dict["avatar"] = request.get_host() + path
+
+        if account_dict["avatar"]:
+            account_dict["avatar"] = request.get_host() + account_dict["avatar"]
+        else:
+            account_dict["avatar"] = request.get_host() + DEFAULT_AVATAR_URL
+
         return JsonResponse(account_dict, status=200)
 
     def post(self, request):

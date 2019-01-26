@@ -694,7 +694,7 @@ class ReceiptTestCase(TestCase):
 
 class AccountAvatarTestCase(AccountTestCase):
     def setUp(self):
-        create_account(phone="+7(123)4567890")
+        account, account_session = create_account()
 
     def test_set_avatar(self):
         url = URL_PREFIX + "avatar/set/"
@@ -704,10 +704,11 @@ class AccountAvatarTestCase(AccountTestCase):
             })
             response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        phone = "+7(123)4567890"
-        path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
-        self.assertTrue(isfile(path))
-        remove(path)
+
+        url = URL_PREFIX + "me/"
+        response = Client().get(url, **TOKEN_DICT)
+        print response.content
+        self.assertEqual(response.status_code, 200)
 
     def test_set_large_avatar(self):
         url = URL_PREFIX + "avatar/set/"
