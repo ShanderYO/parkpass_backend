@@ -259,7 +259,7 @@ class ParkingSessionsView(LoginRequiredAPIView):
 
         response_dict = {
             "result":result_list,
-            "next":result_list[len(result_list)-1]["id"]
+            "next":result_list[len(result_list) - 1]["id"] if len(result_list) > 0 else None
         }
 
         return JsonResponse(response_dict)
