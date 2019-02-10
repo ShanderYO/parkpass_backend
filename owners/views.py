@@ -178,7 +178,7 @@ class SessionsView(LoginRequiredAPIView): #, ObjectView):
 
         response_dict = {
             "result": result_list,
-            "next": result_list[len(result_list) - 1]["id"]
+            "next": result_list[len(result_list) - 1]["id"] if len(result_list) > 0 else None
         }
 
         return JsonResponse(response_dict)
@@ -407,6 +407,7 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
                 PermissionException.FORBIDDEN_CHANGING,
                 "Company should have no parking for changing"
             )
+
 
 class EventsView(LoginRequiredAPIView, ObjectView):
     object = OwnerApplication
