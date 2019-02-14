@@ -50,11 +50,11 @@ class IssueValidator(BaseValidator):
 
 class TariffValidator(BaseValidator):
     def is_valid(self):
-        try:
-            validate_tariff(json.dumps(self.request.data))
-        except ValidationError as e:
+        file_name = self.request.data.get("file_name")
+        file_content = self.request.data.get("file_content")
+        if not file_name or not file_content:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = "Keys file_name and file_content are required"
             return False
         return True
 

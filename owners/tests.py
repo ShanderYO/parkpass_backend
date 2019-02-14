@@ -340,6 +340,8 @@ class Tariff(TestCase):
             longitude=1,
             max_places=5,
             vendor=self.account,
+            tariff_file_name="tariff.pdf",
+            tariff_file_content="base64string",
             company=company)
 
         self.tariff = json.dumps({
@@ -380,8 +382,13 @@ class Tariff(TestCase):
     def test_apply_new_tariff(self):
         url = URL_PREFIX + 'parkings/1/tariff/'
 
-        response = Client().post(url, self.tariff, content_type='application/json', **TOKEN_DICT)
+        body = json.dumps({
+            "file_name":"new_file",
+            "file_content":"newfilebase64"
+        })
+        response = Client().post(url, body, content_type='application/json', **TOKEN_DICT)
 
+        print response.content
         self.assertEqual(response.status_code, 200)
 
 
