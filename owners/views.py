@@ -259,7 +259,7 @@ class ParkingSessionsView(LoginRequiredAPIView):
 
         response_dict = {
             "result":result_list,
-            "next":result_list[len(result_list)-1]["id"]
+            "next":result_list[len(result_list) - 1]["id"] if len(result_list) > 0 else None
         }
 
         return JsonResponse(response_dict)
@@ -420,19 +420,27 @@ class TariffView(LoginRequiredAPIView):
 
     def get(self, request, id):
         try:
-            p = Parking.objects.get(id=id)
+            parking = Parking.objects.get(id=id)
         except ObjectDoesNotExist:
             e = ValidationException.RESOURCE_NOT_FOUND
             return JsonResponse(e.to_dict(), status=400)
-        return JsonResponse(json.loads(p.tariff), status=200)
+
+        response = {
+            "file_name":parking.tariff_file_name,
+            "file_content":parking.tariff_file_content
+        }
+        return JsonResponse(response, status=200)
 
     def post(self, request, id):
         try:
-            p = Parking.objects.get(id=id)
+            parking = Parking.objects.get(id=id)
         except ObjectDoesNotExist:
             e = ValidationException.RESOURCE_NOT_FOUND
             return JsonResponse(e.to_dict(), status=400)
-        p.tariff = request.data
+
+        parking.tariff_file_name = request.data["file_name"]
+        parking.tariff_file_content = request.data["file_content"]
+        parking.save()
         return JsonResponse({}, status=200)
 
 

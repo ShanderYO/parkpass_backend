@@ -48,6 +48,10 @@ class Parking(models.Model):
     software_updated_at = models.DateField(blank=True, null=True)
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
     tariff = models.CharField(max_length=2000, default='{}', verbose_name="Tariff object JSON")
+
+    tariff_file_name = models.TextField(null=True, blank=True)
+    tariff_file_content = models.TextField(null=True, blank=True)
+
     objects = models.Manager()
     parking_manager = ParkingManager()
 
