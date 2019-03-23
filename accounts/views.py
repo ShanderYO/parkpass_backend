@@ -334,13 +334,13 @@ class AccountParkingListView(LoginRequiredAPIView):
                                                                     "parking_id", "created_at"))
         for index, obj in enumerate(object_list):
             parking_dict = {
-                "id":obj.parking.id,
-                "name":obj.parking.name
+                "id": obj.parking.id,
+                "name": obj.parking.name
             }
             data[index]["parking"] = parking_dict
 
         response = {
-            "result":data
+            "result": data
         }
         if len(data) == self.max_paginate_length:
             response["next"] = str(data[self.max_paginate_length - 1]["id"])

@@ -72,6 +72,10 @@ ENV SMS_GATEWAY_ENABLE=$SMS_GATEWAY_ENABLE
 ARG MEDIA_HOST="https://parkpass.ru/api"
 ENV MEDIA_HOST=$MEDIA_HOST
 
+# Celely endpoint
+ARG CELERY_BROKER_URL="amqp://user:user@rabbit//"
+ENV CELERY_BROKER_URL=$CELERY_BROKER_URL
+
 # Set up volume for log-files
 VOLUME /var/log
 

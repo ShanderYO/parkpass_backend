@@ -2,6 +2,7 @@
 import json
 
 from django.db.models import Sum
+from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.timezone import timedelta
 from django.views import View
@@ -51,8 +52,26 @@ class AccountInfoView(LoginRequiredAPIView):
 
 class ParkingStatisticsView(LoginRequiredAPIView):
     def get(self, request):
-        period = request.GET.get('period', 'day').encode('utf-8')
+        period = request.GET.get('period', None)
         parking_id = request.GET.get('parking_id',"0").encode('utf-8')
+
+        from_date = parse_int(request.GET.get("from_date", None))
+        to_date = parse_int(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
 
         if period not in ('day', 'week', 'month'):
             e = ValidationException(
@@ -61,23 +80,38 @@ class ParkingStatisticsView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
+        td = None
         if period == 'day':
             td = timedelta(days=1)
         elif period == 'week':
             td = timedelta(days=7)
-        else:
+        elif period == "month":
             td = timedelta(days=30)
-        t = timezone.now() - td
+        else:
+            pass
 
         sessions = ParkingSession.objects.filter(
-            parking__owner=request.owner,
-            completed_at__gt=t
+            parking__owner=request.owner
         )
+
+        if td:
+            t = timezone.now() - td
+            sessions = sessions.filter(created_at__gt=t)
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            sessions = sessions.filter(
+                created_at__gt=from_date_datetime,
+                created_at__lt=to_date_datetime
+            )
+        else:
+            pass
 
         if parking_id:
             id = parse_int(parking_id)
             if id:
-                sessions = sessions.filter(parking=id)
+                sessions = sessions.filter(parking__id=id)
 
         count = sessions.count()
         debt = sessions.aggregate(Sum('debt'))['debt__sum']
@@ -87,6 +121,7 @@ class ParkingStatisticsView(LoginRequiredAPIView):
             if s.client not in seen:
                 seen.add(s.client)
                 users += 1
+
         return JsonResponse({
             'sessions': count,
             'income': debt if debt else 0,
@@ -727,3 +762,9 @@ class EmailConfirmationView(View):
 
         else:
             return JsonResponse({"error": "Invalid link"}, status=200)
+
+
+class ZendeskJWTView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        jwt_token = request.owner.get_or_create_jwt_for_zendesk()
+        return HttpResponse(jwt_token)

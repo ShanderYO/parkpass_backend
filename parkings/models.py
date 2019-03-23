@@ -1,11 +1,12 @@
+import datetime
+import pytz
+
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.mail import send_mail
 from django.db import models
 from django.db.models import signals
-from django.template.loader import render_to_string
 
 from accounts.models import Account
-from parkpass.settings import EMAIL_HOST_USER
+from base.utils import get_logger
 from vendors.models import Vendor
 
 
@@ -16,6 +17,10 @@ class ParkingManager(models.Manager):
             longitude__range=[lt_point[1], rb_point[1]],
             enabled=True, approved=True
         )
+
+
+DEFAULT_PARKING_TIMEZONE = 'Europe/Moscow'
+ALL_TIMEZONES = sorted((item, item) for item in pytz.all_timezones)
 
 
 class Parking(models.Model):
@@ -37,7 +42,7 @@ class Parking(models.Model):
     longitude = models.DecimalField(max_digits=11, decimal_places=8)
     enabled = models.BooleanField(default=True)
     parkpass_status = models.IntegerField(choices=PARKPASS_STATUSES, default=DISCONNECTED)
-    free_places = models.IntegerField()
+    free_places = models.IntegerField(default=0)
     max_places = models.IntegerField(default=0)
     max_permitted_time = models.IntegerField(default=3600, help_text="Max offline time in minutes")
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
@@ -51,6 +56,8 @@ class Parking(models.Model):
 
     tariff_file_name = models.TextField(null=True, blank=True)
     tariff_file_content = models.TextField(null=True, blank=True)
+
+    tz_name = models.CharField(choices=ALL_TIMEZONES, max_length=64, default=DEFAULT_PARKING_TIMEZONE)
 
     objects = models.Manager()
     parking_manager = ParkingManager()
@@ -67,6 +74,16 @@ class Parking(models.Model):
 
     def __unicode__(self):
         return "%s [%s]" % (self.name, self.id)
+
+    def get_utc_parking_datetime(self, timezone_timestamp):
+        try:
+            dt = datetime.datetime.fromtimestamp(float(timezone_timestamp))
+            tzh = pytz.timezone(self.tz_name)
+        except pytz.exceptions.UnknownTimeZoneError:
+            get_logger().warn("Invalid timezone in parking %s" % str(self.id))
+
+        tz_datetime = tzh.localize(dt)
+        return tz_datetime.astimezone(pytz.timezone('UTC'))
 
 
 class Wish(models.Model):
@@ -142,6 +159,20 @@ class ParkingSession(models.Model):
         (STATE_VERIFICATION_REQUIRED, 'Verification required')
     )
 
+    CLIENT_STATE_CANCELED = -1
+    CLIENT_STATE_CLOSED = 0
+    CLIENT_STATE_ACTIVE = 1
+    CLIENT_STATE_SUSPENDED = 2
+    CLIENT_STATE_COMPLETED = 3
+
+    CLIENT_STATES = (
+        (CLIENT_STATE_CANCELED, 'Canceled'),
+        (CLIENT_STATE_CLOSED, 'Closed'),
+        (CLIENT_STATE_ACTIVE, 'Active'),
+        (CLIENT_STATE_SUSPENDED, 'Suspended'),
+        (CLIENT_STATE_COMPLETED, 'Completed'),
+    )
+
     id = models.AutoField(unique=True, primary_key=True)
     session_id = models.CharField(max_length=128)
 
@@ -150,10 +181,12 @@ class ParkingSession(models.Model):
 
     debt = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     state = models.IntegerField(choices=STATE_CHOICES)
+    client_state = models.IntegerField(choices=CLIENT_STATES, editable=False, default=CLIENT_STATE_ACTIVE)
 
     started_at = models.DateTimeField()
     updated_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    duration = models.IntegerField(default=0)
 
     is_suspended = models.BooleanField(default=False)
     suspended_at = models.DateTimeField(null=True, blank=True)
@@ -174,13 +207,14 @@ class ParkingSession(models.Model):
 
     def __unicode__(self):
         return "%s [%s]" % (self.parking.id, self.client.id)
-    """
+
     def save(self, *args, **kwargs):
-        if self.try_refund:
-            self.start_refund_process()
-            self.try_refund = False
-        return super(ParkingSession, self).save(*args, **kwargs)
-    """
+        #if self.try_refund:
+        #    self.start_refund_process()
+        #    self.try_refund = False
+        self.duration = self.get_calculated_duration()
+        self.resolve_client_status()
+        super(ParkingSession, self).save(*args, **kwargs)
 
     @classmethod
     def get_session_by_id(cls, id):
@@ -199,20 +233,41 @@ class ParkingSession(models.Model):
         except ObjectDoesNotExist:
             return None
 
+    def resolve_client_status(self):
+        if self.state < 0:
+            self.client_state = self.CLIENT_STATE_CANCELED
+        if self.state >= 1 and self.state <= 3:
+            self.client_state = self.CLIENT_STATE_ACTIVE
+        if self.state >= 6 and self.state <= 15:
+            self.client_state = self.CLIENT_STATE_COMPLETED
+        if self.is_suspended:
+            self.client_state = self.CLIENT_STATE_SUSPENDED
+        if self.state == 0:
+            self.client_state = self.CLIENT_STATE_CLOSED
+
+    def get_calculated_duration(self):
+        if self.completed_at:
+            return (self.completed_at - self.started_at).total_seconds()
+        if self.is_suspended and self.suspended_at:
+            return (self.suspended_at - self.started_at).total_seconds()
+        if self.updated_at:
+            return (self.updated_at - self.started_at).total_seconds()
+        return 0
+
     def add_client_start_mark(self):
-        self.state = self.state + self.STARTED_BY_CLIENT_MASK \
+        self.state += self.STARTED_BY_CLIENT_MASK \
             if not (self.state & self.STARTED_BY_CLIENT_MASK) else self.state
 
     def add_vendor_start_mark(self):
-        self.state = self.state + self.STARTED_BY_VENDOR_MASK \
+        self.state += self.STARTED_BY_VENDOR_MASK \
             if not (self.state & self.STATE_STARTED_BY_VENDOR) else self.state
 
     def add_client_complete_mark(self):
-        self.state = self.state + self.COMPLETED_BY_CLIENT_MASK \
+        self.state += self.COMPLETED_BY_CLIENT_MASK \
             if not (self.state & self.COMPLETED_BY_CLIENT_MASK) else self.state
 
     def add_vendor_complete_mark(self):
-        self.state = self.state + self.COMPLETED_BY_VENDOR_MASK \
+        self.state += self.COMPLETED_BY_VENDOR_MASK \
             if not (self.state & self.COMPLETED_BY_VENDOR_MASK) else self.state
 
     def is_started_by_vendor(self):
@@ -235,10 +290,11 @@ class ParkingSession(models.Model):
         ]
 
     def is_available_for_vendor_update(self):
-        return self.state not in [self.STATE_CANCELED, self.STATE_COMPLETED, self.STATE_CLOSED]
+        return self.state not in [self.STATE_CANCELED, self.STATE_COMPLETED_BY_VENDOR,
+                                  self.STATE_COMPLETED_BY_VENDOR_FULLY, self.STATE_COMPLETED, self.STATE_CLOSED]
 
     def reset_client_completed_state(self):
-        self.state = self.state - (self.state & self.COMPLETED_BY_CLIENT_MASK)
+        self.state -= self.state & self.COMPLETED_BY_CLIENT_MASK
 
     def is_cancelable(self):
         return self.state in [

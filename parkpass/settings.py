@@ -185,6 +185,17 @@ LOGGING = {
     }
 }
 
+#CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL')
+#CELERY_RESULT_BACKEND = 'django-db'
+
+#CELERY_BEAT_SCHEDULE = {
+#    'token-expiration-checker': {
+#       'task': 'app.tasks.token_expiration_checker',
+#        'schedule': 60.0, # every minute
+#    }
+#}
+
+AUTOTASK_IS_ACTIVE = False
 AUTOTASK_WORKER_MONITOR_INTERVALL = 60
 AUTOTASK_HANDLE_TASK_IDLE_TIME = 10
 
@@ -201,3 +212,8 @@ AVATARS_ROOT = os.path.join(BASE_DIR, "media/avatars")
 DEFAULT_AVATAR_URL = MEDIA_URL + 'default.jpg'
 
 PAGINATION_OBJECTS_PER_PAGE = 10
+
+ZENDESK_SECRET = '7B0C54A93B4E01FC8B7AF3AE6ECFE0A010DFF763B118E745A60CF2D4480B360A'
+
+
+

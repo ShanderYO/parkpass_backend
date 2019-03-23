@@ -4,6 +4,7 @@ from hashlib import md5
 from os import remove
 from os.path import isfile
 
+from datetime import timedelta
 from django.test import Client
 from django.test import TestCase
 from django.utils import timezone
@@ -258,7 +259,7 @@ class AccountDeactivateTestCase(AccountTestCase):
             parking=parking,
             debt=100,
             state=ParkingSession.STATE_CLOSED,
-            started_at=timezone.now(),
+            started_at=timezone.now() - timedelta(seconds=60),
             updated_at=timezone.now(),
             completed_at=timezone.now(),
         )
@@ -270,7 +271,7 @@ class AccountDeactivateTestCase(AccountTestCase):
             parking=parking,
             debt=120,
             state=ParkingSession.STATE_STARTED_BY_CLIENT,
-            started_at=timezone.now(),
+            started_at=timezone.now() - timedelta(seconds=60),
             updated_at=timezone.now(),
             # completed_at=timezone.now(),
         )
@@ -375,7 +376,7 @@ class AccountSessionsTestCase(TestCase):
             parking=parking,
             debt=100,
             state=ParkingSession.STATE_CLOSED,
-            started_at=timezone.now(),
+            started_at=timezone.now() - timedelta(seconds=60),
             updated_at=timezone.now(),
             completed_at=timezone.now(),
         )
@@ -387,7 +388,7 @@ class AccountSessionsTestCase(TestCase):
             parking=parking,
             debt=120,
             state=ParkingSession.STATE_CLOSED,
-            started_at=timezone.now(),
+            started_at=timezone.now() - timedelta(seconds=60),
             updated_at=timezone.now(),
             completed_at=timezone.now(),
         )
@@ -449,7 +450,7 @@ class AccountSessionsTestCase(TestCase):
         url = URL_PREFIX + "session/list/?page=%s" % page_token
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        print response.content
 
     def test_parking_session_interval_invalid_params_view(self):
 
