@@ -237,11 +237,11 @@ class GetAvailableParkingsView(APIView):
         last_parking_id = parse_int(request.GET.get('last_parking_id', 0))
         if last_parking_id is None:
             last_parking_id = 0
-        parkings = Parking.objects.filter(id__gt=last_parking_id)
+        parkings = Parking.objects.filter(approved=True, id__gt=last_parking_id)
         if parkings.count() == 0:
             return JsonResponse({}, status=304)
         else:
-            parkings_list = serializer(Parking.objects.all(),
+            parkings_list = serializer(Parking.objects.filter(approved=True),
                                        include_attr=('id', 'name', 'description', 'address',
                                                      'latitude', 'longitude', 'free_places','max_permitted_time'))
             return JsonResponse({"result":parkings_list}, status=200)
@@ -322,7 +322,8 @@ class CreateParkingSessionView(SignedRequestAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        started_at = datetime_from_unix_timestamp_tz(started_at)
+        utc_started_at = parking.get_utc_parking_datetime(started_at)
+
         session = None
         try:
             session = ParkingSession.objects.get(session_id=session_id, parking=parking)
@@ -339,7 +340,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
             last_active_session = ParkingSession.get_active_session(account)
             if last_active_session:
                 last_active_session.state = ParkingSession.STATE_VERIFICATION_REQUIRED
-                last_active_session.suspended_at = started_at
+                last_active_session.suspended_at = utc_started_at
                 last_active_session.save()
 
             session = ParkingSession(
@@ -347,7 +348,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
                 client=account,
                 parking=parking,
                 state=ParkingSession.STATE_STARTED_BY_VENDOR,
-                started_at=started_at
+                started_at=utc_started_at
             )
         try:
             session.save()
@@ -416,10 +417,8 @@ class UpdateParkingSessionView(SignedRequestAPIView):
         debt = float(request.data["debt"])
         updated_at = int(request.data["updated_at"])
 
-        updated_at = datetime_from_unix_timestamp_tz(updated_at)
-
         try:
-            session = ParkingSession.objects.get(
+            session = ParkingSession.objects.select_related('parking').get(
                 session_id=session_id, parking__id=parking_id, parking__vendor=request.vendor
             )
             if not check_permission(request.vendor, Parking.objects.get(id=parking_id)):
@@ -443,8 +442,10 @@ class UpdateParkingSessionView(SignedRequestAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
+            utc_updated_at = session.parking.get_utc_parking_datetime(updated_at)
+
             session.debt = debt
-            session.updated_at = updated_at
+            session.updated_at = utc_updated_at
             session.save()
 
         except ObjectDoesNotExist:
@@ -466,10 +467,8 @@ class CompleteParkingSessionView(SignedRequestAPIView):
         debt = float(request.data["debt"])
         completed_at = int(request.data["completed_at"])
 
-        completed_at = datetime_from_unix_timestamp_tz(completed_at)
-
         try:
-            session = ParkingSession.objects.get(
+            session = ParkingSession.objects.select_related('parking').get(
                 session_id=session_id,
                 parking__id=parking_id,
                 parking__vendor=request.vendor
@@ -488,8 +487,10 @@ class CompleteParkingSessionView(SignedRequestAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
+            utc_completed_at = session.parking.get_utc_parking_datetime(completed_at)
+
             session.debt = debt
-            session.completed_at = completed_at
+            session.completed_at = utc_completed_at
             session.add_vendor_complete_mark()
             session.save()
             generate_current_debt_order(session.id)
@@ -511,7 +512,10 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
         parking_id = int(request.data["parking_id"])
         sessions = request.data["sessions"]
         try:
-            parking = Parking.objects.get(id=parking_id, vendor=request.vendor, approved=True)
+            parking = Parking.objects.get(id=parking_id,
+                                          vendor=request.vendor,
+                                          approved=True)
+
             process_updated_sessions(parking, sessions)
             if not check_permission(request.vendor, parking_id):
                 e = PermissionException(

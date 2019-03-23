@@ -90,6 +90,12 @@ class Authorization(TestCase):
 
         # print json.dumps(json.loads(response.content), indent=4), 111
 
+    def test_zendesk_token(self):
+        url = URL_PREFIX + "jwt/"
+        response = Client().get(url, **TOKEN_DICT)
+        print response.content
+        self.assertEqual(200, response.status_code)
+
 
 class Password(TestCase):
     """
@@ -165,6 +171,55 @@ class Password(TestCase):
 
         # print response.content
         self.assertEqual(response.status_code, 200)
+
+
+class ParkingTestCase(TestCase):
+    def setUp(self):
+        self.account, self.account_session, self.sign = create_vendor_account()
+        self.owneracc, self.owneraccsess = create_account()
+        company = Company.objects.create(
+            owner=self.owneracc,
+            name="Test company",
+            inn="1234567890",
+            kpp="123456789012",
+            legal_address="ewsfrdg",
+            actual_address="sadfbg",
+            email=EMAIL,
+            phone=PHONE,
+            account="1234",
+        )
+        parking_1 = Parking.objects.create(
+            name="parking-1",
+            description="default",
+            latitude=1,
+            longitude=1,
+            max_places=5,
+            vendor=self.account,
+            company=company
+        )
+
+    def test_parking_create_with_timezone(self):
+        url = URL_PREFIX + 'parkings/'
+        body = json.dumps({
+            "name": "Test parking",
+            "latitude": 21.12122,
+            "longitude": 43.12132,
+            "tz_name":"Asia/Tokyo",
+        })
+        response = Client().post(url, body, content_type='application/json',
+                                 **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
+
+    def test_parking_create(self):
+        url = URL_PREFIX + 'parkings/'
+        body = json.dumps({
+            "name": "Test parking",
+            "latitude":21.12122,
+            "longitude":43.12132
+        })
+        response = Client().post(url, body, content_type='application/json',
+                                **TOKEN_DICT)
+        self.assertEqual(200, response.status_code)
 
 
 class Statistics(TestCase):
