@@ -73,7 +73,7 @@ class ParkingStatisticsView(LoginRequiredAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-        if period not in ('day', 'week', 'month'):
+        if period and period not in ('day', 'week', 'month'):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 "`period` must be in (`day`, `week`, `month`)"

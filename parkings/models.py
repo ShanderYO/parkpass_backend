@@ -83,7 +83,7 @@ class Parking(models.Model):
             get_logger().warn("Invalid timezone in parking %s" % str(self.id))
 
         tz_datetime = tzh.localize(dt)
-        return tz_datetime.astimezone(pytz.timezone('UTC'))
+        return tzh.normalize(tz_datetime).astimezone(pytz.utc)
 
 
 class Wish(models.Model):
