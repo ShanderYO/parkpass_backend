@@ -403,15 +403,22 @@ class CreateSessionParkingTestCase(TestCase):
         parkings = ParkingSession.objects.filter(state=ParkingSession.STATE_VERIFICATION_REQUIRED)
         self.assertEquals(parkings.count(), 1)
 
+    def test_parking_datetime_converted(self):
+        parking = Parking.objects.get(name='parking-2')
+        self.assertEquals(parking.tz_name, 'Europe/Moscow')
+        int_timestamp = 1553448835 # 2019-03-24 14:33:55
+        result = parking.get_utc_parking_datetime(int_timestamp)
+        print "Waited result 2019-03-24 14:33:55 -> " + str(result)
+
     def test_create_session_valid(self):
         url = URL_PREFIX + 'session/create/'
 
         # Set up session_id new value
         body = json.dumps({
-            "session_id": "valid-session-id",
+            "session_id": "100000000000000002&1553448835",
             "parking_id": 1,
             "client_id": 1,
-            "started_at": 1000000
+            "started_at": 1553448835 # 2019-03-24 17:33:55 UTC
         })
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
