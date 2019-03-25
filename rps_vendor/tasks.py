@@ -8,12 +8,14 @@ import requests
 from autotask.tasks import periodic_task, delayed_task
 from dss.TimeFormatFactory import TimeFormatFactory
 
+from base.utils import get_logger
 from parkings.models import ParkingSession
 from rps_vendor.models import RpsParking
 
 
 @delayed_task()
 def rps_process_updated_sessions(parking, sessions):
+    get_logger().info("rps_process_updated_sessions")
     for session in sessions:
         client_id = session["client_id"]
         started_at = session["started_at"]
@@ -27,11 +29,9 @@ def rps_process_updated_sessions(parking, sessions):
             parking_session = parking_sessions[0]
             if not parking_session.is_completed_by_vendor():
                 parking_session.debt = debt
-
-                updated_at_date = datetime.datetime.fromtimestamp(int(updated_at))
-                updated_at_date_tz = pytz.utc.localize(updated_at_date)
-                parking_session.updated_at = updated_at_date_tz
-
+                utc_updated_at = parking.get_utc_parking_datetime(updated_at)
+                parking_session.updated_at = utc_updated_at
+                get_logger().info("Update list parking at %s", str(utc_updated_at))
                 parking_session.save()
 
 
