@@ -3,7 +3,7 @@ import datetime
 import pytz
 from autotask.tasks import delayed_task
 
-from base.utils import datetime_from_unix_timestamp_tz, get_logger
+from base.utils import get_logger
 from parkings.models import ParkingSession
 
 @delayed_task()
