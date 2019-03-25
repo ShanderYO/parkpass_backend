@@ -41,7 +41,7 @@ class SetAvatarView(LoginRequiredAPIView):
                     "No file attached"
                 )
             request.account.update_avatar(base64.b64decode(file))
-        except ValidationException, e:
+        except ValidationException as e:
             return JsonResponse(e.to_dict(), status=400)
         return JsonResponse({}, status=200)
 
@@ -611,6 +611,7 @@ class StartParkingSession(LoginRequiredAPIView):
         extra_data = request.data.get("extra_data", None)
 
         # It's needed only for account session creation
+        # TODO convert date
         started_at = datetime_from_unix_timestamp_tz(started_at)
 
         # Check open session
@@ -715,6 +716,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
         completed_at = int(request.data["completed_at"])
 
         # It's needed only for account session completed
+        # TODO make timezone change
         completed_at = datetime_from_unix_timestamp_tz(completed_at)
 
         try:

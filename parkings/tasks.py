@@ -3,7 +3,7 @@ import datetime
 import pytz
 from autotask.tasks import delayed_task
 
-from base.utils import datetime_from_unix_timestamp_tz
+from base.utils import datetime_from_unix_timestamp_tz, get_logger
 from parkings.models import ParkingSession
 
 @delayed_task()
@@ -25,4 +25,5 @@ def process_updated_sessions(parking, sessions):
 
             parking_session.debt = debt
             parking_session.updated_at = utc_updated_at
+            get_logger().info("Updated sessions for time %s:" % str(utc_updated_at))
             parking_session.save()
