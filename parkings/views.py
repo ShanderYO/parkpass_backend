@@ -334,6 +334,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
             session.add_vendor_start_mark()
+            session.started_at = utc_started_at
 
         except ObjectDoesNotExist:
             # check active session
