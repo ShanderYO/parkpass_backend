@@ -610,10 +610,6 @@ class StartParkingSession(LoginRequiredAPIView):
         started_at = int(request.data["started_at"])
         extra_data = request.data.get("extra_data", None)
 
-        # It's needed only for account session creation
-        # TODO convert date
-        started_at = datetime_from_unix_timestamp_tz(started_at)
-
         # Check open session
         if ParkingSession.get_active_session(request.account):
             e = PermissionException(
@@ -646,13 +642,15 @@ class StartParkingSession(LoginRequiredAPIView):
                     "Parking with id %s does not exist" % parking_id)
                 return JsonResponse(e.to_dict(), status=400)
 
+            utc_started_at = parking.get_utc_parking_datetime(started_at)
+
             parking_session = ParkingSession.objects.create(
                 session_id=session_id,
                 client=request.account,
                 parking=parking,
                 extra_data=extra_data,
                 state=ParkingSession.STATE_STARTED_BY_CLIENT,
-                started_at=started_at
+                started_at=utc_started_at
             )
             parking_session.save()
             return JsonResponse({"id": parking_session.id}, status=200)
