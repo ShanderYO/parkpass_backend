@@ -58,9 +58,9 @@ def _get_payload_from_session_queryset(active_sessions):
     result_dict = {"sessions":[]}
     for active_session in active_sessions:
         session = {
-            "parking_id":active_session.parking.id,
-            "client_id":active_session.client.id,
-            "started_at":_get_timestamp_from_session_id(active_sessions.session_id)
+            "parking_id": active_session.parking.id,
+            "client_id": active_session.client.id,
+            "started_at": _get_timestamp_from_session_id(active_session.session_id)
         }
         result_dict["sessions"].append(session)
 
