@@ -1,12 +1,10 @@
-import datetime
 import json
 import traceback
 
-import pytz
-from django.utils import timezone
 import requests
+
+from django.utils import timezone
 from autotask.tasks import periodic_task, delayed_task
-from dss.TimeFormatFactory import TimeFormatFactory
 
 from base.utils import get_logger
 from parkings.models import ParkingSession
@@ -52,6 +50,7 @@ def request_rps_session_update():
             continue
 
         payload = _get_payload_from_session_queryset(active_sessions)
+        get_logger().info("Request rps body: %s", payload)
         _make_http_request(rps_parking.request_update_url, payload, rps_parking)
 
 
@@ -61,11 +60,18 @@ def _get_payload_from_session_queryset(active_sessions):
         session = {
             "parking_id":active_session.parking.id,
             "client_id":active_session.client.id,
-            "started_at":int(TimeFormatFactory.get_time_func('timestamp')(active_session.started_at))
+            "started_at":_get_timestamp_from_session_id(active_sessions.session_id)
         }
         result_dict["sessions"].append(session)
 
     return json.dumps(result_dict)
+
+
+def _get_timestamp_from_session_id(session_id):
+    session_part_list = session_id.split("&")
+    if len(session_part_list) == 2:
+        return int(session_part_list[1])
+    return session_part_list[0]
 
 
 def _make_http_request(url, payload, rps_parking):
