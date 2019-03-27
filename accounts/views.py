@@ -715,16 +715,15 @@ class CompleteParkingSession(LoginRequiredAPIView):
         parking_id = int(request.data["parking_id"])
         completed_at = int(request.data["completed_at"])
 
-        # It's needed only for account session completed
-        # TODO make timezone change
-        completed_at = datetime_from_unix_timestamp_tz(completed_at)
-
         try:
-            parking_session = ParkingSession.objects.get(
+            parking_session = ParkingSession.objects.select_related('parking').get(
                 session_id=session_id,
                 parking_id=parking_id,
                 client=request.account
             )
+
+            # It's needed only for account session completed
+            utc_completed_at = parking_session.parking.get_utc_parking_datetime(completed_at)
 
             # if session is already not active
             if parking_session.state == ParkingSession.STATE_VERIFICATION_REQUIRED:
@@ -736,7 +735,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
             # If session start is not confirm from vendor
             if not parking_session.is_started_by_vendor():
                 parking_session.is_suspended = True
-                parking_session.suspended_at = completed_at
+                parking_session.suspended_at = utc_completed_at
                 parking_session.save()
                 return JsonResponse({}, status=200)
             else:
@@ -744,7 +743,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
 
             # Set up completed time if not specified by vendor
             if not parking_session.is_completed_by_vendor():
-                parking_session.completed_at = completed_at
+                parking_session.completed_at = utc_completed_at
 
             parking_session.add_client_complete_mark()
             parking_session.save()
