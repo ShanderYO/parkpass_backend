@@ -44,7 +44,7 @@ class AccountInfoView(LoginRequiredAPIView):
             request.owner.last_name = lname
         try:
             request.owner.full_clean()
-        except ValidationError, e:
+        except ValidationError as e:
             raise ValidationException(ValidationException.VALIDATION_ERROR, e.message_dict)
         request.owner.save()
         return JsonResponse({}, status=200)
