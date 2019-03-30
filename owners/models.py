@@ -12,7 +12,7 @@ from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
 from base.validators import validate_phone_number
 from owners.validators import validate_inn, validate_kpp, validate_name
 from parkings.models import Parking
-from parkpass.settings import ZENDESK_SECRET, ZENDESK_CHAT_SECRET, ZENDESK_WIDGET_SECRET
+from parkpass.settings import ZENDESK_CHAT_SECRET, ZENDESK_WIDGET_SECRET
 
 
 class Owner(BaseAccount):
