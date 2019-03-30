@@ -27,12 +27,20 @@ class Owner(BaseAccount):
         return 'owner'
 
     def get_or_create_jwt_for_zendesk_chat(self):
-        return self.get_or_create_jwt_for_zendesk(ZENDESK_CHAT_SECRET)
+        timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
+        payload = {
+            'name': self.name,
+            'email': self.email,
+            'external_id': self.id,
+            'iat': timestamp,
+            'exp':timestamp + 120
+        }
+        return jwt.encode(payload, ZENDESK_CHAT_SECRET)
 
     def get_or_create_jwt_for_zendesk_widget(self):
         return self.get_or_create_jwt_for_zendesk(ZENDESK_WIDGET_SECRET)
 
-    def get_or_create_jwt_for_zendesk(self, secter):
+    def get_or_create_jwt_for_zendesk(self, secret):
         timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
         payload = {
             'name': self.name,
@@ -40,7 +48,7 @@ class Owner(BaseAccount):
             'jti':self.id,
             'iat':timestamp
         }
-        return jwt.encode(payload, secter)
+        return jwt.encode(payload, secret)
 
 
 class OwnerSession(BaseAccountSession):
