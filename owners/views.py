@@ -764,7 +764,13 @@ class EmailConfirmationView(View):
             return JsonResponse({"error": "Invalid link"}, status=200)
 
 
-class ZendeskJWTView(LoginRequiredAPIView):
+class ZendeskJWTWidgetView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
-        jwt_token = request.owner.get_or_create_jwt_for_zendesk()
+        jwt_token = request.owner.get_or_create_jwt_for_zendesk_widget()
+        return HttpResponse(jwt_token)
+
+
+class ZendeskJWTChatView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        jwt_token = request.owner.get_or_create_jwt_for_zendesk_chat()
         return HttpResponse(jwt_token)

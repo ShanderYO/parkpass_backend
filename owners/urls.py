@@ -4,7 +4,8 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from .views import *
 
 urlpatterns = [
-                  url(r'^jwt/$', ZendeskJWTView.as_view()),
+                  url(r'^jwt/widget/$', ZendeskJWTWidgetView.as_view()),
+                  url(r'^jwt/chat/$', ZendeskJWTChatView.as_view()),
                   url(r'^login/$', LoginView.as_view()),
                   url(r'^login/phone/$', LoginWithPhoneView.as_view()),
                   url(r'^login/email/$', LoginWithEmailView.as_view()),

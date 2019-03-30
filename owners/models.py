@@ -12,7 +12,7 @@ from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
 from base.validators import validate_phone_number
 from owners.validators import validate_inn, validate_kpp, validate_name
 from parkings.models import Parking
-from parkpass.settings import ZENDESK_SECRET
+from parkpass.settings import ZENDESK_SECRET, ZENDESK_CHAT_SECRET, ZENDESK_WIDGET_SECRET
 
 
 class Owner(BaseAccount):
@@ -26,15 +26,21 @@ class Owner(BaseAccount):
     def type(self):
         return 'owner'
 
-    def get_or_create_jwt_for_zendesk(self):
+    def get_or_create_jwt_for_zendesk_chat(self):
+        return self.get_or_create_jwt_for_zendesk(ZENDESK_CHAT_SECRET)
+
+    def get_or_create_jwt_for_zendesk_widget(self):
+        return self.get_or_create_jwt_for_zendesk(ZENDESK_WIDGET_SECRET)
+
+    def get_or_create_jwt_for_zendesk(self, secter):
         timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
         payload = {
             'name': self.name,
             'email': self.email,
-            'external_id':self.id,
+            'jti':self.id,
             'iat':timestamp
         }
-        return jwt.encode(payload, ZENDESK_SECRET)
+        return jwt.encode(payload, secter)
 
 
 class OwnerSession(BaseAccountSession):
