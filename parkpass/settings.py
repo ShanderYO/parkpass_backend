@@ -27,7 +27,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'autotask',
+    'django_celery_beat',
     'base',
     'accounts',
     'vendors',
@@ -185,24 +185,31 @@ LOGGING = {
     }
 }
 
-#CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL')
-#CELERY_RESULT_BACKEND = 'django-db'
+# REDIS related settings
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
+REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
 
-#CELERY_BEAT_SCHEDULE = {
-#    'token-expiration-checker': {
-#       'task': 'app.tasks.token_expiration_checker',
-#        'schedule': 60.0, # every minute
-#    }
-#}
+BROKER_URL = 'redis://' + REDIS_HOST + ':' + REDIS_PORT + '/0'
+BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 3600}
+CELERY_RESULT_BACKEND = 'redis://' + REDIS_HOST + ':' + REDIS_PORT + '/0'
 
-AUTOTASK_IS_ACTIVE = False  # True
-AUTOTASK_WORKER_MONITOR_INTERVALL = 60
-AUTOTASK_HANDLE_TASK_IDLE_TIME = 10
+# Other Celery settings
+CELERY_BEAT_SCHEDULE = {
+    'task-accounts-order': {
+        'task': 'accounts.tasks.generate_orders_and_pay',
+        'schedule': 30.0
+    },
+    'task-rps-ask-update': {
+        'task': 'rps_vendor.tasks.request_rps_session_update',
+        'schedule': 30.0
+    }
+}
 
 STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 )
+
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 STATIC_URL = '/api/static/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")

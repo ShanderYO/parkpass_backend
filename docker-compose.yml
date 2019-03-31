@@ -1,0 +1,181 @@
+version: '2'
+networks:
+    main_net:
+        driver: bridge
+services:
+    nginx-balancer:
+        container_name: nginx-balancer
+        image: nginx-proxy
+        restart: always
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - ./shares/app_sockets:/app_sockets
+          - ./nginx/certs:/etc/nginx/certs
+          - ./nginx/conf.d:/etc/nginx/conf.d
+          - ./storage:/files
+        networks:
+            - main_net
+        depends_on:
+          - backend-master
+          - user-landing
+          - user-cabinet
+          - owner-cabinet
+          - owner-landing
+          - vendor-landing
+          #- backend-slave-1
+
+
+    user-landing:
+        container_name: user-landing-container
+        image: parkpass-user-landing
+        restart: always
+        networks:
+            - main_net
+
+    user-cabinet:
+        container_name: user-cabinet-container
+        image: parkpass-user-cabinet
+        restart: always
+        networks:
+            - main_net
+
+    owner-landing:
+        container_name: owner-landing-container
+        image: parkpass-owner-landing
+        networks:
+            - main_net
+        restart: always
+
+    owner-cabinet:
+        container_name: owner-cabinet-container
+        image: parkpass-owner-cabinet
+        networks:
+            - main_net
+        restart: always
+
+    vendor-landing:
+        container_name: vendor-landing-container
+        image: parkpass-vendor-landing
+        networks:
+            - main_net
+        restart: always
+
+    redis:
+        image: redis:5.0-alpine
+        ports:
+            - 6379
+        networks:
+            - main_net
+        restart: always
+        command: redis-server --save "" --appendonly no
+
+    parkpass-postgres: # TODO make replication MUST HAVE
+        container_name: parkpass-postgres
+        image: postgres:9.6
+        restart: always
+        networks:
+            - main_net
+        environment:
+            - POSTGRES_USER=parkpass
+            - POSTGRES_PASSWORD=parkpass
+            - POSTGRES_DBNAME=parkpass
+            - ALLOW_IP_RANGE=0.0.0.0/0
+        volumes:
+            - ./postgresql-data:/var/lib/postgresql/data
+        expose:
+            - "5432"
+        ports:
+            - "5432:5432"
+
+    backend-master:
+        depends_on:
+            - parkpass-postgres
+        container_name: backend-master
+        image: parkpass:latest
+        networks:
+            - main_net
+        restart: always
+        environment:
+            - PROD=1
+            - SOCKNAME=app1.sock
+            - DJANGO_DEBUG=1
+            - SMS_GATEWAY_ENABLE=1
+            - MEDIA_HOST=https://parkpass.ru/api
+            - POSTGRES_DATABASE_HOST=parkpass-postgres
+            - POSTGRES_DB_NAME=parkpass
+            - POSTGRES_USER=parkpass
+            - POSTGRES_PASSWORD=parkpass
+        command: bash -c "uwsgi --ini uwsgi.ini"
+        volumes:
+            - ./shares/app_sockets:/app/socket-dir
+            - ./storage:/app/media
+            - ./var/log/backend/master:/var/log
+
+    backend_celery_worker:
+        depends_on:
+          - parkpass-postgres
+          - redis
+        container_name: celery-worker
+        image: parkpass:latest
+        networks:
+            - main_net
+        restart: always
+        environment:
+            - PROD=1
+            - DJANGO_DEBUG=1
+            - REDIS_HOST=redis
+            - POSTGRES_DATABASE_HOST=parkpass-postgres
+            - POSTGRES_DB_NAME=parkpass
+            - POSTGRES_USER=parkpass
+            - POSTGRES_PASSWORD=parkpass
+        command: celery -A parkpass worker -l info --app=parkpass.celery:app
+        volumes:
+            - ./var/log/backend/master:/var/log
+
+    backend_celery_beat:
+        depends_on:
+            - parkpass-postgres
+            - redis
+        container_name: celery-beat
+        image: parkpass:latest
+        networks:
+            - main_net
+        restart: always
+        environment:
+            - PROD=1
+            - DJANGO_DEBUG=1
+            - REDIS_HOST=redis
+            - POSTGRES_DATABASE_HOST=parkpass-postgres
+            - POSTGRES_DB_NAME=parkpass
+            - POSTGRES_USER=parkpass
+            - POSTGRES_PASSWORD=parkpass
+        command: celery -A parkpass beat -l info --app=parkpass.celery:app
+        volumes:
+            - ./var/log/backend/master:/var/log
+
+#
+#    backend-slave-1:
+#        depends_on:
+#            - parkpass-postgres
+#        container_name: backend-slave-1
+#        image: parkpass:latest
+#        networks:
+#            - main_net
+#        restart: always
+#        environment:
+#            - PROD=1
+#            - SOCKNAME=app2.sock
+#            - DJANGO_DEBUG=1
+#            - SMS_GATEWAY_ENABLE=1
+#            - MEDIA_HOST=https://parkpass.ru/api
+#            - POSTGRES_DATABASE_HOST=parkpass-postgres
+#            - POSTGRES_DB_NAME=parkpass
+#            - POSTGRES_USER=parkpass
+#            - POSTGRES_PASSWORD=parkpass
+#        command: bash -c "uwsgi --ini /app/uwsgi.ini"
+#        volumes:
+#            - ./shares/app_sockets:/app/socket-dir
+#            - ./storage:/app/files
+#            - ./var/log/backend/slave1:/var/log
