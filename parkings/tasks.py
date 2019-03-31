@@ -1,12 +1,10 @@
-import datetime
+import logging
 
-import pytz
-from autotask.tasks import delayed_task
-
-from base.utils import get_logger
 from parkings.models import ParkingSession
+from parkpass.celery import app
 
-@delayed_task()
+
+@app.task()
 def process_updated_sessions(parking, sessions):
     for session in sessions:
         session_id = session["session_id"]
@@ -25,5 +23,5 @@ def process_updated_sessions(parking, sessions):
 
             parking_session.debt = debt
             parking_session.updated_at = utc_updated_at
-            get_logger().info("Updated sessions for time %s:" % str(utc_updated_at))
+            logging.info("Updated sessions for time %s:" % str(utc_updated_at))
             parking_session.save()

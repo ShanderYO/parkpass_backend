@@ -1,15 +1,16 @@
-from autotask.tasks import delayed_task
+import logging
 
 from base.utils import get_logger
+from parkpass.celery import app
 from payments.payment_api import TinkoffAPI
 from payments.models import TinkoffPayment
 
 
-@delayed_task(delay=0)
+@app.task()
 def start_cancel_request(order):
     payments = TinkoffPayment.objects.filter(order=order)
     if not payments.exists():
-        get_logger().info("Payments were not found: ")
+        logging.info("Payments were not found: ")
         return None
     payment = payments[0]
 

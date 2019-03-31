@@ -1,18 +1,18 @@
+import logging
 from decimal import Decimal
 
-from autotask.tasks import periodic_task, delayed_task
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 
-from base.utils import get_logger
 from parkings.models import ParkingSession
+from parkpass.celery import app
 from payments.models import Order, TinkoffPayment
 from payments.payment_api import TinkoffAPI
 
 
-@delayed_task()
+@app.task()
 def generate_current_debt_order(parking_session_id):
-    get_logger().info("generate_current_debt_order begin")
+    logging.info("generate_current_debt_order begin")
     try:
         active_session = ParkingSession.objects.get(id=parking_session_id)
 
@@ -21,13 +21,13 @@ def generate_current_debt_order(parking_session_id):
             if active_session.debt < 0.01: # < that 1 penny
                 active_session.state = ParkingSession.STATE_CLOSED
                 active_session.save()
-                get_logger().info("Close session %s with <0.01 debt" % parking_session_id)
+                logging.info("Close session %s with <0.01 debt" % parking_session_id)
                 return
 
         ordered_sum = Order.get_ordered_sum_by_session(active_session)
         new_order_sum = active_session.debt - ordered_sum
 
-        get_logger().info(" %s : %s" % (ordered_sum, new_order_sum))
+        logging.info(" %s : %s" % (ordered_sum, new_order_sum))
 
         # if needs to create new order
         if new_order_sum > 0:
@@ -43,13 +43,13 @@ def generate_current_debt_order(parking_session_id):
         # if over-price authorized
         if new_order_sum < 0:
             last_order = Order.objects.filter(session=active_session)[0]
-            get_logger().info("Try reverse order #%s", last_order.id)
+            logging.info("Try reverse order #%s", last_order.id)
             payment = TinkoffPayment.objects.get(order=last_order)
             request_data = payment.build_cancel_request_data(int(last_order.sum * 100))
             result = TinkoffAPI().sync_call(
                 TinkoffAPI.CANCEL, request_data
             )
-            get_logger().info(result)
+            logging.info(result)
             last_order.delete()
             return generate_current_debt_order(parking_session_id)
 
@@ -69,7 +69,7 @@ def generate_current_debt_order(parking_session_id):
 
 
 def confirm_all_orders_if_needed(parking_session):
-    get_logger().info("check begin confirmation..")
+    logging.info("check begin confirmation..")
     non_authorized_orders = Order.objects.filter(
         session=parking_session,
         authorized=False
@@ -88,10 +88,10 @@ def confirm_all_orders_if_needed(parking_session):
                 except ObjectDoesNotExist as e:
                     get_logger().log(e.message)
     else:
-        get_logger().info("Wait closing session")
+        logging.info("Wait closing session")
 
 
-@delayed_task()
+@app.task()
 def force_pay(parking_session_id):
     try:
         active_session = ParkingSession.objects.get(id=parking_session_id)
@@ -112,7 +112,7 @@ def force_pay(parking_session_id):
         pass
 
 
-@periodic_task(seconds=30)
+@app.task()
 def generate_orders_and_pay():
 
     # Check refund request
@@ -131,7 +131,7 @@ def generate_orders_and_pay():
                    ParkingSession.STATE_COMPLETED],
         is_suspended=False,
     )
-    get_logger().info("start generate_dept_orders task: active sessions %s " % len(active_sessions))
+    logging.info("start generate_dept_orders task: active sessions %s " % len(active_sessions))
 
     for session in active_sessions:
         # TODO add checker
@@ -161,7 +161,7 @@ def generate_orders_and_pay():
             if order:
                 order.try_pay()
 
-    get_logger().info("generate_dept_orders task was executed")
+    logging.info("generate_dept_orders task was executed")
 
 
 def _init_refund(parking_session):
@@ -185,18 +185,18 @@ def _init_refund(parking_session):
         result = TinkoffAPI().sync_call(
             TinkoffAPI.CANCEL, request_data
         )
-        get_logger().info(result)
+        logging.info(result)
 
         if result.get("Status") == u'REFUNDED':
             order.refunded_sum = float(result.get("OriginalAmount",0))/100
-            get_logger().info('REFUNDED: %s' % order.refunded_sum)
+            logging.info('REFUNDED: %s' % order.refunded_sum)
             order.save()
         elif result.get("Status") == u'PARTIAL_REFUNDED':
             order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
-            get_logger().info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
+            logging.info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
             order.save()
         else:
-            get_logger().warn('Refund undefined status')
+            logging.warning('Refund undefined status')
 
     current_refunded_sum = Decimal(0)
     for order in orders:
@@ -207,11 +207,12 @@ def _init_refund(parking_session):
     parking_session.save()
 
 
-# for 3 day authorized sum
-@periodic_task(seconds=3*24*60*60)
+@app.task()
 def confirm_once_per_3_day():
     _3_days_before = timezone.now() - timezone.timedelta(days=3)
-    authorized_more_that_3_days_orders = Order.objects.filter(authorized=True, created_at__lte=_3_days_before)
+    authorized_more_that_3_days_orders = Order.objects.filter(
+        authorized=True, created_at__lte=_3_days_before)
+
     if authorized_more_that_3_days_orders.exists():
         for order in authorized_more_that_3_days_orders:
             try:

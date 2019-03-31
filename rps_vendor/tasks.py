@@ -1,19 +1,20 @@
 import json
+import logging
 import traceback
 
 import requests
 
 from django.utils import timezone
-from autotask.tasks import periodic_task, delayed_task
 
 from base.utils import get_logger
 from parkings.models import ParkingSession
+from parkpass.celery import app
 from rps_vendor.models import RpsParking
 
 
-@delayed_task()
+@app.task()
 def rps_process_updated_sessions(parking, sessions):
-    get_logger().info("rps_process_updated_sessions")
+    logging.info("rps_process_updated_sessions")
     for session in sessions:
         client_id = session["client_id"]
         started_at = session["started_at"]
@@ -33,7 +34,7 @@ def rps_process_updated_sessions(parking, sessions):
                 parking_session.save()
 
 
-@periodic_task(seconds=30)
+@app.task()
 def request_rps_session_update():
     for rps_parking in RpsParking.objects.all().select_related("parking"):
 
