@@ -86,7 +86,7 @@ def confirm_all_orders_if_needed(parking_session):
                     payment = TinkoffPayment.objects.get(order=session_order, error_code=-1)
                     session_order.confirm_payment(payment)
                 except ObjectDoesNotExist as e:
-                    get_logger().log(e.message)
+                    logging.warning(e.message)
     else:
         logging.info("Wait closing session")
 
@@ -215,8 +215,6 @@ def confirm_once_per_3_day():
 
     if authorized_more_that_3_days_orders.exists():
         for order in authorized_more_that_3_days_orders:
-            try:
-                payment = TinkoffPayment.objects.get(order=order)
-                order.confirm_payment(payment)
-            except ObjectDoesNotExist:
-                continue
+            payments = TinkoffPayment.objects.filter(order=order)
+            if payments.exists():
+                order.confirm_payment(payments[0])

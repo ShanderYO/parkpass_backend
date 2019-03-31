@@ -82,7 +82,7 @@ class DeactivateAccountView(LoginRequiredAPIView):
         account = request.account
         ps = ParkingSession.get_active_session(account)
         if ps is not None:
-            generate_current_debt_order(ParkingSession.get_active_session(account).id)
+            generate_current_debt_order.delay(ParkingSession.get_active_session(account).id)
             if not ps.is_suspended:
                 ps.is_suspended = True
                 ps.suspended_at = timezone.now()
@@ -490,7 +490,7 @@ class ForcePayView(LoginRequiredAPIView):
         try:
             ParkingSession.objects.get(id=id)
             # Create payment order and pay
-            force_pay(id)
+            force_pay.delay(id)
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -693,7 +693,7 @@ class ResumeParkingSession(LoginRequiredAPIView):
                 parking_session.save()
 
                 if parking_session.is_started_by_vendor():
-                    generate_current_debt_order()
+                    generate_current_debt_order.delay(parking_session.id)
 
         except ObjectDoesNotExist:
             e = ValidationException(

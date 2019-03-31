@@ -31,7 +31,7 @@ class Owner(BaseAccount):
         payload = {
             'name': self.name,
             'email': self.email,
-            'external_id': self.id,
+            'external_id': "user_%s" % self.id,
             'iat': timestamp,
             'exp':timestamp + 120
         }
