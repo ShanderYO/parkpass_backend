@@ -111,7 +111,7 @@ class TinkoffCallbackView(APIView):
 
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
                     order.authorized = True
-                    start_cancel_request(order)
+                    start_cancel_request.delay(order)
 
             else:
                 get_logger().warn("Unknown successefull operation")

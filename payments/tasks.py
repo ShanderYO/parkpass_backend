@@ -1,6 +1,5 @@
 import logging
 
-from base.utils import get_logger
 from parkpass.celery import app
 from payments.payment_api import TinkoffAPI
 from payments.models import TinkoffPayment
@@ -18,8 +17,8 @@ def start_cancel_request(order):
     result = TinkoffAPI().sync_call(
         TinkoffAPI.CANCEL, request_data
     )
-    get_logger().info("Cancel payment response: ")
-    get_logger().info(str(result))
+    logging.info("Cancel payment response: ")
+    logging.info(str(result))
 
     # Tink-off gateway not responded
     if not result:

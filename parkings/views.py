@@ -494,7 +494,7 @@ class CompleteParkingSessionView(SignedRequestAPIView):
             session.completed_at = utc_completed_at
             session.add_vendor_complete_mark()
             session.save()
-            generate_current_debt_order(session.id)
+            generate_current_debt_order.delay(session.id)
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -517,7 +517,7 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
                                           vendor=request.vendor,
                                           approved=True)
 
-            process_updated_sessions(parking, sessions)
+            process_updated_sessions.delay(parking, sessions)
             if not check_permission(request.vendor, parking_id):
                 e = PermissionException(
                     PermissionException.NO_PERMISSION,
