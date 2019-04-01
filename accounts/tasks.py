@@ -14,14 +14,14 @@ from payments.payment_api import TinkoffAPI
 def generate_current_debt_order(parking_session_id):
     logging.info("generate_current_debt_order begin")
     try:
-        active_session = ParkingSession.objects.get(id=parking_session_id)
+        active_session = ParkingSession.objects.select_related('parking').get(id=parking_session_id)
 
         # check completed and zero debt
         if active_session.state in ParkingSession.ACTUAL_COMPLETED_STATES:
             if active_session.debt < 0.01: # < that 1 penny
                 active_session.state = ParkingSession.STATE_CLOSED
                 active_session.save()
-                logging.info("Close session %s with <0.01 debt" % parking_session_id)
+                logging.info("Close session %s with < 0.01 debt" % parking_session_id)
                 return
 
         ordered_sum = Order.get_ordered_sum_by_session(active_session)
@@ -29,7 +29,14 @@ def generate_current_debt_order(parking_session_id):
 
         logging.info(" %s : %s" % (ordered_sum, new_order_sum))
 
-        # if needs to create new order
+        # Prevent create order with sum less than max_client_debt of parking
+        if active_session.state not in ParkingSession.ACTUAL_COMPLETED_STATES \
+                and active_session.state != ParkingSession.STATE_CLOSED:
+            if new_order_sum >= active_session.parking.max_client_debt:
+                new_order_sum = active_session.parking.max_client_debt
+            else:
+                new_order_sum = 0
+
         if new_order_sum > 0:
             new_order = Order.objects.create(
                 session=active_session,
