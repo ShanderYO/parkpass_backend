@@ -394,6 +394,10 @@ class CancelParkingSessionView(SignedRequestAPIView):
             # Anyway reset mask
             session.reset_client_completed_state()
 
+            # Reset completed time
+            if session.completed_at:
+                session.completed_at = None
+
             # If user didn't get in
             if not session.is_started_by_vendor():
                 session.state = ParkingSession.STATE_CANCELED
