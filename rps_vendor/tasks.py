@@ -3,18 +3,23 @@ import logging
 import traceback
 
 import requests
+from django.core.exceptions import ObjectDoesNotExist
 
 from django.utils import timezone
 
-from base.utils import get_logger
-from parkings.models import ParkingSession
+from parkings.models import ParkingSession, Parking
 from parkpass.celery import app
 from rps_vendor.models import RpsParking
 
 
 @app.task()
-def rps_process_updated_sessions(parking, sessions):
+def rps_process_updated_sessions(parking_id, sessions):
     logging.info("rps_process_updated_sessions")
+    try:
+        parking = Parking.objects.get(id=parking_id)
+    except ObjectDoesNotExist as e:
+        return None
+
     for session in sessions:
         client_id = session["client_id"]
         started_at = session["started_at"]
@@ -22,7 +27,8 @@ def rps_process_updated_sessions(parking, sessions):
 
         debt = float(session["debt"])
         updated_at = int(session["updated_at"])
-        parking_sessions = ParkingSession.objects.filter(session_id=session_id, parking=parking)
+        parking_sessions = ParkingSession.objects.filter(
+            session_id=session_id, parking=parking)
 
         if parking_sessions.count() > 0:
             parking_session = parking_sessions[0]
@@ -30,7 +36,7 @@ def rps_process_updated_sessions(parking, sessions):
                 parking_session.debt = debt
                 utc_updated_at = parking.get_utc_parking_datetime(updated_at)
                 parking_session.updated_at = utc_updated_at
-                get_logger().info("Update list parking at %s", str(utc_updated_at))
+                logging.info("Update list parking at %s", str(utc_updated_at))
                 parking_session.save()
 
 
@@ -51,7 +57,7 @@ def request_rps_session_update():
             continue
 
         payload = _get_payload_from_session_queryset(active_sessions)
-        get_logger().info("Request rps body: %s", payload)
+        logging.info("Request rps body: %s", payload)
         _make_http_request(rps_parking.request_update_url, payload, rps_parking)
 
 

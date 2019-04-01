@@ -55,7 +55,7 @@ class RpsParkingSessionListUpdateView(SignedRequestAPIView):
         sessions = request.data["sessions"]
         try:
             parking = Parking.objects.get(id=parking_id, vendor=request.vendor)
-            rps_process_updated_sessions.delay(parking, sessions)
+            rps_process_updated_sessions.delay(parking_id, sessions)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
