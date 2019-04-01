@@ -1,11 +1,18 @@
 import logging
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from parkings.models import ParkingSession
 from parkpass.celery import app
 
 
 @app.task()
-def process_updated_sessions(parking, sessions):
+def process_updated_sessions(parking_id, sessions):
+    try:
+        parking = ParkingSession.objects.get(id=parking_id)
+    except ObjectDoesNotExist:
+        return None
+
     for session in sessions:
         session_id = session["session_id"]
         debt = int(session["debt"])

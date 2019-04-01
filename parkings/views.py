@@ -518,11 +518,11 @@ class ParkingSessionListUpdateView(SignedRequestAPIView):
         parking_id = int(request.data["parking_id"])
         sessions = request.data["sessions"]
         try:
-            parking = Parking.objects.get(id=parking_id,
-                                          vendor=request.vendor,
-                                          approved=True)
+            Parking.objects.get(id=parking_id,
+                                vendor=request.vendor,
+                                approved=True)
 
-            process_updated_sessions.delay(parking, sessions)
+            process_updated_sessions.delay(parking_id, sessions)
             if not check_permission(request.vendor, parking_id):
                 e = PermissionException(
                     PermissionException.NO_PERMISSION,
