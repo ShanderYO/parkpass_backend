@@ -24,6 +24,7 @@ LoginRequiredAPIView = generic_login_required_view(Account)
 VendorAPIView = generic_login_required_view(Vendor)
 OwnerAPIView = generic_login_required_view(Owner)
 
+
 def check_permission(vendor, parking=None):
     if vendor.account_state == vendor.ACCOUNT_STATE.DISABLED:
         return False
