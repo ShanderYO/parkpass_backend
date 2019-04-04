@@ -14,7 +14,8 @@ from payments.payment_api import TinkoffAPI
 def generate_current_debt_order(parking_session_id):
     logging.info("generate_current_debt_order begin")
     try:
-        active_session = ParkingSession.objects.select_related('parking').get(id=parking_session_id)
+        active_session = ParkingSession.objects.select_related(
+            'parking').get(id=parking_session_id)
 
         # check completed and zero debt
         if active_session.state in ParkingSession.ACTUAL_COMPLETED_STATES:
@@ -67,9 +68,10 @@ def generate_current_debt_order(parking_session_id):
                 if not order.paid:
                     return
 
-            # Close session if all of orders have paid
-            active_session.state = ParkingSession.STATE_CLOSED
-            active_session.save()
+            # Close session if all of orders have paid and session completed
+            if active_session.is_completed_by_vendor():
+                active_session.state = ParkingSession.STATE_CLOSED
+                active_session.save()
 
     except ObjectDoesNotExist:
         pass
@@ -95,7 +97,7 @@ def confirm_all_orders_if_needed(parking_session):
                 except ObjectDoesNotExist as e:
                     logging.warning(e.message)
     else:
-        logging.info("Wait closing session")
+        logging.info("Wait vendor completing session")
 
 
 @app.task()
@@ -141,10 +143,6 @@ def generate_orders_and_pay():
     logging.info("start generate_dept_orders task: active sessions %s " % len(active_sessions))
 
     for session in active_sessions:
-        # TODO add checker
-        #if session.is_completed_by_vendor() and session.is_completed_by_client() and session.debt == 0:
-        #    session.state = ParkingSession.
-
         ordered_sum = Order.get_ordered_sum_by_session(session)
 
         if ordered_sum < session.debt:
