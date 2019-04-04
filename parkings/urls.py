@@ -5,6 +5,7 @@ from parkings.views import *
 
 urlpatterns = [
     url(r'^get/(?P<pk>\d+)/$', GetParkingView.as_view()),
+    url(r'^get/(?P<pk>\d+)/tariff/$', GetTariffParkingView.as_view()),
     url(r'^list/$', GetParkingViewList.as_view()),
     url(r'^all/$', GetAvailableParkingsView.as_view()),
     url(r'^complain/$', ComplainSessionView.as_view()),

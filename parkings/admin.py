@@ -1,10 +1,14 @@
 from django.contrib import admin
 
 # Register your models here.
-from models import Parking, ParkingSession, ComplainSession, Wish
+from .models import (
+    Parking, ParkingSession,
+    ComplainSession, Wish
+)
+
 
 @admin.register(Parking)
-class ParkingAdmin(admin.ModelAdmin):
+class ParkingModelAdmin(admin.ModelAdmin):
     pass
 
 
