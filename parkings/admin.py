@@ -9,7 +9,10 @@ from .models import (
 
 @admin.register(Parking)
 class ParkingModelAdmin(admin.ModelAdmin):
-    pass
+    readonly_fields = ('tariff_download_link',)
+
+    def tariff_download_link(self, obj):
+        return obj.get_tariff_link()
 
 
 @admin.register(ParkingSession)

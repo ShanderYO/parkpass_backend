@@ -210,10 +210,12 @@ class GetTariffParkingView(View):
                 name = "parking_%d_tariff.pdf" % parking.id
                 response["Content-Disposition"] = "attachment; filename={}".format(name)
                 return response
-            return HttpResponse("Invalid file content. Decoding error")
+            return HttpResponse("Empty file content. Decoding error")
 
         except ObjectDoesNotExist:
             return HttpResponse("Parking doesn't exist. Please check link again")
+        except TypeError:
+            return HttpResponse("Invalid file content. Decoding error")
 
 
 class GetParkingViewList(LoginRequiredAPIView):
