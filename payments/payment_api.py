@@ -64,6 +64,9 @@ class TinkoffAPI():
             r = requests.post(url, data=json_data, headers=headers,
                               timeout=(connect_timeout, 5.0))
             try:
+                get_logger().info("Init status code %s" % r.status_code)
+                if r.status_code != 200:
+                    get_logger().info("%s", r.content)
                 result = r.json()
                 return result
 
