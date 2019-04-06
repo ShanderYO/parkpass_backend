@@ -164,7 +164,7 @@ class Order(models.Model):
                     "Price": 100,
                     "Quantity": 1.00,
                     "Amount": 100,
-                    "Tax": "vat10",
+                    "Tax": "none",
                     "Ean13": "0123456789"
                     }]
             )
@@ -179,7 +179,7 @@ class Order(models.Model):
                 "Price": str(int(self.sum*100)),
                 "Quantity": 1.00,
                 "Amount": str(int(self.sum*100)),
-                "Tax": "vat10",
+                "Tax": "none",
                 "Ean13": "0123456789"
             }]
         )

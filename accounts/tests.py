@@ -1,7 +1,6 @@
 import base64
 import json
 from hashlib import md5
-from os import remove
 from os.path import isfile
 
 from datetime import timedelta
