@@ -322,7 +322,9 @@ class TinkoffCallbackView(APIView):
             for session_order in session_orders:
                 if session_order.authorized and not session_order.paid:
                     try:
-                        payment = TinkoffPayment.objects.get(order=session_order, error_code=-1)
+                        payment = TinkoffPayment.objects.get(order=session_order,
+                                                             status=PAYMENT_STATUS_AUTHORIZED,
+                                                             error_code=-1)
                         session_order.confirm_payment(payment)
                     except ObjectDoesNotExist as e:
                         get_logger().log(e.message)
