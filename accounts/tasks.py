@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from parkings.models import ParkingSession
 from parkpass.celery import app
-from payments.models import Order, TinkoffPayment
+from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED
 from payments.payment_api import TinkoffAPI
 
 
@@ -52,7 +52,7 @@ def generate_current_debt_order(parking_session_id):
         if new_order_sum < 0:
             last_order = Order.objects.filter(session=active_session)[0]
             logging.info("Try reverse order #%s", last_order.id)
-            payment = TinkoffPayment.objects.get(order=last_order)
+            payment = TinkoffPayment.objects.get(order=last_order, status=PAYMENT_STATUS_AUTHORIZED)
             request_data = payment.build_cancel_request_data(int(last_order.sum * 100))
             result = TinkoffAPI().sync_call(
                 TinkoffAPI.CANCEL, request_data
@@ -92,7 +92,10 @@ def confirm_all_orders_if_needed(parking_session):
         for session_order in session_orders:
             if session_order.authorized and not session_order.paid:
                 try:
-                    payment = TinkoffPayment.objects.get(order=session_order, error_code=-1)
+                    payment = TinkoffPayment.objects.get(
+                        order=session_order,
+                        status=PAYMENT_STATUS_AUTHORIZED,
+                        error_code=-1)
                     session_order.confirm_payment(payment)
                 except ObjectDoesNotExist as e:
                     logging.warning(e.message)
@@ -112,7 +115,7 @@ def force_pay(parking_session_id):
             not_paid_orders = Order.objects.filter(session=active_session, authorized=True, paid=False)
             for order in not_paid_orders:
                 try:
-                    payment = TinkoffPayment.objects.get(order=order)
+                    payment = TinkoffPayment.objects.get(order=order, status=PAYMENT_STATUS_AUTHORIZED)
                     order.confirm_payment(payment)
                 except ObjectDoesNotExist as e:
                     pass
@@ -185,7 +188,7 @@ def _init_refund(parking_session):
             continue
         refund = min(remaining_sum, order.sum)
         remaining_sum = remaining_sum - refund
-        payment = TinkoffPayment.objects.get(order=order)
+        payment = TinkoffPayment.objects.get(order=order, status=PAYMENT_STATUS_AUTHORIZED)
         request_data = payment.build_cancel_request_data(int(refund*100))
         result = TinkoffAPI().sync_call(
             TinkoffAPI.CANCEL, request_data
