@@ -772,5 +772,5 @@ class ZendeskJWTWidgetView(LoginRequiredAPIView):
 
 class ZendeskJWTChatView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
-        jwt_token = request.owner.get_or_create_jwt_for_zendesk_chat()
+        jwt_token = request.owner.get_or_create_jwt_for_zendesk_chat(request.owner.name)
         return HttpResponse(jwt_token)

@@ -327,7 +327,7 @@ class TinkoffCallbackView(APIView):
                                                              error_code=-1)
                         session_order.confirm_payment(payment)
                     except ObjectDoesNotExist as e:
-                        get_logger().log(e.message)
+                        get_logger().info(e.message)
         else:
             get_logger().info("Wait closing session")
 

@@ -6,7 +6,7 @@ from os.path import isfile
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import send_mail
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views import View
@@ -753,3 +753,9 @@ class CompleteParkingSession(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, status=200)
+
+
+class ZendeskUserJWTChatView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        jwt_token = request.account.get_or_create_jwt_for_zendesk_chat()
+        return HttpResponse(jwt_token)

@@ -10,9 +10,9 @@ from django.db import models
 
 from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
 from base.validators import validate_phone_number
-from owners.validators import validate_inn, validate_kpp, validate_name
+from owners.validators import validate_inn, validate_kpp
 from parkings.models import Parking
-from parkpass.settings import ZENDESK_CHAT_SECRET, ZENDESK_WIDGET_SECRET
+from parkpass.settings import ZENDESK_WIDGET_SECRET
 
 
 class Owner(BaseAccount):
@@ -25,17 +25,6 @@ class Owner(BaseAccount):
     @property
     def type(self):
         return 'owner'
-
-    def get_or_create_jwt_for_zendesk_chat(self):
-        timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
-        payload = {
-            'name': self.name,
-            'email': self.email,
-            'external_id': "user_%s" % self.id,
-            'iat': timestamp,
-            'exp':timestamp + 120
-        }
-        return jwt.encode(payload, ZENDESK_CHAT_SECRET)
 
     def get_or_create_jwt_for_zendesk_widget(self):
         return self.get_or_create_jwt_for_zendesk(ZENDESK_WIDGET_SECRET)
