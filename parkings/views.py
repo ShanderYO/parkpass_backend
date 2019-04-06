@@ -178,7 +178,6 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
 
 
 class GetParkingView(LoginRequiredAPIView):
-
     def get(self, request, *args, **kwargs):
         try:
             parking = Parking.objects.get(id=kwargs["pk"], approved=True)
@@ -188,7 +187,8 @@ class GetParkingView(LoginRequiredAPIView):
                 "Target parking with such id not found"
             )
             return JsonResponse(e.to_dict(), status=400)
-        result_dict = serializer(parking, exclude_attr=("enabled", "vendor_id", "company_id", "max_client_debt",))
+        result_dict = serializer(parking, exclude_attr=("enabled", "vendor_id", "company_id", "max_client_debt",
+                                                        "tariff", "tariff_file_name", "tariff_file_content"))
         return JsonResponse(result_dict, status=200)
 
 
