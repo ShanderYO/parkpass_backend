@@ -160,7 +160,7 @@ class Order(models.Model):
                 Phone=self.account.phone,
                 Taxation="osn",
                 Items=[{
-                    "Name": "Binding card",
+                    "Name": u'Привязка карты',
                     "Price": 100,
                     "Quantity": 1.00,
                     "Amount": 100,
@@ -175,7 +175,7 @@ class Order(models.Model):
             Phone=str(self.session.client.phone),
             Taxation="osn",
             Items=[{
-                "Name": "Payment for parking session # %s" % self.session.id,
+                "Name": u'Оплата парковки # %s' % self.session.id,
                 "Price": str(int(self.sum*100)),
                 "Quantity": 1.00,
                 "Amount": str(int(self.sum*100)),
@@ -186,13 +186,6 @@ class Order(models.Model):
 
     def is_refunded(self):
         return self.refunded_sum == self.sum
-
-    def get_order_description(self):
-        if not self.session:
-            return "Init payment"
-        if self.sum == self.session.parking.max_client_debt:
-            return "Intermediate payment"
-        return "Completed payment"
 
     def try_pay(self):
         get_logger().info("Try make payment #%s", self.id)
@@ -282,7 +275,6 @@ class Order(models.Model):
         email = self.session.client.email
         render_data = {
             "order":self,
-            "nds":round(float(self.sum) * 1.10 * 0.10, 2),
             "email":email
         }
         msg_html = render_to_string('emails/fiscal_template_mail.html', render_data)
@@ -355,7 +347,7 @@ class TinkoffPayment(models.Model):
         data = {
             "Amount": str(amount),
             "OrderId": str(self.order.id),
-            "Description": "Payment for order #%s" % str(self.order.id)
+            "Description": u'Платеж за парковку #%s' % str(self.order.id)
         }
         if self.receipt_data:
             data["Receipt"] = self.receipt_data

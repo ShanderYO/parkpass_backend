@@ -74,7 +74,7 @@ class EmailConfirmation(models.Model):
 
     def is_expired(self):
         created_at = (self.created_at +
-                      timedelta(0, self.TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
+                      timedelta(0, self.TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=timezone.utc)
         return timezone.now() > created_at
 
     # TODO make async
