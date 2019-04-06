@@ -7,6 +7,7 @@ from django.db.models import signals
 
 from accounts.models import Account
 from base.utils import get_logger
+from parkpass.settings import ALLOWED_HOSTS
 from vendors.models import Vendor
 
 
@@ -84,6 +85,10 @@ class Parking(models.Model):
 
         tz_datetime = tzh.localize(dt)
         return tzh.normalize(tz_datetime).astimezone(pytz.utc)
+
+    def get_tariff_link(self):
+        template_url = "https://" + ALLOWED_HOSTS[0] + "/api/v1/parking/get/%s/tariff/"
+        return template_url % self.id if self.tariff_file_content else "-"
 
 
 class Wish(models.Model):

@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+import base64
 from datetime import timedelta
+from io import BytesIO
+
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
 from django.utils import timezone
+from django.views import View
 from dss.Serializer import serializer
 
 from accounts.models import Account
@@ -174,7 +178,6 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
 
 
 class GetParkingView(LoginRequiredAPIView):
-
     def get(self, request, *args, **kwargs):
         try:
             parking = Parking.objects.get(id=kwargs["pk"], approved=True)
@@ -184,8 +187,35 @@ class GetParkingView(LoginRequiredAPIView):
                 "Target parking with such id not found"
             )
             return JsonResponse(e.to_dict(), status=400)
-        result_dict = serializer(parking, exclude_attr=("enabled", "vendor_id", "company_id", "max_client_debt",))
+        result_dict = serializer(parking, exclude_attr=("enabled", "vendor_id", "company_id", "max_client_debt",
+                                                        "tariff", "tariff_file_name", "tariff_file_content"))
         return JsonResponse(result_dict, status=200)
+
+
+class GetTariffParkingView(View):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_staff:
+            return HttpResponseForbidden("Operation isn't permitted!")
+
+        try:
+            parking = Parking.objects.get(id=int(kwargs["pk"]))
+            if parking.tariff_file_content:
+                file_data = base64.b64decode(parking.tariff_file_content)
+                bytes_out = BytesIO()
+                bytes_out.write(file_data)
+                response = HttpResponse(
+                    bytes_out.getvalue(),
+                    content_type="application/pdf"
+                )
+                name = "parking_%d_tariff.pdf" % parking.id
+                response["Content-Disposition"] = "attachment; filename={}".format(name)
+                return response
+            return HttpResponse("Empty file content. Decoding error")
+
+        except ObjectDoesNotExist:
+            return HttpResponse("Parking doesn't exist. Please check link again")
+        except TypeError:
+            return HttpResponse("Invalid file content. Decoding error")
 
 
 class GetParkingViewList(LoginRequiredAPIView):

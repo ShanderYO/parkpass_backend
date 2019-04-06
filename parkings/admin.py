@@ -1,11 +1,18 @@
 from django.contrib import admin
 
 # Register your models here.
-from models import Parking, ParkingSession, ComplainSession, Wish
+from .models import (
+    Parking, ParkingSession,
+    ComplainSession, Wish
+)
+
 
 @admin.register(Parking)
-class ParkingAdmin(admin.ModelAdmin):
-    pass
+class ParkingModelAdmin(admin.ModelAdmin):
+    readonly_fields = ('tariff_download_link',)
+
+    def tariff_download_link(self, obj):
+        return obj.get_tariff_link()
 
 
 @admin.register(ParkingSession)

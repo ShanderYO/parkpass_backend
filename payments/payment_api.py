@@ -68,24 +68,30 @@ class TinkoffAPI():
                 return result
 
             except Exception as e:
+                get_logger().info(e)
                 return None
 
         except requests.exceptions.MissingSchema as e:
-            #print "Missing schema for request"
+            get_logger().info("Missing schema for request error")
+            get_logger().info(e)
             return None
 
         except requests.exceptions.ConnectionError as e:
-            #print "These aren't the domains we're looking for."
+            get_logger().info("requests.exceptions.ConnectionError")
+            get_logger().info(e)
             return None
 
         except requests.exceptions.ConnectTimeout as e:
-            #print "Too slow Mojo!"
+            get_logger().info("requests.exceptions.ConnectTimeout")
+            get_logger().info(e)
             return None
 
         except requests.exceptions.ReadTimeout as e:
-            #print "Waited too long between bytes."
+            get_logger().info("Waited too long between bytes error")
+            get_logger().info(e)
             return None
 
         except requests.exceptions.HTTPError as e:
-            #print "Server return 500."
+            get_logger().info("requests.exceptions.HTTPError")
+            get_logger().info(e)
             return None
