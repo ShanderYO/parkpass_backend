@@ -114,11 +114,13 @@ def force_pay(parking_session_id):
         else:
             not_paid_orders = Order.objects.filter(session=active_session, authorized=True, paid=False)
             for order in not_paid_orders:
-                try:
-                    payment = TinkoffPayment.objects.get(order=order, status=PAYMENT_STATUS_AUTHORIZED)
-                    order.confirm_payment(payment)
-                except ObjectDoesNotExist as e:
-                    pass
+                payments = TinkoffPayment.objects.filter(order=order)
+                for payment in payments:
+                    if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                        order.confirm_payment(payment)
+                        return
+                if payments.exists():
+                    order.confirm_payment(payments[0])
 
     except ObjectDoesNotExist:
         pass

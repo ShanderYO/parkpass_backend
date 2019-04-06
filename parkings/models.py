@@ -159,7 +159,8 @@ class ParkingSession(models.Model):
         (STATE_COMPLETED_BY_CLIENT_FULLY, 'Completed_by_client_fully'),
         (STATE_COMPLETED_BY_VENDOR, 'Completed_by_vendor'),
         (STATE_COMPLETED_BY_VENDOR_FULLY, 'Completed_by_vendor_fully'),
-        (STATE_COMPLETED, 'Completed'),
+        (STATE_COMPLETED, 'Completed without client start'),
+        (STATE_COMPLETED_FULLY, 'Completed'),
         (STATE_CLOSED, 'Closed'),
         (STATE_VERIFICATION_REQUIRED, 'Verification required')
     )
