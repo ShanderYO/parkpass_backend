@@ -141,6 +141,12 @@ class PasswordTestCase(TestCase):
         # self.assertTrue(self.account.check_password("uiop"))     # New password should be valid
         # self.assertFalse(self.account.check_password("qwerty"))  # Old password shouldn't
 
+    def test_zendesk_token(self):
+        url = URL_PREFIX + "jwt/chat/"
+        response = Client().get(url, **TOKEN_DICT)
+        print response.content
+        self.assertEqual(200, response.status_code)
+
 
 class LoginEmailTestCase(TestCase):
 

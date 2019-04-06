@@ -7,8 +7,8 @@ from accounts.views import (
     ForceStopParkingSession, ForcePayView, ResumeParkingSession, AccountParkingListView,
     GetReceiptView, ChangeEmailView, EmailConfirmationView, SendReceiptToEmailView, LoginWithEmailView,
     PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
-    GetParkingSessionView, OwnerIssueView, VendorIssueView
-)
+    GetParkingSessionView, OwnerIssueView, VendorIssueView,
+    ZendeskUserJWTChatView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -21,6 +21,8 @@ urlpatterns = [
 
     url(r'^owner/$', OwnerIssueView.as_view()),
     url(r'^vendor/$', VendorIssueView.as_view()),
+
+    url(r'^jwt/chat/$', ZendeskUserJWTChatView.as_view()),
 
     url(r'^me/$', AccountView.as_view()),
     url(r'^avatar/set/$', SetAvatarView.as_view()),

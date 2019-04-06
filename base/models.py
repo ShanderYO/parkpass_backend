@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 import binascii
+import datetime
 import os
 import random
+import time
 import uuid
 from datetime import timedelta
 from hashlib import md5
 from io import BytesIO
+
+from jose import jwt
 
 from PIL import Image
 from django.contrib.auth.hashers import check_password
@@ -22,7 +26,7 @@ from accounts.validators import validate_name
 from base.exceptions import ValidationException
 from base.validators import validate_phone_number
 from parkpass import settings
-from parkpass.settings import EMAIL_HOST_USER, AVATARS_URL, AVATARS_ROOT
+from parkpass.settings import EMAIL_HOST_USER, AVATARS_URL, AVATARS_ROOT, ZENDESK_CHAT_SECRET
 
 
 class Terminal(models.Model):
@@ -196,6 +200,17 @@ class BaseAccount(models.Model):
         if self.session_class.objects.filter(**{self.type: self}).exists():
             account_session = self.session_class.objects.get(**{self.type: self})
             account_session.delete()
+
+    def get_or_create_jwt_for_zendesk_chat(self, name):
+        timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
+        payload = {
+            'name': name if name else self.first_name + " " + self.last_name,
+            'email': self.email,
+            'external_id': "user_%s" % self.id,
+            'iat': timestamp,
+            'exp':timestamp + 120
+        }
+        return jwt.encode(payload, ZENDESK_CHAT_SECRET)
 
 
 class BaseAccountSession(models.Model):
