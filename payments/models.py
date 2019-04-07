@@ -160,7 +160,7 @@ class Order(models.Model):
                 Phone=self.account.phone,
                 Taxation="osn",
                 Items=[{
-                    "Name": u'Привязка карты',
+                    "Name": "Привязка карты",
                     "Price": 100,
                     "Quantity": 1.00,
                     "Amount": 100,
@@ -175,7 +175,7 @@ class Order(models.Model):
             Phone=str(self.session.client.phone),
             Taxation="osn",
             Items=[{
-                "Name": u'Оплата парковки # %s' % self.session.id,
+                "Name": "Оплата парковки # %s" % self.session.id,
                 "Price": str(int(self.sum*100)),
                 "Quantity": 1.00,
                 "Amount": str(int(self.sum*100)),
@@ -347,7 +347,7 @@ class TinkoffPayment(models.Model):
         data = {
             "Amount": str(amount),
             "OrderId": str(self.order.id),
-            "Description": u'Платеж за парковку #%s' % str(self.order.id)
+            "Description": "Платеж за парковку #%s" % str(self.order.id)
         }
         if self.receipt_data:
             data["Receipt"] = self.receipt_data
