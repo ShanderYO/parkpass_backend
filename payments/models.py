@@ -244,6 +244,10 @@ class Order(models.Model):
         result = TinkoffAPI().sync_call(
             TinkoffAPI.CHARGE, request_data
         )
+        if result[u'Status'] == u'AUTHORIZED':
+            payment.status = PAYMENT_STATUS_AUTHORIZED
+            payment.save()
+
         get_logger().info(str(result))
 
     def get_order_with_fiscal_dict(self):
