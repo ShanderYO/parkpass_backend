@@ -87,9 +87,9 @@ class EmailConfirmation(models.Model):
             "email": self.email,
             "confirmation_href": self._generate_confirmation_link()
         }
-        msg_html = render_to_string('emails/email_confirm_mail.html',
+        msg_html = render_to_string('emails/account_activation.html',
                                     render_data)
-        send_mail('Изменение адреса электронной почты в системе Parkpass', "", EMAIL_HOST_USER,
+        send_mail('Подтвердите e-mail', "", EMAIL_HOST_USER,
                   ['%s' % str(self.email)], html_message=msg_html)
 
     def _generate_confirmation_link(self):
@@ -158,11 +158,27 @@ class BaseAccount(models.Model):
         raw_password = self.password
         self.password = make_password(raw_password)
 
-    def create_password_and_send(self):
+    def create_password_and_send(self, is_recovery=False):
         raw_password = self.generate_random_password()
         self.set_password(raw_password)
         self.save()
-        self.send_password_mail(raw_password)
+        if is_recovery:
+            self.send_recovery_password_mail(raw_password)
+        else:
+            self.send_password_mail(raw_password)
+
+    def send_recovery_password_mail(self, raw_password):
+        if not self.email:
+            return
+
+        render_data = {
+            "email": self.email,
+            "password": raw_password,
+        }
+        msg_html = render_to_string('emails/password_recovery.html',
+                                    render_data)
+        send_mail('Восстановление пароля', "", EMAIL_HOST_USER,
+                  [str(self.email)], html_message=msg_html)
 
     def send_password_mail(self, raw_password):
         if not self.email:
@@ -171,9 +187,9 @@ class BaseAccount(models.Model):
             "email": self.email,
             "password": raw_password,
         }
-        msg_html = render_to_string('emails/password_mail.html',
+        msg_html = render_to_string('emails/password_set.html',
                                     render_data)
-        send_mail('Пароль для личного кабинета системы Parkpass', "", EMAIL_HOST_USER,
+        send_mail('E-mail подтвержден', "", EMAIL_HOST_USER,
                   [str(self.email)], html_message=msg_html)
 
     def generate_random_password(self):
@@ -181,7 +197,7 @@ class BaseAccount(models.Model):
         return raw_password
 
     def create_sms_code(self):
-        self.sms_code = "".join([str(random.randrange(1,9)) for x in xrange(5)])
+        self.sms_code = "".join([str(random.randrange(1,9)) for x in range(5)])
 
     def login(self):
         d = {self.type: self}
@@ -201,16 +217,37 @@ class BaseAccount(models.Model):
             account_session = self.session_class.objects.get(**{self.type: self})
             account_session.delete()
 
-    def get_or_create_jwt_for_zendesk_chat(self, name):
+    def send_deactivated_email(self):
+        if not self.email:
+            return
+        msg_html = render_to_string('emails/account_deactivated.html', {})
+        send_mail('Банковские карты удалены', "", EMAIL_HOST_USER,
+                  [str(self.email)], html_message=msg_html)
+
+    def send_wellcome_email(self):
+        pass
+
+    def get_or_create_jwt_for_zendesk_chat(self, name=None):
         timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
         payload = {
-            'name': name if name else self.first_name + " " + self.last_name,
+            'name': self.get_represent_name(),
             'email': self.email,
             'external_id': "user_%s" % self.id,
             'iat': timestamp,
             'exp':timestamp + 120
         }
         return jwt.encode(payload, ZENDESK_CHAT_SECRET)
+
+    def get_represent_name(self):
+        if hasattr(self, "name") and getattr(self, "name"):
+            return getattr(self, "name")
+
+        if self.first_name or self.last_name:
+            if self.first_name:
+                if self.last_name:
+                    return self.first_name + " "+ self.last_name
+                return self.first_name
+            return self.last_name
 
 
 class BaseAccountSession(models.Model):
@@ -223,9 +260,6 @@ class BaseAccountSession(models.Model):
     class Meta:
         ordering = ["-expired_at"]
         abstract = True
-
-    #    def __unicode__(self):
-    #        return "Session for %s %s" % (self.account.first_name, self.account.last_name)
 
     @classmethod
     def get_account_by_token(cls, token):
@@ -285,3 +319,10 @@ class BaseAccountIssue(models.Model):
 
     def __unicode__(self):
         return '%s %s' % (self.name, self.created_at)
+
+    def send_mail(self, email):
+        msg_html = render_to_string('emails/issue_accepted.html',
+                                    {'number': str(self.id)})
+        send_mail('Новое обращение в поддержу', "", EMAIL_HOST_USER,
+                  ['%s' % str(email)], html_message=msg_html)
+

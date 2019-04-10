@@ -91,7 +91,7 @@ class Authorization(TestCase):
         # print json.dumps(json.loads(response.content), indent=4), 111
 
     def test_zendesk_token(self):
-        url = URL_PREFIX + "jwt/"
+        url = URL_PREFIX + "jwt/widget/"
         response = Client().get(url, **TOKEN_DICT)
         print response.content
         self.assertEqual(200, response.status_code)

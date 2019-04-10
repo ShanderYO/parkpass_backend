@@ -1,46 +1,7 @@
-import uuid
-from datetime import datetime, timedelta
-
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.mail import send_mail
 from django.db import models
-from django.template.loader import render_to_string
 
 from base.models import BaseAccount, BaseAccountSession
-from parkpass.settings import EMAIL_HOST_USER
-
-
-class EmailConfirmation(models.Model):
-    TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS = 60 * 60 * 24 * 30  # One month
-
-    email = models.EmailField()
-    code = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __unicode__(self):
-        return "Code %s [%s]" % (self.code, self.email)
-
-    def create_code(self):
-        self.code = str(uuid.uuid4()).replace('-', '')
-
-    def is_expired(self):
-        created_at = (self.created_at +
-                      timedelta(0, self.TOKEN_EXPIRATION_TIMEDELTA_IN_SECONDS)).replace(tzinfo=None)
-        return datetime.now() > created_at
-
-    # TODO make async
-    def send_confirm_mail(self):
-        render_data = {
-            "email": self.email,
-            "confirmation_href": self._generate_confirmation_link()
-        }
-        msg_html = render_to_string('emails/email_confirm_mail.html',
-                                    render_data)
-        send_mail('Request to bind mail', "", EMAIL_HOST_USER,
-                  ['%s' % str(self.email)], html_message=msg_html)
-
-    def _generate_confirmation_link(self):
-        return "https://parkpass.ru/api/v1/account/email/confirm/" + self.code + "/"
 
 
 class Account(BaseAccount):

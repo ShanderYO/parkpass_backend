@@ -96,14 +96,14 @@ class ParkingStatisticsView(LoginRequiredAPIView):
 
         if td:
             t = timezone.now() - td
-            sessions = sessions.filter(created_at__gt=t)
+            sessions = sessions.filter(started_at__gt=t)
 
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
             sessions = sessions.filter(
-                created_at__gt=from_date_datetime,
-                created_at__lt=to_date_datetime
+                started_at__gt=from_date_datetime,
+                started_at__lt=to_date_datetime
             )
         else:
             pass
@@ -342,17 +342,20 @@ class ParkingsTopView(LoginRequiredAPIView):
         else:
             pass
 
-        parking_session_qs = ParkingSession.objects.filter(completed_at__isnull=False)
+        sessions = ParkingSession.objects.filter(
+            parking__owner=request.owner
+        )
+
         if td:
             t = timezone.now() - td
-            parking_session_qs = parking_session_qs.filter(completed_at__gt=t)
+            sessions = sessions.filter(started_at__gt=t)
 
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
-            parking_session_qs = parking_session_qs.filter(
-                created_at__gt=from_date_datetime,
-                created_at__lt=to_date_datetime
+            sessions = sessions.filter(
+                started_at__gt=from_date_datetime,
+                started_at__lt=to_date_datetime
             )
         else:
             pass
@@ -361,18 +364,16 @@ class ParkingsTopView(LoginRequiredAPIView):
 
         r = []
 
-        # TODO create sql raw query
         for p in parkings:
             r.append({
                 'id': p.id,
                 'name': p.name,
                 'address': p.address,
                 'city': p.city,
-                'income': parking_session_qs.filter(parking=p).aggregate(Sum('debt'))[
+                'income': sessions.filter(parking=p).aggregate(Sum('debt'))[
                     'debt__sum'],
             })
         r = sorted(r, key=lambda x: -x['income'] if x['income'] else 0)
-        #end_index = count if len(r) >= count else count - (count- len(r))
         if page is None:
             page=0
 
@@ -656,8 +657,9 @@ class PasswordRestoreView(APIView):
 
         try:
             account = Account.objects.get(email=email)
-            account.create_password_and_send()
+            account.create_password_and_send(is_recovery=True)
             return JsonResponse({}, status=200)
+
         except ObjectDoesNotExist:
             e = AuthException(
                 AuthException.NOT_FOUND_CODE,
@@ -767,10 +769,4 @@ class EmailConfirmationView(View):
 class ZendeskJWTWidgetView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         jwt_token = request.owner.get_or_create_jwt_for_zendesk_widget()
-        return HttpResponse(jwt_token)
-
-
-class ZendeskJWTChatView(LoginRequiredAPIView):
-    def get(self, request, *args, **kwargs):
-        jwt_token = request.owner.get_or_create_jwt_for_zendesk_chat(request.owner.name)
         return HttpResponse(jwt_token)

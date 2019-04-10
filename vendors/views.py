@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
-from django.core.mail import send_mail
 from django.db.models import Sum
-from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views import View
 
-from accounts.sms_gateway import SMSGateway
 from accounts.validators import *
 from base.exceptions import AuthException
 from base.models import EmailConfirmation
@@ -14,12 +11,10 @@ from base.validators import *
 from base.validators import validate_phone_number
 from base.views import APIView
 from base.views import generic_login_required_view
-from owners.validators import IssueValidator
 from owners.models import OwnerApplication
 from owners.validators import validate_inn, validate_kpp
 from parkings.models import ParkingSession, Parking
 from parkings.validators import validate_latitude, validate_longitude
-from parkpass.settings import EMAIL_HOST_USER
 from .models import Vendor
 from .models import Vendor as Account
 from .models import VendorSession as AccountSession
@@ -322,31 +317,6 @@ class LoginView(APIView):
                 AuthException.NOT_FOUND_CODE,
                 "Vendor with such login not found")
             return JsonResponse(e.to_dict(), status=400)
-
-
-class IssueView(APIView):
-    validator_class = IssueValidator
-
-    def post(self, request):
-        name = request.data.get("name", "")
-        phone = request.data.get("phone", "")
-        email = request.data.get("email", "")
-        issue = Issue(
-            name=name,
-            phone=phone,
-            email=email
-        )
-        issue.save()
-        text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
-        if phone:
-            sms_gateway = SMSGateway()
-            sms_gateway.send_sms(phone, text, message='')
-        if email:
-            msg_html = render_to_string('emails/issue_accepted.html',
-                                        {'number': str(issue.id)})
-            send_mail('Заявка в систему Parkpass принята', "", EMAIL_HOST_USER,
-                      ['%s' % str(email)], html_message=msg_html)
-        return JsonResponse({}, status=200)
 
 
 class LoginWithPhoneView(APIView):
