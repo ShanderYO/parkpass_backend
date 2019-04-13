@@ -212,7 +212,7 @@ class ParkingSession(models.Model):
         unique_together = ("session_id", "parking")
 
     def __unicode__(self):
-        return "%s [%s]" % (self.parking.id, self.client.id)
+        return "%s [%s] session %s" % (self.parking.id, self.client.id, self.session_id)
 
     def save(self, *args, **kwargs):
         #if self.try_refund:

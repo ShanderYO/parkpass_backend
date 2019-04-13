@@ -115,7 +115,7 @@ class BaseAccount(models.Model):
         abstract = True
 
     def __unicode__(self):
-        return "%s %s" % (self.first_name, self.last_name)
+        return "%s %s [ID: %s]" % (self.first_name, self.last_name, self.id)
 
     @property
     def session_class(self):
