@@ -11,10 +11,13 @@ from .models import (
 class ParkingModelAdmin(admin.ModelAdmin):
     search_fields = ('name', 'client',)
 
-    list_filter = ('parking', 'started_at',
-                   'completed_at', 'client',)
+    list_display = ('name', 'city', 'address',
+                    'enabled', 'approved', 'parkpass_status',)
 
-    readonly_fields = ('created_at', 'tariff_download_link')
+    list_filter = ('city', 'enabled', 'approved',
+                   'parkpass_status', 'vendor', 'owner',)
+
+    readonly_fields = ('tariff_download_link',)
 
     def tariff_download_link(self, obj):
         return obj.get_tariff_link()
