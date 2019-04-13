@@ -316,7 +316,6 @@ PAYMENT_STATUSES = (
 
 
 class TinkoffPayment(models.Model):
-
     payment_id = models.BigIntegerField(unique=True, blank=True, null=True)
     status = models.SmallIntegerField(choices=PAYMENT_STATUSES, default=PAYMENT_STATUS_INIT)
     order = models.ForeignKey(Order, null=True, blank=True)  # TODO DELETE FROM THIS

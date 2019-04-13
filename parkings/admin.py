@@ -9,6 +9,14 @@ from .models import (
 
 @admin.register(Parking)
 class ParkingModelAdmin(admin.ModelAdmin):
+    search_fields = ('name', 'client',)
+
+    list_display = ('name', 'city', 'address',
+                    'enabled', 'approved', 'parkpass_status',)
+
+    list_filter = ('city', 'enabled', 'approved',
+                   'parkpass_status', 'vendor', 'owner',)
+
     readonly_fields = ('tariff_download_link',)
 
     def tariff_download_link(self, obj):
@@ -17,14 +25,24 @@ class ParkingModelAdmin(admin.ModelAdmin):
 
 @admin.register(ParkingSession)
 class ParkingSessionAdmin(admin.ModelAdmin):
-    pass
+    search_fields = ('session_id', 'client',)
+
+    list_filter = ('parking', 'started_at',
+                   'completed_at', 'client',)
+
+    list_display = ('session_id', 'client', 'parking',
+                    'state', 'is_suspended', 'debt', 'duration')
+
+    exclude_fields = ('created_at',)
+
+    readonly_fields = ('duration', 'extra_data')
 
 
 @admin.register(ComplainSession)
 class ComplainSessionAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('type', 'account', 'session',)
 
 
 @admin.register(Wish)
 class WantedParkingAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('parking', 'user',)

@@ -27,6 +27,10 @@ class AccountSession(BaseAccountSession):
     created_at = models.DateField(auto_now_add=True)
     account = models.OneToOneField(Account)
 
+    def __unicode__(self):
+        return "Session for %s %s [ID: %s]" % (
+            self.account.first_name, self.account.last_name, self.account.id)
+
     @classmethod
     def get_account_by_token(cls, token):
         try:

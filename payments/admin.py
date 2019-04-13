@@ -6,22 +6,32 @@ from models import CreditCard, TinkoffPayment, Order, FiskalNotification
 
 @admin.register(CreditCard)
 class CreditCardAdmin(admin.ModelAdmin):
-    pass
+    search_fields = ('account', 'id', 'card_id',)
+
+    list_display = ('id', 'account', 'card_id',
+                     'pan', 'exp_date',)
+
+    readonly_fields = ('account','card_id', 'pan',
+                       'exp_date', 'rebill_id', 'created_at',)
+
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    pass
+    search_fields = ('session',)
+
+    list_display = ('id', 'session', 'sum',
+                    'authorized', 'paid',)
+
+    readonly_fields = ('sum', 'session',
+                       'fiscal_notification', 'created_at',)
+
 
 @admin.register(TinkoffPayment)
 class TinkoffPaymentAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('payment_id', 'status', 'order',
+                    'error_code', 'created_at',)
+
 
 @admin.register(FiskalNotification)
 class FiskalNotificationAdmin(admin.ModelAdmin):
     pass
-
-"""
-@admin.register(CreditCardBindRequest)
-class CreditCardBindRequestAdmin(admin.ModelAdmin):
-    pass
-"""
