@@ -9,13 +9,13 @@ from .models import (
 
 @admin.register(Parking)
 class ParkingModelAdmin(admin.ModelAdmin):
-    search_fields = ('name', 'client',)
+    search_fields = ('name', 'address',)
 
     list_display = ('name', 'city', 'address',
                     'enabled', 'approved', 'parkpass_status',)
 
-    list_filter = ('city', 'enabled', 'approved',
-                   'parkpass_status', 'vendor', 'owner',)
+    list_filter = ('approved', 'enabled', 'parkpass_status',
+                   'city', 'vendor', 'owner',)
 
     readonly_fields = ('tariff_download_link',)
 
@@ -25,17 +25,20 @@ class ParkingModelAdmin(admin.ModelAdmin):
 
 @admin.register(ParkingSession)
 class ParkingSessionAdmin(admin.ModelAdmin):
-    search_fields = ('session_id', 'client',)
+    search_fields = ('session_id',)
 
     list_filter = ('parking', 'started_at',
                    'completed_at', 'client',)
 
     list_display = ('session_id', 'client', 'parking',
-                    'state', 'is_suspended', 'debt', 'duration')
+                    'client_state', 'is_suspended', 'debt', 'duration',)
 
     exclude_fields = ('created_at',)
 
-    readonly_fields = ('duration', 'extra_data')
+    readonly_fields = ('started_at', 'duration', 'extra_data',)
+
+    def duration(self, obj):
+        return "%d:%02d" % (obj.duration // 60, obj.duration % 60)
 
 
 @admin.register(ComplainSession)
