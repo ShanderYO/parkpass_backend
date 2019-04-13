@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import base64
-from os.path import isfile
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.mail import send_mail
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
-from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views import View
 from dss.Serializer import serializer
@@ -25,7 +22,7 @@ from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView, ObjectView
 from owners.models import OwnerIssue
 from parkings.models import ParkingSession, Parking
-from parkpass.settings import DEFAULT_AVATAR_URL, EMAIL_HOST_USER
+from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from vendors.models import VendorIssue
@@ -104,6 +101,11 @@ class OwnerIssueView(APIView, ObjectView):
         name = request.data.get("name", "")
         phone = request.data.get("phone", "")
         email = request.data.get("email", "")
+
+        if phone == "" and email == "":
+            pass
+            # TODO add exception code
+
         issue = OwnerIssue(
             name=name,
             phone=phone,
@@ -115,10 +117,7 @@ class OwnerIssueView(APIView, ObjectView):
             sms_gateway = SMSGateway()
             sms_gateway.send_sms(phone, text, message='')
         if email:
-            msg_html = render_to_string('emails/issue_accepted.html',
-                                        {'number': str(issue.id)})
-            send_mail('Заявка в систему Parkpass принята', "", EMAIL_HOST_USER,
-                      ['%s' % str(email)], html_message=msg_html)
+            issue.send_mail(email)
 
 
 class VendorIssueView(APIView, ObjectView):
@@ -141,10 +140,7 @@ class VendorIssueView(APIView, ObjectView):
             sms_gateway = SMSGateway()
             sms_gateway.send_sms(phone, text, message='')
         if email:
-            msg_html = render_to_string('emails/issue_accepted.html',
-                                        {'number': str(issue.id)})
-            send_mail('Заявка в систему Parkpass принята', "", EMAIL_HOST_USER,
-                      ['%s' % str(email)], html_message=msg_html)
+            issue.send_mail(email)
 
 
 class LoginView(APIView):
@@ -204,7 +200,7 @@ class PasswordRestoreView(APIView):
 
         try:
             account = Account.objects.get(email=email)
-            account.create_password_and_send()
+            account.create_password_and_send(is_recovery=True)
             return JsonResponse({}, status=200)
         except ObjectDoesNotExist:
             e = AuthException(
@@ -757,5 +753,8 @@ class CompleteParkingSession(LoginRequiredAPIView):
 
 class ZendeskUserJWTChatView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
-        jwt_token = request.account.get_or_create_jwt_for_zendesk_chat()
+        name = None
+        if request.owner:
+            name = request.owner.name
+        jwt_token = request.account.get_or_create_jwt_for_zendesk_chat(name)
         return HttpResponse(jwt_token)

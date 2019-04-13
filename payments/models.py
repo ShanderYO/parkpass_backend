@@ -278,11 +278,11 @@ class Order(models.Model):
     def send_receipt_to_email(self):
         email = self.session.client.email
         render_data = {
-            "order":self,
-            "email":email
+            "order": self,
+            "email": email
         }
-        msg_html = render_to_string('emails/fiscal_template_mail.html', render_data)
-        send_mail('Кассовый чек оплаты в сервисе Parkpass', "", EMAIL_HOST_USER,
+        msg_html = render_to_string('emails/receipt.html', render_data)
+        send_mail('Электронная копия чека', "", EMAIL_HOST_USER,
                   ['%s' % str(email)], html_message=msg_html)
 
 

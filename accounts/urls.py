@@ -1,5 +1,6 @@
 from django.conf.urls import url
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.views.generic import TemplateView
 
 from accounts.views import (
     LoginView, LogoutView, AccountView, ConfirmLoginView, AddCardView, DeleteCardView,
@@ -44,6 +45,8 @@ urlpatterns = [
     url(r'^session/list/$', AccountParkingListView.as_view()),
     url(r'^session/debt/$', DebtParkingSessionView.as_view()),
     url(r'^session/pay/$', ForcePayView.as_view()),
+
+    url(r'^email/$', TemplateView.as_view(template_name="emails/receipt.html")),
 ]
 
 urlpatterns += staticfiles_urlpatterns()

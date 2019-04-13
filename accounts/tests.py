@@ -310,12 +310,6 @@ class AccountWithCardTestCase(AccountTestCase):
             account=account,
         )
 
-    def test_add_card_request(self):
-        url = URL_PREFIX + "card/add/"
-
-        response = Client().post(url, **TOKEN_DICT)
-        self.assertEqual(response.status_code, 200)
-
     def test_set_default_not_exist_card(self):
         url = URL_PREFIX + "card/default/"
 
@@ -818,7 +812,7 @@ class Issue(TestCase):
 
         response = Client().post(url, body, content_type='application/json')
         # print response.content
-        self.assertEqual(400, response.status_code)
+        self.assertEqual(200, response.status_code)
 
     def test_no_name(self):
         url = URL_PREFIX + 'owner/'
@@ -830,5 +824,5 @@ class Issue(TestCase):
 
         response = Client().post(url, body, content_type='application/json')
         # print response.content
-        self.assertEqual(400, response.status_code)
+        self.assertEqual(200, response.status_code)
 
