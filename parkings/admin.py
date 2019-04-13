@@ -31,14 +31,14 @@ class ParkingSessionAdmin(admin.ModelAdmin):
                    'completed_at', 'client',)
 
     list_display = ('session_id', 'client', 'parking',
-                    'client_state', 'is_suspended', 'debt', 'duration')
+                    'client_state', 'is_suspended', 'debt', 'duration',)
 
     exclude_fields = ('created_at',)
 
-    readonly_fields = ('started_at', 'duration', 'extra_data')
+    readonly_fields = ('started_at', 'duration', 'extra_data',)
 
     def duration(self, obj):
-        return "%d:%02d" % (obj.duration // 60 , obj.duration % 60)
+        return "%d:%02d" % (obj.duration // 60, obj.duration % 60)
 
 
 @admin.register(ComplainSession)

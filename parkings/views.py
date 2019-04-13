@@ -44,19 +44,21 @@ class WishView(LoginRequiredAPIView):
 
     def get(self, request, *args, **kwargs):
         try:
-            parking = Parking.objects.get(id=int(kwargs['parking']), approved=True)
+            parking = Parking.objects.get(id=int(kwargs['parking']), approved=False)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Target parking with such id not found"
+                "Target parking with such id and not approved is not found"
             )
             return JsonResponse(e.to_dict(), status=400)
+        """
         if parking.enabled:
             e = ValidationException(
                 ValidationException.ALREADY_EXISTS,
                 "This parking is already able to use"
             )
             return JsonResponse(e.to_dict(), status=400)
+        """
         user = request.account
         Wish.objects.create(parking=parking, user=user)
         return JsonResponse({}, status=200)
@@ -180,14 +182,14 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
 class GetParkingView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         try:
-            parking = Parking.objects.get(id=kwargs["pk"], approved=True)
+            parking = Parking.objects.get(id=kwargs["pk"])
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
                 "Target parking with such id not found"
             )
             return JsonResponse(e.to_dict(), status=400)
-        result_dict = serializer(parking, exclude_attr=("enabled", "vendor_id", "company_id", "max_client_debt",
+        result_dict = serializer(parking, exclude_attr=("vendor_id", "company_id", "max_client_debt",
                                                         "tariff", "tariff_file_name", "tariff_file_content"))
         return JsonResponse(result_dict, status=200)
 
@@ -258,7 +260,8 @@ class GetParkingViewList(LoginRequiredAPIView):
 
         response_dict = dict()
         response_dict["result"] = serializer(
-            parking_list, include_attr=("id","name","latitude","longitude","free_places")
+            parking_list, include_attr=("id", "name", "latitude",
+                                        "longitude", "free_places", "approved",)
         )
         return JsonResponse(response_dict, status=200)
 

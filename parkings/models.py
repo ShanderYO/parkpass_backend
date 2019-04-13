@@ -16,9 +16,8 @@ class ParkingManager(models.Manager):
         return self.filter(
             latitude__range=[rb_point[0], lt_point[0]],
             longitude__range=[lt_point[1], rb_point[1]],
-            enabled=True, approved=True
+            enabled=True
         )
-
 
 DEFAULT_PARKING_TIMEZONE = 'Europe/Moscow'
 ALL_TIMEZONES = sorted((item, item) for item in pytz.all_timezones)
