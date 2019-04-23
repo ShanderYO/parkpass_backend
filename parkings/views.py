@@ -59,8 +59,10 @@ class WishView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         """
+
         user = request.account
-        Wish.objects.create(parking=parking, user=user)
+        wish = Wish.objects.create(parking=parking, user=user)
+        wish.add_account(user)
         return JsonResponse({}, status=200)
 
 

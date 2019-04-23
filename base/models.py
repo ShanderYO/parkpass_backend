@@ -227,7 +227,7 @@ class BaseAccount(models.Model):
     def send_wellcome_email(self):
         pass
 
-    def get_or_create_jwt_for_zendesk_chat(self, name=None):
+    def get_or_create_jwt_for_zendesk_chat(self):
         timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
         payload = {
             'name': self.get_represent_name(),

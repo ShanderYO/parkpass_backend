@@ -105,6 +105,31 @@ class Wish(models.Model):
     def get_wanted_count(cls, parking):
         return len(cls.objects.all().filter(parking=parking))
 
+    def add_account(self, account):
+        count = Wish.get_wanted_count(self.parking)
+
+        try:
+            top_parking_wish = TopParkingWish.objects.get(parking=self.parking)
+            top_parking_wish.count += 1
+            top_parking_wish.users.add(account)
+            top_parking_wish.save()
+
+        except ObjectDoesNotExist:
+            top_parking_wish = TopParkingWish(parking=self.parking, count=count)
+            top_parking_wish.save()
+            for wish in Wish.objects.filter(parking=self.parking).select_related('user'):
+                top_parking_wish.users.add(wish.user)
+            top_parking_wish.save()
+
+
+class TopParkingWish(models.Model):
+    parking = models.OneToOneField(to=Parking)
+    users = models.ManyToManyField(Account)
+    count = models.IntegerField(default=0)
+
+    def __unicode__(self):
+        return self.parking.name
+
 
 class ParkingSession(models.Model):
 
