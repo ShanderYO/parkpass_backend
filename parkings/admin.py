@@ -3,8 +3,8 @@ from django.contrib import admin
 # Register your models here.
 from .models import (
     Parking, ParkingSession,
-    ComplainSession, Wish
-)
+    ComplainSession, Wish,
+    TopParkingWish)
 
 
 @admin.register(Parking)
@@ -46,6 +46,6 @@ class ComplainSessionAdmin(admin.ModelAdmin):
     list_display = ('type', 'account', 'session',)
 
 
-@admin.register(Wish)
-class WantedParkingAdmin(admin.ModelAdmin):
-    list_display = ('parking', 'user',)
+@admin.register(TopParkingWish)
+class TopParkingWishAdmin(admin.ModelAdmin):
+    list_display = ('parking', 'count',)
