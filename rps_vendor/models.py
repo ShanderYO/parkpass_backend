@@ -57,7 +57,7 @@ class RpsParking(models.Model):
         self.last_request_date = timezone.now()
         self.last_request_body = payload
 
-        url = "http://127.0.0.1:8000/api/v1/parking/rps/mock/debt/"
+        url = "https://parkpass.ru/api/v1/parking/rps/mock/debt/"
 
         try:
             r = requests.post(url, data=payload, headers=headers,
@@ -132,7 +132,7 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_AUTHORIZED
         self.save()
 
-        url = "http://127.0.0.1:8000/api/v1/parking/rps/mock/authorized/"
+        url = "https://parkpass.ru/api/v1/parking/rps/mock/authorized/"
 
         payload = json.dump({
             "card_id": self.parking_card.card_id,
@@ -145,7 +145,7 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_CONFIRMED
         self.save()
 
-        url = "http://127.0.0.1:8000/api/v1/parking/rps/mock/confirm/"
+        url = "https://parkpass.ru/api/v1/parking/rps/mock/confirm/"
 
         payload = json.dump({
             "card_id": self.parking_card.card_id,
@@ -158,7 +158,7 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_ERROR
         self.save()
 
-        url = "http://127.0.0.1:8000/api/v1/parking/rps/mock/refund/"
+        url = "https://parkpass.ru/api/v1/parking/rps/mock/refund/"
 
         payload = json.dump({
             "card_id": self.parking_card.card_id,
