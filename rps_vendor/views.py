@@ -82,7 +82,7 @@ class GetParkingCardDebt(APIView):
 
         parking_card, _ = ParkingCard.objects.get_or_create(
             card_id=card_id,
-            defaults={'phone': phone},
+            defaults={'phone': phone}
         )
         try:
             rps_parking = RpsParking.objects.get(id=parking_id)
@@ -183,13 +183,11 @@ class GetCardSessionStatus(APIView):
 class MockingGetParkingCardDebt(APIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
-        parking_id = request.data["parking_id"]
         phone = request.data["phone"]
-        get_logger().info((card_id, parking_id, phone,))
+        get_logger().info((card_id, phone,))
 
         response_dict = dict(
             card_id=card_id,
-            parking_id=parking_id,
             duration=200,
             debt=100
         )
@@ -199,11 +197,10 @@ class MockingGetParkingCardDebt(APIView):
 class MockingOrderAuthorized(APIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
-        parking_id = request.data["parking_id"]
         order_id = request.data["order_id"]
         sum = request.data["sum"]
 
-        get_logger().info((card_id, parking_id, order_id, sum,))
+        get_logger().info((card_id, order_id, sum,))
 
         return JsonResponse({}, status=200)
 
@@ -211,20 +208,18 @@ class MockingOrderAuthorized(APIView):
 class MockingOrderConfirm(APIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
-        parking_id = request.data["parking_id"]
         order_id = request.data["order_id"]
 
-        get_logger().info((card_id, parking_id, order_id,))
+        get_logger().info((card_id, order_id,))
         return JsonResponse({}, status=200)
 
 
 class MockingOrderRefund(APIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
-        parking_id = request.data["parking_id"]
         order_id = request.data["order_id"]
         refund_sum = request.data["refund_sum"]
         reason = request.data["refund_reason"]
 
-        get_logger().info((card_id, parking_id, order_id, refund_sum, reason,))
+        get_logger().info((card_id, order_id, refund_sum, reason,))
         return JsonResponse({}, status=200)

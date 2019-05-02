@@ -76,7 +76,7 @@ class OwnerIssue(BaseAccountIssue):
 
 
 class Company(models.Model):
-    owner = models.ForeignKey(to=Owner)
+    owner = models.ForeignKey(to=Owner, null=True, blank=True)
     name = models.CharField(max_length=256)
     inn = models.CharField(max_length=15, validators=(validate_inn,), null=True, blank=True)
     kpp = models.CharField(max_length=15, validators=(validate_kpp,), null=True, blank=True)

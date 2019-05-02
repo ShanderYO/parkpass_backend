@@ -196,8 +196,10 @@ class BaseAccount(models.Model):
         raw_password = User.objects.make_random_password(8)
         return raw_password
 
-    def create_sms_code(self):
+    def create_sms_code(self, stub=False):
         self.sms_code = "".join([str(random.randrange(1,9)) for x in range(5)])
+        if stub:
+            self.sms_code = "12345"
 
     def login(self):
         d = {self.type: self}

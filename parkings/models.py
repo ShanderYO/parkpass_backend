@@ -57,7 +57,10 @@ class Parking(models.Model):
     tariff_file_name = models.TextField(null=True, blank=True)
     tariff_file_content = models.TextField(null=True, blank=True)
 
-    tz_name = models.CharField(choices=ALL_TIMEZONES, max_length=64, default=DEFAULT_PARKING_TIMEZONE)
+    tz_name = models.CharField(
+        choices=ALL_TIMEZONES,
+        max_length=64,
+        default=DEFAULT_PARKING_TIMEZONE)
 
     objects = models.Manager()
     parking_manager = ParkingManager()

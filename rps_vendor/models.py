@@ -10,7 +10,6 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 from parkings.models import Parking
-from payments.models import Order
 
 
 class RpsParking(models.Model):
@@ -34,13 +33,14 @@ class RpsParking(models.Model):
 
     def get_parking_card_debt(self, parking_card):
         debt, duration = self._make_http_for_parking_card_debt(parking_card)
-        card_session, _ = RpsParkingCardSession.object.get_or_create(
+        card_session, _ = RpsParkingCardSession.objects.get_or_create(
             parking_card=parking_card,
             parking_id=self.id,
-            defaults={"debt": debt, "duration":duration}
+            defaults={"debt": debt, "duration": duration}
         )
         if debt > 0:
             card_session.debt = debt
+            card_session.duration = duration
             card_session.save()
 
         return serializer(card_session)
@@ -57,7 +57,7 @@ class RpsParking(models.Model):
         self.last_request_date = timezone.now()
         self.last_request_body = payload
 
-        url = "http://127.0.0.1:8000/rps/mock/"
+        url = "http://127.0.0.1:8000/api/v1/parking/rps/mock/debt/"
 
         try:
             r = requests.post(url, data=payload, headers=headers,
@@ -70,7 +70,6 @@ class RpsParking(models.Model):
                 else:
                     self.last_response_body = ""
                 self.save()
-
                 return result["debt"], result["duration"]
 
             except Exception as e:
@@ -91,10 +90,10 @@ class RpsParking(models.Model):
 class ParkingCard(models.Model):
     card_id = models.CharField(max_length=255, unique=True, primary_key=True)
     phone = models.CharField(max_length=32)
-    created_at = models.DateTimeField(auto_created=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __unicode__(self):
-        return "Parking card %s" % (self.card_id)
+        return "Parking card %s" % self.card_id
 
 
 STATE_CREATED = 1
@@ -111,15 +110,17 @@ CARD_SESSION_STATES = (
     (STATE_ERROR, "Error"),
 )
 
+
 class RpsParkingCardSession(models.Model):
     parking_card = models.ForeignKey(ParkingCard)
     parking_id = models.IntegerField()
     debt = models.IntegerField(default=0)
     duration = models.IntegerField(default=0)
-    state = models.PositiveSmallIntegerField(choices=CARD_SESSION_STATES, default=STATE_CREATED)
+    state = models.PositiveSmallIntegerField(
+        choices=CARD_SESSION_STATES, default=STATE_CREATED)
     account = models.ForeignKey(Account, null=True, default=None)
     client_uuid = models.UUIDField(null=True, default=None)
-    created_at = models.DateTimeField(auto_created=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __unicode__(self):
         return "Parking RPS session %s %s" % (
@@ -131,7 +132,7 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_AUTHORIZED
         self.save()
 
-        url = "127.0.0.1:8000/rps/mock/authorize/"
+        url = "http://127.0.0.1:8000/api/v1/parking/rps/mock/authorized/"
 
         payload = json.dump({
             "card_id": self.parking_card.card_id,
@@ -144,7 +145,7 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_CONFIRMED
         self.save()
 
-        url = "127.0.0.1:8000/rps/mock/confirm/"
+        url = "http://127.0.0.1:8000/api/v1/parking/rps/mock/confirm/"
 
         payload = json.dump({
             "card_id": self.parking_card.card_id,
@@ -157,7 +158,7 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_ERROR
         self.save()
 
-        url = "127.0.0.1:8000/rps/mock/confirm/"
+        url = "http://127.0.0.1:8000/api/v1/parking/rps/mock/refund/"
 
         payload = json.dump({
             "card_id": self.parking_card.card_id,
@@ -201,13 +202,4 @@ class RpsParkingCardSession(models.Model):
             self.save()
 
         return False
-
-
-    """    @transaction.atomic
-    def start_pay(self, account):
-        new_order = Order.objects.create(
-
-        )
-        self.state = STATE_INITED
-    """
 

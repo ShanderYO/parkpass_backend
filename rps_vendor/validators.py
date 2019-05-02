@@ -269,7 +269,7 @@ class ParkingCardRequestBodyValidator(BaseValidator):
 
         if not parking_id or not card_id or not phone:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Keys 'client_id', 'card_id', 'phone' are required"
+            self.message = "Keys 'parking_id', 'card_id', 'phone' are required"
             return False
 
         try:
