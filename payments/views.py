@@ -51,7 +51,6 @@ class TinkoffCallbackView(APIView):
             self.refunded_order(order_id, amount, self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
             return HttpResponse("OK", status=200)
 
-
         if self.status == PAYMENT_STATUS_REVERSED:
             amount = int(request.data["Amount"])
             self.reverse_order(order_id, amount)
@@ -70,7 +69,7 @@ class TinkoffCallbackView(APIView):
 
             # Check if AUTHORIZE and CONFIRMED
 
-            if self.is_regular_pay(order):
+            if self.is_session_pay(order):
                 amount = int(request.data["Amount"])
 
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
@@ -85,7 +84,6 @@ class TinkoffCallbackView(APIView):
 
                 get_logger().info("status 200: OK")
                 return HttpResponse("OK", status=200)
-
 
             elif self.is_card_binding(order):
                 rebill_id = int(request.data["RebillId"])
@@ -112,6 +110,33 @@ class TinkoffCallbackView(APIView):
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
                     order.authorized = True
                     start_cancel_request.delay(order)
+
+            elif self.is_non_account_pay(order):
+                if self.status == PAYMENT_STATUS_AUTHORIZED:
+                    order.authorized = True
+                    order.save()
+                    self.confirm_order(order)
+
+                elif self.status == PAYMENT_STATUS_CONFIRMED:
+                    order.paid = True
+                    order.save()
+
+                get_logger().info("status 200: OK")
+                return HttpResponse("OK", status=200)
+
+            elif self.is_parking_card_pay(order):
+                if self.status == PAYMENT_STATUS_AUTHORIZED:
+                    order.authorized = True
+                    order.save()
+                    self.notify_authorize_rps(order)
+
+                elif self.status == PAYMENT_STATUS_CONFIRMED:
+                    order.paid = True
+                    order.save()
+                    self.notify_confirm_rps(order)
+
+                get_logger().info("status 200: OK")
+                return HttpResponse("OK", status=200)
 
             else:
                 get_logger().warn("Unknown successefull operation")
@@ -285,8 +310,16 @@ class TinkoffCallbackView(APIView):
             get_logger().warn("TinkoffPayment does not exist id=%s" % payment_id)
 
 
-    def is_regular_pay(self, order):
-        return order.account is None
+    def is_session_pay(self, order):
+        return order.parking_session != None
+
+
+    def is_parking_card_pay(self, order):
+        return order.parking_card_session != None
+
+
+    def is_non_account_pay(self, order):
+        return order.client_uuid != None
 
 
     def is_card_binding(self, order):
@@ -343,3 +376,28 @@ class TinkoffCallbackView(APIView):
                 get_logger().info("Close session... id=%s" % parking_session.id)
                 parking_session.state = ParkingSession.STATE_CLOSED
                 parking_session.save()
+
+    def confirm_order(self, order):
+        try:
+            payment = TinkoffPayment.objects.get(
+                order=order,
+                status=PAYMENT_STATUS_AUTHORIZED,
+                error_code=-1)
+            order.confirm_payment(payment)
+        except ObjectDoesNotExist as e:
+            get_logger().info(e.message)
+
+    def notify_authorize_rps(self, order):
+        if order.parking_card_session.notify_authorize(order):
+            self.confirm_order(order)
+        else:
+            get_logger().info("Error confirm RPS getting authorize")
+            # TODO make refund if needed
+
+    def notify_confirm_rps(self, order):
+        if not order.parking_card_session.notify_confirm(order):
+            pass
+        # TODO what do if it
+
+    def notify_refund_rps(self, order, sum):
+        pass

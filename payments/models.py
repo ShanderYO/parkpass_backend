@@ -10,6 +10,7 @@ from base.utils import get_logger
 from parkings.models import ParkingSession
 from parkpass.settings import EMAIL_HOST_USER
 from payments.payment_api import TinkoffAPI
+from rps_vendor.models import ParkingCard, RpsParkingCardSession
 
 
 class FiskalNotification(models.Model):
@@ -137,6 +138,12 @@ class Order(models.Model):
     # for init payment order
     account = models.ForeignKey(Account, null=True, blank=True)
 
+    # for parking card
+    parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True, blank=True)
+
+    # for non-accounts payments
+    client_uuid = models.UUIDField(null=True, default=None)
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = 'Order'
@@ -169,6 +176,21 @@ class Order(models.Model):
                     }]
             )
 
+        if self.parking_card_session or self.client_uuid:
+            return dict(
+                Email=None,
+                Phone=None,
+                Taxation="osn",
+                Items=[{
+                    "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
+                    "Price": str(int(self.sum*100)),
+                    "Quantity": 1.00,
+                    "Amount": str(int(self.sum*100)),
+                    "Tax": "none",
+                    "Ean13": "0123456789"
+                }]
+            )
+
         # session payment receipt
         return dict(
             Email=str(self.session.client.email) if self.session.client.email else None,
@@ -193,6 +215,74 @@ class Order(models.Model):
 
     def get_payment_amount(self):
         return int(self.sum * 100)
+
+    def create_non_recurrent_payment(self):
+        receipt_data = self.generate_receipt_data()
+        init_payment = TinkoffPayment.objects.create(
+            order=self,
+            receipt_data=receipt_data
+        )
+        customer_key = str(self.client_uuid) if self.client_uuid \
+            else self.parking_card_session.client_uuid
+
+        request_data = init_payment.build_non_recurrent_request_data(
+            self.get_payment_amount(),
+            customer_key)
+
+        get_logger().info("Init non recurrent request:")
+        get_logger().info(request_data)
+        result = TinkoffAPI().sync_call(
+            TinkoffAPI.INIT, request_data
+        )
+
+        # Tink-off gateway not responded
+        if not result:
+            return None
+
+        # Payment success
+        if result.get("Success", False):
+            order_id = int(result["OrderId"])
+            payment_id = int(result["PaymentId"])
+            payment_url = result["PaymentURL"]
+
+            raw_status = result["Status"]
+            status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
+                else PAYMENT_STATUS_REJECTED
+
+            if init_payment.order.id != order_id:
+                return None
+
+            init_payment.payment_id = payment_id
+            init_payment.status = status
+            init_payment.save()
+
+            if status == PAYMENT_STATUS_REJECTED:
+                return None
+
+            # Send url to user
+            return {
+                "payment_url": payment_url
+            }
+
+        # Payment exception
+        elif int(result.get("ErrorCode", -1)) > 0:
+            error_code = int(result["ErrorCode"])
+            error_message = result.get("Message", "")
+            error_details = result.get("Details", "")
+
+            init_payment.error_code = error_code
+            init_payment.error_message = error_message
+            init_payment.error_description = error_details
+            init_payment.save()
+
+            return {
+                "exception": {
+                    "error_code": error_code,
+                    "error_message": error_message,
+                    "error_details": error_details
+                }
+            }
+        return None
 
     def create_payment(self):
         receipt_data = self.generate_receipt_data()
@@ -236,7 +326,10 @@ class Order(models.Model):
 
     def charge_payment(self, payment):
         get_logger().info("Make charge: ")
-        default_account_credit_card = CreditCard.objects.get(account=self.session.client, is_default=True)
+        default_account_credit_card = CreditCard.objects.get(
+            account=self.session.client,
+            is_default=True)
+
         request_data = payment.build_charge_request_data(
             payment.payment_id, default_account_credit_card.rebill_id
         )
@@ -273,7 +366,6 @@ class Order(models.Model):
             TinkoffAPI.CONFIRM, request_data
         )
         get_logger().info(str(result))
-
 
     def send_receipt_to_email(self):
         email = self.session.client.email
@@ -334,9 +426,20 @@ class TinkoffPayment(models.Model):
         verbose_name = 'Tinkoff Payment'
         verbose_name_plural = 'Tinkoff Payments'
 
+    def build_non_recurrent_request_data(self, amount, customer_key):
+        data = {
+            "Amount": str(amount),
+            "OrderId": str(self.order.id),
+            "Description": "Платеж #%s" % str(self.order.id),
+            "CustomerKey": str(customer_key)
+        }
+        if self.receipt_data:
+            data["Receipt"] = self.receipt_data
+        return data
+
     def build_init_request_data(self, customer_key):
         data = {
-            "Amount": str(100),  # 1RUB
+            "Amount": str(100),  # 1 RUB
             "OrderId": str(self.order.id),
             "Description": "Initial payment",
             "Recurrent": "Y",
@@ -350,7 +453,7 @@ class TinkoffPayment(models.Model):
         data = {
             "Amount": str(amount),
             "OrderId": str(self.order.id),
-            "Description": "Платеж за парковку #%s" % str(self.order.id)
+            "Description": "Платеж #%s" % str(self.order.id)
         }
         if self.receipt_data:
             data["Receipt"] = self.receipt_data

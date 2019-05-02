@@ -229,3 +229,8 @@ def validate_password_format(value):
     # Format more than 5
     if len(str(value)) < 6:
         raise ValidationError("Too short password. Must be 6 or more symbols")
+
+
+def validate_parking_card_id(value):
+    if len(str(value)) < 6:
+        raise ValidationError("Invalid parking card id. Must be 6 or more symbols")
