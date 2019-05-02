@@ -1,9 +1,9 @@
 from django.core.exceptions import ValidationError
 
-from accounts.validators import validate_id, validate_unix_timestamp
+from accounts.validators import validate_id, validate_unix_timestamp, validate_parking_card_id
 from base.exceptions import ValidationException
 from base.utils import get_logger
-from base.validators import BaseValidator
+from base.validators import BaseValidator, validate_phone_number
 
 
 class RpsCreateParkingSessionValidator(BaseValidator):
@@ -257,4 +257,60 @@ class RpsUpdateListParkingSessionValidator(BaseValidator):
                 self.code = ValidationException.VALIDATION_ERROR
                 self.message = str(e.message)+"Item %s" % index
                 return False
+        return True
+
+
+class ParkingCardRequestBodyValidator(BaseValidator):
+    def is_valid(self):
+        get_logger().info("ParkingCardRequestBodyValidator: " + str(self.request.data))
+        parking_id = self.request.data.get("parking_id", None)
+        card_id = self.request.data.get("card_id", None)
+        phone = self.request.data.get("phone", None)
+
+        if not parking_id or not card_id or not phone:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys 'parking_id', 'card_id', 'phone' are required"
+            return False
+
+        try:
+            validate_id(parking_id, "parking_id")
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+
+        try:
+            validate_parking_card_id(card_id)
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+
+        try:
+            validate_phone_number(phone)
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+
+        return True
+
+
+class ParkingCardSessionBodyValidator(BaseValidator):
+    def is_valid(self):
+        get_logger().info("ParkingCardSessionBodyValidator: " + str(self.request.data))
+        card_session = self.request.data.get("card_session", None)
+
+        if not card_session:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'card_session' is required"
+            return False
+
+        try:
+            validate_id(card_session, "card_session")
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+
         return True
