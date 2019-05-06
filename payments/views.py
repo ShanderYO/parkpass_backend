@@ -311,7 +311,7 @@ class TinkoffCallbackView(APIView):
 
 
     def is_session_pay(self, order):
-        return order.parking_session != None
+        return order.session != None
 
 
     def is_parking_card_pay(self, order):
