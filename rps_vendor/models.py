@@ -35,7 +35,7 @@ class RpsParking(models.Model):
         debt, duration = self._make_http_for_parking_card_debt(parking_card)
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
             parking_card=parking_card,
-            parking_id=self.id,
+            parking_id=self.parking.id,
             defaults={"debt": debt, "duration": duration}
         )
         if debt > 0:
