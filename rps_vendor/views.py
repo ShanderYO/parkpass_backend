@@ -85,7 +85,9 @@ class GetParkingCardDebt(APIView):
             defaults={'phone': phone}
         )
         try:
-            rps_parking = RpsParking.objects.get(id=parking_id)
+            rps_parking = RpsParking.objects.select_related(
+                'parking').get(parking__id=parking_id)
+
             response_dict = rps_parking.get_parking_card_debt(parking_card)
             return JsonResponse(response_dict, status=200)
 
