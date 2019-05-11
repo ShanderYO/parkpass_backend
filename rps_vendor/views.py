@@ -182,7 +182,7 @@ class GetCardSessionStatus(APIView):
         return JsonResponse({}, status=200)
 
 
-class MockingGetParkingCardDebt(APIView):
+class MockingGetParkingCardDebt(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
         phone = request.data["phone"]
@@ -191,12 +191,12 @@ class MockingGetParkingCardDebt(APIView):
         response_dict = dict(
             card_id=card_id,
             duration=200,
-            debt=100
+            debt=10
         )
         return JsonResponse(response_dict, status=200)
 
 
-class MockingOrderAuthorized(APIView):
+class MockingOrderAuthorized(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
         order_id = request.data["order_id"]
@@ -207,7 +207,7 @@ class MockingOrderAuthorized(APIView):
         return JsonResponse({}, status=200)
 
 
-class MockingOrderConfirm(APIView):
+class MockingOrderConfirm(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
         order_id = request.data["order_id"]
@@ -216,7 +216,7 @@ class MockingOrderConfirm(APIView):
         return JsonResponse({}, status=200)
 
 
-class MockingOrderRefund(APIView):
+class MockingOrderRefund(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
         order_id = request.data["order_id"]
