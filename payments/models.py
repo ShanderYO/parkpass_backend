@@ -140,6 +140,7 @@ class Order(models.Model):
 
     # for parking card
     parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True, blank=True)
+    paid_notified_at = models.DateTimeField(null=True, blank=True)
 
     # for non-accounts payments
     client_uuid = models.UUIDField(null=True, default=None)

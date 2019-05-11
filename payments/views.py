@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
+from django.utils import timezone
 
 from base.utils import get_logger
 from base.views import APIView
@@ -391,13 +392,11 @@ class TinkoffCallbackView(APIView):
         if order.parking_card_session.notify_authorize(order):
             self.confirm_order(order)
         else:
-            get_logger().info("Error confirm RPS getting authorize")
-            # TODO make refund if needed
+            get_logger().info("Error confirm RPS getting authorize. TODO make try refund")
 
     def notify_confirm_rps(self, order):
-        if not order.parking_card_session.notify_confirm(order):
-            pass
-        # TODO what do if it
+        if order.parking_card_session.notify_confirm(order):
+            order.paid_notified_at = timezone.now()
 
     def notify_refund_rps(self, order, sum):
-        pass
+        order.parking_card_session.notify_refund(sum, order)

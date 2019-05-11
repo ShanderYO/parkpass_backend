@@ -46,7 +46,7 @@ class RpsParking(models.Model):
         return "%s" % (self.parking.name)
 
     def get_parking_card_debt(self, parking_card):
-        debt, duration = self._make_http_for_parking_card_debt(parking_card)
+        debt, duration = self._make_http_for_parking_card_debt(parking_card, self.parking.id)
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
             parking_card=parking_card,
             parking_id=self.parking.id,
@@ -63,20 +63,13 @@ class RpsParking(models.Model):
         return serializer(card_session)
 
 
-    def _make_signed_json_post(self, url, body):
-
-
-        response = self.client.post(url, body, content_type="application/json",
-                                    **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                       'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
-        return response
-
-    def _make_http_for_parking_card_debt(self, parking_card):
+    def _make_http_for_parking_card_debt(self, parking_card, parking_id):
         connect_timeout = 2
 
         payload = json.dumps({
             "card_id": parking_card.card_id,
-            "phone": parking_card.phone
+            "phone": parking_card.phone,
+            "parking_id": parking_id
         })
 
         vendor_signature = self.parking.vendor.sign(payload).hexdigest()
@@ -212,7 +205,7 @@ class RpsParkingCardSession(models.Model):
             "card_id": self.parking_card.card_id,
             "order_id": order.id,
             "refund_sum": sum,
-            "refund_reason": "Undefinded" # TODO add clear reason
+            "refund_reason": "Undefinded"
         })
 
         try:

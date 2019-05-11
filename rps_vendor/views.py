@@ -10,8 +10,8 @@ from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
-from payments.models import Order
-from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED
+from payments.models import Order, TinkoffPayment
+from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR
 from rps_vendor.tasks import rps_process_updated_sessions
 from rps_vendor.validators import RpsCreateParkingSessionValidator, RpsUpdateParkingSessionValidator, \
     RpsCancelParkingSessionValidator, RpsCompleteParkingSessionValidator, RpsUpdateListParkingSessionValidator, \
@@ -142,7 +142,7 @@ class InitPayDebt(APIView):
             card_session = RpsParkingCardSession.objects.get(
                 id=card_session
             )
-            if card_session.state != STATE_CREATED:
+            if card_session.state != STATE_CREATED or card_session.state != STATE_ERROR:
                 e = ValidationException(
                     code=ValidationException.VALIDATION_ERROR,
                     message="Parking card session is already paid"
@@ -177,19 +177,59 @@ class InitPayDebt(APIView):
 
 
 class GetCardSessionStatus(APIView):
+    validator_class = ParkingCardSessionBodyValidator
+
     def post(self, request, *args, **kwargs):
         card_session = int(request.data["card_session"])
-        return JsonResponse({}, status=200)
+
+        try:
+            card_session = RpsParkingCardSession.objects.get(
+                id=card_session
+            )
+
+            orders = Order.objects.filter(parking_card_session=card_session).order_by('-created_at')
+            if not orders.exists() or card_session.state == STATE_CREATED:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Payment is not yet inited. Please, call /payment/init/ method"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            last_order = orders[0]
+            response_dict = {
+                "order_id": last_order.id,
+                "sum": last_order.sum,
+                "refunded_sum":last_order.refunded_sum,
+                "authorized": last_order.authorized,
+                "paid": last_order.paid,
+                "error": None,
+            }
+
+            payments = TinkoffPayment.objects.filter(order=last_order)
+            current_payment = payments[0] if payments.exists() else None
+            if current_payment and current_payment.error_code > 0:
+                response_dict["error"] = current_payment.error_message + " " + current_payment.error_description
+
+            return JsonResponse(response_dict, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                message="Parking card session does not exist"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
 
 class MockingGetParkingCardDebt(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
+        parking_id = request.data["parking_id"]
         phone = request.data["phone"]
         get_logger().info((card_id, phone,))
 
         response_dict = dict(
             card_id=card_id,
+            parking_id=parking_id,
             duration=200,
             debt=10
         )
