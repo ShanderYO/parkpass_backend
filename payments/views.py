@@ -11,6 +11,7 @@ from parkings.models import ParkingSession
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN
+from payments.payment_api import TinkoffAPI
 
 from payments.tasks import start_cancel_request
 
@@ -379,20 +380,17 @@ class TinkoffCallbackView(APIView):
                 parking_session.save()
 
     def confirm_order(self, order):
-        try:
-            payment = TinkoffPayment.objects.get(
-                order=order,
-                status=PAYMENT_STATUS_AUTHORIZED,
-                error_code=-1)
-            order.confirm_payment(payment)
-        except ObjectDoesNotExist as e:
-            get_logger().info(e.message)
+        payments = TinkoffPayment.objects.filter(order=order, error_code=-1)
+        if payments.exists():
+            order.confirm_payment(payments[0])
+        else:
+            get_logger().info("No one payment for order")
 
     def notify_authorize_rps(self, order):
         if order.parking_card_session.notify_authorize(order):
             self.confirm_order(order)
         else:
-            get_logger().info("Error confirm RPS getting authorize. TODO make try refund")
+            self.refund(order)
 
     def notify_confirm_rps(self, order):
         if order.parking_card_session.notify_confirm(order):
@@ -400,3 +398,23 @@ class TinkoffCallbackView(APIView):
 
     def notify_refund_rps(self, order, sum):
         order.parking_card_session.notify_refund(sum, order)
+
+    def refund(self, order):
+        payments = TinkoffPayment.objects.filter(order=order, error_code=-1)
+        if payments.exists():
+            payment = payments[0]
+            request_data = payment.build_cancel_request_data(int(order.sum * 100))
+            result = TinkoffAPI().sync_call(
+                TinkoffAPI.CANCEL, request_data
+            )
+            get_logger().info(result)
+            if result.get("Status") == u'REFUNDED':
+                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100
+                get_logger().info('REFUNDED: %s' % order.refunded_sum)
+                order.save()
+            elif result.get("Status") == u'PARTIAL_REFUNDED':
+                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
+                get_logger().info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
+                order.save()
+            else:
+                get_logger().warning('Refund undefined status')
