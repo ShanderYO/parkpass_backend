@@ -409,13 +409,9 @@ class TinkoffCallbackView(APIView):
                 TinkoffAPI.CANCEL, request_data
             )
             get_logger().info(result)
-            if result.get("Status") == u'REFUNDED':
+            if result.get("Status") == u'REVERSED':
                 order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100
-                get_logger().info('REFUNDED: %s' % order.refunded_sum)
-                order.save()
-            elif result.get("Status") == u'PARTIAL_REFUNDED':
-                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
-                get_logger().info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
+                get_logger().info('REVERSED: %s' % order.refunded_sum)
                 order.save()
             else:
                 get_logger().warning('Refund undefined status')
