@@ -167,7 +167,7 @@ class RpsParkingCardSession(models.Model):
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(id=self.parking_id)
 
-            return self._make_http_ok_status(
+            return self._make_http_ok_status(rps_parking.parking.id,
                 rps_parking.request_payment_authorize_url, payload)
 
         except ObjectDoesNotExist:
@@ -189,7 +189,7 @@ class RpsParkingCardSession(models.Model):
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(id=self.parking_id)
 
-            return self._make_http_ok_status(
+            return self._make_http_ok_status(rps_parking.parking.id,
                 rps_parking.request_payment_confirm_url, payload)
 
         except ObjectDoesNotExist:
@@ -212,7 +212,7 @@ class RpsParkingCardSession(models.Model):
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(id=self.parking_id)
 
-            return self._make_http_ok_status(
+            return self._make_http_ok_status(rps_parking.parking.id,
                 rps_parking.request_payment_refund_url, payload)
 
         except ObjectDoesNotExist:
