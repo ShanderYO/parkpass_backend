@@ -395,6 +395,7 @@ class TinkoffCallbackView(APIView):
     def notify_confirm_rps(self, order):
         if order.parking_card_session.notify_confirm(order):
             order.paid_notified_at = timezone.now()
+            order.save()
 
     def notify_refund_rps(self, order, sum):
         order.parking_card_session.notify_refund(sum, order)
