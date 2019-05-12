@@ -163,7 +163,7 @@ class Order(models.Model):
         if self.parking_card_session or self.client_uuid:
             return dict(
                 Email=None,
-                Phone=None,
+                Phone=self.parking_card_session.parking_card.phone,
                 Taxation="osn",
                 Items=[{
                     "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
