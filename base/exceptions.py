@@ -69,6 +69,7 @@ class ValidationException(ApiException):
     ALREADY_EXISTS = 403
     INVALID_IMAGE = 404  # Image doesn't meet conditions(e.g. size lt 300x300)
     EMAIL_ALREADY_USED = 405
+    INVALID_RESOURCE_STATE = 406
 
     # Raised when input data is not valid json object
     UNKNOWN_VALIDATION_CODE = 499
