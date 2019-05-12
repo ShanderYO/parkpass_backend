@@ -8,6 +8,7 @@ import os
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
+from base.utils import get_logger
 from owners.validators import validate_inn, validate_kpp
 from accounts.models import Account as User
 from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
@@ -114,7 +115,8 @@ class Vendor(BaseAccount):
         self.secret = binascii.hexlify(os.urandom(32)).decode()
 
     def sign(self, data):
-        return hmac.new(self.secret, data, hashlib.sha512)
+        get_logger().info("Try to sign [%s] by %s" % data, str(self.secret))
+        return hmac.new(str(self.secret), data, hashlib.sha512)
 
 
 class VendorSession(BaseAccountSession):
