@@ -1,20 +1,34 @@
+import hashlib
+import hmac
 import json
 import traceback
 
 import requests
-from django.db import models, transaction
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import models
 
 # Create your models here.
 from django.utils import timezone
 from dss.Serializer import serializer
 
 from accounts.models import Account
+from base.utils import get_logger
 from parkings.models import Parking
 
 
 class RpsParking(models.Model):
     id = models.AutoField(primary_key=True)
     request_update_url = models.URLField(null=True, blank=True)
+
+    request_parking_card_debt_url = models.URLField(
+        default="https://parkpass.ru/api/v1/parking/rps/mock/debt/")
+    request_payment_authorize_url = models.URLField(
+        default="https://parkpass.ru/api/v1/parking/rps/mock/authorized/")
+    request_payment_confirm_url = models.URLField(
+        default="https://parkpass.ru/api/v1/parking/rps/mock/confirm/")
+    request_payment_refund_url = models.URLField(
+        default="https://parkpass.ru/api/v1/parking/rps/mock/refund/")
+
     polling_enabled = models.BooleanField(default=False)
     last_request_body = models.TextField(null=True, blank=True)
     last_request_date = models.DateTimeField(auto_now_add=True)
@@ -32,11 +46,14 @@ class RpsParking(models.Model):
         return "%s" % (self.parking.name)
 
     def get_parking_card_debt(self, parking_card):
-        debt, duration = self._make_http_for_parking_card_debt(parking_card)
+        debt, duration = self._make_http_for_parking_card_debt(parking_card, self.parking.id)
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
             parking_card=parking_card,
             parking_id=self.parking.id,
-            defaults={"debt": debt, "duration": duration}
+            defaults={
+                "debt": debt,
+                "duration": duration
+            }
         )
         if debt > 0:
             card_session.debt = debt
@@ -45,22 +62,30 @@ class RpsParking(models.Model):
 
         return serializer(card_session)
 
-    def _make_http_for_parking_card_debt(self, parking_card):
+
+    def _make_http_for_parking_card_debt(self, parking_card, parking_id):
         connect_timeout = 2
 
         payload = json.dumps({
             "card_id": parking_card.card_id,
-            "phone": parking_card.phone
+            "phone": parking_card.phone,
+            "parking_id": parking_id
         })
 
-        headers = {'Content-type': 'application/json'}
+        vendor_signature = self.parking.vendor.sign(payload).hexdigest()
+        vendor_name = self.parking.vendor.name
+
+        headers = {
+            'Content-type': 'application/json',
+            "X-Vendor-Name": vendor_name,
+            "X-Signature": vendor_signature,
+        }
         self.last_request_date = timezone.now()
         self.last_request_body = payload
 
-        url = "https://parkpass.ru/api/v1/parking/rps/mock/debt/"
-
         try:
-            r = requests.post(url, data=payload, headers=headers,
+            r = requests.post(self.request_parking_card_debt_url,
+                              data=payload, headers=headers,
                               timeout=(connect_timeout, 5.0))
             try:
                 self.last_response_code = r.status_code
@@ -132,46 +157,81 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_AUTHORIZED
         self.save()
 
-        url = "https://parkpass.ru/api/v1/parking/rps/mock/authorized/"
-
         payload = json.dump({
             "card_id": self.parking_card.card_id,
             "order_id": order.id,
-            "sum":order.sum
+            "sum": order.sum
         })
-        return self._make_http_ok_status(url, payload)
+
+        try:
+            rps_parking = RpsParking.objects.select_related(
+                'parking').get(id=self.parking_id)
+
+            return self._make_http_ok_status(
+                rps_parking.request_payment_authorize_url, payload)
+
+        except ObjectDoesNotExist:
+            get_logger().warn("RPS parking is not found")
+
+        return False
 
     def notify_confirm(self, order):
         self.state = STATE_CONFIRMED
         self.save()
-
-        url = "https://parkpass.ru/api/v1/parking/rps/mock/confirm/"
 
         payload = json.dump({
             "card_id": self.parking_card.card_id,
             "order_id": order.id,
             "sum": order.sum
         })
-        return self._make_http_ok_status(url, payload)
+
+        try:
+            rps_parking = RpsParking.objects.select_related(
+                'parking').get(id=self.parking_id)
+
+            return self._make_http_ok_status(
+                rps_parking.request_payment_confirm_url, payload)
+
+        except ObjectDoesNotExist:
+            get_logger().warn("RPS parking is not found")
+
+        return False
 
     def notify_refund(self, sum, order):
         self.state = STATE_ERROR
         self.save()
 
-        url = "https://parkpass.ru/api/v1/parking/rps/mock/refund/"
-
         payload = json.dump({
             "card_id": self.parking_card.card_id,
             "order_id": order.id,
             "refund_sum": sum,
-            "refund_reason": "Undefinded" # TODO add clear reason
+            "refund_reason": "Undefinded"
         })
-        return self._make_http_ok_status(url, payload)
 
-    def _make_http_ok_status(self, url, payload):
+        try:
+            rps_parking = RpsParking.objects.select_related(
+                'parking').get(id=self.parking_id)
+
+            return self._make_http_ok_status(
+                rps_parking.request_payment_refund_url, payload)
+
+        except ObjectDoesNotExist:
+            get_logger().warn("RPS parking is not found")
+
+        return False
+
+    def _make_http_ok_status(self, parking, url, payload):
         connect_timeout = 2
 
-        headers = {'Content-type': 'application/json'}
+        vendor_signature = parking.vendor.sign(payload).hexdigest()
+        vendor_name = parking.vendor.name
+
+        headers = {
+            'Content-type': 'application/json',
+            "X-Vendor-Name": vendor_name,
+            "X-Signature": vendor_signature,
+        }
+
         self.last_request_date = timezone.now()
         self.last_request_body = payload
 

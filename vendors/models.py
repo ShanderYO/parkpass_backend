@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 
 import binascii
+import hashlib
+import hmac
 import os
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -110,6 +112,9 @@ class Vendor(BaseAccount):
 
     def generate_secret(self):
         self.secret = binascii.hexlify(os.urandom(32)).decode()
+
+    def sign(self, data):
+        return hmac.new(self.secret, data, hashlib.sha512)
 
 
 class VendorSession(BaseAccountSession):
