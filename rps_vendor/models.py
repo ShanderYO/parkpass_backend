@@ -160,7 +160,7 @@ class RpsParkingCardSession(models.Model):
         payload = json.dumps({
             "card_id": self.parking_card.card_id,
             "order_id": order.id,
-            "sum": order.sum
+            "sum": float(order.sum)
         })
 
         try:
@@ -182,7 +182,7 @@ class RpsParkingCardSession(models.Model):
         payload = json.dump({
             "card_id": self.parking_card.card_id,
             "order_id": order.id,
-            "sum": order.sum
+            "sum": float(order.sum)
         })
 
         try:
@@ -204,7 +204,7 @@ class RpsParkingCardSession(models.Model):
         payload = json.dump({
             "card_id": self.parking_card.card_id,
             "order_id": order.id,
-            "refund_sum": sum,
+            "refund_sum": float(sum),
             "refund_reason": "Undefinded"
         })
 
