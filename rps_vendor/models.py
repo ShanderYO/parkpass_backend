@@ -157,7 +157,7 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_AUTHORIZED
         self.save()
 
-        payload = json.dump({
+        payload = json.dumps({
             "card_id": self.parking_card.card_id,
             "order_id": order.id,
             "sum": order.sum
