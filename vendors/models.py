@@ -115,7 +115,7 @@ class Vendor(BaseAccount):
         self.secret = binascii.hexlify(os.urandom(32)).decode()
 
     def sign(self, data):
-        get_logger().info("Try to sign [%s] by %s" % data, str(self.secret))
+        get_logger().info("Try to sign [%s] by %s" % (data, str(self.secret)))
         return hmac.new(str(self.secret), data, hashlib.sha512)
 
 
