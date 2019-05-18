@@ -3,6 +3,7 @@ import hmac
 import json
 import traceback
 
+from dateutil.parser import *
 import requests
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
@@ -45,8 +46,11 @@ class RpsParking(models.Model):
     def __unicode__(self):
         return "%s" % (self.parking.name)
 
+    def get_parking_card_debt_url(self, query):
+        return self.request_parking_card_debt_url + '?' + query
+
     def get_parking_card_debt(self, parking_card):
-        debt, duration = self._make_http_for_parking_card_debt(parking_card, self.parking.id)
+        debt, duration = self._make_http_for_parking_card_debt(parking_card)
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
             parking_card=parking_card,
             parking_id=self.parking.id,
@@ -63,39 +67,57 @@ class RpsParking(models.Model):
         return serializer(card_session)
 
 
-    def _make_http_for_parking_card_debt(self, parking_card, parking_id):
+    def _make_http_for_parking_card_debt(self, parking_card):
         connect_timeout = 2
 
-        payload = json.dumps({
-            "card_id": parking_card.card_id,
-            "phone": parking_card.phone,
-            "parking_id": parking_id
-        })
+        SECRET_HASH = 'yWQ6pSSSNTDMmRsz3dnS'
 
-        vendor_signature = self.parking.vendor.sign(payload).hexdigest()
-        vendor_name = self.parking.vendor.name
+        prefix_query_str = "ticket_id=%s&FromPay=ParkPass" % parking_card
 
-        headers = {
-            'Content-type': 'application/json',
-            "X-Vendor-Name": vendor_name,
-            "X-Signature": vendor_signature,
-        }
+        str_for_hash = prefix_query_str + '&s' % SECRET_HASH
+        hash_str = hashlib.sha1(str_for_hash).hexdigest()
+
+        query_str = prefix_query_str + '&hash=%s' % hash_str
+
+        #
+        # payload = json.dumps({
+        #     "card_id": parking_card.card_id,
+        #     "phone": parking_card.phone,
+        # })
+
+        # vendor_signature = self.parking.vendor.sign(payload).hexdigest()
+        # vendor_name = self.parking.vendor.name
+        #
+        # headers = {
+        #     'Content-type': 'application/json',
+        #     "X-Vendor-Name": vendor_name,
+        #     "X-Signature": vendor_signature,
+        # }
+
         self.last_request_date = timezone.now()
-        self.last_request_body = payload
+        self.last_request_body = query_str
 
         try:
-            r = requests.post(self.request_parking_card_debt_url,
-                              data=payload, headers=headers,
-                              timeout=(connect_timeout, 5.0))
+            r = requests.get(
+                self.get_parking_card_debt_url(query_str),
+                timeout=(connect_timeout, 5.0))
+
             try:
                 self.last_response_code = r.status_code
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
+                    if result.get("status") == "OK":
+                        entered_at = parse(result["entered_at"]).replace(tzinfo=None)
+                        server_time = parse(result["server-time"]).replace(tzinfo=None)
+
+                        return result["amount"] - result["amount_paid"], (server_time - entered_at).seconds
+                    else:
+                        return 0,0
                 else:
                     self.last_response_body = ""
                 self.save()
-                return result["debt"], result["duration"]
+                return 0,0
 
             except Exception as e:
                 traceback_str = traceback.format_exc()
