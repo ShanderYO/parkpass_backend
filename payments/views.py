@@ -111,7 +111,7 @@ class TinkoffCallbackView(APIView):
 
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
                     order.authorized = True
-                    start_cancel_request.delay(order)
+                    start_cancel_request.delay(order.id)
 
             elif self.is_non_account_pay(order):
                 if self.status == PAYMENT_STATUS_AUTHORIZED:

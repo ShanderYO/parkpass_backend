@@ -6,8 +6,8 @@ from payments.models import TinkoffPayment
 
 
 @app.task()
-def start_cancel_request(order):
-    payments = TinkoffPayment.objects.filter(order=order)
+def start_cancel_request(order_id):
+    payments = TinkoffPayment.objects.filter(order__id=order_id)
     if not payments.exists():
         logging.info("Payments were not found: ")
         return None
