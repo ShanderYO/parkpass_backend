@@ -74,7 +74,7 @@ class RpsParking(models.Model):
 
         prefix_query_str = "ticket_id=%s&FromPay=ParkPass" % parking_card
 
-        str_for_hash = prefix_query_str + '&s' % SECRET_HASH
+        str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
         hash_str = hashlib.sha1(str_for_hash).hexdigest()
 
         query_str = prefix_query_str + '&hash=%s' % hash_str
