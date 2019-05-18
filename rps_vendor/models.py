@@ -23,10 +23,10 @@ class RpsParking(models.Model):
 
     request_parking_card_debt_url = models.URLField(
         default="https://parkpass.ru/api/v1/parking/rps/mock/debt/")
+
     request_payment_authorize_url = models.URLField(
         default="https://parkpass.ru/api/v1/parking/rps/mock/authorized/")
-    request_payment_confirm_url = models.URLField(
-        default="https://parkpass.ru/api/v1/parking/rps/mock/confirm/")
+
     request_payment_refund_url = models.URLField(
         default="https://parkpass.ru/api/v1/parking/rps/mock/refund/")
 
@@ -66,7 +66,6 @@ class RpsParking(models.Model):
 
         return serializer(card_session)
 
-
     def _make_http_for_parking_card_debt(self, parking_card):
         connect_timeout = 2
 
@@ -78,21 +77,6 @@ class RpsParking(models.Model):
         hash_str = hashlib.sha1(str_for_hash).hexdigest()
 
         query_str = prefix_query_str + '&hash=%s' % hash_str
-
-        #
-        # payload = json.dumps({
-        #     "card_id": parking_card.card_id,
-        #     "phone": parking_card.phone,
-        # })
-
-        # vendor_signature = self.parking.vendor.sign(payload).hexdigest()
-        # vendor_name = self.parking.vendor.name
-        #
-        # headers = {
-        #     'Content-type': 'application/json',
-        #     "X-Vendor-Name": vendor_name,
-        #     "X-Signature": vendor_signature,
-        # }
 
         self.last_request_date = timezone.now()
         self.last_request_body = query_str
@@ -120,12 +104,14 @@ class RpsParking(models.Model):
                 return 0,0
 
             except Exception as e:
+                print(e)
                 traceback_str = traceback.format_exc()
                 self.last_response_code = 998
                 self.last_response_body = "Parkpass intenal error: " + str(e) + '\n' + traceback_str
                 self.save()
 
         except Exception as e:
+            print(e)
             traceback_str = traceback.format_exc()
             self.last_response_code = 999
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
@@ -179,17 +165,30 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_AUTHORIZED
         self.save()
 
+        SECRET_HASH = 'yWQ6pSSSNTDMmRsz3dnS'
+
+        prefix_query_str = "ticket_id=%s&amount=%s&FromPay=ParkPass" % (self.parking_card.card_id, order.sum)
+
+        str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
+        hash_str = hashlib.sha1(str_for_hash).hexdigest()
+
         payload = json.dumps({
-            "card_id": self.parking_card.card_id,
-            "order_id": order.id,
-            "sum": float(order.sum)
+            "ticket_id": self.parking_card.card_id,
+            "amount": order.sum,
+            "FromPay": "ParkPass",
+            "hash": hash_str
         })
+
+        print(payload)
+
+        self.last_request_date = timezone.now()
+        self.last_request_body = payload
 
         try:
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(id=self.parking_id)
 
-            return self._make_http_ok_status(rps_parking.parking,
+            return self._make_http_ok_status(
                 rps_parking.request_payment_authorize_url, payload)
 
         except ObjectDoesNotExist:
@@ -200,84 +199,44 @@ class RpsParkingCardSession(models.Model):
     def notify_confirm(self, order):
         self.state = STATE_CONFIRMED
         self.save()
-
-        payload = json.dump({
-            "card_id": self.parking_card.card_id,
-            "order_id": order.id,
-            "sum": float(order.sum)
-        })
-
-        try:
-            rps_parking = RpsParking.objects.select_related(
-                'parking').get(id=self.parking_id)
-
-            return self._make_http_ok_status(rps_parking.parking,
-                rps_parking.request_payment_confirm_url, payload)
-
-        except ObjectDoesNotExist:
-            get_logger().warn("RPS parking is not found")
-
-        return False
+        return True
 
     def notify_refund(self, sum, order):
         self.state = STATE_ERROR
         self.save()
+        return True
 
-        payload = json.dump({
-            "card_id": self.parking_card.card_id,
-            "order_id": order.id,
-            "refund_sum": float(sum),
-            "refund_reason": "Undefinded"
-        })
-
-        try:
-            rps_parking = RpsParking.objects.select_related(
-                'parking').get(id=self.parking_id)
-
-            return self._make_http_ok_status(rps_parking.parking,
-                rps_parking.request_payment_refund_url, payload)
-
-        except ObjectDoesNotExist:
-            get_logger().warn("RPS parking is not found")
-
-        return False
-
-    def _make_http_ok_status(self, parking, url, payload):
+    def _make_http_ok_status(self, url, payload):
         connect_timeout = 2
-
-        vendor_signature = parking.vendor.sign(payload).hexdigest()
-        vendor_name = parking.vendor.name
-
-        headers = {
-            'Content-type': 'application/json',
-            "X-Vendor-Name": vendor_name,
-            "X-Signature": vendor_signature,
-        }
 
         self.last_request_date = timezone.now()
         self.last_request_body = payload
 
         try:
-            r = requests.post(url, data=payload, headers=headers,
+            r = requests.post(url, data=payload,
                               timeout=(connect_timeout, 5.0))
             try:
                 self.last_response_code = r.status_code
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
+                    if result["Status"] == "OK":
+                        return True
                 else:
                     self.last_response_body = ""
                 self.save()
 
-                return r.status_code == 200
+                return False
 
             except Exception as e:
+                print(e)
                 traceback_str = traceback.format_exc()
                 self.last_response_code = 998
                 self.last_response_body = "Parkpass intenal error: " + str(e) + '\n' + traceback_str
                 self.save()
 
         except Exception as e:
+            print(e)
             traceback_str = traceback.format_exc()
             self.last_response_code = 999
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
