@@ -160,11 +160,25 @@ class Order(models.Model):
         return result_sum
 
     def generate_receipt_data(self):
+        if self.parking_card_session or self.client_uuid:
+            return dict(
+                Email=None,
+                Phone=self.parking_card_session.parking_card.phone,
+                Taxation="osn",
+                Items=[{
+                    "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
+                    "Price": str(int(self.sum*100)),
+                    "Quantity": 1.00,
+                    "Amount": str(int(self.sum*100)),
+                    "Tax": "none",
+                    "Ean13": "0123456789"
+                }]
+            )
 
         # Init payment receipt
         if self.session is None:
             return dict(
-                Email=None, # not send to email
+                Email=None,  # not send to email
                 Phone=self.account.phone,
                 Taxation="osn",
                 Items=[{
@@ -172,21 +186,6 @@ class Order(models.Model):
                     "Price": 100,
                     "Quantity": 1.00,
                     "Amount": 100,
-                    "Tax": "none",
-                    "Ean13": "0123456789"
-                    }]
-            )
-
-        if self.parking_card_session or self.client_uuid:
-            return dict(
-                Email=None,
-                Phone=None,
-                Taxation="osn",
-                Items=[{
-                    "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
-                    "Price": str(int(self.sum*100)),
-                    "Quantity": 1.00,
-                    "Amount": str(int(self.sum*100)),
                     "Tax": "none",
                     "Ean13": "0123456789"
                 }]

@@ -13,3 +13,4 @@ uwsgi==2.0.18
 celery==4.2.2
 django-celery-beat==1.4.0
 redis==3.2.1
+python-dateutil==2.8.0

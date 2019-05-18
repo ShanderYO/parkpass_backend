@@ -142,7 +142,7 @@ class InitPayDebt(APIView):
             card_session = RpsParkingCardSession.objects.get(
                 id=card_session
             )
-            if card_session.state != STATE_CREATED or card_session.state != STATE_ERROR:
+            if card_session.state not in [STATE_CREATED, STATE_ERROR]:
                 e = ValidationException(
                     code=ValidationException.VALIDATION_ERROR,
                     message="Parking card session is already paid"
