@@ -98,7 +98,7 @@ class Wish(models.Model):
         verbose_name_plural = 'Wishes'
 
     id = models.BigAutoField(primary_key=True)
-    parking = models.OneToOneField(to=Parking)
+    parking = models.ForeignKey(to=Parking, null=True, blank=True)
     user = models.ForeignKey(to=Account, default=None)
 
     def __unicode__(self):

@@ -111,7 +111,7 @@ class TinkoffCallbackView(APIView):
 
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
                     order.authorized = True
-                    start_cancel_request.delay(order)
+                    start_cancel_request.delay(order.id)
 
             elif self.is_non_account_pay(order):
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
@@ -395,6 +395,7 @@ class TinkoffCallbackView(APIView):
     def notify_confirm_rps(self, order):
         if order.parking_card_session.notify_confirm(order):
             order.paid_notified_at = timezone.now()
+            order.save()
 
     def notify_refund_rps(self, order, sum):
         order.parking_card_session.notify_refund(sum, order)
@@ -408,13 +409,9 @@ class TinkoffCallbackView(APIView):
                 TinkoffAPI.CANCEL, request_data
             )
             get_logger().info(result)
-            if result.get("Status") == u'REFUNDED':
+            if result.get("Status") == u'REVERSED':
                 order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100
-                get_logger().info('REFUNDED: %s' % order.refunded_sum)
-                order.save()
-            elif result.get("Status") == u'PARTIAL_REFUNDED':
-                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
-                get_logger().info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
+                get_logger().info('REVERSED: %s' % order.refunded_sum)
                 order.save()
             else:
                 get_logger().warning('Refund undefined status')
