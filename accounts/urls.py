@@ -9,13 +9,14 @@ from accounts.views import (
     GetReceiptView, ChangeEmailView, EmailConfirmationView, SendReceiptToEmailView, LoginWithEmailView,
     PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
-    ZendeskUserJWTChatView)
+    ZendeskUserJWTChatView, UpdateTokenView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
     url(r'^login/email/$', LoginWithEmailView.as_view()),
     url(r'^login/confirm/$', ConfirmLoginView.as_view()),
     url(r'^logout/$', LogoutView.as_view()),
+    url(r'^token/update/$', UpdateTokenView.as_view()),
 
     url(r'^password/change/$', PasswordChangeView.as_view()),
     url(r'^password/restore/$', PasswordRestoreView.as_view()),

@@ -762,3 +762,13 @@ class ZendeskUserJWTChatView(LoginRequiredAPIView):
         else:
             jwt_token = request.account.get_or_create_jwt_for_zendesk_chat()
             return HttpResponse(jwt_token)
+
+
+class UpdateTokenView(APIView):
+    def post(self, request):
+        """
+        old_token = request.data.get("token", None)
+        if old_token:
+            AccountSession.objects.filter(token=token)
+        """
+        return JsonResponse(status=200)
