@@ -27,9 +27,6 @@ class RpsParking(models.Model):
     request_payment_authorize_url = models.URLField(
         default="https://parkpass.ru/api/v1/parking/rps/mock/authorized/")
 
-    request_payment_refund_url = models.URLField(
-        default="https://parkpass.ru/api/v1/parking/rps/mock/refund/")
-
     polling_enabled = models.BooleanField(default=False)
     last_request_body = models.TextField(null=True, blank=True)
     last_request_date = models.DateTimeField(auto_now_add=True)
@@ -81,6 +78,8 @@ class RpsParking(models.Model):
         self.last_request_date = timezone.now()
         self.last_request_body = query_str
 
+        get_logger("SEND REQUEST TO RPS %s" % self.get_parking_card_debt_url(query_str))
+
         try:
             r = requests.get(
                 self.get_parking_card_debt_url(query_str),
@@ -88,12 +87,14 @@ class RpsParking(models.Model):
 
             try:
                 self.last_response_code = r.status_code
+                get_logger("GET RESPONSE FORM RPS %s" % r.status_code)
+                get_logger(r.content)
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
                     if result.get("status") == "OK":
                         entered_at = parse(result["entered_at"]).replace(tzinfo=None)
-                        server_time = parse(result["server-time"]).replace(tzinfo=None)
+                        server_time = parse(result["server_time"]).replace(tzinfo=None)
 
                         return result["amount"] - result["amount_paid"], (server_time - entered_at).seconds
                     else:
@@ -104,14 +105,14 @@ class RpsParking(models.Model):
                 return 0,0
 
             except Exception as e:
-                print(e)
+                get_logger().warn(e)
                 traceback_str = traceback.format_exc()
                 self.last_response_code = 998
                 self.last_response_body = "Parkpass intenal error: " + str(e) + '\n' + traceback_str
                 self.save()
 
         except Exception as e:
-            print(e)
+            get_logger().warn(e)
             traceback_str = traceback.format_exc()
             self.last_response_code = 999
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
@@ -167,19 +168,20 @@ class RpsParkingCardSession(models.Model):
 
         SECRET_HASH = 'yWQ6pSSSNTDMmRsz3dnS'
 
-        prefix_query_str = "ticket_id=%s&amount=%s&FromPay=ParkPass" % (self.parking_card.card_id, order.sum)
+        prefix_query_str = "ticket_id=%s&amount=%s&FromPay=ParkPass" % (self.parking_card.card_id, int(order.sum))
 
         str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
         hash_str = hashlib.sha1(str_for_hash).hexdigest()
 
         payload = json.dumps({
             "ticket_id": self.parking_card.card_id,
-            "amount": order.sum,
+            "amount": int(order.sum),
             "FromPay": "ParkPass",
             "hash": hash_str
         })
 
-        print(payload)
+        get_logger("SEND REQUEST TO RPS")
+        get_logger(payload)
 
         self.last_request_date = timezone.now()
         self.last_request_body = payload
@@ -212,15 +214,21 @@ class RpsParkingCardSession(models.Model):
         self.last_request_date = timezone.now()
         self.last_request_body = payload
 
+        headers = {
+            'Content-type': 'application/json',
+        }
+
         try:
-            r = requests.post(url, data=payload,
+            r = requests.post(url, data=payload, headers=headers,
                               timeout=(connect_timeout, 5.0))
             try:
                 self.last_response_code = r.status_code
+                get_logger("GET RESPONSE FORM RPS %s" % r.status_code)
+                get_logger(r.content)
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
-                    if result["Status"] == "OK":
+                    if result["status"] == "OK":
                         return True
                 else:
                     self.last_response_body = ""
@@ -229,14 +237,12 @@ class RpsParkingCardSession(models.Model):
                 return False
 
             except Exception as e:
-                print(e)
                 traceback_str = traceback.format_exc()
                 self.last_response_code = 998
                 self.last_response_body = "Parkpass intenal error: " + str(e) + '\n' + traceback_str
                 self.save()
 
         except Exception as e:
-            print(e)
             traceback_str = traceback.format_exc()
             self.last_response_code = 999
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
