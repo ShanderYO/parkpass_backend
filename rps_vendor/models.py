@@ -181,7 +181,7 @@ class RpsParkingCardSession(models.Model):
         })
 
         get_logger().info("SEND REQUEST TO RPS")
-        get_logger().info((payload)
+        get_logger().info(payload)
 
         self.last_request_date = timezone.now()
         self.last_request_body = payload
