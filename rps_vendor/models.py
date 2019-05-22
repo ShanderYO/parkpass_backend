@@ -78,7 +78,7 @@ class RpsParking(models.Model):
         self.last_request_date = timezone.now()
         self.last_request_body = query_str
 
-        get_logger("SEND REQUEST TO RPS %s" % self.get_parking_card_debt_url(query_str))
+        get_logger().info("SEND REQUEST TO RPS %s" % self.get_parking_card_debt_url(query_str))
 
         try:
             r = requests.get(
@@ -87,8 +87,8 @@ class RpsParking(models.Model):
 
             try:
                 self.last_response_code = r.status_code
-                get_logger("GET RESPONSE FORM RPS %s" % r.status_code)
-                get_logger(r.content)
+                get_logger().info("GET RESPONSE FORM RPS %s" % r.status_code)
+                get_logger().info(r.content)
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
@@ -180,8 +180,8 @@ class RpsParkingCardSession(models.Model):
             "hash": hash_str
         })
 
-        get_logger("SEND REQUEST TO RPS")
-        get_logger(payload)
+        get_logger().info("SEND REQUEST TO RPS")
+        get_logger().info((payload)
 
         self.last_request_date = timezone.now()
         self.last_request_body = payload
