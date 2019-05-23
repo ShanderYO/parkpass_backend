@@ -215,7 +215,7 @@ class GetCardSessionStatus(APIView):
             payments = TinkoffPayment.objects.filter(order=last_order)
             current_payment = payments[0] if payments.exists() else None
             if current_payment and current_payment.error_code > 0:
-                response_dict["error"] = current_payment.error_message + " " + current_payment.error_description
+                response_dict["error"] = str(current_payment.error_message) + " " + str(current_payment.error_description)
 
             return JsonResponse(response_dict, status=200)
 
