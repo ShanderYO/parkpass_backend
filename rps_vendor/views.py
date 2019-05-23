@@ -89,7 +89,13 @@ class GetParkingCardDebt(APIView):
                 'parking').get(parking__id=parking_id)
 
             response_dict = rps_parking.get_parking_card_debt(parking_card)
-            return JsonResponse(response_dict, status=200)
+            if response_dict:
+                return JsonResponse(response_dict, status=200)
+            else:
+                e = ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "Card with number %s does not exist" % parking_id)
+                return JsonResponse(e.to_dict(), status=400)
 
         except ObjectDoesNotExist:
             e = ValidationException(
