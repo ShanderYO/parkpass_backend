@@ -49,6 +49,7 @@ class RpsParking(models.Model):
     def get_parking_card_debt(self, parking_card):
         debt, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
         get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
+
         # if Card
         if debt is None:
             return None
