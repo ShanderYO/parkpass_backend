@@ -56,7 +56,7 @@ class RpsParking(models.Model):
                 "duration": duration
             }
         )
-        if debt > 0:
+        if debt >= 0:
             card_session.debt = debt
             card_session.duration = duration
             card_session.save()
