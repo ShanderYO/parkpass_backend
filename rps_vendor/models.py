@@ -48,6 +48,7 @@ class RpsParking(models.Model):
 
     def get_parking_card_debt(self, parking_card):
         debt, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
+        get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
             parking_card=parking_card,
             parking_id=self.parking.id,
@@ -56,6 +57,10 @@ class RpsParking(models.Model):
                 "duration": duration
             }
         )
+        # if Card
+        if debt is None:
+            return None
+
         if debt >= 0:
             card_session.debt = debt
             card_session.duration = duration
@@ -96,7 +101,12 @@ class RpsParking(models.Model):
                         entered_at = parse(result["entered_at"]).replace(tzinfo=None)
                         server_time = parse(result["server_time"]).replace(tzinfo=None)
 
-                        return result["amount"] - result["amount_paid"], (server_time - entered_at).seconds
+                        seconds_ago = (server_time - entered_at).seconds
+
+                        return result["amount"], seconds_ago if seconds_ago > 0 else 0
+
+                    elif result.get("status") == "CardNotFound":
+                        return None, None
                     else:
                         return 0,0
                 else:
