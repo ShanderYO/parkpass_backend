@@ -120,7 +120,8 @@ class AccountInitPayment(LoginRequiredAPIView):
                     message="Parking card session is already paid"
                 )
                 return JsonResponse(e.to_dict(), status=400)
-
+            # Add user to session
+            card_session.account = request.account
             order = Order.objects.create(
                 sum=Decimal(card_session.debt),
                 parking_card_session=card_session,

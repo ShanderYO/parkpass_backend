@@ -326,9 +326,17 @@ class Order(models.Model):
 
     def charge_payment(self, payment):
         get_logger().info("Make charge: ")
+        account = None
+        if self.session:
+            account = self.session.client
+        else:
+            account = self.parking_card_session.account
+
+        if account is None:
+            return
+
         default_account_credit_card = CreditCard.objects.get(
-            account=self.session.client,
-            is_default=True)
+            account=account, is_default=True)
 
         request_data = payment.build_charge_request_data(
             payment.payment_id, default_account_credit_card.rebill_id
