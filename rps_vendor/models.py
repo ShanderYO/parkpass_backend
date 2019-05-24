@@ -201,12 +201,14 @@ class RpsParkingCardSession(models.Model):
 
         try:
             rps_parking = RpsParking.objects.select_related(
-                'parking').get(id=self.parking_id)
+                'parking').get(parking__id=self.parking_id)
 
             return self._make_http_ok_status(
                 rps_parking.request_payment_authorize_url, payload)
 
         except ObjectDoesNotExist:
+            self.state = STATE_ERROR
+            self.save()
             get_logger().warn("RPS parking is not found")
 
         return False
