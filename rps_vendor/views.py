@@ -98,12 +98,12 @@ class GetParkingCardDebt(APIView):
             else:
                 e = ValidationException(
                     ValidationException.RESOURCE_NOT_FOUND,
-                    "Card with number %s does not exist" % parking_id)
+                    "Card with number %s does not exist" % card_id)
                 return JsonResponse(e.to_dict(), status=400)
 
         except ObjectDoesNotExist:
             e = ValidationException(
-                code=ValidationException.RESOURCE_NOT_FOUND,
+                code=ValidationException.ACTION_UNAVAILABLE,
                 message="Parking does not found or parking card is unavailable"
             )
             return JsonResponse(e.to_dict(), status=400)
@@ -120,7 +120,7 @@ class AccountInitPayment(LoginRequiredAPIView):
             )
             if card_session.state != STATE_CREATED:
                 e = ValidationException(
-                    code=ValidationException.VALIDATION_ERROR,
+                    code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Parking card session is already paid"
                 )
                 return JsonResponse(e.to_dict(), status=400)
@@ -155,7 +155,7 @@ class InitPayDebt(APIView):
             )
             if card_session.state not in [STATE_CREATED, STATE_ERROR]:
                 e = ValidationException(
-                    code=ValidationException.VALIDATION_ERROR,
+                    code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Parking card session is already paid"
                 )
                 return JsonResponse(e.to_dict(), status=400)
@@ -219,7 +219,8 @@ class GetCardSessionStatus(APIView):
             payments = TinkoffPayment.objects.filter(order=last_order)
             current_payment = payments[0] if payments.exists() else None
             if current_payment and current_payment.error_code > 0:
-                response_dict["error"] = str(current_payment.error_message) + " " + str(current_payment.error_description)
+                if current_payment.error_message or current_payment.error_description:
+                    response_dict["error"] = str(current_payment.error_message) + " " + str(current_payment.error_description)
 
             return JsonResponse(response_dict, status=200)
 
