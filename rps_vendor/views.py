@@ -124,6 +124,14 @@ class AccountInitPayment(LoginRequiredAPIView):
                     message="Parking card session is already paid"
                 )
                 return JsonResponse(e.to_dict(), status=400)
+
+            if card_session.debt == 0:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Debt is 0. Nothing to pay"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
             # Add user to session
             card_session.account = request.account
             order = Order.objects.create(
@@ -157,6 +165,13 @@ class InitPayDebt(APIView):
                 e = ValidationException(
                     code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Parking card session is already paid"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if card_session.debt == 0:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Debt is 0. Nothing to pay"
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
@@ -220,7 +235,9 @@ class GetCardSessionStatus(APIView):
             current_payment = payments[0] if payments.exists() else None
             if current_payment and current_payment.error_code > 0:
                 if current_payment.error_message or current_payment.error_description:
-                    response_dict["error"] = str(current_payment.error_message) + " " + str(current_payment.error_description)
+                    response_dict["error"] = "Error occurs at payments"
+                    card_session.state = STATE_ERROR
+                    card_session.save()
 
             return JsonResponse(response_dict, status=200)
 
