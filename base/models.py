@@ -132,7 +132,7 @@ class BaseAccount(models.Model):
 
     def update_avatar(self, f):
         path = md5(self.phone + str(random.randint(1,1000))).hexdigest() + '.jpg'
-        write_path = '/' + AVATARS_ROOT + path
+        write_path = '/' + AVATARS_ROOT + '/' + path
         url_path = AVATARS_URL + path
 
         im = Image.open(BytesIO(f))
