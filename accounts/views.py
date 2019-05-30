@@ -115,7 +115,7 @@ class OwnerIssueView(APIView):
         issue.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if issue.phone:
-            get_logger().info("Send to  phone" % issue.phone)
+            get_logger().info("Send to  phone %s" % issue.phone)
             sms_gateway = SMSGateway()
             sms_gateway.send_sms(issue.phone, text, message='')
 
