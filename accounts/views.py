@@ -123,6 +123,8 @@ class OwnerIssueView(APIView):
             get_logger().info("Send to  email %s " % issue.email)
             issue.send_mail(issue.email)
 
+        return JsonResponse({}, status=200)
+
 
 class VendorIssueView(APIView, ObjectView):
     object = VendorIssue
