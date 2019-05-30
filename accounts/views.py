@@ -103,8 +103,7 @@ class OwnerIssueView(APIView, ObjectView):
         email = request.data.get("email", "")
 
         if phone == "" and email == "":
-            pass
-            # TODO add exception code
+            return JsonResponse("Error %s %s" % (phone, email), status=400)
 
         issue = OwnerIssue(
             name=name,
@@ -113,11 +112,14 @@ class OwnerIssueView(APIView, ObjectView):
         )
         issue.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
-        if phone:
+        if issue.phone:
+            get_logger().info("Send to  phone" % issue.phone)
             sms_gateway = SMSGateway()
-            sms_gateway.send_sms(phone, text, message='')
-        if email:
-            issue.send_mail(email)
+            sms_gateway.send_sms(issue.phone, text, message='')
+
+        if issue.email:
+            get_logger().info("Send to  email %s " % issue.email)
+            issue.send_mail(issue.email)
 
 
 class VendorIssueView(APIView, ObjectView):
