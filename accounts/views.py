@@ -92,18 +92,20 @@ class DeactivateAccountView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class OwnerIssueView(APIView, ObjectView):
-    object = OwnerIssue
-    methods = ('POST',)
-    show_fields = ('name', 'phone', 'email')
+class OwnerIssueView(APIView):
+    def get(self, request, *args, **kwargs):
+        response = {
+            "result":serializer(OwnerIssue.objects.all())
+        }
+        return JsonResponse(response, status=200)
 
-    def on_create(self, request, obj):
+    def post(self, request, *args, **kwargs):
         name = request.data.get("name", "")
         phone = request.data.get("phone", "")
         email = request.data.get("email", "")
 
         if phone == "" and email == "":
-            return JsonResponse("Error %s %s" % (phone, email), status=400)
+            return JsonResponse({"error": "Error %s %s" % (phone, email)}, status=400)
 
         issue = OwnerIssue(
             name=name,
