@@ -12,6 +12,6 @@ pipelines:
         script:
         - VERSION="1.$BITBUCKET_BUILD_NUMBER"
         # - bash | ssh ubuntu@sandbox.parkpass.ru
-        - ssh ubuntu@sandbox.parkpass.ru "echo 'Test' >> test.txt"
+        - ssh ubuntu@sandbox.parkpass.ru "bash ~/pipelines/parkpass_backend_autobuild.sh"
         services:
         - docker
