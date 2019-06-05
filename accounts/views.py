@@ -25,6 +25,7 @@ from parkings.models import ParkingSession, Parking
 from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
+from rps_vendor.models import RpsSubscription
 from vendors.models import VendorIssue
 
 
@@ -778,3 +779,45 @@ class UpdateTokenView(APIView):
             AccountSession.objects.filter(token=token)
         """
         return JsonResponse(status=200)
+
+
+class AccountSubscriptionListView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        subscription_qs = RpsSubscription.objects.filter(
+            started_at__lt = timezone.now(),
+            expired_at__gte = timezone.now(),
+            account=request.account
+        ).select_related('parking')
+
+        serialized_subs = serializer(subscription_qs,
+                                     include_attr=('id','name', 'description', 'sum', 'started_at',
+                                                   'expired_at', 'duration', 'prolongation'))
+        for index, sub in enumerate(subscription_qs):
+            serialized_subs[index]["parking"] = serializer(
+                sub.parking, include_attr=('id', 'name', 'description'))
+
+        response_dict = {
+            "result":serialized_subs
+        }
+        return JsonResponse(response_dict, status=200)
+
+
+class AccountSubscriptionSettingsView(LoginRequiredAPIView):
+    def post(self, request, *args, **kwargs):
+        prolong_status = request.data["prolong"] # Todo add validation
+        try:
+            sub = RpsSubscription.objects.get(
+                id=int(kwargs["id"]),
+                account=request.account
+            )
+            sub.prolongation = prolong_status
+            sub.save()
+            sub.check_prolong_payment()
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Your subscription with id %s does not exist" % int(kwargs["id"]))
+            return JsonResponse(e.to_dict(), status=400)
+
+        return JsonResponse({}, status=200)

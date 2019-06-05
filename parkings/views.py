@@ -22,6 +22,8 @@ from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator
+from payments.models import Order
+from rps_vendor.models import RpsSubscription
 from vendors.models import Vendor
 
 LoginRequiredAPIView = generic_login_required_view(Account)
@@ -597,3 +599,68 @@ class ComplainSessionView(LoginRequiredAPIView):
                 "Parking session with id %s does not exist" % session_id
             )
             return JsonResponse(e.to_dict(), status=400)
+
+
+class GetAvailableSubscriptionsView(APIView):
+    def get(self, request, *args, **kwargs):
+        # TODO ask subscription from parking
+        return JsonResponse({}, status=200)
+
+
+class SubscriptionsPayView(LoginRequiredAPIView):
+    #validator_class = SubscriptionsPayValidator
+
+    def post(self, request, *args, **kwargs):
+        name = request.data["name"]
+        description = request.data["description"]
+        sum = int(request.data["sum"])
+        duration = int(request.data["duration"])
+
+        idts = request.data["idts"]
+        id_transition = request.data["id_transition"]
+
+        parking_id = 1
+
+        try:
+            parking = Parking.objects.get(id=parking_id)
+            subscription = RpsSubscription.objects.create(
+                name=name, description=description,
+                sum=sum, started_at=timezone.now(),
+                duration=duration,
+                expired_at=timezone.now() + timedelta(seconds=duration),
+                parking=parking,
+                account=request.account
+            )
+            subscription.create_order_and_pay()
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking with id %s does not exist" % parking_id
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+
+
+        Order.objects.create(
+
+        )
+
+        name = models.CharField(max_length=1024)
+        description = models.TextField()
+        sum = models.IntegerField()
+
+        started_at = models.DateTimeField()
+        expired_at = models.DateTimeField()
+        duration = models.IntegerField()
+        parking = models.ForeignKey(Parking)
+        account = models.ForeignKey(Account)
+        prolongation = models.BooleanField(default=True)
+
+        data = models.TextField(help_text="Byte array as base64")
+        idts = models.TextField()
+        id_transition = models.TextField()
+
+        active = models.BooleanField(default=False)
+
+        # create order

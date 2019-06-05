@@ -15,6 +15,7 @@ from dss.Serializer import serializer
 from accounts.models import Account
 from base.utils import get_logger
 from parkings.models import Parking
+from payments.models import Order
 
 
 class RpsParking(models.Model):
@@ -265,3 +266,32 @@ class RpsParkingCardSession(models.Model):
 
         return False
 
+
+class RpsSubscription(models.Model):
+    name = models.CharField(max_length=1024)
+    description = models.TextField()
+    sum = models.IntegerField()
+
+    started_at = models.DateTimeField()
+    expired_at = models.DateTimeField()
+    duration = models.IntegerField()
+    parking = models.ForeignKey(Parking)
+    account = models.ForeignKey(Account)
+    prolongation = models.BooleanField(default=True)
+
+    data = models.TextField(help_text="Byte array as base64")
+    idts = models.TextField()
+    id_transition = models.TextField()
+
+    active = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        super(self, RpsSubscription).save(*args, **kwargs)
+
+    def check_prolong_payment(self):
+        pass
+
+    def create_order_and_pay(self):
+        order = Order.objects.create(
+
+        )
