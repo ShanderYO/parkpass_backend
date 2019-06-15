@@ -14,7 +14,7 @@ from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
-    EmailAndPasswordValidator
+    EmailAndPasswordValidator, ExternalLoginValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.models import EmailConfirmation
 from base.utils import clear_phone
@@ -26,7 +26,7 @@ from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
-from vendors.models import VendorIssue
+from vendors.models import VendorIssue, Vendor
 
 
 class SetAvatarView(LoginRequiredAPIView):
@@ -821,3 +821,41 @@ class AccountSubscriptionSettingsView(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, status=200)
+
+
+class ExternalLoginView(APIView):
+    validator_class = ExternalLoginValidator
+
+    def post(self, request):
+        vendor_id = int(request.data["vendor_id"])
+        external_user_id = str(request.data["external_user_id"])
+
+        try:
+            vendor = Vendor.objects.get(id=vendor_id)
+            try:
+                if not vendor.is_external_user(external_user_id):
+                    e = AuthException(
+                        AuthException.INVALID_EXTERNAL_USER,
+                        "Account with pending sms-code not found")
+                    return JsonResponse(e.to_dict(), status=400)
+
+                account = Account.objects.get(
+                    external_vendor_id=vendor_id,
+                    extern_id=external_user_id)
+
+                account.login()
+                session = account.get_session()
+                return JsonResponse(
+                    serializer(session, exclude_attr=("created_at",)))
+
+            except Exception as e:
+                e = AuthException(
+                    AuthException.EXTERNAL_LOGIN_ERROR,
+                    "Error at singing up external user | %s " % str(e))
+                return JsonResponse(e.to_dict(), status=400)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Vendor with id %d does not exist" % vendor_id)
+            return JsonResponse(e.to_dict(), status=400)

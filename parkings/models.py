@@ -230,6 +230,7 @@ class ParkingSession(models.Model):
     current_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
 
     extra_data = models.TextField(null=True, blank=True)
+    vendor_id = models.IntegerField(default=0)
 
     created_at = models.DateField(auto_now_add=True)
 

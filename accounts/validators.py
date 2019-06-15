@@ -169,6 +169,23 @@ class CompleteAccountParkingSessionValidator(BaseValidator):
         return True
 
 
+class ExternalLoginValidator(BaseValidator):
+    def is_valid(self):
+        vendor_id = self.request.data.get("vendor_id", None)
+        external_user_id = self.request.data.get("external_user_id", None)
+        if not vendor_id or not external_user_id:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys 'vendor_id' and 'external_user_id' are required"
+            return False
+        try:
+            validate_id(vendor_id, "vendor_id")
+        except Exception as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e)
+            return False
+        return True
+
+
 def validate_id(value, key_name):
 
     try:

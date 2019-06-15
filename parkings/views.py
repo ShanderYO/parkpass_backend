@@ -14,17 +14,18 @@ from accounts.models import Account
 from accounts.tasks import generate_current_debt_order
 from base.exceptions import PermissionException
 from base.exceptions import ValidationException
-from base.utils import datetime_from_unix_timestamp_tz, parse_int
+from base.utils import datetime_from_unix_timestamp_tz, parse_int, get_logger
 from base.views import generic_login_required_view, SignedRequestAPIView, APIView
 from owners.models import Owner, OwnerApplication
 from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
-    UpdateListParkingSessionValidator, ComplainSessionValidator
+    UpdateListParkingSessionValidator, ComplainSessionValidator, SubscriptionsPayValidator
 from payments.models import Order
 from rps_vendor.models import RpsSubscription
-from vendors.models import Vendor
+from vendors.models import Vendor, VendorNotification, VENDOR_NOTIFICATION_TYPE_SESSION_CREATED, \
+    VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED
 
 LoginRequiredAPIView = generic_login_required_view(Account)
 VendorAPIView = generic_login_required_view(Vendor)
@@ -335,6 +336,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
         parking_id = int(request.data["parking_id"])
         client_id = int(request.data["client_id"])
         started_at = int(request.data["started_at"])
+        vendor_id = request.data.get("vendor_id", None)
 
         try:
             parking = Parking.objects.get(id=parking_id, vendor=request.vendor, approved=True)
@@ -373,6 +375,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
                 return JsonResponse(e.to_dict(), status=400)
             session.add_vendor_start_mark()
             session.started_at = utc_started_at
+            session.vendor_id = int(vendor_id) if vendor_id else 0
 
         except ObjectDoesNotExist:
             # check active session
@@ -389,14 +392,23 @@ class CreateParkingSessionView(SignedRequestAPIView):
                 state=ParkingSession.STATE_STARTED_BY_VENDOR,
                 started_at=utc_started_at
             )
+            session.vendor_id = int(vendor_id) if vendor_id else 0
         try:
             session.save()
+
         except IntegrityError as e:
             e = ValidationException(
                 ValidationException.ALREADY_EXISTS,
                 "'session_id' value %s for 'parking_id' %s is already exist" % (session_id, parking_id)
             )
             return JsonResponse(e.to_dict(), status=400)
+
+        try:
+            VendorNotification.objects.create(
+                parking_session=session,
+                type=VENDOR_NOTIFICATION_TYPE_SESSION_CREATED)
+        except Exception as e:
+            get_logger().info(str(e))
 
         return JsonResponse({}, status=200)
 
@@ -447,6 +459,15 @@ class CancelParkingSessionView(SignedRequestAPIView):
                 "Parking session with session_id %s for parking %s does not exist" % (session_id, parking_id)
             )
             return JsonResponse(e.to_dict(), status=400)
+
+        try:
+            VendorNotification.objects.filter(
+                parking_session=session,
+                type=VENDOR_NOTIFICATION_TYPE_SESSION_CREATED
+            ).delete()
+
+        except Exception as e:
+            get_logger().info(str(e))
 
         return JsonResponse({}, status=200)
 
@@ -545,6 +566,13 @@ class CompleteParkingSessionView(SignedRequestAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
+        try:
+            VendorNotification.objects.create(
+                parking_session=session,
+                type=VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED)
+        except Exception as e:
+            get_logger().info(str(e))
+
         return JsonResponse({}, status=200)
 
 
@@ -608,7 +636,7 @@ class GetAvailableSubscriptionsView(APIView):
 
 
 class SubscriptionsPayView(LoginRequiredAPIView):
-    #validator_class = SubscriptionsPayValidator
+    validator_class = SubscriptionsPayValidator
 
     def post(self, request, *args, **kwargs):
         name = request.data["name"]
@@ -629,7 +657,8 @@ class SubscriptionsPayView(LoginRequiredAPIView):
                 duration=duration,
                 expired_at=timezone.now() + timedelta(seconds=duration),
                 parking=parking,
-                account=request.account
+                account=request.account,
+                idts=idts, id_transition=id_transition
             )
             subscription.create_order_and_pay()
 
@@ -639,28 +668,3 @@ class SubscriptionsPayView(LoginRequiredAPIView):
                 "Parking with id %s does not exist" % parking_id
             )
             return JsonResponse(e.to_dict(), status=400)
-
-
-
-        Order.objects.create(
-
-        )
-
-        name = models.CharField(max_length=1024)
-        description = models.TextField()
-        sum = models.IntegerField()
-
-        started_at = models.DateTimeField()
-        expired_at = models.DateTimeField()
-        duration = models.IntegerField()
-        parking = models.ForeignKey(Parking)
-        account = models.ForeignKey(Account)
-        prolongation = models.BooleanField(default=True)
-
-        data = models.TextField(help_text="Byte array as base64")
-        idts = models.TextField()
-        id_transition = models.TextField()
-
-        active = models.BooleanField(default=False)
-
-        # create order

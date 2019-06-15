@@ -202,6 +202,14 @@ CELERY_BEAT_SCHEDULE = {
     'task-rps-ask-update': {
         'task': 'rps_vendor.tasks.request_rps_session_update',
         'schedule': 30.0
+    },
+    'task-check-prolong-subscription': {
+        'task': 'rps_vendor.tasks.prolong_subscription_sheduler',
+        'schedule': 60 * 60 * 12 # two times per day
+    },
+    'task-notify-mos-parking-vendor': {
+        'task': 'vendor.task.notify_mos_parking',
+        'schedule': 15.0
     }
 }
 

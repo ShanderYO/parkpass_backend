@@ -1,8 +1,9 @@
+from decimal import Decimal
 import hashlib
-import hmac
 import json
 import traceback
 
+from datetime import timedelta
 from dateutil.parser import *
 import requests
 from django.core.exceptions import ObjectDoesNotExist
@@ -289,9 +290,28 @@ class RpsSubscription(models.Model):
         super(self, RpsSubscription).save(*args, **kwargs)
 
     def check_prolong_payment(self):
-        pass
+        if timezone.now() >= self.expired_at:
+            self.active = False
+            self.save()
+            if self.prolongation:
+                new_subscription = RpsSubscription.objects.create(
+                    name=self.name, description=self.description,
+                    sum=self.sum, started_at=timezone.now(),
+                    duration=self.duration,
+                    expired_at=timezone.now() + timedelta(seconds=self.duration),
+                    parking=self.parking,
+                    account=self.account,
+                    prolongation = True,
+                    idts=self.idts, id_transition=self.id_transition
+                )
+                new_subscription.create_order_and_pay()
 
     def create_order_and_pay(self):
         order = Order.objects.create(
-
+            sum=Decimal(sum),
+            subscription=self
         )
+        order.try_pay()
+
+    def request_buy(self):
+        return True

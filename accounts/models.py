@@ -5,6 +5,9 @@ from base.models import BaseAccount, BaseAccountSession
 
 
 class Account(BaseAccount):
+    external_vendor_id = models.IntegerField(null=True)
+    external_id = models.CharField(max_length=1024, null=True, blank=True)
+
     @property
     def session_class(self):
         return AccountSession

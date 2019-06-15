@@ -4,6 +4,7 @@ import re
 from django.core.exceptions import ValidationError
 
 from base.exceptions import ValidationException
+from base.utils import parse_int
 from base.validators import BaseValidator, validate_uint
 
 
@@ -149,6 +150,15 @@ class CreateParkingSessionValidator(BaseValidator):
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e.message)
             return False
+
+        vendor_id = self.request.data.get("vendor_id", None)
+        if vendor_id:
+            try:
+                validate_id(vendor_id)
+            except ValidationError as e:
+                self.code = ValidationException.VALIDATION_ERROR
+                self.message = str(e.message)
+                return False
 
         return True
 
@@ -340,6 +350,37 @@ class ComplainSessionValidator(BaseValidator):
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e.message)
+            return False
+
+        return True
+
+
+class SubscriptionsPayValidator(BaseValidator):
+    def is_valid(self):
+        name = self.request.data.get("name")
+        description = self.request.data.get("description")
+        sum = self.request.data.get("sum")
+        duration = self.request.data.get("duration", 0)
+        idts = self.request.data.get("idts")
+        id_transition = self.request.data.get("id_transition")
+
+        if not all([name, description, sum, duration, idts, id_transition]):
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys [name, description, sum, duration, idts, id_transition] are required"
+            return False
+
+        if not parse_int(duration):
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'duration' is not integet type"
+            return False
+
+        try:
+            float_sum = float(sum)
+            if float_sum < 0:
+                raise TypeError()
+        except (ValueError, TypeError):
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'sum' has invalid format. Must be positive decimal value"
             return False
 
         return True

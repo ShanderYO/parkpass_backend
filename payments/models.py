@@ -10,7 +10,7 @@ from base.utils import get_logger
 from parkings.models import ParkingSession
 from parkpass.settings import EMAIL_HOST_USER
 from payments.payment_api import TinkoffAPI
-from rps_vendor.models import ParkingCard, RpsParkingCardSession
+from rps_vendor.models import ParkingCard, RpsParkingCardSession, RpsSubscription
 
 
 class FiskalNotification(models.Model):
@@ -163,6 +163,21 @@ class Order(models.Model):
         return result_sum
 
     def generate_receipt_data(self):
+        if self.subscription:
+            return dict(
+                Email=None,
+                Phone=self.parking_card_session.parking_card.phone,
+                Taxation="osn",
+                Items=[{
+                    "Name": "Оплата парковочного абонемента",
+                    "Price": str(int(self.sum * 100)),
+                    "Quantity": 1.00,
+                    "Amount": str(int(self.sum * 100)),
+                    "Tax": "none",
+                    "Ean13": "0123456789"
+                }]
+            )
+
         if self.parking_card_session or self.client_uuid:
             return dict(
                 Email=None,
@@ -330,10 +345,13 @@ class Order(models.Model):
     def charge_payment(self, payment):
         get_logger().info("Make charge: ")
         account = None
+
         if self.session:
             account = self.session.client
-        else:
+        elif self.parking_card_session:
             account = self.parking_card_session.account
+        else:
+            account = self.subscription.account
 
         if account is None:
             return

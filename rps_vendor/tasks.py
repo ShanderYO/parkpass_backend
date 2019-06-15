@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from parkings.models import ParkingSession, Parking
 from parkpass.celery import app
-from rps_vendor.models import RpsParking
+from rps_vendor.models import RpsParking, RpsSubscription
 
 
 @app.task()
@@ -108,3 +108,12 @@ def _make_http_request(url, payload, rps_parking):
         rps_parking.last_response_code=999
         rps_parking.last_response_body="Vendor error: "+str(e) + '\n' + traceback_str
         rps_parking.save()
+
+
+@app.task()
+def prolong_subscription_sheduler():
+    active_subscription = RpsSubscription.objects.filter(
+        active=True
+    )
+    for subscription in active_subscription:
+        subscription.check_prolong_payment()
