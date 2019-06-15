@@ -7,10 +7,8 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 from base.utils import get_logger
-from parkings.models import ParkingSession
 from parkpass.settings import EMAIL_HOST_USER
 from payments.payment_api import TinkoffAPI
-from rps_vendor.models import ParkingCard, RpsParkingCardSession, RpsSubscription
 
 
 class FiskalNotification(models.Model):
@@ -129,7 +127,7 @@ class Order(models.Model):
     authorized = models.BooleanField(default=False)
     paid = models.BooleanField(default=False)
     paid_card_pan = models.CharField(max_length=31, default="")
-    session = models.ForeignKey(ParkingSession, null=True, blank=True)
+    session = models.ForeignKey(to='parkings.ParkingSession', null=True, blank=True)
     refund_request = models.BooleanField(default=False)
     refunded_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
@@ -139,11 +137,11 @@ class Order(models.Model):
     account = models.ForeignKey(Account, null=True, blank=True)
 
     # for parking card
-    parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True, blank=True)
+    parking_card_session = models.ForeignKey(to='rps_vendor.RpsParkingCardSession', null=True, blank=True)
     paid_notified_at = models.DateTimeField(null=True, blank=True)
 
     # for subscription
-    subscription = models.ForeignKey(RpsSubscription, null=True, blank=True)
+    subscription = models.ForeignKey(to='rps_vendor.RpsSubscription', null=True, blank=True)
 
     # for non-accounts payments
     client_uuid = models.UUIDField(null=True, default=None)

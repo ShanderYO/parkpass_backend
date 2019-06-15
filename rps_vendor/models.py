@@ -15,7 +15,6 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 from base.utils import get_logger
-from parkings.models import Parking
 from payments.models import Order
 
 
@@ -35,7 +34,7 @@ class RpsParking(models.Model):
 
     last_response_code = models.IntegerField(default=0)
     last_response_body = models.TextField(null=True, blank=True)
-    parking = models.ForeignKey(Parking)
+    parking = models.ForeignKey(to='parkings.Parking')
 
     class Meta:
         ordering = ["-id"]
@@ -276,7 +275,7 @@ class RpsSubscription(models.Model):
     started_at = models.DateTimeField()
     expired_at = models.DateTimeField()
     duration = models.IntegerField()
-    parking = models.ForeignKey(Parking)
+    parking = models.ForeignKey(to='parkings.Parking')
     account = models.ForeignKey(Account)
     prolongation = models.BooleanField(default=True)
 
