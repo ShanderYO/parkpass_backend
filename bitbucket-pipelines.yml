@@ -1,4 +1,3 @@
- This is a sample build configuration for Docker.
 # Check our guides at https://confluence.atlassian.com/x/O1toN for more examples.
 # Only use spaces to indent your .yml configuration.
 # -----
@@ -15,4 +14,3 @@ pipelines:
         - ssh ubuntu@sandbox.parkpass.ru "bash ~/pipelines/parkpass_backend_autobuild.sh"
         services:
         - docker
-
