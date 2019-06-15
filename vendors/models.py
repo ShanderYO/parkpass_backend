@@ -15,7 +15,6 @@ from base.utils import get_logger, clear_phone
 from owners.validators import validate_inn, validate_kpp
 from accounts.models import Account as User, Account
 from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
-from parkings.models import ParkingSession
 from rps_vendor.models import RpsSubscription, RpsParkingCardSession
 
 
@@ -218,7 +217,7 @@ VENDOR_NOTIFICATION_TYPES = (
 
 
 class VendorNotification(models.Model):
-    parking_session = models.ForeignKey(ParkingSession, null=True)
+    parking_session = models.ForeignKey(to='parkings.ParkingSession', null=True)
     parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True)
     rps_subscription = models.ForeignKey(RpsSubscription, null=True)
     type = models.PositiveSmallIntegerField(
