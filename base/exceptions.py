@@ -20,6 +20,8 @@ class AuthException(ApiException):
     INVALID_PASSWORD = 101
     INVALID_TOKEN = 102
     INVALID_SESSION = 103
+    INVALID_EXTERNAL_USER = 104
+    EXTERNAL_LOGIN_ERROR = 105
 
     def __init__(self, code, message, http_code=400):
         super(AuthException, self).__init__(message, http_code)
@@ -70,6 +72,7 @@ class ValidationException(ApiException):
     INVALID_IMAGE = 404  # Image doesn't meet conditions(e.g. size lt 300x300)
     EMAIL_ALREADY_USED = 405
     INVALID_RESOURCE_STATE = 406
+    ACTION_UNAVAILABLE = 407
 
     # Raised when input data is not valid json object
     UNKNOWN_VALIDATION_CODE = 499

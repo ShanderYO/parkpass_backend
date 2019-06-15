@@ -14,7 +14,7 @@ from accounts.sms_gateway import SMSGateway
 from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
-    EmailAndPasswordValidator
+    EmailAndPasswordValidator, ExternalLoginValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.models import EmailConfirmation
 from base.utils import clear_phone
@@ -25,7 +25,8 @@ from parkings.models import ParkingSession, Parking
 from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
-from vendors.models import VendorIssue
+from rps_vendor.models import RpsSubscription
+from vendors.models import VendorIssue, Vendor
 
 
 class SetAvatarView(LoginRequiredAPIView):
@@ -92,19 +93,20 @@ class DeactivateAccountView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class OwnerIssueView(APIView, ObjectView):
-    object = OwnerIssue
-    methods = ('POST',)
-    show_fields = ('name', 'phone', 'email')
+class OwnerIssueView(APIView):
+    def get(self, request, *args, **kwargs):
+        response = {
+            "result":serializer(OwnerIssue.objects.all())
+        }
+        return JsonResponse(response, status=200)
 
-    def on_create(self, request, obj):
+    def post(self, request, *args, **kwargs):
         name = request.data.get("name", "")
         phone = request.data.get("phone", "")
         email = request.data.get("email", "")
 
         if phone == "" and email == "":
-            pass
-            # TODO add exception code
+            return JsonResponse({"error": "Error %s %s" % (phone, email)}, status=400)
 
         issue = OwnerIssue(
             name=name,
@@ -113,11 +115,16 @@ class OwnerIssueView(APIView, ObjectView):
         )
         issue.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
-        if phone:
+        if issue.phone:
+            get_logger().info("Send to  phone %s" % issue.phone)
             sms_gateway = SMSGateway()
-            sms_gateway.send_sms(phone, text, message='')
-        if email:
-            issue.send_mail(email)
+            sms_gateway.send_sms(issue.phone, text, message='')
+
+        if issue.email:
+            get_logger().info("Send to  email %s " % issue.email)
+            issue.send_mail(issue.email)
+
+        return JsonResponse({}, status=200)
 
 
 class VendorIssueView(APIView, ObjectView):
@@ -763,3 +770,93 @@ class ZendeskUserJWTChatView(LoginRequiredAPIView):
         else:
             jwt_token = request.account.get_or_create_jwt_for_zendesk_chat()
             return HttpResponse(jwt_token)
+
+
+class UpdateTokenView(APIView):
+    def post(self, request):
+        """
+        old_token = request.data.get("token", None)
+        if old_token:
+            AccountSession.objects.filter(token=token)
+        """
+        return JsonResponse(status=200)
+
+
+class AccountSubscriptionListView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        subscription_qs = RpsSubscription.objects.filter(
+            started_at__lt = timezone.now(),
+            expired_at__gte = timezone.now(),
+            account=request.account
+        ).select_related('parking')
+
+        serialized_subs = serializer(subscription_qs,
+                                     include_attr=('id','name', 'description', 'sum', 'started_at',
+                                                   'expired_at', 'duration', 'prolongation'))
+        for index, sub in enumerate(subscription_qs):
+            serialized_subs[index]["parking"] = serializer(
+                sub.parking, include_attr=('id', 'name', 'description'))
+
+        response_dict = {
+            "result":serialized_subs
+        }
+        return JsonResponse(response_dict, status=200)
+
+
+class AccountSubscriptionSettingsView(LoginRequiredAPIView):
+    def post(self, request, *args, **kwargs):
+        prolong_status = request.data["prolong"] # Todo add validation
+        try:
+            sub = RpsSubscription.objects.get(
+                id=int(kwargs["id"]),
+                account=request.account
+            )
+            sub.prolongation = prolong_status
+            sub.save()
+            sub.check_prolong_payment()
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Your subscription with id %s does not exist" % int(kwargs["id"]))
+            return JsonResponse(e.to_dict(), status=400)
+
+        return JsonResponse({}, status=200)
+
+
+class ExternalLoginView(APIView):
+    validator_class = ExternalLoginValidator
+
+    def post(self, request):
+        vendor_id = int(request.data["vendor_id"])
+        external_user_id = str(request.data["external_user_id"])
+
+        try:
+            vendor = Vendor.objects.get(id=vendor_id)
+            try:
+                if not vendor.is_external_user(external_user_id):
+                    e = AuthException(
+                        AuthException.INVALID_EXTERNAL_USER,
+                        "Account with pending sms-code not found")
+                    return JsonResponse(e.to_dict(), status=400)
+
+                account = Account.objects.get(
+                    external_vendor_id=vendor_id,
+                    extern_id=external_user_id)
+
+                account.login()
+                session = account.get_session()
+                return JsonResponse(
+                    serializer(session, exclude_attr=("created_at",)))
+
+            except Exception as e:
+                e = AuthException(
+                    AuthException.EXTERNAL_LOGIN_ERROR,
+                    "Error at singing up external user | %s " % str(e))
+                return JsonResponse(e.to_dict(), status=400)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Vendor with id %d does not exist" % vendor_id)
+            return JsonResponse(e.to_dict(), status=400)

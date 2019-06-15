@@ -3,15 +3,20 @@ from __future__ import unicode_literals
 import binascii
 import hashlib
 import hmac
+import json
 import os
 
+import requests
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.utils import timezone
 
-from base.utils import get_logger
+from base.utils import get_logger, clear_phone
 from owners.validators import validate_inn, validate_kpp
-from accounts.models import Account as User
+from accounts.models import Account as User, Account
 from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
+from parkings.models import ParkingSession
+from rps_vendor.models import RpsSubscription, RpsParkingCardSession
 
 
 class VendorIssue(BaseAccountIssue):
@@ -72,6 +77,8 @@ class Vendor(BaseAccount):
     checking_account = models.CharField(max_length=64, blank=True, null=True)
     checking_kpp = models.CharField(max_length=15, blank=True, null=True)
 
+    fetch_extern_user_data_url = models.URLField(max_length=1024, null=True)
+
     class Meta:
         ordering = ["-id"]
         verbose_name = 'Vendor'
@@ -117,6 +124,65 @@ class Vendor(BaseAccount):
     def sign(self, data):
         return hmac.new(str(self.secret), data, hashlib.sha512)
 
+    def is_external_user(self, external_id):
+        if not self.fetch_extern_user_data_url:
+            return False
+
+        data = self.make_sign_request(
+            self.fetch_extern_user_data_url,
+            body=dict(
+                id=external_id
+            )
+        )
+        if data and type(data) == dict:
+            raw_phone = data.get("phone")
+            first_name = data.get("name")
+            last_name = data.get("surname")
+            email = data.get("email")
+
+            qs = Account.objects.filter(
+                external_vendor_id=self.id,
+                extern_id=external_id)
+
+            if not qs.exists():
+                Account.objects.create(
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone=clear_phone(raw_phone),
+                    email=email,
+                    external_vendor_id=self.id,
+                    external_id=external_id
+                )
+            return True
+        else:
+            get_logger("Invalid response onlogin %s" % str(data))
+        return False
+
+    def make_sign_request(self, url, body):
+        payload = json.dumps(body)
+        signature = self.sign(payload)
+
+        get_logger().info("SEND REQUEST TO VENDOR")
+        get_logger().info("%s | %s to %s" % (payload, signature, url))
+
+        connect_timeout = 2
+        headers = {
+            'Content-type': 'application/json',
+            "x-signature": signature
+        }
+        try:
+            r = requests.post(url, data=payload, headers=headers,
+                                  timeout=(connect_timeout, 5.0))
+            get_logger.info("GET RESPONSE FORM VENDOR %s" % r.status_code)
+            get_logger.info(r.content)
+            if r.status_code == 200:
+                return r.json()
+
+        except Exception as e:
+            get_logger.info(str(e))
+
+        return None
+
 
 class VendorSession(BaseAccountSession):
     vendor = models.OneToOneField(Vendor)
@@ -132,3 +198,112 @@ class VendorSession(BaseAccountSession):
 
         except ObjectDoesNotExist:
             return None
+
+
+VENDOR_NOTIFICATION_TYPE_SESSION_CREATED = 1
+VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED = 2
+VENDOR_NOTIFICATION_TYPE_SESSION_CLOSED = 3
+VENDOR_NOTIFICATION_TYPE_SUBSCRIPTION_PAID = 4
+VENDOR_NOTIFICATION_TYPE_PARKING_CARD_SESSION_PAID = 5
+
+
+VENDOR_NOTIFICATION_TYPES = (
+    (0, "Unknown"),
+    (VENDOR_NOTIFICATION_TYPE_SESSION_CREATED, "Session created"),
+    (VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED, "Session completed"),
+    (VENDOR_NOTIFICATION_TYPE_SESSION_CLOSED, "Session closed"),
+    (VENDOR_NOTIFICATION_TYPE_SUBSCRIPTION_PAID, "Subscription paid"),
+    (VENDOR_NOTIFICATION_TYPE_PARKING_CARD_SESSION_PAID, "Parking card session paid"),
+)
+
+
+class VendorNotification(models.Model):
+    parking_session = models.ForeignKey(ParkingSession, null=True)
+    parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True)
+    rps_subscription = models.ForeignKey(RpsSubscription, null=True)
+    type = models.PositiveSmallIntegerField(
+        choices=VENDOR_NOTIFICATION_TYPES, default=0)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    message = models.TextField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def process(self):
+        if self.confirmed_at:
+            return
+
+        if type == VENDOR_NOTIFICATION_TYPE_SESSION_CREATED:
+            self.on_session_created()
+        elif type == VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED:
+            self.on_session_completed()
+        elif type == VENDOR_NOTIFICATION_TYPE_SESSION_CLOSED:
+            self.on_session_closed()
+        elif type == VENDOR_NOTIFICATION_TYPE_SUBSCRIPTION_PAID:
+            self.on_subscription_paid()
+        elif type == VENDOR_NOTIFICATION_TYPE_PARKING_CARD_SESSION_PAID:
+            self.on_parking_card_paid()
+        else:
+            get_logger("Unknown notification type : id=%s " % self.id)
+
+    def on_session_created(self):
+        if self.parking_session:
+            url = "https://example.com"
+            data = {
+                "client_id": self.parking_session.client.id,
+                "session_id": self.parking_session.session_id,
+                "parking_id": self.parking_session.parking.id,
+                "started_at": self.parking_session.started_at
+            }
+            self._notify_request(url, data)
+
+    def on_session_completed(self):
+        if self.parking_session:
+            url = "https://example.com"
+            data = {
+                "client_id": self.parking_session.client.id,
+                "session_id": self.parking_session.session_id,
+                "debt": self.parking_session.debt,
+                "parking_id": self.parking_session.parking.id,
+                "completed_at": self.parking_session.completed_at
+            }
+            self._notify_request(url, data)
+
+    def on_session_closed(self):
+        if self.parking_session:
+            url = "https://example.com"
+            data = {
+                "client_id": self.parking_session.client.id,
+                "session_id": self.parking_session.session_id,
+                "debt": self.parking_session.debt,
+                "parking_id": self.parking_session.parking.id,
+                "paid_at": self.created_at
+            }
+            self._notify_request(url, data)
+
+    def on_parking_card_paid(self):
+        if self.parking_card_session:
+            url = "https://example.com"
+            data = {
+                "client_id": self.parking_card_session.client.id,
+                "parking_card_id": self.parking_card_session.parking_card.card_id,
+                "sum": self.parking_card_session.debt,
+                "parking_id": self.parking_session.parking.id,
+                "paid_at": self.created_at
+            }
+            self._notify_request(url, data)
+
+    def on_subscription_paid(self):
+        if self.rps_subscription:
+            url = "https://example.com"
+            data = {
+                "client_id": self.rps_subscription.account.id,
+                "subscription_id": self.rps_subscription.id,
+                "sum": self.rps_subscription.sum,
+                "parking_id": self.rps_subscription.parking.id,
+                "paid_at": self.created_at
+            }
+            self._notify_request(url, data)
+
+    def _notify_request(self, data):
+        self.confirmed_at = timezone.now()
+        self.message = "All is OK"
+        self.save()

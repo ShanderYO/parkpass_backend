@@ -88,12 +88,22 @@ class GetParkingCardDebt(APIView):
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(parking__id=parking_id)
 
+            if not rps_parking.parking.rps_parking_card_available:
+                raise ObjectDoesNotExist()
+
             response_dict = rps_parking.get_parking_card_debt(parking_card)
-            return JsonResponse(response_dict, status=200)
+            if response_dict:
+                response_dict["parking_name"] = rps_parking.parking.name
+                return JsonResponse(response_dict, status=200)
+            else:
+                e = ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "Card with number %s does not exist" % card_id)
+                return JsonResponse(e.to_dict(), status=400)
 
         except ObjectDoesNotExist:
             e = ValidationException(
-                code=ValidationException.RESOURCE_NOT_FOUND,
+                code=ValidationException.ACTION_UNAVAILABLE,
                 message="Parking does not found or parking card is unavailable"
             )
             return JsonResponse(e.to_dict(), status=400)
@@ -110,11 +120,20 @@ class AccountInitPayment(LoginRequiredAPIView):
             )
             if card_session.state != STATE_CREATED:
                 e = ValidationException(
-                    code=ValidationException.VALIDATION_ERROR,
+                    code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Parking card session is already paid"
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
+            if card_session.debt == 0:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Debt is 0. Nothing to pay"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            # Add user to session
+            card_session.account = request.account
             order = Order.objects.create(
                 sum=Decimal(card_session.debt),
                 parking_card_session=card_session,
@@ -144,8 +163,15 @@ class InitPayDebt(APIView):
             )
             if card_session.state not in [STATE_CREATED, STATE_ERROR]:
                 e = ValidationException(
-                    code=ValidationException.VALIDATION_ERROR,
+                    code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Parking card session is already paid"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if card_session.debt == 0:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Debt is 0. Nothing to pay"
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
@@ -208,7 +234,10 @@ class GetCardSessionStatus(APIView):
             payments = TinkoffPayment.objects.filter(order=last_order)
             current_payment = payments[0] if payments.exists() else None
             if current_payment and current_payment.error_code > 0:
-                response_dict["error"] = current_payment.error_message + " " + current_payment.error_description
+                if current_payment.error_message or current_payment.error_description:
+                    response_dict["error"] = "Error occurs at payments"
+                    card_session.state = STATE_ERROR
+                    card_session.save()
 
             return JsonResponse(response_dict, status=200)
 

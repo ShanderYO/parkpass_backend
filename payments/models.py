@@ -10,7 +10,7 @@ from base.utils import get_logger
 from parkings.models import ParkingSession
 from parkpass.settings import EMAIL_HOST_USER
 from payments.payment_api import TinkoffAPI
-from rps_vendor.models import ParkingCard, RpsParkingCardSession
+from rps_vendor.models import ParkingCard, RpsParkingCardSession, RpsSubscription
 
 
 class FiskalNotification(models.Model):
@@ -142,6 +142,9 @@ class Order(models.Model):
     parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True, blank=True)
     paid_notified_at = models.DateTimeField(null=True, blank=True)
 
+    # for subscription
+    subscription = models.ForeignKey(RpsSubscription, null=True, blank=True)
+
     # for non-accounts payments
     client_uuid = models.UUIDField(null=True, default=None)
 
@@ -160,6 +163,21 @@ class Order(models.Model):
         return result_sum
 
     def generate_receipt_data(self):
+        if self.subscription:
+            return dict(
+                Email=None,
+                Phone=self.parking_card_session.parking_card.phone,
+                Taxation="osn",
+                Items=[{
+                    "Name": "Оплата парковочного абонемента",
+                    "Price": str(int(self.sum * 100)),
+                    "Quantity": 1.00,
+                    "Amount": str(int(self.sum * 100)),
+                    "Tax": "none",
+                    "Ean13": "0123456789"
+                }]
+            )
+
         if self.parking_card_session or self.client_uuid:
             return dict(
                 Email=None,
@@ -326,9 +344,20 @@ class Order(models.Model):
 
     def charge_payment(self, payment):
         get_logger().info("Make charge: ")
+        account = None
+
+        if self.session:
+            account = self.session.client
+        elif self.parking_card_session:
+            account = self.parking_card_session.account
+        else:
+            account = self.subscription.account
+
+        if account is None:
+            return
+
         default_account_credit_card = CreditCard.objects.get(
-            account=self.session.client,
-            is_default=True)
+            account=account, is_default=True)
 
         request_data = payment.build_charge_request_data(
             payment.payment_id, default_account_credit_card.rebill_id

@@ -54,6 +54,7 @@ class Parking(models.Model):
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
     tariff = models.CharField(max_length=2000, default='{}', verbose_name="Tariff object JSON")
 
+    rps_parking_card_available = models.BooleanField(default=False)
     tariff_file_name = models.TextField(null=True, blank=True)
     tariff_file_content = models.TextField(null=True, blank=True)
 
@@ -229,6 +230,7 @@ class ParkingSession(models.Model):
     current_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
 
     extra_data = models.TextField(null=True, blank=True)
+    vendor_id = models.IntegerField(default=0)
 
     created_at = models.DateField(auto_now_add=True)
 

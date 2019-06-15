@@ -13,7 +13,7 @@ from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED,
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN
 from payments.payment_api import TinkoffAPI
 
-from payments.tasks import start_cancel_request
+from payments.tasks import start_cancel_request, make_buy_subscription_request
 
 
 class TinkoffCallbackView(APIView):
@@ -139,6 +139,15 @@ class TinkoffCallbackView(APIView):
 
                 get_logger().info("status 200: OK")
                 return HttpResponse("OK", status=200)
+
+            elif self.is_subscription_pay(order):
+                if self.status == PAYMENT_STATUS_AUTHORIZED:
+                    order.authorized = True
+                    order.save()
+                    make_buy_subscription_request.delay(order.subscription.id)
+                elif self.status == PAYMENT_STATUS_CONFIRMED:
+                    order.paid = True
+                    order.save()
 
             else:
                 get_logger().warn("Unknown successefull operation")
@@ -318,6 +327,10 @@ class TinkoffCallbackView(APIView):
 
     def is_parking_card_pay(self, order):
         return order.parking_card_session != None
+
+
+    def is_subscription_pay(self, order):
+        return order.subscription != None
 
 
     def is_non_account_pay(self, order):

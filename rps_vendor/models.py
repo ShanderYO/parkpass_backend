@@ -1,8 +1,9 @@
+from decimal import Decimal
 import hashlib
-import hmac
 import json
 import traceback
 
+from datetime import timedelta
 from dateutil.parser import *
 import requests
 from django.core.exceptions import ObjectDoesNotExist
@@ -15,6 +16,7 @@ from dss.Serializer import serializer
 from accounts.models import Account
 from base.utils import get_logger
 from parkings.models import Parking
+from payments.models import Order
 
 
 class RpsParking(models.Model):
@@ -23,12 +25,9 @@ class RpsParking(models.Model):
 
     request_parking_card_debt_url = models.URLField(
         default="https://parkpass.ru/api/v1/parking/rps/mock/debt/")
+
     request_payment_authorize_url = models.URLField(
         default="https://parkpass.ru/api/v1/parking/rps/mock/authorized/")
-    request_payment_confirm_url = models.URLField(
-        default="https://parkpass.ru/api/v1/parking/rps/mock/confirm/")
-    request_payment_refund_url = models.URLField(
-        default="https://parkpass.ru/api/v1/parking/rps/mock/refund/")
 
     polling_enabled = models.BooleanField(default=False)
     last_request_body = models.TextField(null=True, blank=True)
@@ -50,22 +49,29 @@ class RpsParking(models.Model):
         return self.request_parking_card_debt_url + '?' + query
 
     def get_parking_card_debt(self, parking_card):
-        debt, duration = self._make_http_for_parking_card_debt(parking_card)
+        debt, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
+        get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
+
+        # if Card
+        if debt is None:
+            return None
+
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
             parking_card=parking_card,
             parking_id=self.parking.id,
+            state=STATE_CREATED,
             defaults={
                 "debt": debt,
                 "duration": duration
             }
         )
-        if debt > 0:
+
+        if debt >= 0:
             card_session.debt = debt
             card_session.duration = duration
             card_session.save()
 
         return serializer(card_session)
-
 
     def _make_http_for_parking_card_debt(self, parking_card):
         connect_timeout = 2
@@ -74,28 +80,15 @@ class RpsParking(models.Model):
 
         prefix_query_str = "ticket_id=%s&FromPay=ParkPass" % parking_card
 
-        str_for_hash = prefix_query_str + '&s' % SECRET_HASH
+        str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
         hash_str = hashlib.sha1(str_for_hash).hexdigest()
 
         query_str = prefix_query_str + '&hash=%s' % hash_str
 
-        #
-        # payload = json.dumps({
-        #     "card_id": parking_card.card_id,
-        #     "phone": parking_card.phone,
-        # })
-
-        # vendor_signature = self.parking.vendor.sign(payload).hexdigest()
-        # vendor_name = self.parking.vendor.name
-        #
-        # headers = {
-        #     'Content-type': 'application/json',
-        #     "X-Vendor-Name": vendor_name,
-        #     "X-Signature": vendor_signature,
-        # }
-
         self.last_request_date = timezone.now()
         self.last_request_body = query_str
+
+        get_logger().info("SEND REQUEST TO RPS %s" % self.get_parking_card_debt_url(query_str))
 
         try:
             r = requests.get(
@@ -104,14 +97,21 @@ class RpsParking(models.Model):
 
             try:
                 self.last_response_code = r.status_code
+                get_logger().info("GET RESPONSE FORM RPS %s" % r.status_code)
+                get_logger().info(r.content)
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
                     if result.get("status") == "OK":
                         entered_at = parse(result["entered_at"]).replace(tzinfo=None)
-                        server_time = parse(result["server-time"]).replace(tzinfo=None)
+                        server_time = parse(result["server_time"]).replace(tzinfo=None)
 
-                        return result["amount"] - result["amount_paid"], (server_time - entered_at).seconds
+                        seconds_ago = (server_time - entered_at).seconds
+
+                        return result["amount"], seconds_ago if seconds_ago > 0 else 0
+
+                    elif result.get("status") == "CardNotFound":
+                        return None, None
                     else:
                         return 0,0
                 else:
@@ -120,12 +120,14 @@ class RpsParking(models.Model):
                 return 0,0
 
             except Exception as e:
+                get_logger().warn(e)
                 traceback_str = traceback.format_exc()
                 self.last_response_code = 998
                 self.last_response_body = "Parkpass intenal error: " + str(e) + '\n' + traceback_str
                 self.save()
 
         except Exception as e:
+            get_logger().warn(e)
             traceback_str = traceback.format_exc()
             self.last_response_code = 999
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
@@ -179,20 +181,36 @@ class RpsParkingCardSession(models.Model):
         self.state = STATE_AUTHORIZED
         self.save()
 
+        SECRET_HASH = 'yWQ6pSSSNTDMmRsz3dnS'
+
+        prefix_query_str = "ticket_id=%s&amount=%s&FromPay=ParkPass" % (self.parking_card.card_id, int(order.sum))
+
+        str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
+        hash_str = hashlib.sha1(str_for_hash).hexdigest()
+
         payload = json.dumps({
-            "card_id": self.parking_card.card_id,
-            "order_id": order.id,
-            "sum": float(order.sum)
+            "ticket_id": self.parking_card.card_id,
+            "amount": int(order.sum),
+            "FromPay": "ParkPass",
+            "hash": hash_str
         })
+
+        get_logger().info("SEND REQUEST TO RPS")
+        get_logger().info(payload)
+
+        self.last_request_date = timezone.now()
+        self.last_request_body = payload
 
         try:
             rps_parking = RpsParking.objects.select_related(
-                'parking').get(id=self.parking_id)
+                'parking').get(parking__id=self.parking_id)
 
-            return self._make_http_ok_status(rps_parking.parking,
+            return self._make_http_ok_status(
                 rps_parking.request_payment_authorize_url, payload)
 
         except ObjectDoesNotExist:
+            self.state = STATE_ERROR
+            self.save()
             get_logger().warn("RPS parking is not found")
 
         return False
@@ -200,76 +218,40 @@ class RpsParkingCardSession(models.Model):
     def notify_confirm(self, order):
         self.state = STATE_CONFIRMED
         self.save()
-
-        payload = json.dump({
-            "card_id": self.parking_card.card_id,
-            "order_id": order.id,
-            "sum": float(order.sum)
-        })
-
-        try:
-            rps_parking = RpsParking.objects.select_related(
-                'parking').get(id=self.parking_id)
-
-            return self._make_http_ok_status(rps_parking.parking,
-                rps_parking.request_payment_confirm_url, payload)
-
-        except ObjectDoesNotExist:
-            get_logger().warn("RPS parking is not found")
-
-        return False
+        return True
 
     def notify_refund(self, sum, order):
         self.state = STATE_ERROR
         self.save()
+        return True
 
-        payload = json.dump({
-            "card_id": self.parking_card.card_id,
-            "order_id": order.id,
-            "refund_sum": float(sum),
-            "refund_reason": "Undefinded"
-        })
-
-        try:
-            rps_parking = RpsParking.objects.select_related(
-                'parking').get(id=self.parking_id)
-
-            return self._make_http_ok_status(rps_parking.parking,
-                rps_parking.request_payment_refund_url, payload)
-
-        except ObjectDoesNotExist:
-            get_logger().warn("RPS parking is not found")
-
-        return False
-
-    def _make_http_ok_status(self, parking, url, payload):
+    def _make_http_ok_status(self, url, payload):
         connect_timeout = 2
-
-        vendor_signature = parking.vendor.sign(payload).hexdigest()
-        vendor_name = parking.vendor.name
-
-        headers = {
-            'Content-type': 'application/json',
-            "X-Vendor-Name": vendor_name,
-            "X-Signature": vendor_signature,
-        }
 
         self.last_request_date = timezone.now()
         self.last_request_body = payload
+
+        headers = {
+            'Content-type': 'application/json',
+        }
 
         try:
             r = requests.post(url, data=payload, headers=headers,
                               timeout=(connect_timeout, 5.0))
             try:
                 self.last_response_code = r.status_code
+                get_logger("GET RESPONSE FORM RPS %s" % r.status_code)
+                get_logger(r.content)
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
+                    if result["status"] == "OK":
+                        return True
                 else:
                     self.last_response_body = ""
                 self.save()
 
-                return r.status_code == 200
+                return False
 
             except Exception as e:
                 traceback_str = traceback.format_exc()
@@ -285,3 +267,51 @@ class RpsParkingCardSession(models.Model):
 
         return False
 
+
+class RpsSubscription(models.Model):
+    name = models.CharField(max_length=1024)
+    description = models.TextField()
+    sum = models.IntegerField()
+
+    started_at = models.DateTimeField()
+    expired_at = models.DateTimeField()
+    duration = models.IntegerField()
+    parking = models.ForeignKey(Parking)
+    account = models.ForeignKey(Account)
+    prolongation = models.BooleanField(default=True)
+
+    data = models.TextField(help_text="Byte array as base64")
+    idts = models.TextField()
+    id_transition = models.TextField()
+
+    active = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        super(self, RpsSubscription).save(*args, **kwargs)
+
+    def check_prolong_payment(self):
+        if timezone.now() >= self.expired_at:
+            self.active = False
+            self.save()
+            if self.prolongation:
+                new_subscription = RpsSubscription.objects.create(
+                    name=self.name, description=self.description,
+                    sum=self.sum, started_at=timezone.now(),
+                    duration=self.duration,
+                    expired_at=timezone.now() + timedelta(seconds=self.duration),
+                    parking=self.parking,
+                    account=self.account,
+                    prolongation = True,
+                    idts=self.idts, id_transition=self.id_transition
+                )
+                new_subscription.create_order_and_pay()
+
+    def create_order_and_pay(self):
+        order = Order.objects.create(
+            sum=Decimal(sum),
+            subscription=self
+        )
+        order.try_pay()
+
+    def request_buy(self):
+        return True
