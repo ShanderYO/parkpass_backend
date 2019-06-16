@@ -141,7 +141,7 @@ class Vendor(BaseAccount):
 
             qs = Account.objects.filter(
                 external_vendor_id=self.id,
-                extern_id=external_id)
+                external_id=external_id)
 
             if not qs.exists():
                 Account.objects.create(
