@@ -841,7 +841,7 @@ class ExternalLoginView(APIView):
 
                 account = Account.objects.get(
                     external_vendor_id=vendor_id,
-                    extern_id=external_user_id)
+                    external_id=external_user_id)
 
                 account.login()
                 session = account.get_session()
