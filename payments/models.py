@@ -352,10 +352,14 @@ class Order(models.Model):
             account = self.subscription.account
 
         if account is None:
+            get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
             return
 
-        default_account_credit_card = CreditCard.objects.get(
-            account=account, is_default=True)
+        default_account_credit_card = CreditCard.objects.filter(
+                account=account, is_default=True).first()
+        if not default_account_credit_card:
+            get_logger().warn("Payment was broken. Account should has bind card")
+            return
 
         request_data = payment.build_charge_request_data(
             payment.payment_id, default_account_credit_card.rebill_id
