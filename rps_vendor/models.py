@@ -286,7 +286,7 @@ class RpsSubscription(models.Model):
     active = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        super(self, RpsSubscription).save(*args, **kwargs)
+        super(RpsSubscription, self).save(*args, **kwargs)
 
     def check_prolong_payment(self):
         if timezone.now() >= self.expired_at:

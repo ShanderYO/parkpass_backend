@@ -218,9 +218,9 @@ VENDOR_NOTIFICATION_TYPES = (
 
 
 class VendorNotification(models.Model):
-    parking_session = models.ForeignKey(to='parkings.ParkingSession', null=True)
-    parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True)
-    rps_subscription = models.ForeignKey(RpsSubscription, null=True)
+    parking_session = models.ForeignKey(to='parkings.ParkingSession', null=True, default=None)
+    parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True, default=None)
+    rps_subscription = models.ForeignKey(RpsSubscription, null=True, default=None)
     type = models.PositiveSmallIntegerField(
         choices=VENDOR_NOTIFICATION_TYPES, default=0)
     confirmed_at = models.DateTimeField(null=True, blank=True)
