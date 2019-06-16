@@ -10,7 +10,7 @@ class AccountAdmin(AccountAdmin):
     search_fields = ('id', 'phone', 'last_name',)
 
     list_display = ('id', 'first_name', 'last_name',
-                    'phone', 'email')
+                    'phone', 'email', 'fetch_extern_user_data_url')
 
     readonly_fields = ('phone', 'email', 'sms_code', 'created_at', )
 
