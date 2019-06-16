@@ -7,6 +7,7 @@ import json
 import os
 
 import requests
+import time
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils import timezone
@@ -247,59 +248,64 @@ class VendorNotification(models.Model):
     def on_session_created(self):
         if self.parking_session:
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            started_at = int(time.mktime(self.parking_session.started_at.timetuple()))
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
                 "parking_id": self.parking_session.parking.id,
-                "started_at": self.parking_session.started_at
+                "started_at": started_at
             }
             self._notify_request(url, data)
 
     def on_session_completed(self):
         if self.parking_session:
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            completed_at = int(time.mktime(self.parking_session.completed_at.timetuple()))
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
                 "debt": self.parking_session.debt,
                 "parking_id": self.parking_session.parking.id,
-                "completed_at": self.parking_session.completed_at
+                "completed_at": completed_at
             }
             self._notify_request(url, data)
 
     def on_session_closed(self):
         if self.parking_session:
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            paid_at = int(time.mktime(self.created_at.timetuple()))
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
                 "debt": self.parking_session.debt,
                 "parking_id": self.parking_session.parking.id,
-                "paid_at": self.created_at
+                "paid_at": paid_at
             }
             self._notify_request(url, data)
 
     def on_parking_card_paid(self):
         if self.parking_card_session:
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            paid_at = int(time.mktime(self.created_at.timetuple()))
             data = {
                 "client_id": self.parking_card_session.client.id,
                 "parking_card_id": self.parking_card_session.parking_card.card_id,
                 "sum": self.parking_card_session.debt,
                 "parking_id": self.parking_session.parking.id,
-                "paid_at": self.created_at
+                "paid_at": paid_at
             }
             self._notify_request(url, data)
 
     def on_subscription_paid(self):
         if self.rps_subscription:
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            paid_at = int(time.mktime(self.created_at.timetuple()))
             data = {
                 "client_id": self.rps_subscription.account.id,
                 "subscription_id": self.rps_subscription.id,
                 "sum": self.rps_subscription.sum,
                 "parking_id": self.rps_subscription.parking.id,
-                "paid_at": self.created_at
+                "paid_at": paid_at
             }
             self._notify_request(url, data)
 

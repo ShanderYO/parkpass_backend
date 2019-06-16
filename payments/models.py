@@ -164,7 +164,7 @@ class Order(models.Model):
         if self.subscription:
             return dict(
                 Email=None,
-                Phone=self.parking_card_session.parking_card.phone,
+                Phone=self.subscription.account.phone,
                 Taxation="osn",
                 Items=[{
                     "Name": "Оплата парковочного абонемента",
