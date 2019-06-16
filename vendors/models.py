@@ -319,8 +319,9 @@ class VendorNotification(models.Model):
         try:
             r = requests.post(url, data=payload, headers=headers,
                               timeout=(connect_timeout, 5.0))
-            get_logger().info("GET RESPONSE FORM VENDOR %s" % r.status_code)
+            get_logger().info("GET RESPONSE FROM VENDOR %s" % r.status_code)
             get_logger().info(r.content)
+
             if r.status_code == 200:
                 self.confirmed_at = timezone.now()
                 self.message = "All is OK"
