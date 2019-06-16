@@ -26,4 +26,6 @@ urlpatterns = [
 
                   # Test user and parking
                   url(r'^test/$', TestView.as_view()),
+
+                  url(r'^notification/mock/$', MockingAcceptNotificationView.as_view()),
               ] + staticfiles_urlpatterns()

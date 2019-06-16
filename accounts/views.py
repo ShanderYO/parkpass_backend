@@ -19,7 +19,7 @@ from base.exceptions import AuthException, ValidationException, PermissionExcept
 from base.models import EmailConfirmation
 from base.utils import clear_phone
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
-from base.views import APIView, LoginRequiredAPIView, ObjectView
+from base.views import APIView, LoginRequiredAPIView, ObjectView, SignedRequestAPIView
 from owners.models import OwnerIssue
 from parkings.models import ParkingSession, Parking
 from parkpass.settings import DEFAULT_AVATAR_URL
@@ -837,7 +837,7 @@ class ExternalLoginView(APIView):
                 if not vendor.is_external_user(external_user_id):
                     e = AuthException(
                         AuthException.INVALID_EXTERNAL_USER,
-                        "Account with pending sms-code not found")
+                        "Remote user does not found")
                     return JsonResponse(e.to_dict(), status=400)
 
                 account = Account.objects.get(
@@ -860,3 +860,18 @@ class ExternalLoginView(APIView):
                 ValidationException.RESOURCE_NOT_FOUND,
                 "Vendor with id %d does not exist" % vendor_id)
             return JsonResponse(e.to_dict(), status=400)
+
+
+class MockingExternalLoginView(SignedRequestAPIView):
+    def post(self, request, *args, **kwargs):
+        id = request.data["id"]
+        if id == 'test_id':
+            data = {
+                "id": 'test_id',
+                "phone": "+7(909)2335229",
+                "first_name": "Test",
+                "last_name": "User",
+                "email": "test@example.com"
+            }
+            return JsonResponse(data, status=200)
+        return JsonResponse({}, status=400)

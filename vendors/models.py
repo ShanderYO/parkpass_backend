@@ -154,12 +154,12 @@ class Vendor(BaseAccount):
                 )
             return True
         else:
-            get_logger("Invalid response onlogin %s" % str(data))
+            get_logger().info("Invalid response onlogin %s" % str(data))
         return False
 
     def make_sign_request(self, url, body):
         payload = json.dumps(body)
-        signature = self.sign(payload)
+        signature = self.sign(payload).hexdigest()
 
         get_logger().info("SEND REQUEST TO VENDOR")
         get_logger().info("%s | %s to %s" % (payload, signature, url))
@@ -167,18 +167,19 @@ class Vendor(BaseAccount):
         connect_timeout = 2
         headers = {
             'Content-type': 'application/json',
-            "x-signature": signature
+            "x-signature": signature,
+            "x-vendor-name": "mos-parking",
         }
         try:
             r = requests.post(url, data=payload, headers=headers,
                                   timeout=(connect_timeout, 5.0))
-            get_logger.info("GET RESPONSE FORM VENDOR %s" % r.status_code)
-            get_logger.info(r.content)
+            get_logger().info("GET RESPONSE FORM VENDOR %s" % r.status_code)
+            get_logger().info(r.content)
             if r.status_code == 200:
                 return r.json()
 
         except Exception as e:
-            get_logger.info(str(e))
+            get_logger().info(str(e))
 
         return None
 
@@ -241,11 +242,11 @@ class VendorNotification(models.Model):
         elif type == VENDOR_NOTIFICATION_TYPE_PARKING_CARD_SESSION_PAID:
             self.on_parking_card_paid()
         else:
-            get_logger("Unknown notification type : id=%s " % self.id)
+            get_logger.info("Unknown notification type : id=%s " % self.id)
 
     def on_session_created(self):
         if self.parking_session:
-            url = "https://example.com"
+            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
@@ -256,7 +257,7 @@ class VendorNotification(models.Model):
 
     def on_session_completed(self):
         if self.parking_session:
-            url = "https://example.com"
+            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
@@ -268,7 +269,7 @@ class VendorNotification(models.Model):
 
     def on_session_closed(self):
         if self.parking_session:
-            url = "https://example.com"
+            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
@@ -280,7 +281,7 @@ class VendorNotification(models.Model):
 
     def on_parking_card_paid(self):
         if self.parking_card_session:
-            url = "https://example.com"
+            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.parking_card_session.client.id,
                 "parking_card_id": self.parking_card_session.parking_card.card_id,
@@ -292,7 +293,7 @@ class VendorNotification(models.Model):
 
     def on_subscription_paid(self):
         if self.rps_subscription:
-            url = "https://example.com"
+            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.rps_subscription.account.id,
                 "subscription_id": self.rps_subscription.id,
@@ -302,7 +303,33 @@ class VendorNotification(models.Model):
             }
             self._notify_request(url, data)
 
-    def _notify_request(self, data):
-        self.confirmed_at = timezone.now()
-        self.message = "All is OK"
-        self.save()
+    def _notify_request(self, url, data):
+        payload = json.dumps(data)
+        signature = self.sign(payload).hexdigest()
+
+        get_logger().info("SEND REQUEST TO VENDOR")
+        get_logger().info("%s | %s to %s" % (payload, signature, url))
+
+        connect_timeout = 2
+        headers = {
+            'Content-type': 'application/json',
+            "x-signature": signature,
+            "x-vendor-name": "mos-parking",
+        }
+        try:
+            r = requests.post(url, data=payload, headers=headers,
+                              timeout=(connect_timeout, 5.0))
+            get_logger().info("GET RESPONSE FORM VENDOR %s" % r.status_code)
+            get_logger().info(r.content)
+            if r.status_code == 200:
+                self.confirmed_at = timezone.now()
+                self.message = "All is OK"
+                self.save()
+            else:
+                self.message = "Status code %d" % r.status_code
+                self.save()
+
+        except Exception as e:
+            get_logger().info(str(e))
+            self.message = "Status code %d" % r.status_code
+            self.save()
