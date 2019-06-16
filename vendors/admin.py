@@ -56,4 +56,16 @@ class IssueAdmin(admin.ModelAdmin):
 
     reject_issue.short_description = 'Reject these issues'
 
-admin.site.register(VendorNotification)
+
+@admin.register(VendorNotification)
+class VendorNotificationAdmin(admin.ModelAdmin):
+    search_fields = ('parking_session',)
+
+    list_filter = ('type', 'created_at',)
+
+    list_display = ('type', 'confirmed', 'created_at',)
+
+    readonly_fields = ('type', 'message', 'created_at',)
+
+    def confirmed(self, obj):
+        return bool(obj.confirmed_at is not None)
