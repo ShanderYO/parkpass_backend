@@ -140,22 +140,31 @@ class Vendor(BaseAccount):
             last_name = data.get("surname")
             email = data.get("email")
 
+            phone = clear_phone(raw_phone)
+
             qs = Account.objects.filter(
-                external_vendor_id=self.id,
-                external_id=external_id)
+                phone=phone)
 
             if not qs.exists():
                 Account.objects.create(
                     first_name=first_name,
                     last_name=last_name,
-                    phone=clear_phone(raw_phone),
+                    phone=phone,
                     email=email,
                     external_vendor_id=self.id,
                     external_id=external_id
                 )
+            else:
+                account = qs.first()
+                account.first_name = first_name if account.first_name is None else account.first_name
+                account.last_name = last_name if account.last_name is None else account.last_name
+                account.email = email if account.email is None else account.email
+                account.external_vendor_id = self.id,
+                account.external_id = external_id
+                account.save()
             return True
         else:
-            get_logger().info("Invalid response onlogin %s" % str(data))
+            get_logger().info("Invalid response onLogin %s" % str(data))
         return False
 
     def make_sign_request(self, url, body):
@@ -169,7 +178,7 @@ class Vendor(BaseAccount):
         headers = {
             'Content-type': 'application/json',
             "x-signature": signature,
-            "x-vendor-name": "mos-parking",
+            "x-vendor-name": self.name,
         }
         try:
             r = requests.post(url, data=payload, headers=headers,
@@ -341,7 +350,7 @@ class VendorNotification(models.Model):
         headers = {
             'Content-type': 'application/json',
             "x-signature": signature,
-            "x-vendor-name": "mos-parking",
+            "x-vendor-name": vendor.name,
         }
         try:
             r = requests.post(url, data=payload, headers=headers,
