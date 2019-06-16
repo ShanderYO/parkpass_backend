@@ -238,6 +238,7 @@ class VendorNotification(models.Model):
             self.on_session_completed()
         elif self.type == VENDOR_NOTIFICATION_TYPE_SESSION_CLOSED:
             self.on_session_closed()
+
         elif self.type == VENDOR_NOTIFICATION_TYPE_SUBSCRIPTION_PAID:
             self.on_subscription_paid()
         elif self.type == VENDOR_NOTIFICATION_TYPE_PARKING_CARD_SESSION_PAID:
@@ -246,7 +247,11 @@ class VendorNotification(models.Model):
             get_logger().info("Unknown notification type : id=%s " % self.id)
 
     def on_session_created(self):
-        if self.parking_session:
+        if self.parking_session and self.parking_session.vendor_id > 0:
+            vendor = Vendor.objects.filter(id=self.parking_session.vendor_id).first()
+            if not vendor:
+                get_logger().info("Vendor not found")
+                return
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             started_at = int(time.mktime(self.parking_session.started_at.timetuple()))
             data = {
@@ -255,10 +260,14 @@ class VendorNotification(models.Model):
                 "parking_id": self.parking_session.parking.id,
                 "started_at": started_at
             }
-            self._notify_request(url, data)
+            self._notify_request(vendor, url, data)
 
     def on_session_completed(self):
-        if self.parking_session:
+        if self.parking_session and self.parking_session.vendor_id > 0:
+            vendor = Vendor.objects.filter(id=self.parking_session.vendor_id).first()
+            if not vendor:
+                get_logger().info("Vendor not found")
+                return
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             completed_at = int(time.mktime(self.parking_session.completed_at.timetuple()))
             data = {
@@ -268,10 +277,14 @@ class VendorNotification(models.Model):
                 "parking_id": self.parking_session.parking.id,
                 "completed_at": completed_at
             }
-            self._notify_request(url, data)
+            self._notify_request(vendor, url, data)
 
     def on_session_closed(self):
-        if self.parking_session:
+        if self.parking_session and self.parking_session.vendor_id > 0:
+            vendor = Vendor.objects.filter(id=self.parking_session.vendor_id).first()
+            if not vendor:
+                get_logger().info("Vendor not found")
+                return
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             paid_at = int(time.mktime(self.created_at.timetuple()))
             data = {
@@ -281,10 +294,14 @@ class VendorNotification(models.Model):
                 "parking_id": self.parking_session.parking.id,
                 "paid_at": paid_at
             }
-            self._notify_request(url, data)
+            self._notify_request(vendor, url, data)
 
     def on_parking_card_paid(self):
-        if self.parking_card_session:
+        if self.parking_card_session and self.parking_card_session.account:
+            vendor = Vendor.objects.filter(id=self.parking_card_session.account.external_vendor_id).first()
+            if not vendor:
+                get_logger().info("Vendor not found")
+                return
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             paid_at = int(time.mktime(self.created_at.timetuple()))
             data = {
@@ -294,10 +311,14 @@ class VendorNotification(models.Model):
                 "parking_id": self.parking_session.parking.id,
                 "paid_at": paid_at
             }
-            self._notify_request(url, data)
+            self._notify_request(vendor, url, data)
 
     def on_subscription_paid(self):
-        if self.rps_subscription:
+        if self.rps_subscription and self.rps_subscription.account.external_vendor_id > 0:
+            vendor = Vendor.objects.filter(id=self.rps_subscription.account.external_vendor_id).first()
+            if not vendor:
+                get_logger().info("Vendor not found")
+                return
             url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             paid_at = int(time.mktime(self.created_at.timetuple()))
             data = {
@@ -307,11 +328,11 @@ class VendorNotification(models.Model):
                 "parking_id": self.rps_subscription.parking.id,
                 "paid_at": paid_at
             }
-            self._notify_request(url, data)
+            self._notify_request(vendor, url, data)
 
-    def _notify_request(self, url, data):
+    def _notify_request(self, vendor, url, data):
         payload = json.dumps(data)
-        signature = self.sign(payload).hexdigest()
+        signature = vendor.sign(payload).hexdigest()
 
         get_logger().info("SEND REQUEST TO VENDOR")
         get_logger().info("%s | %s to %s" % (payload, signature, url))
