@@ -246,7 +246,7 @@ class VendorNotification(models.Model):
 
     def on_session_created(self):
         if self.parking_session:
-            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
@@ -257,7 +257,7 @@ class VendorNotification(models.Model):
 
     def on_session_completed(self):
         if self.parking_session:
-            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
@@ -269,7 +269,7 @@ class VendorNotification(models.Model):
 
     def on_session_closed(self):
         if self.parking_session:
-            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
@@ -281,7 +281,7 @@ class VendorNotification(models.Model):
 
     def on_parking_card_paid(self):
         if self.parking_card_session:
-            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.parking_card_session.client.id,
                 "parking_card_id": self.parking_card_session.parking_card.card_id,
@@ -293,7 +293,7 @@ class VendorNotification(models.Model):
 
     def on_subscription_paid(self):
         if self.rps_subscription:
-            url = "https://sendbox.parkpass.ru/api/v1/vendor/notification/mock/"
+            url = "https://sandbox.parkpass.ru/api/v1/vendor/notification/mock/"
             data = {
                 "client_id": self.rps_subscription.account.id,
                 "subscription_id": self.rps_subscription.id,
