@@ -43,7 +43,8 @@ def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678",
     v = Vendor(
         display_id=1,
         name=ven_name,
-        secret=ven_secret
+        secret=ven_secret,
+        fetch_extern_user_data_url="http://127.0.0.1:8000/api/v1/account/login/external/"
     )
     v.save(not_generate_secret=True)
     p = Parking.objects.create(
@@ -826,3 +827,46 @@ class Issue(TestCase):
         # print response.content
         self.assertEqual(200, response.status_code)
 
+
+class ExtenalLoginTestCase(TestCase):
+    def setUp(self):
+        vendor, parking = create_vendor_parking(
+            ven_name="mos-parking",
+            ven_secret="12345678",
+            park_name="parking-2",
+            park_desc="default"
+        )
+
+    def test_invalid_body_external_login(self):
+        url = URL_PREFIX + "login/external/"
+
+        body = json.dumps({
+            'external_user_id': 'test-user'
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        self.assertEqual(400, response.status_code)
+
+    def test_not_exists_external_login(self):
+        url = URL_PREFIX + "login/external/"
+
+        body = json.dumps({
+            'external_user_id': 'another-user',
+            'vendor_id':1
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(400, response.status_code)
+
+    def test_exists_external_login(self):
+        url = URL_PREFIX + "login/external/"
+
+        body = json.dumps({
+            'external_user_id': 'test_id',
+            'vendor_id': 1
+        })
+
+        response = Client().post(url, body, content_type='application/json')
+        print response.content
+        self.assertEqual(200, response.status_code)

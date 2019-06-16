@@ -10,11 +10,12 @@ from accounts.views import (
     PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
     ZendeskUserJWTChatView, UpdateTokenView, AccountSubscriptionListView, AccountSubscriptionSettingsView,
-    ExternalLoginView)
+    ExternalLoginView, MockingExternalLoginView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
     url(r'^login/external/$', ExternalLoginView.as_view()),
+    url(r'^login/external/mock/$', MockingExternalLoginView.as_view()),
     url(r'^login/email/$', LoginWithEmailView.as_view()),
     url(r'^login/confirm/$', ConfirmLoginView.as_view()),
     url(r'^logout/$', LogoutView.as_view()),
