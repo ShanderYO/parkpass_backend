@@ -231,18 +231,18 @@ class VendorNotification(models.Model):
         if self.confirmed_at:
             return
 
-        if type == VENDOR_NOTIFICATION_TYPE_SESSION_CREATED:
+        if self.type == VENDOR_NOTIFICATION_TYPE_SESSION_CREATED:
             self.on_session_created()
-        elif type == VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED:
+        elif self.type == VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED:
             self.on_session_completed()
-        elif type == VENDOR_NOTIFICATION_TYPE_SESSION_CLOSED:
+        elif self.type == VENDOR_NOTIFICATION_TYPE_SESSION_CLOSED:
             self.on_session_closed()
-        elif type == VENDOR_NOTIFICATION_TYPE_SUBSCRIPTION_PAID:
+        elif self.type == VENDOR_NOTIFICATION_TYPE_SUBSCRIPTION_PAID:
             self.on_subscription_paid()
-        elif type == VENDOR_NOTIFICATION_TYPE_PARKING_CARD_SESSION_PAID:
+        elif self.type == VENDOR_NOTIFICATION_TYPE_PARKING_CARD_SESSION_PAID:
             self.on_parking_card_paid()
         else:
-            get_logger.info("Unknown notification type : id=%s " % self.id)
+            get_logger().info("Unknown notification type : id=%s " % self.id)
 
     def on_session_created(self):
         if self.parking_session:
