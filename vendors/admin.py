@@ -20,7 +20,7 @@ class VendorAdmin(AccountAdmin):
             'fields': ('name', 'secret',)
         }),
         ('More', {
-            'fields': ('first_name', 'last_name', 'phone' , 'email',)
+            'fields': ('first_name', 'last_name', 'phone' , 'email', 'fetch_extern_user_data_url',)
         }),
     )
 
