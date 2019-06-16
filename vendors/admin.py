@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.core.exceptions import ValidationError
 
 from base.admin import AccountAdmin
-from vendors.models import Vendor, VendorSession, VendorIssue
+from vendors.models import Vendor, VendorSession, VendorIssue, VendorNotification
 
 
 @admin.register(Vendor)
@@ -55,3 +55,5 @@ class IssueAdmin(admin.ModelAdmin):
         queryset.delete()
 
     reject_issue.short_description = 'Reject these issues'
+
+admin.site.register(VendorNotification)

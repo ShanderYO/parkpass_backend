@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from rps_vendor.models import (
-    RpsParking, ParkingCard, RpsParkingCardSession
+    RpsParking, ParkingCard, RpsParkingCardSession, RpsSubscription
 )
 
 
@@ -17,4 +17,9 @@ class ParkingCardAdmin(admin.ModelAdmin):
 
 @admin.register(RpsParkingCardSession)
 class RpsParkingCardSessionAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(RpsSubscription)
+class RpsSubscriptionAdmin(admin.ModelAdmin):
     pass
