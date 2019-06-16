@@ -307,7 +307,7 @@ class RpsSubscription(models.Model):
 
     def create_order_and_pay(self):
         order = Order.objects.create(
-            sum=Decimal(sum),
+            sum=Decimal(self.sum),
             subscription=self
         )
         order.try_pay()
