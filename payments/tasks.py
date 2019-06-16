@@ -31,6 +31,7 @@ def start_cancel_request(order_id):
 
 @app.task()
 def make_buy_subscription_request(subscription_id):
+    get_logger().info("make_buy_subscription_request invoke")
     try:
         subscription = RpsSubscription.objects.get(
             id=subscription_id

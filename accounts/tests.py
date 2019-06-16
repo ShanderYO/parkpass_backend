@@ -44,7 +44,7 @@ def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678",
         display_id=1,
         name=ven_name,
         secret=ven_secret,
-        fetch_extern_user_data_url="http://127.0.0.1:8000/api/v1/account/login/external/"
+        fetch_extern_user_data_url="/api/v1/account/login/external/"
     )
     v.save(not_generate_secret=True)
     p = Parking.objects.create(

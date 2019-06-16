@@ -9,7 +9,7 @@ from base.models import EmailConfirmation
 from base.utils import *
 from base.validators import *
 from base.validators import validate_phone_number
-from base.views import APIView
+from base.views import APIView, SignedRequestAPIView
 from base.views import generic_login_required_view
 from owners.models import OwnerApplication
 from owners.validators import validate_inn, validate_kpp
@@ -496,3 +496,9 @@ class TestView(LoginRequiredAPIView):
                 'free_places': parking.free_places,
             }
         })
+
+
+class MockingAcceptNotificationView(SignedRequestAPIView):
+    def post(self, request, *args, **kwargs):
+        get_logger().info(str(request.data))
+        return JsonResponse(request.data, status=200)

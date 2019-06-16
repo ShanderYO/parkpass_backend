@@ -7,6 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from django.utils import timezone
 
+from base.utils import get_logger
 from parkings.models import ParkingSession, Parking
 from parkpass.celery import app
 from rps_vendor.models import RpsParking, RpsSubscription
@@ -112,6 +113,7 @@ def _make_http_request(url, payload, rps_parking):
 
 @app.task()
 def prolong_subscription_sheduler():
+    get_logger().info("prolong_subscription_sheduler invoke")
     active_subscription = RpsSubscription.objects.filter(
         active=True
     )
