@@ -3,7 +3,8 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from rps_vendor.views import RpsCreateParkingSessionView, RpsCancelParkingSessionView, RpsUpdateParkingSessionView, \
     RpsCompleteParkingSessionView, RpsParkingSessionListUpdateView, MockingGetParkingCardDebt, MockingOrderAuthorized, \
-    MockingOrderConfirm, MockingOrderRefund, GetParkingCardDebt, InitPayDebt, AccountInitPayment, GetCardSessionStatus
+    MockingOrderConfirm, MockingOrderRefund, GetParkingCardDebt, InitPayDebt, AccountInitPayment, GetCardSessionStatus, \
+    SubscriptionCallbackView
 
 urlpatterns = [
     url(r'^rps/session/create/$', RpsCreateParkingSessionView.as_view()),
@@ -16,6 +17,8 @@ urlpatterns = [
     url(r'^rps/cards/account/payment/init/$', AccountInitPayment.as_view()),
     url(r'^rps/cards/guest/payment/init/$', InitPayDebt.as_view()),
     url(r'^rps/cards/payment/status/$', GetCardSessionStatus.as_view()),
+
+    url(r'^rps/subscription/callback/$', SubscriptionCallbackView.as_view()),
 
     url(r'^rps/mock/debt/$', MockingGetParkingCardDebt.as_view()),
     url(r'^rps/mock/authorized/$', MockingOrderAuthorized.as_view()),

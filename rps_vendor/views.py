@@ -294,3 +294,9 @@ class MockingOrderRefund(SignedRequestAPIView):
 
         get_logger().info((card_id, order_id, refund_sum, reason,))
         return JsonResponse({}, status=200)
+
+
+class SubscriptionCallbackView(SignedRequestAPIView):
+    def post(self, request, *args, **kwargs):
+        get_logger().info(request.data)
+        return JsonResponse({"status":"OK"}, status=200)
