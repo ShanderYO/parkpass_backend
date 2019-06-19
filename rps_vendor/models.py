@@ -105,7 +105,7 @@ class RpsParking(models.Model):
                         entered_at = parse(result["entered_at"]).replace(tzinfo=None)
                         server_time = parse(result["server_time"]).replace(tzinfo=None)
 
-                        seconds_ago = (server_time - entered_at).seconds
+                        seconds_ago = int((server_time - entered_at).total_seconds())
 
                         return result["amount"], seconds_ago if seconds_ago > 0 else 0
 
