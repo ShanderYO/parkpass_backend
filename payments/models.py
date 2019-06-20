@@ -164,7 +164,7 @@ class Order(models.Model):
             return dict(
                 Email=None,
                 Phone=self.parking_card_session.parking_card.phone,
-                Taxation="osn",
+                Taxation="usn_income",
                 Items=[{
                     "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
                     "Price": str(int(self.sum*100)),
@@ -180,7 +180,7 @@ class Order(models.Model):
             return dict(
                 Email=None,  # not send to email
                 Phone=self.account.phone,
-                Taxation="osn",
+                Taxation="usn_income",
                 Items=[{
                     "Name": "Привязка карты",
                     "Price": 100,
@@ -195,7 +195,7 @@ class Order(models.Model):
         return dict(
             Email=str(self.session.client.email) if self.session.client.email else None,
             Phone=str(self.session.client.phone),
-            Taxation="osn",
+            Taxation="usn_income",
             Items=[{
                 "Name": "Оплата парковки # %s" % self.session.id,
                 "Price": str(int(self.sum*100)),
