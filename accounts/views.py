@@ -26,7 +26,7 @@ from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 
-from sms_gateway.gateway import SMSGateway
+from sms_gateway import sms_sender
 from vendors.models import VendorIssue
 
 
@@ -118,8 +118,7 @@ class OwnerIssueView(APIView):
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if issue.phone:
             get_logger().info("Send to  phone %s" % issue.phone)
-            sms_gateway = SMSGateway()
-            sms_gateway.send_message(issue.phone, text)
+            sms_sender.send_message(issue.phone, text)
 
         if issue.email:
             get_logger().info("Send to  email %s " % issue.email)
@@ -145,8 +144,7 @@ class VendorIssueView(APIView, ObjectView):
         issue.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if phone:
-            sms_gateway = SMSGateway()
-            sms_gateway.send_message(issue.phone, text)
+            sms_sender.send_message(issue.phone, text)
         if email:
             issue.send_mail(email)
 
@@ -170,12 +168,10 @@ class LoginView(APIView):
         if phone == "77891234560":
             return JsonResponse({}, status=200)
 
-        sms_gateway = SMSGateway()
-
-        sms_gateway.send_message(account.phone,
+        sms_sender.send_message(account.phone,
                              u"Код подтверждения регистрации %s", (account.sms_code,))
-        if sms_gateway.exception:
-            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
+        if sms_sender.exception:
+            return JsonResponse(sms_sender.exception.to_dict(), status=400)
 
         return JsonResponse({}, status=success_status)
 
