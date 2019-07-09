@@ -29,7 +29,6 @@ from payments.utils import TinkoffExceptionAdapter
 from sms_gateway import sms_sender
 from vendors.models import VendorIssue
 
-
 class SetAvatarView(LoginRequiredAPIView):
     def post(self, request):
         try:

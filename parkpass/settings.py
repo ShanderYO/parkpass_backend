@@ -45,7 +45,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django_celery_beat',
     'base',
-    'sms_gateway',
+    #'sms_gateway',
     'accounts',
     'vendors',
     'payments',
