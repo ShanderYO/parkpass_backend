@@ -169,8 +169,8 @@ class LoginView(APIView):
 
         sms_sender.send_message(account.phone,
                              u"Код подтверждения регистрации %s" % (account.sms_code,))
-        if sms_sender.exception:
-            return JsonResponse(sms_sender.exception.to_dict(), status=400)
+        # if sms_sender.exception:
+        #     return JsonResponse(sms_sender.exception.to_dict(), status=400)
 
         return JsonResponse({}, status=success_status)
 
