@@ -285,6 +285,33 @@ class RpsSubscription(models.Model):
 
     active = models.BooleanField(default=False)
 
+    @classmethod
+    def get_subscription(cls):
+        url = "http://sandbox.r-p-s.ru:5566/subscriptions/"
+        r = requests.get(url)
+        get_logger.info(r.content)
+
+        if r.status_code == 200:
+            response_dict = {"result":[], "next": None}
+            for item in r.json().get("Data", []):
+                idts = item["Id"]
+                name = item["Name"]
+                description  = item.get("TsDescription")
+                for perechod in item.get("Perechods", []):
+                    resp_item = {
+                        "name": name,
+                        "description": description,
+                        "idts": idts,
+                        "id_transition": perechod.get("Id"),
+                        "sum": perechod.get("ConditionAbonementPrice"),
+                        "duration": perechod.get("ConditionBackTimeInSecond")
+                    }
+                    response_dict["result"].append(resp_item)
+        else:
+            get_logger().warning("Subscription status code: %s" % r.status_code)
+            get_logger().warning(r.content)
+            return None
+
     def save(self, *args, **kwargs):
         super(RpsSubscription, self).save(*args, **kwargs)
 
