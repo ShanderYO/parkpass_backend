@@ -34,6 +34,7 @@ class Parking(models.Model):
         (PENDING, "Pending"),
         (CONNECTED, "Connected")
     )
+	
     name = models.CharField(max_length=63, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     address = models.CharField(max_length=63, null=True, blank=True)

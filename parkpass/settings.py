@@ -6,9 +6,25 @@ DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 ALLOWED_HOSTS = ["parkpass.ru"]
 
 
-SMS_GATEWAY_API_KEY = "6831k8gxzptd8unfb5fk58rg7sutsjbybrb8faao"
-SMS_SENDER_NAME = "PARKPASS"
 SMS_GATEWAY_ENABLED = int(os.environ.get("SMS_GATEWAY_ENABLE", 1)) == 1
+
+SMS_GATEWAYS = [{
+    "provider": "sms_gateway.providers.SMSProviderUnisender",
+    "sender_name": "PARKPASS",
+    "credentials": {
+        "api_key": "6831k8gxzptd8unfb5fk58rg7sutsjbybrb8faao"
+    },
+    "is_default": False
+},
+{
+    "provider": "sms_gateway.providers.SMSProviderBeeline",
+    "sender_name": "PARKPASS",
+    "credentials": {
+        "user": 1659361,
+        "password": 9661673802
+    },
+    "is_default": True
+}]
 
 TINKOFF_DEFAULT_TERMINAL_KEY = "1516954410942DEMO"
 TINKOFF_DEFAULT_TERMINAL_PASSWORD = "dybcdp86npi8s9fv"
@@ -29,6 +45,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django_celery_beat',
     'base',
+    #'sms_gateway',
     'accounts',
     'vendors',
     'payments',

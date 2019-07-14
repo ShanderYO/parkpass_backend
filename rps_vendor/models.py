@@ -105,7 +105,7 @@ class RpsParking(models.Model):
                         entered_at = parse(result["entered_at"]).replace(tzinfo=None)
                         server_time = parse(result["server_time"]).replace(tzinfo=None)
 
-                        seconds_ago = (server_time - entered_at).seconds
+                        seconds_ago = int((server_time - entered_at).total_seconds())
 
                         return result["amount"], seconds_ago if seconds_ago > 0 else 0
 
@@ -285,6 +285,33 @@ class RpsSubscription(models.Model):
 
     active = models.BooleanField(default=False)
 
+    @classmethod
+    def get_subscription(cls):
+        url = "http://sandbox.r-p-s.ru:5566/subscriptions/"
+        r = requests.get(url)
+        get_logger.info(r.content)
+
+        if r.status_code == 200:
+            response_dict = {"result":[], "next": None}
+            for item in r.json().get("Data", []):
+                idts = item["Id"]
+                name = item["Name"]
+                description  = item.get("TsDescription")
+                for perechod in item.get("Perechods", []):
+                    resp_item = {
+                        "name": name,
+                        "description": description,
+                        "idts": idts,
+                        "id_transition": perechod.get("Id"),
+                        "sum": perechod.get("ConditionAbonementPrice"),
+                        "duration": perechod.get("ConditionBackTimeInSecond")
+                    }
+                    response_dict["result"].append(resp_item)
+        else:
+            get_logger().warning("Subscription status code: %s" % r.status_code)
+            get_logger().warning(r.content)
+            return None
+
     def save(self, *args, **kwargs):
         super(RpsSubscription, self).save(*args, **kwargs)
 
@@ -313,4 +340,17 @@ class RpsSubscription(models.Model):
         order.try_pay()
 
     def request_buy(self):
-        return True
+        url = "http://sandbox.r-p-s.ru:5566/subscriptions/pay"
+        payload = {
+            "user_id": self.account.id,
+            "subscription_id": self.id,
+            "sum": self.sum,
+            "ts_id": self.idts,
+            "transation_id": self.id_transition
+        }
+        r = requests.post(url, json=payload)
+        get_logger().info(r.content)
+
+        if r.status_code == 200 and r.json.get("Status") == 200:
+            return True
+        return False

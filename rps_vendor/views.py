@@ -1,6 +1,7 @@
 import uuid
 from decimal import Decimal
 
+from dateutil import parser
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 
@@ -11,7 +12,8 @@ from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
 from payments.models import Order, TinkoffPayment
-from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR
+from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR, \
+    RpsSubscription
 from rps_vendor.tasks import rps_process_updated_sessions
 from rps_vendor.validators import RpsCreateParkingSessionValidator, RpsUpdateParkingSessionValidator, \
     RpsCancelParkingSessionValidator, RpsCompleteParkingSessionValidator, RpsUpdateListParkingSessionValidator, \
@@ -299,4 +301,20 @@ class MockingOrderRefund(SignedRequestAPIView):
 class SubscriptionCallbackView(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
         get_logger().info(request.data)
+
+        status = request.data.get("status")
+        if status:
+            subscription_id = request.data["subscription_id"]
+            data = str(request.data["data"])
+            expired_at = str(request.data["expired_at"])
+            rps_subscription = RpsSubscription.objects.filter(id=int(subscription_id)).first()
+            if not rps_subscription:
+                get_logger().warning("RpsSubscription with %s does not exists " % subscription_id)
+            else:
+                rps_subscription.expired_at = parser.parse(expired_at)
+                rps_subscription.data = data
+                rps_subscription.save()
+        else:
+            error_message = request.data.get("message", "")
+
         return JsonResponse({"status":"OK"}, status=200)

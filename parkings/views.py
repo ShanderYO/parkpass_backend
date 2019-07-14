@@ -631,8 +631,11 @@ class ComplainSessionView(LoginRequiredAPIView):
 
 class GetAvailableSubscriptionsView(APIView):
     def get(self, request, *args, **kwargs):
-        # TODO ask subscription from parking
-        return JsonResponse({}, status=200)
+        result_dict = RpsSubscription.get_subscription()
+        if result_dict:
+            return JsonResponse(result_dict, status=200)
+        else:
+            return JsonResponse({}, status=400)
 
 
 class SubscriptionsPayView(LoginRequiredAPIView):
