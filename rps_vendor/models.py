@@ -340,4 +340,17 @@ class RpsSubscription(models.Model):
         order.try_pay()
 
     def request_buy(self):
-        return True
+        url = "http://sandbox.r-p-s.ru:5566/subscriptions/pay"
+        payload = {
+            "user_id": self.account.id,
+            "subscription_id": self.id,
+            "sum": self.sum,
+            "ts_id": self.idts,
+            "transation_id": self.id_transition
+        }
+        r = requests.post(url, json=payload)
+        get_logger().info(r.content)
+
+        if r.status_code == 200 and r.json.get("Status") == 200:
+            return True
+        return False
