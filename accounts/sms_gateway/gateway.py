@@ -7,7 +7,7 @@ def get_default_sms_provider():
     conf = getattr(settings, "SMS_GATEWAYS", {})
     for provider in conf:
         if provider.get("is_default", False):
-            return providers.SMSProviderBeeline()
+            return providers.SMSProviderBeeline(conf)
             #return _load_provider(provider)
 
 """
