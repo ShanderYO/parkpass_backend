@@ -652,6 +652,8 @@ class SubscriptionsPayView(LoginRequiredAPIView):
 
         parking_id = 1
 
+        # TODO validate such subs
+
         try:
             parking = Parking.objects.get(id=parking_id)
             subscription = RpsSubscription.objects.create(

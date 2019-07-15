@@ -307,6 +307,7 @@ class RpsSubscription(models.Model):
                         "duration": perechod.get("ConditionBackTimeInSecond")
                     }
                     response_dict["result"].append(resp_item)
+            return response_dict
         else:
             get_logger().warning("Subscription status code: %s" % r.status_code)
             get_logger().warning(r.content)
