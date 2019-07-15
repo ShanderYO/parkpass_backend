@@ -334,11 +334,14 @@ class RpsSubscription(models.Model):
                 new_subscription.create_order_and_pay()
 
     def create_order_and_pay(self):
+        self.request_buy()
+        """
         order = Order.objects.create(
             sum=Decimal(self.sum),
             subscription=self
         )
         order.try_pay()
+        """
 
     def request_buy(self):
         url = "http://sandbox.r-p-s.ru:5566/subscriptions/pay"
@@ -349,6 +352,8 @@ class RpsSubscription(models.Model):
             "ts_id": self.idts,
             "transation_id": self.id_transition
         }
+
+        get_logger().info("Try to RSP send %s" % json.dumps(payload))
         r = requests.post(url, json=payload)
         get_logger().info(r.content)
 
