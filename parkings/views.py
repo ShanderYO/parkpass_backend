@@ -643,16 +643,14 @@ class SubscriptionsPayView(LoginRequiredAPIView):
 
     def post(self, request, *args, **kwargs):
         name = request.data["name"]
-        description = request.data["description"]
         sum = int(request.data["sum"])
         duration = int(request.data["duration"])
 
         idts = request.data["idts"]
         id_transition = request.data["id_transition"]
 
-        parking_id = 1
-
-        # TODO validate such subs
+        parking_id = int(request.data["parking_id"])
+        description = 'foo'
 
         try:
             parking = Parking.objects.get(id=parking_id)

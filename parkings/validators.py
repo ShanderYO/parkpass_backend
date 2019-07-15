@@ -358,20 +358,25 @@ class ComplainSessionValidator(BaseValidator):
 class SubscriptionsPayValidator(BaseValidator):
     def is_valid(self):
         name = self.request.data.get("name")
-        description = self.request.data.get("description")
         sum = self.request.data.get("sum")
         duration = self.request.data.get("duration", 0)
+        parking_id = self.request.data.get("parking_id", 0)
         idts = self.request.data.get("idts")
         id_transition = self.request.data.get("id_transition")
 
-        if not all([name, description, sum, duration, idts, id_transition]):
+        if not all([name, parking_id, sum, duration, idts, id_transition]):
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Keys [name, description, sum, duration, idts, id_transition] are required"
+            self.message = "Keys [name, parking_id, sum, duration, idts, id_transition] are required"
             return False
 
         if not parse_int(duration):
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Key 'duration' is not integet type"
+            self.message = "Key 'duration' is not integer type"
+            return False
+
+        if not parse_int(parking_id):
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'parking_id' is not integer type"
             return False
 
         try:
