@@ -289,7 +289,7 @@ class RpsSubscription(models.Model):
     def get_subscription(cls):
         url = "http://sandbox.r-p-s.ru:5566/subscriptions/"
         r = requests.get(url)
-        get_logger.info(r.content)
+        get_logger().info(r.content)
 
         if r.status_code == 200:
             response_dict = {"result":[], "next": None}
