@@ -2,7 +2,7 @@
 import requests
 
 from base.exceptions import NetworkException
-from sms_gateway.base_provider import SMSBaseProvider
+from .base_provider import SMSBaseProvider
 
 
 class SMSProviderUnisender(SMSBaseProvider):

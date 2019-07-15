@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from parkpass import settings
-from sms_gateway import providers
+from . import providers
 
 
 def get_default_sms_provider():
