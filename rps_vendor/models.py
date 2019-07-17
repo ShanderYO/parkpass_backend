@@ -267,6 +267,15 @@ class RpsParkingCardSession(models.Model):
         return False
 
 
+SUBSCRIPTION_PAYMENT_STATUSES = (
+    (STATE_CREATED, "Only created"),
+    (STATE_INITED, "Inited pay"),
+    (STATE_AUTHORIZED, "Authorized pay"),
+    (STATE_CONFIRMED, "Confirmed pay"),
+    (STATE_ERROR, "Error"),
+)
+
+
 class RpsSubscription(models.Model):
     name = models.CharField(max_length=1024)
     description = models.TextField()
@@ -284,6 +293,11 @@ class RpsSubscription(models.Model):
     id_transition = models.TextField()
 
     active = models.BooleanField(default=False)
+
+    state = models.PositiveSmallIntegerField(
+        choices=SUBSCRIPTION_PAYMENT_STATUSES, default=STATE_CREATED)
+
+    error_message = models.TextField(null=True, blank=True)
 
     @classmethod
     def get_subscription(cls):

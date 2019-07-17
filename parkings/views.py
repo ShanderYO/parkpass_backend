@@ -671,3 +671,22 @@ class SubscriptionsPayView(LoginRequiredAPIView):
                 "Parking with id %s does not exist" % parking_id
             )
             return JsonResponse(e.to_dict(), status=400)
+
+
+class SubscriptionsPayStatusView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            subs = RpsSubscription.objects.get(id=kwargs["pk"])
+            result_dict = serializer(subs.subscription, include_attr=("id", "name", "description",
+                                                         "started_at", "idts", "id_transition",
+                                                         "state", "error_message"))
+            return JsonResponse(result_dict, status=200)
+
+        except ObjectDoesNotExist:
+            pass
+
+        e = ValidationException(
+            ValidationException.RESOURCE_NOT_FOUND,
+            "Target subscription with order such id not found"
+        )
+        return JsonResponse(e.to_dict(), status=400)
