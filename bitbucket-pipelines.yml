@@ -1,4 +1,3 @@
- This is a sample build configuration for Docker.
 # Check our guides at https://confluence.atlassian.com/x/O1toN for more examples.
 # Only use spaces to indent your .yml configuration.
 # -----
@@ -11,8 +10,6 @@ pipelines:
         name: Build remote on Sandbox-server
         script:
         - VERSION="1.$BITBUCKET_BUILD_NUMBER"
-        # - bash | ssh ubuntu@sandbox.parkpass.ru
         - ssh ubuntu@sandbox.parkpass.ru "bash ~/pipelines/parkpass_backend_autobuild.sh"
         services:
         - docker
-
