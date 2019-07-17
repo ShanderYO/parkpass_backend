@@ -793,7 +793,7 @@ class AccountSubscriptionListView(LoginRequiredAPIView):
         serialized_subs = serializer(subscription_qs,
                                      include_attr=('id','name', 'description', 'sum', 'started_at',
                                                    'expired_at', 'duration', 'prolongation',
-                                                   'state', 'active' 'error_message'))
+                                                   'state', 'active', 'error_message',))
         for index, sub in enumerate(subscription_qs):
             serialized_subs[index]["parking"] = serializer(
                 sub.parking, include_attr=('id', 'name', 'description'))
@@ -815,7 +815,7 @@ class AccountSubscriptionSettingsView(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
         try:
             sub = RpsSubscription.objects.get(
-                id=int(kwargs["id"]),
+                id=int(kwargs["pk"]),
                 account=request.account
             )
             sub.prolongation = prolong_status
@@ -825,7 +825,7 @@ class AccountSubscriptionSettingsView(LoginRequiredAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Your subscription with id %s does not exist" % int(kwargs["id"]))
+                "Your subscription with id %s does not exist" % int(kwargs["pk"]))
             return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, status=200)
