@@ -650,7 +650,9 @@ class SubscriptionsPayView(LoginRequiredAPIView):
         id_transition = request.data["id_transition"]
 
         parking_id = int(request.data["parking_id"])
-        description = 'foo'
+
+        # TODO get description
+        description = request.data.get("description", "")
 
         # TODO check data again before start buy
 
@@ -666,7 +668,7 @@ class SubscriptionsPayView(LoginRequiredAPIView):
                 idts=idts, id_transition=id_transition
             )
             subscription.create_order_and_pay()
-            return JsonResponse({}, status=200)
+            return JsonResponse({"subscription_id": subscription.id}, status=200)
 
         except ObjectDoesNotExist:
             e = ValidationException(
