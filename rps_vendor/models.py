@@ -299,8 +299,13 @@ class RpsSubscription(models.Model):
 
     error_message = models.TextField(null=True, blank=True)
 
+    def authorize(self):
+        self.state = STATE_AUTHORIZED
+        self.save()
+
     def activate(self):
         self.active = True
+        self.state = STATE_CONFIRMED
         self.save()
 
     def reset(self, error_message=None):
@@ -362,6 +367,9 @@ class RpsSubscription(models.Model):
             sum=Decimal(self.sum),
             subscription=self
         )
+        self.state = STATE_INITED
+        self.save()
+
         order.try_pay()
 
     def request_buy(self):
