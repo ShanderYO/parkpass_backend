@@ -146,17 +146,19 @@ class TinkoffCallbackView(APIView):
                     order.authorized = True
                     order.save()
                     subs = order.subscription
-                    subs.status = STATE_AUTHORIZED
-                    subs.save()
+                    subs.authorize()
                     make_buy_subscription_request.delay(order.subscription.id)
 
                 elif self.status == PAYMENT_STATUS_CONFIRMED:
                     order.paid = True
                     order.save()
                     subs = order.subscription
-                    subs.status = STATE_CONFIRMED
                     subs.activate()
                     subs.save()
+
+                else:
+                    subs = order.subscription
+                    subs.reset(error_message="Payment error")
 
             else:
                 get_logger().warn("Unknown successefull operation")
