@@ -785,14 +785,15 @@ class UpdateTokenView(APIView):
 class AccountSubscriptionListView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         subscription_qs = RpsSubscription.objects.filter(
-            started_at__lt = timezone.now(),
-            expired_at__gte = timezone.now(),
+            #started_at__lt = timezone.now(),
+            #expired_at__gte = timezone.now(),
             account=request.account
         ).select_related('parking')
 
         serialized_subs = serializer(subscription_qs,
                                      include_attr=('id','name', 'description', 'sum', 'started_at',
-                                                   'expired_at', 'duration', 'prolongation'))
+                                                   'expired_at', 'duration', 'prolongation',
+                                                   'state', 'active' 'error_message'))
         for index, sub in enumerate(subscription_qs):
             serialized_subs[index]["parking"] = serializer(
                 sub.parking, include_attr=('id', 'name', 'description'))
@@ -807,7 +808,7 @@ class AccountSubscriptionSettingsView(LoginRequiredAPIView):
 
     def post(self, request, *args, **kwargs):
         prolong_status = request.data.get("prolong")
-        if prolong_status != bool:
+        if type(prolong_status) != bool:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 "Key `prolong` should be boolean type")
