@@ -341,7 +341,7 @@ class RpsSubscription(models.Model):
         super(RpsSubscription, self).save(*args, **kwargs)
 
     def check_prolong_payment(self):
-        if timezone.now() >= self.expired_at:
+        if timezone.now() >= self.expired_at and self.active:
             self.active = False
             self.save()
             if self.prolongation:
