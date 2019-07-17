@@ -791,7 +791,7 @@ class AccountSubscriptionListView(LoginRequiredAPIView):
         ).select_related('parking')
 
         serialized_subs = serializer(subscription_qs,
-                                     include_attr=('id','name', 'description', 'sum', 'started_at',
+                                     include_attr=('id','name', 'description', 'sum', 'data', 'started_at',
                                                    'expired_at', 'duration', 'prolongation',
                                                    'state', 'active', 'error_message',))
         for index, sub in enumerate(subscription_qs):
@@ -802,6 +802,29 @@ class AccountSubscriptionListView(LoginRequiredAPIView):
             "result":serialized_subs
         }
         return JsonResponse(response_dict, status=200)
+
+
+class AccountSubscriptionView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            sub = RpsSubscription.objects.select_related('parking').get(
+                account=request.account,
+                id=kwargs["pk"])
+            result_dict = serializer(sub, include_attr=('id','name', 'description', 'sum', 'data', 'started_at',
+                                                        'expired_at', 'duration', 'prolongation',
+                                                        'state', 'active', 'error_message',))
+            result_dict["parking"] = serializer(
+                    sub.parking, include_attr=('id', 'name', 'description'))
+            return JsonResponse(result_dict, status=200)
+
+        except ObjectDoesNotExist:
+            pass
+
+        e = ValidationException(
+            ValidationException.RESOURCE_NOT_FOUND,
+            "Your target subscription with order such id not found"
+        )
+        return JsonResponse(e.to_dict(), status=400)
 
 
 class AccountSubscriptionSettingsView(LoginRequiredAPIView):
