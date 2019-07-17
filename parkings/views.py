@@ -652,6 +652,8 @@ class SubscriptionsPayView(LoginRequiredAPIView):
         parking_id = int(request.data["parking_id"])
         description = 'foo'
 
+        # TODO check data again before start buy
+
         try:
             parking = Parking.objects.get(id=parking_id)
             subscription = RpsSubscription.objects.create(

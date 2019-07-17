@@ -11,7 +11,8 @@ from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
-from payments.models import Order, TinkoffPayment
+from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED
+from payments.payment_api import TinkoffAPI
 from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR, \
     RpsSubscription
 from rps_vendor.tasks import rps_process_updated_sessions
@@ -302,19 +303,45 @@ class SubscriptionCallbackView(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
         get_logger().info(request.data)
 
+        subscription_id = request.data["subscription_id"]
+        rps_subscription = RpsSubscription.objects.filter(id=int(subscription_id)).first()
+
+        if not rps_subscription:
+            get_logger().warning("RpsSubscription with %s does not exists " % subscription_id)
+            return JsonResponse({"status": "OK"}, status=200)
+
+        order = Order.objects.filter(authorized=True, subscription=rps_subscription).first()
+        if not order:
+            rps_subscription.reset(error_message="Authorized order not found")
+            return JsonResponse({"status": "OK"}, status=200)
+
+        payments = TinkoffPayment.objects.filter(order=order)
+
         status = request.data.get("status")
         if status:
-            subscription_id = request.data["subscription_id"]
             data = str(request.data["data"])
             expired_at = str(request.data["expired_at"])
-            rps_subscription = RpsSubscription.objects.filter(id=int(subscription_id)).first()
-            if not rps_subscription:
-                get_logger().warning("RpsSubscription with %s does not exists " % subscription_id)
-            else:
-                rps_subscription.expired_at = parser.parse(expired_at)
-                rps_subscription.data = data
-                rps_subscription.save()
+
+            rps_subscription.expired_at = parser.parse(expired_at)
+            rps_subscription.data = data
+            rps_subscription.save()
+
+            for payment in payments:
+                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                    order.confirm_payment(payment)
+                    break
         else:
             error_message = request.data.get("message", "")
+            rps_subscription.reset(error_message=error_message)
+
+            for payment in payments:
+                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                    request_data = payment.build_cancel_request_data()
+                    result = TinkoffAPI().sync_call(
+                        TinkoffAPI.CANCEL, request_data
+                    )
+                    get_logger().info("Cancel subscription payment response: ")
+                    get_logger().info(str(result))
+                    break
 
         return JsonResponse({"status":"OK"}, status=200)

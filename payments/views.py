@@ -14,6 +14,7 @@ from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED,
 from payments.payment_api import TinkoffAPI
 
 from payments.tasks import start_cancel_request, make_buy_subscription_request
+from rps_vendor.models import STATE_AUTHORIZED, STATE_CONFIRMED
 
 
 class TinkoffCallbackView(APIView):
@@ -144,10 +145,18 @@ class TinkoffCallbackView(APIView):
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
                     order.authorized = True
                     order.save()
+                    subs = order.subscription
+                    subs.status = STATE_AUTHORIZED
+                    subs.save()
                     make_buy_subscription_request.delay(order.subscription.id)
+
                 elif self.status == PAYMENT_STATUS_CONFIRMED:
                     order.paid = True
                     order.save()
+                    subs = order.subscription
+                    subs.status = STATE_CONFIRMED
+                    subs.activate()
+                    subs.save()
 
             else:
                 get_logger().warn("Unknown successefull operation")

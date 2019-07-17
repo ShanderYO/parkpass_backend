@@ -165,12 +165,12 @@ class Order(models.Model):
             return dict(
                 Email=None,
                 Phone=self.subscription.account.phone,
-                Taxation="osn",
+                Taxation="usn_income",
                 Items=[{
                     "Name": "Оплата парковочного абонемента",
                     "Price": str(int(self.sum * 100)),
                     "Quantity": 1.00,
-                    "Amount": str(int(self.sum * 100)),
+                    "Amount": str(int(self.subscription.sum * 100)),
                     "Tax": "none",
                     "Ean13": "0123456789"
                 }]

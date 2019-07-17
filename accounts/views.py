@@ -170,7 +170,7 @@ class LoginView(APIView):
             return JsonResponse({}, status=200)
 
         sms_sender.send_message(account.phone,
-                             u"Код подтверждения регистрации %s" % (account.sms_code,))
+                             u"Код подтверждения %s" % (account.sms_code,))
         # if sms_sender.exception:
         #     return JsonResponse(sms_sender.exception.to_dict(), status=400)
 
@@ -804,8 +804,14 @@ class AccountSubscriptionListView(LoginRequiredAPIView):
 
 
 class AccountSubscriptionSettingsView(LoginRequiredAPIView):
+
     def post(self, request, *args, **kwargs):
-        prolong_status = request.data["prolong"] # Todo add validation
+        prolong_status = request.data.get("prolong")
+        if prolong_status != bool:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Key `prolong` should be boolean type")
+            return JsonResponse(e.to_dict(), status=400)
         try:
             sub = RpsSubscription.objects.get(
                 id=int(kwargs["id"]),

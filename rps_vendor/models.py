@@ -288,7 +288,7 @@ class RpsSubscription(models.Model):
     account = models.ForeignKey(Account)
     prolongation = models.BooleanField(default=True)
 
-    data = models.TextField(help_text="Byte array as base64")
+    data = models.TextField(help_text="Byte array as base64", null=True, blank=True)
     idts = models.TextField()
     id_transition = models.TextField()
 
@@ -298,6 +298,16 @@ class RpsSubscription(models.Model):
         choices=SUBSCRIPTION_PAYMENT_STATUSES, default=STATE_CREATED)
 
     error_message = models.TextField(null=True, blank=True)
+
+    def activate(self):
+        self.active = True
+        self.save()
+
+    def reset(self, error_message=None):
+        self.data = None
+        self.error_message = error_message
+        self.state = STATE_ERROR
+        self.save()
 
     @classmethod
     def get_subscription(cls):
@@ -348,14 +358,11 @@ class RpsSubscription(models.Model):
                 new_subscription.create_order_and_pay()
 
     def create_order_and_pay(self):
-        self.request_buy()
-        """
         order = Order.objects.create(
             sum=Decimal(self.sum),
             subscription=self
         )
         order.try_pay()
-        """
 
     def request_buy(self):
         url = "http://sandbox.r-p-s.ru:5566/subscriptions/pay"
