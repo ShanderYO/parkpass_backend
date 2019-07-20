@@ -23,7 +23,7 @@ from parkings.validators import validate_longitude, validate_latitude, CreatePar
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, SubscriptionsPayValidator
 from payments.models import Order
-from rps_vendor.models import RpsSubscription
+from rps_vendor.models import RpsSubscription, RpsParking
 from vendors.models import Vendor, VendorNotification, VENDOR_NOTIFICATION_TYPE_SESSION_CREATED, \
     VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED
 
@@ -631,11 +631,24 @@ class ComplainSessionView(LoginRequiredAPIView):
 
 class GetAvailableSubscriptionsView(APIView):
     def get(self, request, *args, **kwargs):
-        result_dict = RpsSubscription.get_subscription()
-        if result_dict:
-            return JsonResponse(result_dict, status=200)
-        else:
-            return JsonResponse({}, status=400)
+        try:
+            rps_parking = RpsParking.objects.select_related('parking').get(parking__id=int(kwargs["pk"]))
+            if rps_parking.parking.rps_subscriptions_available:
+                url = rps_parking.request_get_subscriptions_list_url
+                result_dict = RpsSubscription.get_subscription(url)
+                if result_dict:
+                    return JsonResponse(result_dict, status=200)
+                else:
+                    return JsonResponse({}, status=400)
+            else:
+                raise ObjectDoesNotExist()
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.ACTION_UNAVAILABLE,
+                "This parking don't support subscriptions"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
 
 class SubscriptionsPayView(LoginRequiredAPIView):
@@ -658,6 +671,13 @@ class SubscriptionsPayView(LoginRequiredAPIView):
 
         try:
             parking = Parking.objects.get(id=parking_id)
+            if not parking.rps_subscriptions_available:
+                e = ValidationException(
+                    ValidationException.ACTION_UNAVAILABLE,
+                    "This parking don't support subscriptions"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
             subscription = RpsSubscription.objects.create(
                 name=name, description=description,
                 sum=sum, started_at=timezone.now(),
