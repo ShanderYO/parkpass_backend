@@ -56,6 +56,7 @@ class Parking(models.Model):
     tariff = models.CharField(max_length=2000, default='{}', verbose_name="Tariff object JSON")
 
     rps_parking_card_available = models.BooleanField(default=False)
+    rps_subscriptions_available = models.BooleanField(default=False)
     tariff_file_name = models.TextField(null=True, blank=True)
     tariff_file_content = models.TextField(null=True, blank=True)
 

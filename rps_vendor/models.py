@@ -28,6 +28,14 @@ class RpsParking(models.Model):
     request_payment_authorize_url = models.URLField(
         default="https://parkpass.ru/api/v1/parking/rps/mock/authorized/")
 
+    request_get_subscriptions_list_url = models.URLField(
+        default="https://parkpass.ru/api/v1/parking/rps/mock/subscriptions/"
+    )
+
+    request_subscription_pay_url = models.URLField(
+        default="https://parkpass.ru/api/v1/parking/rps/mock/subscription/pay/"
+    )
+
     polling_enabled = models.BooleanField(default=False)
     last_request_body = models.TextField(null=True, blank=True)
     last_request_date = models.DateTimeField(auto_now_add=True)
@@ -315,8 +323,8 @@ class RpsSubscription(models.Model):
         self.save()
 
     @classmethod
-    def get_subscription(cls):
-        url = "http://sandbox.r-p-s.ru:5566/subscriptions/"
+    def get_subscription(cls, url):
+        #url = "http://sandbox.r-p-s.ru:5566/subscriptions/"
         r = requests.get(url)
         get_logger().info(r.content)
 
@@ -373,7 +381,12 @@ class RpsSubscription(models.Model):
         order.try_pay()
 
     def request_buy(self):
-        url = "http://sandbox.r-p-s.ru:5566/subscriptions/pay"
+        rps_parking = RpsParking.objects.filter(parking=self.parking).first()
+        if not rps_parking:
+            return False
+
+        url = rps_parking.request_subscription_pay_url
+        #url = "http://sandbox.r-p-s.ru:5566/subscriptions/pay"
         payload = {
             "user_id": self.account.id,
             "subscription_id": self.id,
