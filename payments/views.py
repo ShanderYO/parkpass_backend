@@ -14,7 +14,6 @@ from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED,
 from payments.payment_api import TinkoffAPI
 
 from payments.tasks import start_cancel_request, make_buy_subscription_request
-from rps_vendor.models import STATE_AUTHORIZED, STATE_CONFIRMED
 
 
 class TinkoffCallbackView(APIView):
@@ -24,12 +23,14 @@ class TinkoffCallbackView(APIView):
     is_successful = False
     error_code = -1
     status = PAYMENT_STATUS_UNKNOWN
+    current_terminal = None
 
     def post(self, request, *args, **kwargs):
         self.log_data(request.data)
 
         self.is_successful = request.data.get("Success", False)
         self.status = self.parse_status(request.data["Status"])
+        self.current_terminal = request.data.get("TerminalKey")
 
         if not self.is_successful:
             self.error_code = int(request.data["ErrorCode"])

@@ -6,6 +6,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 
 from base.exceptions import ValidationException
+from base.models import Terminal
 from base.utils import get_logger
 from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
 from parkings.models import Parking
@@ -185,6 +186,7 @@ class InitPayDebt(APIView):
             order = Order.objects.create(
                 sum=Decimal(card_session.debt),
                 parking_card_session=card_session,
+                terminal=Terminal.objects.get(name="pcard")
             )
             result = order.create_non_recurrent_payment()
             response_dict = dict(

@@ -6,6 +6,7 @@ from django.template.loader import render_to_string
 from dss.Serializer import serializer
 
 from accounts.models import Account
+from base.models import Terminal
 from base.utils import get_logger
 from parkpass.settings import EMAIL_HOST_USER
 from payments.payment_api import TinkoffAPI
@@ -146,6 +147,9 @@ class Order(models.Model):
     # for non-accounts payments
     client_uuid = models.UUIDField(null=True, default=None)
 
+    # use multiple terminals
+    terminal = models.ForeignKey(Terminal, null=True)
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = 'Order'
@@ -232,6 +236,12 @@ class Order(models.Model):
     def get_payment_amount(self):
         return int(self.sum * 100)
 
+    def get_tinkoff_api(self):
+        if not self.terminal or self.terminal == 'main':
+            return TinkoffAPI()
+        else:
+            return TinkoffAPI(with_terminal=self.terminal.name)
+
     def create_non_recurrent_payment(self):
         receipt_data = self.generate_receipt_data()
         init_payment = TinkoffPayment.objects.create(
@@ -247,7 +257,8 @@ class Order(models.Model):
 
         get_logger().info("Init non recurrent request:")
         get_logger().info(request_data)
-        result = TinkoffAPI().sync_call(
+
+        result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.INIT, request_data
         )
 
@@ -304,7 +315,7 @@ class Order(models.Model):
         receipt_data = self.generate_receipt_data()
         new_payment = TinkoffPayment.objects.create(order=self, receipt_data=receipt_data)
         request_data = new_payment.build_transaction_data(self.get_payment_amount())
-        result = TinkoffAPI().sync_call(
+        result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.INIT, request_data
         )
         get_logger().info("Init payment response: ")
@@ -365,7 +376,7 @@ class Order(models.Model):
             payment.payment_id, default_account_credit_card.rebill_id
         )
         get_logger().info(request_data)
-        result = TinkoffAPI().sync_call(
+        result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.CHARGE, request_data
         )
         if result[u'Status'] == u'AUTHORIZED':
@@ -393,7 +404,7 @@ class Order(models.Model):
         get_logger().info("Make confirm order: %s" % self.id)
         request_data = payment.build_confirm_request_data(self.get_payment_amount())
         get_logger().info(request_data)
-        result = TinkoffAPI().sync_call(
+        result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.CONFIRM, request_data
         )
         get_logger().info(str(result))
