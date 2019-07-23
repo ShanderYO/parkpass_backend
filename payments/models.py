@@ -166,24 +166,31 @@ class Order(models.Model):
 
     def generate_receipt_data(self):
         if self.subscription:
+            email = self.subscription.account.email if self.subscription.account else None
+            phone = self.subscription.account.phone if self.subscription.account else None
+
             return dict(
-                Email=None,
-                Phone=self.subscription.account.phone,
+                Email=email,
+                Phone=phone,
                 Taxation="usn_income",
                 Items=[{
                     "Name": "Оплата парковочного абонемента",
                     "Price": str(int(self.sum * 100)),
                     "Quantity": 1.00,
-                    "Amount": str(int(self.subscription.sum * 100)),
+                    "Amount": str(int(self.sum * 100)),
                     "Tax": "none",
                     "Ean13": "0123456789"
                 }]
             )
 
         if self.parking_card_session or self.client_uuid:
+            email = self.parking_card_session.account.email if self.self.parking_card_session.account else None
+            phone = self.parking_card_session.account.phone \
+                if self.self.parking_card_session.account else self.parking_card_session.parking_card.phone
+
             return dict(
-                Email=None,
-                Phone=self.parking_card_session.parking_card.phone,
+                Email=email,
+                Phone=phone,
                 Taxation="usn_income",
                 Items=[{
                     "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
@@ -198,7 +205,7 @@ class Order(models.Model):
         # Init payment receipt
         if self.session is None:
             return dict(
-                Email=None,  # not send to email
+                Email=None, # not send to email
                 Phone=self.account.phone,
                 Taxation="usn_income",
                 Items=[{
@@ -313,7 +320,10 @@ class Order(models.Model):
 
     def create_payment(self):
         receipt_data = self.generate_receipt_data()
-        new_payment = TinkoffPayment.objects.create(order=self, receipt_data=receipt_data)
+        new_payment = TinkoffPayment.objects.create(
+            order=self,
+            receipt_data=receipt_data)
+
         request_data = new_payment.build_transaction_data(self.get_payment_amount())
         result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.INIT, request_data
@@ -368,6 +378,7 @@ class Order(models.Model):
 
         default_account_credit_card = CreditCard.objects.filter(
                 account=account, is_default=True).first()
+
         if not default_account_credit_card:
             get_logger().warn("Payment was broken. Account should has bind card")
             return
