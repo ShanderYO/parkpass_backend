@@ -666,8 +666,7 @@ class SubscriptionsPayView(LoginRequiredAPIView):
 
         # TODO get description
         description = request.data.get("description", "")
-
-        # TODO check data again before start buy
+        data = request.data("data", None)
 
         try:
             parking = Parking.objects.get(id=parking_id)
@@ -684,6 +683,7 @@ class SubscriptionsPayView(LoginRequiredAPIView):
                 duration=duration,
                 expired_at=timezone.now() + timedelta(seconds=duration),
                 parking=parking,
+                data=data,
                 account=request.account,
                 idts=idts, id_transition=id_transition
             )
