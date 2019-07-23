@@ -324,7 +324,6 @@ class RpsSubscription(models.Model):
 
     @classmethod
     def get_subscription(cls, url):
-        #url = "http://sandbox.r-p-s.ru:5566/subscriptions/"
         r = requests.get(url)
         get_logger().info(r.content)
 
@@ -364,6 +363,7 @@ class RpsSubscription(models.Model):
                     duration=self.duration,
                     expired_at=timezone.now() + timedelta(seconds=self.duration),
                     parking=self.parking,
+                    data=self.data,
                     account=self.account,
                     prolongation = True,
                     idts=self.idts, id_transition=self.id_transition
@@ -386,14 +386,15 @@ class RpsSubscription(models.Model):
             return False
 
         url = rps_parking.request_subscription_pay_url
-        #url = "http://sandbox.r-p-s.ru:5566/subscriptions/pay"
         payload = {
             "user_id": self.account.id,
             "subscription_id": self.id,
             "sum": str(self.sum),
             "ts_id": self.idts,
-            "transation_id": self.id_transition
+            "transation_id": self.id_transition,
         }
+        if self.data:
+            payload["data"] = self.data
 
         get_logger().info("Try to RSP send %s" % json.dumps(payload))
         r = requests.post(url, json=payload)
