@@ -14,12 +14,12 @@ from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED,
 from payments.payment_api import TinkoffAPI
 
 from payments.tasks import start_cancel_request, make_buy_subscription_request
-from rps_vendor.models import STATE_AUTHORIZED, STATE_CONFIRMED
 
 
 class TinkoffCallbackView(APIView):
     # TODO validate token or place to Validator
     #validator_class = TinkoffCallbackValidator
+    current_terminal = None
 
     is_successful = False
     error_code = -1
@@ -30,141 +30,149 @@ class TinkoffCallbackView(APIView):
 
         self.is_successful = request.data.get("Success", False)
         self.status = self.parse_status(request.data["Status"])
-
-        if not self.is_successful:
-            self.error_code = int(request.data["ErrorCode"])
+        self.current_terminal = request.data.get("TerminalKey")
 
         if self.status == PAYMENT_STATUS_UNKNOWN:
             get_logger().error("status 400: Unknown status: -> %s" % request.data["Status"])
             return HttpResponse(status=400)
 
-        # Check if RECEIPT
-        # TODO check if is_successful == False
+        if not self.is_successful:
+            self.error_code = int(request.data["ErrorCode"])
+            # TODO add custom execution in the future
+
         if self.status == PAYMENT_STATUS_RECEIPT:
-            return self.create_fiskal_and_return_response(request.data)
+            self.create_fiskal(request.data)
+            return HttpResponse("OK", status=200)
 
         # Read general params
         order_id = int(request.data["OrderId"])
         payment_id = int(request.data["PaymentId"])
         pan = request.data.get("Pan", "-")
+        amount = int(request.data.get("Amount", 0))
 
         # Check if PAYMENT REFUNDED
         if self.status == PAYMENT_STATUS_REFUNDED or self.status == PAYMENT_STATUS_PARTIAL_REFUNDED:
-            amount = int(request.data["Amount"])
-            self.refunded_order(order_id, amount, self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
+            self.refunded_order(
+                order_id, amount,
+                self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
             return HttpResponse("OK", status=200)
 
         if self.status == PAYMENT_STATUS_REVERSED:
-            amount = int(request.data["Amount"])
             self.reverse_order(order_id, amount)
             return HttpResponse("OK", status=200)
 
-        # Get order and payment
-        order = self.retrieve_order(order_id)
+        # Check if REJECTED
+        if self.status == PAYMENT_STATUS_REJECTED:
+            order = self.retrieve_order(order_id)
+            if order:
+                order.paid_card_pan = pan
+            self.update_payment_info(payment_id)
+            return HttpResponse("OK", status=200)
+
+        # Get order with dependencies
+        order = self.retrieve_order_with_fk(order_id, fk=["account", "session",
+                                                          "parking_card_session", "subscription"])
         if order:
-            order.paid_card_pan = pan
+            get_logger().warn("Order with id %s does not exist" % order_id)
+            return HttpResponse("OK", status=200)
 
-            # Check if REJECTED
-            if self.status == PAYMENT_STATUS_REJECTED:
-                self.update_payment_info(payment_id)
+        order.paid_card_pan = pan
+
+        # AUTHORIZE or CONFIRMED
+        if self.is_session_pay(order):
+            if self.status == PAYMENT_STATUS_AUTHORIZED:
+                order.authorized = True
                 order.save()
-                return HttpResponse("OK", status=200)
+                self.confirm_all_orders_if_needed(order) # Optimize it
 
-            # Check if AUTHORIZE and CONFIRMED
+            elif self.status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
+                order.save()
+                self.close_parking_session_if_needed(order)
 
-            if self.is_session_pay(order):
-                amount = int(request.data["Amount"])
+        elif self.is_account_credit_card_payment(order):
+            rebill_id = int(request.data["RebillId"])
+            card_id = int(request.data["CardId"])
+            exp_date = request.data["ExpDate"]
 
-                if self.status == PAYMENT_STATUS_AUTHORIZED:
-                    order.authorized = True
-                    order.save()
-                    self.confirm_all_orders_if_needed(order)
+            stored_card = CreditCard.objects.filter(
+                card_id=card_id, account=order.account).first()
 
-                elif self.status == PAYMENT_STATUS_CONFIRMED:
-                    order.paid = True
-                    order.save()
-                    self.close_parking_session_if_needed(order)
+            # Change rebill_id
+            if stored_card:
+                if rebill_id != -1 and stored_card.rebill_id != rebill_id:
+                    stored_card.rebill_id = rebill_id
+                    stored_card.save()
 
-                get_logger().info("status 200: OK")
-                return HttpResponse("OK", status=200)
+            # Create new card and return first pay
+            else:
+                credit_card = CreditCard(
+                    card_id=card_id,
+                    account=order.account,
+                    pan=pan,
+                    exp_date=exp_date,
+                    rebill_id=rebill_id
+                )
 
-            elif self.is_card_binding(order):
-                rebill_id = int(request.data["RebillId"])
-                card_id = int(request.data["CardId"])
-                exp_date = request.data["ExpDate"]
-
-                # Change card or rebill_id
-                if self.is_card_exists(card_id, order.account):
-                    self.update_rebill_id_if_needed(card_id, order.account, rebill_id)
-
-                # Create card or rebill_id
-                else:
-                    credit_card = CreditCard(
-                        card_id=card_id,
-                        account=order.account,
-                        pan=pan,
-                        exp_date=exp_date,
-                        rebill_id=rebill_id
-                    )
-                    credit_card.is_default = False \
-                            if CreditCard.objects.filter(account=order.account).exists() else True
+                if not CreditCard.objects.filter(account=order.account).exists():
+                    credit_card.is_default = True
                     credit_card.save()
 
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
                     order.authorized = True
+                    order.save()
                     start_cancel_request.delay(order.id)
 
-            elif self.is_non_account_pay(order):
-                if self.status == PAYMENT_STATUS_AUTHORIZED:
-                    order.authorized = True
-                    order.save()
-                    self.confirm_order(order)
+        elif self.is_non_account_pay(order):
+            if self.status == PAYMENT_STATUS_AUTHORIZED:
+                order.authorized = True
+                order.save()
+                self.confirm_order(order)
 
-                elif self.status == PAYMENT_STATUS_CONFIRMED:
-                    order.paid = True
-                    order.save()
+            elif self.status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
+                order.save()
 
-                get_logger().info("status 200: OK")
-                return HttpResponse("OK", status=200)
+        elif self.is_parking_card_pay(order):
+            if self.status == PAYMENT_STATUS_AUTHORIZED:
+                order.authorized = True
+                order.save()
+                self.notify_authorize_rps(order) # TODO make async
 
-            elif self.is_parking_card_pay(order):
-                if self.status == PAYMENT_STATUS_AUTHORIZED:
-                    order.authorized = True
-                    order.save()
-                    self.notify_authorize_rps(order)
-
-                elif self.status == PAYMENT_STATUS_CONFIRMED:
-                    order.paid = True
-                    order.save()
-                    self.notify_confirm_rps(order)
-
-                get_logger().info("status 200: OK")
-                return HttpResponse("OK", status=200)
-
-            elif self.is_subscription_pay(order):
-                if self.status == PAYMENT_STATUS_AUTHORIZED:
-                    order.authorized = True
-                    order.save()
-                    subs = order.subscription
-                    subs.authorize()
-                    make_buy_subscription_request.delay(order.subscription.id)
-
-                elif self.status == PAYMENT_STATUS_CONFIRMED:
-                    order.paid = True
-                    order.save()
-                    subs = order.subscription
-                    subs.activate()
-                    subs.save()
-
-                else:
-                    subs = order.subscription
-                    subs.reset(error_message="Payment error")
+            elif self.status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
+                order.save()
+                self.notify_confirm_rps(order)  # TODO make async
 
             else:
-                get_logger().warn("Unknown successefull operation")
+                order.paid = False
+                order.authorized = False
+                self.notify_refund_rps(order)  # TODO make async
+
+        elif self.is_subscription_pay(order):
+            if self.status == PAYMENT_STATUS_AUTHORIZED:
+                order.authorized = True
+                order.save()
+
+                subs = order.subscription
+                subs.authorize()
+                make_buy_subscription_request.delay(order.subscription.id)
+
+            elif self.status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
+                order.save()
+                subs = order.subscription
+                subs.activate()
+                subs.save()
+
+            else:
+                subs = order.subscription
+                subs.reset(error_message="Payment error")
+
+        else:
+            get_logger().warn("Unknown successefull operation")
             order.save()
 
-        get_logger().info("status 200: OK")
         return HttpResponse("OK", status=200)
 
 
@@ -209,7 +217,7 @@ class TinkoffCallbackView(APIView):
         return status
 
 
-    def create_fiskal_and_return_response(self, data):
+    def create_fiskal(self, data):
         """{u'OrderId': u'636', u'Status': u'RECEIPT',
             u'Type': u'IncomeReturn', u'FiscalDocumentAttribute': 173423614,
             u'Success': True, u'ReceiptDatetime': u'2018-06-18T12:27:00+03:00',
@@ -226,7 +234,7 @@ class TinkoffCallbackView(APIView):
             u'PaymentId': 23735099, u'EcrRegNumber': u'0001785103056432', u'ShiftNumber': 56}
         """
         receipt_datetime_str = data["ReceiptDatetime"]
-        # TODO add timezone
+
         datetime_object = datetime.datetime.strptime(
             receipt_datetime_str.split("+")[0], "%Y-%m-%dT%H:%M:%S")
         order_id = long(data.get("OrderId", -1))
@@ -235,7 +243,7 @@ class TinkoffCallbackView(APIView):
             order = Order.objects.get(id=order_id)
         except ObjectDoesNotExist as e:
             get_logger().warn(e.message)
-            return HttpResponse("OK", status=200)
+            return
 
         fiskal = FiskalNotification.objects.create(
             fiscal_number=data.get("FiscalNumber", -1),
@@ -251,7 +259,6 @@ class TinkoffCallbackView(APIView):
         )
         order.fiscal_notification = fiskal
         order.save()
-        return HttpResponse("OK", status=200)
 
 
     def refunded_order(self, order_id, refunded_amount, is_partial):
@@ -274,17 +281,8 @@ class TinkoffCallbackView(APIView):
         order = self.retrieve_order(order_id)
         if order:
             order.refund_request = False
-            # TODO check double refund
             order.refunded_sum = order.refunded_sum + Decimal(float(refunded_amount)/100)
             order.save()
-
-           # Find parking session
-           #parking_session = order.session
-           #parking_session.current_refund_sum = parking_session.current_refund_sum + Decimal(float(refunded_amount)/100)
-           #parking_session.save()
-
-        else:
-            return HttpResponse("OK", status=200)
 
     def reverse_order(self, order_id, amount):
         """
@@ -305,12 +303,8 @@ class TinkoffCallbackView(APIView):
 
         order = self.retrieve_order(order_id)
         if order:
-            if self.is_card_binding(order):
-                order.refunded_sum = Decimal(1)
-                order.save()
-            else:
-                pass
-
+            order.refunded_sum = order.refunded_sum + Decimal(float(amount) / 100)
+            order.save()
 
     def retrieve_order(self, order_id):
         try:
@@ -320,6 +314,11 @@ class TinkoffCallbackView(APIView):
             get_logger().warn(e.message)
             return None
 
+    def retrieve_order_with_fk(self, order_id, fk=[]):
+        qs = Order.objects.filter(id=order_id)
+        for related_model in fk:
+            qs = qs.select_related(related_model)
+        return qs.first()
 
     def update_payment_info(self, payment_id):
         try:
@@ -335,27 +334,17 @@ class TinkoffCallbackView(APIView):
     def is_session_pay(self, order):
         return order.session != None
 
-
     def is_parking_card_pay(self, order):
         return order.parking_card_session != None
-
 
     def is_subscription_pay(self, order):
         return order.subscription != None
 
-
     def is_non_account_pay(self, order):
         return order.client_uuid != None
 
-
-    def is_card_binding(self, order):
+    def is_account_credit_card_payment(self, order):
         return order.account != None
-
-
-    def is_card_exists(self, card_id, account):
-        return CreditCard.objects.filter(
-            card_id=card_id, account=account).exists()
-
 
     def update_rebill_id_if_needed(self, card_id, account, rebill_id):
         credit_card = CreditCard.objects.get(card_id=card_id, account=account)
@@ -364,7 +353,7 @@ class TinkoffCallbackView(APIView):
                 credit_card.rebill_id = rebill_id
                 credit_card.save()
 
-
+    # TODO optimize this method
     def confirm_all_orders_if_needed(self, order):
         parking_session = order.session
         get_logger().info("check begin confirmation..")
