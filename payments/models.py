@@ -184,9 +184,9 @@ class Order(models.Model):
             )
 
         if self.parking_card_session or self.client_uuid:
-            email = self.parking_card_session.account.email if self.self.parking_card_session.account else None
+            email = self.parking_card_session.account.email if self.parking_card_session.account else None
             phone = self.parking_card_session.account.phone \
-                if self.self.parking_card_session.account else self.parking_card_session.parking_card.phone
+                if self.parking_card_session.account else self.parking_card_session.parking_card.phone
 
             return dict(
                 Email=email,
