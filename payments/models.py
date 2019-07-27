@@ -123,14 +123,14 @@ class CreditCard(models.Model):
 
 class Order(models.Model):
     id = models.AutoField(primary_key=True)
-    sum = models.DecimalField(max_digits=7, decimal_places=2)
+    sum = models.DecimalField(max_digits=8, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
     authorized = models.BooleanField(default=False)
     paid = models.BooleanField(default=False)
     paid_card_pan = models.CharField(max_length=31, default="")
     session = models.ForeignKey(to='parkings.ParkingSession', null=True, blank=True)
     refund_request = models.BooleanField(default=False)
-    refunded_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    refunded_sum = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
