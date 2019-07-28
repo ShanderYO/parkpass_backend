@@ -70,9 +70,9 @@ class TinkoffCallbackView(APIView):
             return HttpResponse("OK", status=200)
 
         # Get order with dependencies
-        order = self.retrieve_order_with_fk(order_id, fk=["account", "session",
+        order = Order.retrieve_order_with_fk(order_id, fk=["account", "session",
                                                           "parking_card_session", "subscription"])
-        if order:
+        if not order:
             get_logger().warn("Order with id %s does not exist" % order_id)
             return HttpResponse("OK", status=200)
 
@@ -313,12 +313,6 @@ class TinkoffCallbackView(APIView):
         except ObjectDoesNotExist as e:
             get_logger().warn(e.message)
             return None
-
-    def retrieve_order_with_fk(self, order_id, fk=[]):
-        qs = Order.objects.filter(id=order_id)
-        for related_model in fk:
-            qs = qs.select_related(related_model)
-        return qs.first()
 
     def update_payment_info(self, payment_id):
         try:
