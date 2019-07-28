@@ -156,6 +156,13 @@ class Order(models.Model):
         verbose_name_plural = 'Orders'
 
     @classmethod
+    def retrieve_order_with_fk(cls, order_id, fk=[]):
+        qs = Order.objects.filter(id=order_id)
+        for related_model in fk:
+            qs = qs.select_related(related_model)
+        return qs.first()
+
+    @classmethod
     def get_ordered_sum_by_session(cls, session):
         sessions = Order.objects.filter(session=session)
         result_sum = 0
