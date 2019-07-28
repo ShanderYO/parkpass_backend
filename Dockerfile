@@ -27,7 +27,7 @@ RUN mkdir -p /app/media/logs
 COPY /. /app
 
 # Upgrade pip manager
-RUN pip install --upgrade pip
+#RUN pip install --upgrade pip
 
 # Setup all app requirements
 RUN pip install -r /app/requirements.txt
