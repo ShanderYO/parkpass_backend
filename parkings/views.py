@@ -666,7 +666,7 @@ class SubscriptionsPayView(LoginRequiredAPIView):
 
         # TODO get description
         description = request.data.get("description", "")
-        data = request.data("data", None)
+        data = request.data.get("data", None)
 
         try:
             parking = Parking.objects.get(id=parking_id)
