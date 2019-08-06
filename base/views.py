@@ -60,7 +60,7 @@ class APIView(View, ValidatePostParametersMixin):
             response = super(APIView, self).dispatch(request, *args, **kwargs)
         except ApiException as e:
             return JsonResponse(e.to_dict(), status=e.http_code)
-        logger.info("Sending response '%s' with code '%i'" % (response.content, response.status_code))
+        logger.info("Sending response '%s' with code '%d'" % (response.content, response.status_code))
         return response
 
 

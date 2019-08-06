@@ -26,17 +26,21 @@ class TinkoffAPI():
     CHARGE = "https://securepay.tinkoff.ru/v2/Charge"
     CANCEL = "https://securepay.tinkoff.ru/v2/Cancel"
 
-    def __init__(self):
+    def __init__(self, with_terminal=None):
         try:
-            terminal = Terminal.objects.get(is_selected=True)
+            if with_terminal:
+                terminal = Terminal.objects.get(name=with_terminal)
+            else:
+                terminal = Terminal.objects.get(is_selected=True)
+
         except ObjectDoesNotExist:
             terminal = Terminal.objects.create(
                 terminal_key=settings.TINKOFF_TERMINAL_KEY,
                 password=settings.TINKOFF_TERMINAL_PASSWORD,
                 is_selected=True,
             )
-        self.terminal_key = str(terminal.terminal_key)  # settings.TINKOFF_TERMINAL_KEY "1516954410942DEMO"
-        self.password = str(terminal.password)  # settings.TINKOFF_TERMINAL_PASSWORD "dybcdp86npi8s9fv"
+        self.terminal_key = str(terminal.terminal_key)
+        self.password = str(terminal.password)
 
     def sync_call(self, method, body):
         body["TerminalKey"] = self.terminal_key

@@ -10,7 +10,7 @@ from accounts.views import (
     PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
     ZendeskUserJWTChatView, UpdateTokenView, AccountSubscriptionListView, AccountSubscriptionSettingsView,
-    ExternalLoginView, MockingExternalLoginView)
+    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -52,6 +52,7 @@ urlpatterns = [
 
     url(r'^email/$', TemplateView.as_view(template_name="emails/receipt.html")),
     url(r'^subscription/list/$', AccountSubscriptionListView.as_view()),
+    url(r'^subscription/(?P<pk>\d+)/$', AccountSubscriptionView.as_view()),
     url(r'^subscription/(?P<pk>\d+)/settings/$', AccountSubscriptionSettingsView.as_view()),
 ]
 

@@ -28,6 +28,14 @@ class RpsParking(models.Model):
     request_payment_authorize_url = models.URLField(
         default="https://parkpass.ru/api/v1/parking/rps/mock/authorized/")
 
+    request_get_subscriptions_list_url = models.URLField(
+        default="https://parkpass.ru/api/v1/parking/rps/mock/subscriptions/"
+    )
+
+    request_subscription_pay_url = models.URLField(
+        default="https://parkpass.ru/api/v1/parking/rps/mock/subscription/pay/"
+    )
+
     polling_enabled = models.BooleanField(default=False)
     last_request_body = models.TextField(null=True, blank=True)
     last_request_date = models.DateTimeField(auto_now_add=True)
@@ -267,6 +275,15 @@ class RpsParkingCardSession(models.Model):
         return False
 
 
+SUBSCRIPTION_PAYMENT_STATUSES = (
+    (STATE_CREATED, "Only created"),
+    (STATE_INITED, "Inited pay"),
+    (STATE_AUTHORIZED, "Authorized pay"),
+    (STATE_CONFIRMED, "Confirmed pay"),
+    (STATE_ERROR, "Error"),
+)
+
+
 class RpsSubscription(models.Model):
     name = models.CharField(max_length=1024)
     description = models.TextField()
@@ -279,17 +296,64 @@ class RpsSubscription(models.Model):
     account = models.ForeignKey(Account)
     prolongation = models.BooleanField(default=True)
 
-    data = models.TextField(help_text="Byte array as base64")
+    data = models.TextField(help_text="Byte array as base64", null=True, blank=True)
     idts = models.TextField()
     id_transition = models.TextField()
 
     active = models.BooleanField(default=False)
 
+    state = models.PositiveSmallIntegerField(
+        choices=SUBSCRIPTION_PAYMENT_STATUSES, default=STATE_CREATED)
+
+    error_message = models.TextField(null=True, blank=True)
+
+    def authorize(self):
+        self.state = STATE_AUTHORIZED
+        self.save()
+
+    def activate(self):
+        self.active = True
+        self.state = STATE_CONFIRMED
+        self.save()
+
+    def reset(self, error_message=None):
+        self.data = None
+        self.error_message = error_message
+        self.state = STATE_ERROR
+        self.save()
+
+    @classmethod
+    def get_subscription(cls, url):
+        r = requests.get(url)
+        get_logger().info(r.content)
+
+        if r.status_code == 200:
+            response_dict = {"result":[], "next": None}
+            for item in r.json().get("Data", []):
+                idts = item["Id"]
+                name = item["Name"]
+                description  = item.get("TsDescription")
+                for perechod in item.get("Perechods", []):
+                    resp_item = {
+                        "name": name,
+                        "description": description,
+                        "idts": idts,
+                        "id_transition": perechod.get("Id"),
+                        "sum": perechod.get("ConditionAbonementPrice"),
+                        "duration": perechod.get("ConditionBackTimeInSecond")
+                    }
+                    response_dict["result"].append(resp_item)
+            return response_dict
+        else:
+            get_logger().warning("Subscription status code: %s" % r.status_code)
+            get_logger().warning(r.content)
+            return None
+
     def save(self, *args, **kwargs):
         super(RpsSubscription, self).save(*args, **kwargs)
 
     def check_prolong_payment(self):
-        if timezone.now() >= self.expired_at:
+        if timezone.now() >= self.expired_at and self.active:
             self.active = False
             self.save()
             if self.prolongation:
@@ -299,6 +363,7 @@ class RpsSubscription(models.Model):
                     duration=self.duration,
                     expired_at=timezone.now() + timedelta(seconds=self.duration),
                     parking=self.parking,
+                    data=self.data,
                     account=self.account,
                     prolongation = True,
                     idts=self.idts, id_transition=self.id_transition
@@ -310,7 +375,31 @@ class RpsSubscription(models.Model):
             sum=Decimal(self.sum),
             subscription=self
         )
+        self.state = STATE_INITED
+        self.save()
+
         order.try_pay()
 
     def request_buy(self):
-        return True
+        rps_parking = RpsParking.objects.filter(parking=self.parking).first()
+        if not rps_parking:
+            return False
+
+        url = rps_parking.request_subscription_pay_url
+        payload = {
+            "user_id": self.account.id,
+            "subscription_id": self.id,
+            "sum": str(self.sum),
+            "ts_id": self.idts,
+            "transation_id": self.id_transition,
+        }
+        if self.data:
+            payload["data"] = self.data
+
+        get_logger().info("Try to RSP send %s" % json.dumps(payload))
+        r = requests.post(url, json=payload)
+        get_logger().info(r.content)
+
+        if r.status_code == 200 and r.json().get("Status") == 200:
+            return True
+        return False

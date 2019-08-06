@@ -27,7 +27,7 @@ RUN mkdir -p /app/media/logs
 COPY /. /app
 
 # Upgrade pip manager
-RUN pip install --upgrade pip
+#RUN pip install --upgrade pip
 
 # Setup all app requirements
 RUN pip install -r /app/requirements.txt
@@ -66,6 +66,9 @@ ENV REDIS_PORT=$REDIS_PORT_DEFAULT
 # Debug django env
 ARG DJANGO_DEBUG_FALSE=0
 ENV DJANGO_DEBUG=$DJANGO_DEBUG_FALSE
+
+ARG AUTOTASK_ENABLE_DEFAULT=0
+ENV AUTOTASK_ENABLE=$AUTOTASK_ENABLE_DEFAULT
 
 # SMS-gateway env
 ARG SMS_GATEWAY_ENABLE=1

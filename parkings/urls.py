@@ -21,6 +21,7 @@ urlpatterns = [
     url(r'^session/list/update/$', ParkingSessionListUpdateView.as_view()),
 
     url(r'^subscription/pay/$', SubscriptionsPayView.as_view()),
+    url(r'^subscription/pay/(?P<pk>\d+)/status/$', SubscriptionsPayStatusView.as_view()),
 
     url(r'^test/$', TestSignedRequestView.as_view()),
 ]

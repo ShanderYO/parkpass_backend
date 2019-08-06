@@ -23,7 +23,7 @@ from parkings.validators import validate_longitude, validate_latitude, CreatePar
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, SubscriptionsPayValidator
 from payments.models import Order
-from rps_vendor.models import RpsSubscription
+from rps_vendor.models import RpsSubscription, RpsParking
 from vendors.models import Vendor, VendorNotification, VENDOR_NOTIFICATION_TYPE_SESSION_CREATED, \
     VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED
 
@@ -631,8 +631,24 @@ class ComplainSessionView(LoginRequiredAPIView):
 
 class GetAvailableSubscriptionsView(APIView):
     def get(self, request, *args, **kwargs):
-        # TODO ask subscription from parking
-        return JsonResponse({}, status=200)
+        try:
+            rps_parking = RpsParking.objects.select_related('parking').get(parking__id=int(kwargs["pk"]))
+            if rps_parking.parking.rps_subscriptions_available:
+                url = rps_parking.request_get_subscriptions_list_url
+                result_dict = RpsSubscription.get_subscription(url)
+                if result_dict:
+                    return JsonResponse(result_dict, status=200)
+                else:
+                    return JsonResponse({}, status=400)
+            else:
+                raise ObjectDoesNotExist()
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.ACTION_UNAVAILABLE,
+                "This parking don't support subscriptions"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
 
 class SubscriptionsPayView(LoginRequiredAPIView):
@@ -640,27 +656,39 @@ class SubscriptionsPayView(LoginRequiredAPIView):
 
     def post(self, request, *args, **kwargs):
         name = request.data["name"]
-        description = request.data["description"]
         sum = int(request.data["sum"])
         duration = int(request.data["duration"])
 
         idts = request.data["idts"]
         id_transition = request.data["id_transition"]
 
-        parking_id = 1
+        parking_id = int(request.data["parking_id"])
+
+        # TODO get description
+        description = request.data.get("description", "")
+        data = request.data.get("data", None)
 
         try:
             parking = Parking.objects.get(id=parking_id)
+            if not parking.rps_subscriptions_available:
+                e = ValidationException(
+                    ValidationException.ACTION_UNAVAILABLE,
+                    "This parking don't support subscriptions"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
             subscription = RpsSubscription.objects.create(
                 name=name, description=description,
                 sum=sum, started_at=timezone.now(),
                 duration=duration,
                 expired_at=timezone.now() + timedelta(seconds=duration),
                 parking=parking,
+                data=data,
                 account=request.account,
                 idts=idts, id_transition=id_transition
             )
             subscription.create_order_and_pay()
+            return JsonResponse({"subscription_id": subscription.id}, status=200)
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -668,3 +696,22 @@ class SubscriptionsPayView(LoginRequiredAPIView):
                 "Parking with id %s does not exist" % parking_id
             )
             return JsonResponse(e.to_dict(), status=400)
+
+
+class SubscriptionsPayStatusView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            subs = RpsSubscription.objects.get(id=kwargs["pk"])
+            result_dict = serializer(subs, include_attr=("id", "name", "description", "data",
+                                                         "started_at", "idts", "id_transition",
+                                                         "state", "error_message"))
+            return JsonResponse(result_dict, status=200)
+
+        except ObjectDoesNotExist:
+            pass
+
+        e = ValidationException(
+            ValidationException.RESOURCE_NOT_FOUND,
+            "Target subscription with order such id not found"
+        )
+        return JsonResponse(e.to_dict(), status=400)

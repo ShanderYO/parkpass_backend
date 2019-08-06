@@ -5,6 +5,3 @@
 db.sqlite3
 data/venv
 venv
-**/migrations/**
-**/migrations
-**/migrations/__init__.py

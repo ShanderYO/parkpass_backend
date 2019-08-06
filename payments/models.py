@@ -6,6 +6,7 @@ from django.template.loader import render_to_string
 from dss.Serializer import serializer
 
 from accounts.models import Account
+from base.models import Terminal
 from base.utils import get_logger
 from parkpass.settings import EMAIL_HOST_USER
 from payments.payment_api import TinkoffAPI
@@ -122,14 +123,14 @@ class CreditCard(models.Model):
 
 class Order(models.Model):
     id = models.AutoField(primary_key=True)
-    sum = models.DecimalField(max_digits=7, decimal_places=2)
+    sum = models.DecimalField(max_digits=8, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
     authorized = models.BooleanField(default=False)
     paid = models.BooleanField(default=False)
     paid_card_pan = models.CharField(max_length=31, default="")
     session = models.ForeignKey(to='parkings.ParkingSession', null=True, blank=True)
     refund_request = models.BooleanField(default=False)
-    refunded_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    refunded_sum = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -146,10 +147,20 @@ class Order(models.Model):
     # for non-accounts payments
     client_uuid = models.UUIDField(null=True, default=None)
 
+    # use multiple terminals
+    terminal = models.ForeignKey(Terminal, null=True)
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = 'Order'
         verbose_name_plural = 'Orders'
+
+    @classmethod
+    def retrieve_order_with_fk(cls, order_id, fk=[]):
+        qs = Order.objects.filter(id=order_id)
+        for related_model in fk:
+            qs = qs.select_related(related_model)
+        return qs.first()
 
     @classmethod
     def get_ordered_sum_by_session(cls, session):
@@ -162,10 +173,13 @@ class Order(models.Model):
 
     def generate_receipt_data(self):
         if self.subscription:
+            email = self.subscription.account.email if self.subscription.account else None
+            phone = self.subscription.account.phone if self.subscription.account else None
+
             return dict(
-                Email=None,
-                Phone=self.subscription.account.phone,
-                Taxation="osn",
+                Email=email,
+                Phone=phone,
+                Taxation="usn_income",
                 Items=[{
                     "Name": "Оплата парковочного абонемента",
                     "Price": str(int(self.sum * 100)),
@@ -177,10 +191,14 @@ class Order(models.Model):
             )
 
         if self.parking_card_session or self.client_uuid:
+            email = self.parking_card_session.account.email if self.parking_card_session.account else None
+            phone = self.parking_card_session.account.phone \
+                if self.parking_card_session.account else self.parking_card_session.parking_card.phone
+
             return dict(
-                Email=None,
-                Phone=self.parking_card_session.parking_card.phone,
-                Taxation="osn",
+                Email=email,
+                Phone=phone,
+                Taxation="usn_income",
                 Items=[{
                     "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
                     "Price": str(int(self.sum*100)),
@@ -194,9 +212,9 @@ class Order(models.Model):
         # Init payment receipt
         if self.session is None:
             return dict(
-                Email=None,  # not send to email
+                Email=None, # not send to email
                 Phone=self.account.phone,
-                Taxation="osn",
+                Taxation="usn_income",
                 Items=[{
                     "Name": "Привязка карты",
                     "Price": 100,
@@ -211,7 +229,7 @@ class Order(models.Model):
         return dict(
             Email=str(self.session.client.email) if self.session.client.email else None,
             Phone=str(self.session.client.phone),
-            Taxation="osn",
+            Taxation="usn_income",
             Items=[{
                 "Name": "Оплата парковки # %s" % self.session.id,
                 "Price": str(int(self.sum*100)),
@@ -232,6 +250,12 @@ class Order(models.Model):
     def get_payment_amount(self):
         return int(self.sum * 100)
 
+    def get_tinkoff_api(self):
+        if not self.terminal or self.terminal == 'main':
+            return TinkoffAPI()
+        else:
+            return TinkoffAPI(with_terminal=self.terminal.name)
+
     def create_non_recurrent_payment(self):
         receipt_data = self.generate_receipt_data()
         init_payment = TinkoffPayment.objects.create(
@@ -247,7 +271,8 @@ class Order(models.Model):
 
         get_logger().info("Init non recurrent request:")
         get_logger().info(request_data)
-        result = TinkoffAPI().sync_call(
+
+        result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.INIT, request_data
         )
 
@@ -302,9 +327,12 @@ class Order(models.Model):
 
     def create_payment(self):
         receipt_data = self.generate_receipt_data()
-        new_payment = TinkoffPayment.objects.create(order=self, receipt_data=receipt_data)
+        new_payment = TinkoffPayment.objects.create(
+            order=self,
+            receipt_data=receipt_data)
+
         request_data = new_payment.build_transaction_data(self.get_payment_amount())
-        result = TinkoffAPI().sync_call(
+        result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.INIT, request_data
         )
         get_logger().info("Init payment response: ")
@@ -357,6 +385,7 @@ class Order(models.Model):
 
         default_account_credit_card = CreditCard.objects.filter(
                 account=account, is_default=True).first()
+
         if not default_account_credit_card:
             get_logger().warn("Payment was broken. Account should has bind card")
             return
@@ -365,7 +394,7 @@ class Order(models.Model):
             payment.payment_id, default_account_credit_card.rebill_id
         )
         get_logger().info(request_data)
-        result = TinkoffAPI().sync_call(
+        result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.CHARGE, request_data
         )
         if result[u'Status'] == u'AUTHORIZED':
@@ -393,7 +422,7 @@ class Order(models.Model):
         get_logger().info("Make confirm order: %s" % self.id)
         request_data = payment.build_confirm_request_data(self.get_payment_amount())
         get_logger().info(request_data)
-        result = TinkoffAPI().sync_call(
+        result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.CONFIRM, request_data
         )
         get_logger().info(str(result))

@@ -30,6 +30,7 @@ from parkpass.settings import EMAIL_HOST_USER, AVATARS_URL, AVATARS_ROOT, ZENDES
 
 
 class Terminal(models.Model):
+    name = models.CharField(max_length=255, unique=True, null=True)
     terminal_key = models.CharField(max_length=255)
     password = models.CharField(max_length=255)
     is_selected = models.BooleanField(default=False)

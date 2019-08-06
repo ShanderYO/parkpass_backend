@@ -10,7 +10,7 @@ from django.views import View
 from dss.Serializer import serializer
 
 from accounts.models import Account, AccountSession
-from accounts.sms_gateway import SMSGateway
+
 from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
@@ -26,7 +26,9 @@ from parkpass.settings import DEFAULT_AVATAR_URL
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
-from vendors.models import VendorIssue, Vendor
+
+from sms_gateway import sms_sender
+from vendors.models import VendorIssue
 
 
 class SetAvatarView(LoginRequiredAPIView):
@@ -117,8 +119,7 @@ class OwnerIssueView(APIView):
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if issue.phone:
             get_logger().info("Send to  phone %s" % issue.phone)
-            sms_gateway = SMSGateway()
-            sms_gateway.send_sms(issue.phone, text, message='')
+            sms_sender.send_message(issue.phone, text)
 
         if issue.email:
             get_logger().info("Send to  email %s " % issue.email)
@@ -144,8 +145,7 @@ class VendorIssueView(APIView, ObjectView):
         issue.save()
         text = u"Ваша заявка принята в обработку. С Вами свяжутся в ближайшее время."
         if phone:
-            sms_gateway = SMSGateway()
-            sms_gateway.send_sms(phone, text, message='')
+            sms_sender.send_message(issue.phone, text)
         if email:
             issue.send_mail(email)
 
@@ -169,10 +169,10 @@ class LoginView(APIView):
         if phone == "77891234560":
             return JsonResponse({}, status=200)
 
-        sms_gateway = SMSGateway()
-        sms_gateway.send_sms(account.phone, account.sms_code)
-        if sms_gateway.exception:
-            return JsonResponse(sms_gateway.exception.to_dict(), status=400)
+        sms_sender.send_message(account.phone,
+                             u"Код подтверждения %s" % (account.sms_code,))
+        # if sms_sender.exception:
+        #     return JsonResponse(sms_sender.exception.to_dict(), status=400)
 
         return JsonResponse({}, status=success_status)
 
@@ -475,8 +475,9 @@ class EmailConfirmationView(View):
                     account = Account.objects.get(email_confirmation=confirmation)
                     account.email = confirmation.email
                     account.email_confirmation = None
-                    account.save()
                     account.create_password_and_send()
+                    account.save()
+
                     confirmation.delete()
                     return JsonResponse({"message": "Email is activated successfully"})
 
@@ -784,14 +785,15 @@ class UpdateTokenView(APIView):
 class AccountSubscriptionListView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         subscription_qs = RpsSubscription.objects.filter(
-            started_at__lt = timezone.now(),
-            expired_at__gte = timezone.now(),
+            #started_at__lt = timezone.now(),
+            #expired_at__gte = timezone.now(),
             account=request.account
         ).select_related('parking')
 
         serialized_subs = serializer(subscription_qs,
-                                     include_attr=('id','name', 'description', 'sum', 'started_at',
-                                                   'expired_at', 'duration', 'prolongation'))
+                                     include_attr=('id','name', 'description', 'sum', 'data', 'started_at',
+                                                   'expired_at', 'duration', 'prolongation',
+                                                   'state', 'active', 'error_message',))
         for index, sub in enumerate(subscription_qs):
             serialized_subs[index]["parking"] = serializer(
                 sub.parking, include_attr=('id', 'name', 'description'))
@@ -802,12 +804,41 @@ class AccountSubscriptionListView(LoginRequiredAPIView):
         return JsonResponse(response_dict, status=200)
 
 
+class AccountSubscriptionView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            sub = RpsSubscription.objects.select_related('parking').get(
+                account=request.account,
+                id=kwargs["pk"])
+            result_dict = serializer(sub, include_attr=('id','name', 'description', 'sum', 'data', 'started_at',
+                                                        'expired_at', 'duration', 'prolongation',
+                                                        'state', 'active', 'error_message',))
+            result_dict["parking"] = serializer(
+                    sub.parking, include_attr=('id', 'name', 'description'))
+            return JsonResponse(result_dict, status=200)
+
+        except ObjectDoesNotExist:
+            pass
+
+        e = ValidationException(
+            ValidationException.RESOURCE_NOT_FOUND,
+            "Your target subscription with order such id not found"
+        )
+        return JsonResponse(e.to_dict(), status=400)
+
+
 class AccountSubscriptionSettingsView(LoginRequiredAPIView):
+
     def post(self, request, *args, **kwargs):
-        prolong_status = request.data["prolong"] # Todo add validation
+        prolong_status = request.data.get("prolong")
+        if type(prolong_status) != bool:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Key `prolong` should be boolean type")
+            return JsonResponse(e.to_dict(), status=400)
         try:
             sub = RpsSubscription.objects.get(
-                id=int(kwargs["id"]),
+                id=int(kwargs["pk"]),
                 account=request.account
             )
             sub.prolongation = prolong_status
@@ -817,7 +848,7 @@ class AccountSubscriptionSettingsView(LoginRequiredAPIView):
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
-                "Your subscription with id %s does not exist" % int(kwargs["id"]))
+                "Your subscription with id %s does not exist" % int(kwargs["pk"]))
             return JsonResponse(e.to_dict(), status=400)
 
         return JsonResponse({}, status=200)
