@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 
@@ -8,8 +9,8 @@ from accounts.models import Account
 from accounts.sms_gateway import sms_sender
 from accounts.validators import LoginParamValidator, NewConfirmLoginParamValidator, \
     EmailAndPasswordValidator, UpdateTokensValidator
-from auth.models import Session, TokenTypes, Groups
-from auth.utils import parse_jwt
+from .models import Session, TokenTypes, Groups
+from .utils import parse_jwt
 from base.exceptions import AuthException
 from base.utils import clear_phone
 from base.views import APIView, LoginRequiredAPIView
