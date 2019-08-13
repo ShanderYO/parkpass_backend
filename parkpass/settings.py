@@ -51,6 +51,7 @@ INSTALLED_APPS = (
     'vendors',
     'payments',
     'parkings',
+    'jwtauth',
     'rps_vendor',
     'owners',
     'control'

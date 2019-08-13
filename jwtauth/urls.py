@@ -1,7 +1,7 @@
 from django.conf.urls import url
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
-from auth.views import *
+from .views import *
 
 urlpatterns = [
     url(r'^login/$', PhoneLoginView.as_view()),

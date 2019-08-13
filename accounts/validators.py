@@ -5,7 +5,7 @@ import re
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 
-from auth.utils import parse_jwt
+from jwtauth.utils import parse_jwt
 from base.exceptions import ValidationException
 from base.validators import BaseValidator, validate_phone_number
 

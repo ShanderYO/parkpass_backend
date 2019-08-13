@@ -4,8 +4,8 @@ from django.utils.six import text_type
 
 # Header encoding (see RFC5987)
 from accounts.models import AccountSession, Account
-from auth.models import Groups
-from auth.utils import parse_jwt
+from jwtauth.models import Groups
+from jwtauth.utils import parse_jwt
 from base.utils import datetime_from_unix_timestamp_tz
 from control.models import AdminSession, Admin
 from owners.models import OwnerSession, Owner

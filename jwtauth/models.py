@@ -5,7 +5,7 @@ from datetime import timedelta, time
 from django.db import models
 from django.utils import timezone
 
-from auth.utils import (
+from .utils import (
     unique_code, create_jwt, create_future_timestamp
 )
 
