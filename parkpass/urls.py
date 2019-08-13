@@ -16,6 +16,7 @@ urlpatterns = [
                   url(r'^api/v1/owner/', include("owners.urls")),
     url(r'^api/v1/parking/', include("rps_vendor.urls")),
     url(r'^api/v1/vendor/', include("vendors.urls")),
+    url(r'^api/v1/auth/', include("auth.urls")),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) \
               + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

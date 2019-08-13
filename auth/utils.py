@@ -6,7 +6,6 @@ from datetime import timedelta
 import jwt
 
 from django.utils import timezone
-from django.utils.http import urlencode
 
 from parkpass.settings import SECRET_KEY_JWT
 
@@ -26,9 +25,31 @@ def create_jwt(data):
 
 def parse_jwt(access_token):
     try:
-        return jwt.decode(access_token.encode("utf-8"), SECRET_KEY_JWT, algorithms=['HS256'])
+        return jwt.decode(
+            access_token.encode("utf-8"), SECRET_KEY_JWT,
+            algorithms=['HS256'])
+
     except Exception as e:
         return None
+
+
+def has_groups(groups, access_token):
+    claims = parse_jwt(access_token)
+    if claims.get("groups"):
+        token_groups = claims["groups"]
+        for group in groups:
+            if not bool(group & token_groups):
+                return False
+        return True
+    return False
+
+
+def has_group(group, access_token):
+    claims = parse_jwt(access_token)
+    if claims.get("groups"):
+        token_groups = claims["groups"]
+        return bool(group & token_groups)
+    return False
 
 
 def create_future_timestamp(seconds):
