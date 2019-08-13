@@ -5,6 +5,7 @@ import re
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 
+from auth.utils import parse_jwt
 from base.exceptions import ValidationException
 from base.validators import BaseValidator, validate_phone_number
 
@@ -62,14 +63,48 @@ class ConfirmLoginParamValidator(BaseValidator):
         sms_code = self.request.data.get("sms_code", None)
         if not sms_code:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Empty sms-code"
+            self.message = "Key `sms_code` are required"
             return False
         try:
             validate_sms_code(sms_code)
+
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e.message)
             return False
+        return True
+
+
+class NewConfirmLoginParamValidator(BaseValidator):
+    def is_valid(self):
+        sms_code = self.request.data.get("sms_code", None)
+        phone = self.request.data.get("phone", None)
+
+        if not sms_code or not phone:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys `phone` and `sms_code` are required"
+            return False
+        try:
+            validate_phone_number(phone)
+            validate_sms_code(sms_code)
+
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e.message)
+            return False
+        return True
+
+
+class UpdateTokensValidator(BaseValidator):
+    def is_valid(self):
+        access_token = self.request.data.get("access_token", None)
+        refresh_token = self.request.data.get("refresh_token", None)
+
+        if not access_token or not refresh_token:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys `access_token` and `refresh_token` are required"
+            return False
+
         return True
 
 

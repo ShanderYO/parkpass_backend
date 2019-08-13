@@ -22,6 +22,7 @@ class AuthException(ApiException):
     INVALID_SESSION = 103
     INVALID_EXTERNAL_USER = 104
     EXTERNAL_LOGIN_ERROR = 105
+    INVALID_TOKEN_FORMAT = 106
 
     def __init__(self, code, message, http_code=400):
         super(AuthException, self).__init__(message, http_code)

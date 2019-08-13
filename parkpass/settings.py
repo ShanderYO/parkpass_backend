@@ -62,7 +62,8 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
-    'base.middleware.TokenAuthenticationMiddleware',
+    #'base.middleware.TokenAuthenticationMiddleware',
+    'base.middleware.ComplexAuthenticationMiddleware',
     # 'base.middleware.LoggingMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -248,3 +249,10 @@ PAGINATION_OBJECTS_PER_PAGE = 10
 
 ZENDESK_WIDGET_SECRET = 'fecb58d1e0ab86c5b92360141a0acbc3'
 ZENDESK_CHAT_SECRET = '4A584DAA027F945513204BE0B22DEE5C97B08925A7CFA47CBA027609FA81F555'
+
+# Settings auth
+SECRET_KEY_JWT = os.environ.get("SECRET_KEY_JWT", 'secret')
+
+ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
+REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
+SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour

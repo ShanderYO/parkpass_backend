@@ -2,6 +2,7 @@
 import datetime
 import logging
 import re
+import time
 
 import pytz
 from django.core.exceptions import ObjectDoesNotExist, FieldError
@@ -180,6 +181,12 @@ def datetime_from_unix_timestamp_tz(value):
         return None
     started_at_date = datetime.datetime.fromtimestamp(float(value))
     return pytz.utc.localize(started_at_date)
+
+
+def datetime_to_unix_timestamp_tz(value):
+    if value is None:
+        return None
+    return int(time.mktime(value.timetuple()))
 
 
 class FieldType:
