@@ -48,14 +48,15 @@ GROUP_CHOICES = (
 class Session(models.Model):
     refresh_token = models.CharField(max_length=1024)
 
-    type = models.CharField(max_length=32, choices=TOKEN_TYPE_CHOICES)
+    type = models.IntegerField(
+        choices=TOKEN_TYPE_CHOICES, default=TokenTypes.MOBILE)
 
     expires_at = models.DateTimeField()
 
     # user = models.ForeignKey(
     #     User, on_delete=models.CASCADE)
 
-    temp_user_id = models.IntegerField()
+    temp_user_id = models.BigIntegerField()
 
     class Meta:
         db_table = 'jwt_session'
