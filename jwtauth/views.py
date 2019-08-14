@@ -138,7 +138,7 @@ class UpdateTokensView(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
         response_dict = serializer(session, include_attr=("refresh_token", 'expires_at',))
-        response_dict["access_token"] = session.update_access_token()
+        response_dict["access_token"] = session.update_access_token(group=Groups.BASIC)
 
         return JsonResponse(response_dict, status=200)
 

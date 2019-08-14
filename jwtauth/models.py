@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.db import models
 from django.utils import timezone
 
+from base.utils import datetime_to_unix_timestamp_tz
 from .utils import (
     unique_code, create_jwt, create_future_timestamp
 )
@@ -83,8 +84,8 @@ class Session(models.Model):
             "user_id": self.temp_user_id,
             "app": "parkpass",
             "type": self.type,
-            "expires_at": self.expires_at,
-            "timestamp": create_future_timestamp(0)
+            "expires_at": datetime_to_unix_timestamp_tz(self.expires_at),
+            "timestamp": datetime_to_unix_timestamp_tz(timezone.now())
         }
         self.refresh_token = create_jwt(refresh_claims)
         self.save()
