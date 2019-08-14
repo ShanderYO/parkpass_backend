@@ -19,15 +19,24 @@ owner = (b'owner', OwnerSession)
 admin = (b'admin', AdminSession)
 
 
+def get_authorization_header(self, request):
+    authorization = request.META.get('HTTP_AUTHORIZATION', b'')
+    if isinstance(authorization, text_type):
+        authorization = authorization.encode(HTTP_HEADER_ENCODING)
+    return authorization
+
+
 class ComplexAuthenticationMiddleware(object):
     def process_request(self, request):
         if self.is_jwt_authorize(request):
+            print("is_jwt_authorize")
             return JWTTokenAuthenticationMiddleware().process_request(request)
         else:
+            print("is_old_authorize")
             return TokenAuthenticationMiddleware().process_request(request)
 
     def is_jwt_authorize(self, request):
-        auth = self.get_authorization_header(request).split()
+        auth = get_authorization_header(request).split()
         if not auth or auth[0].lower() != b'bearer':
             return False
         return True
@@ -35,6 +44,7 @@ class ComplexAuthenticationMiddleware(object):
 
 class JWTTokenAuthenticationMiddleware(object):
     def process_request(self, request):
+        print("JWTTokenAuthenticationMiddleware process request")
         request.account = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.BASIC))
         request.vendor = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.VENDOR))
         request.owner = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.OWNER))
@@ -83,15 +93,10 @@ class JWTTokenAuthenticationMiddleware(object):
         return authorization
 
 
-def get_authorization_header(self, request):
-    authorization = request.META.get('HTTP_AUTHORIZATION', b'')
-    if isinstance(authorization, text_type):
-        authorization = authorization.encode(HTTP_HEADER_ENCODING)
-    return authorization
-
-
 class TokenAuthenticationMiddleware(object):
     def process_request(self, request):
+        print("TokenAuthenticationMiddleware process request")
+
         request.account = SimpleLazyObject(lambda: get_account(request, account))
         request.vendor = SimpleLazyObject(lambda: get_account(request, vendor))
         request.owner = SimpleLazyObject(lambda: get_account(request, owner))
