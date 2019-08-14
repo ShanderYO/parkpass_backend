@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
+import time
 
-from datetime import timedelta, time
+from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
@@ -83,7 +84,7 @@ class Session(models.Model):
             "app": "parkpass",
             "type": self.type,
             "expires_at": self.expires_at,
-            "timestamp": int(time.time())
+            "timestamp": create_future_timestamp(0)
         }
         self.refresh_token = create_jwt(refresh_claims)
         self.save()
