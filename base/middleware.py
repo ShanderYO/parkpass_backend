@@ -54,9 +54,10 @@ class JWTTokenAuthenticationMiddleware(object):
         access_token = self.get_access_token(request)
         claims = parse_jwt(access_token)
         if claims:
+            print(claims)
             expires_at = int(claims.get("expires_at", 0))
-            groups = int(claims.get("groups"), 0)
-            user_id = claims.get("id")
+            groups = int(claims.get("groups", 0))
+            user_id = int(claims.get("u'user_id", 0))
 
             # If token is expired
             if datetime_from_unix_timestamp_tz(expires_at) <= timezone.now():
