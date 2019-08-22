@@ -134,3 +134,24 @@ class OwnerApplication(models.Model):
 
     def __str__(self):
         return "Application #%s " % self.pk
+
+
+def comma_separated_emails(value):
+    return value
+
+
+class CompanySettingReports(models.Model):
+    company = models.ForeignKey(Company)
+    parking = models.ForeignKey(Parking)
+    available = models.BooleanField(default=True)
+    report_emails = models.TextField(validators=(comma_separated_emails,), null=True, blank=True)
+    period_in_days = models.IntegerField(default=30)
+    last_send_date = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'report_settings'
+
+    def __unicode__(self):
+        return "Report settings for %s %s" % (self.company, self.parking)
