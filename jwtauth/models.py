@@ -88,7 +88,6 @@ class Session(models.Model):
             "timestamp": datetime_to_unix_timestamp_tz(timezone.now())
         }
         self.refresh_token = create_jwt(refresh_claims)
-        self.save()
 
     def update_access_token(self, group, app="parkpass"):
         return create_jwt({
