@@ -331,7 +331,7 @@ class AccountParkingListView(LoginRequiredAPIView):
             result_query = result_query.filter(
                 created_at__gt=from_date_datetime, created_at__lt=to_date_datetime).order_by("-id")
 
-        elif page:
+        if page:
             id = int(page)
             result_query = result_query.filter(pk__lt=id).order_by("-id")
 
