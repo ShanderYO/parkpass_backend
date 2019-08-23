@@ -1,25 +1,35 @@
-import logging
+# -*- coding: utf-8 -*-
 
+import logging
+import os.path
+
+from django.core.exceptions import ObjectDoesNotExist
 from openpyxl import load_workbook
 
 import pandas as pd
 
 from django.utils import timezone
 
+from base.utils import get_logger
 from owners.models import CompanySettingReports
 from parkings.models import ParkingSession
 from parkpass.celery import app
 from parkpass.settings import REPORTS_ROOT
-from rps_vendor.models import RpsSubscription, ParkingCard
+from rps_vendor.models import RpsSubscription, ParkingCard, RpsParkingCardSession, STATE_CONFIRMED
 
 
 @app.task()
 def generate_report_and_send(settings_report_id):
-    report = CompanySettingReports.objects.select_related('company', 'parking').get(settings_report_id)
-    create_report_for_parking(
-        report.parking, report.last_send_date,
-        report.last_send_date + report.period_in_days
-    )
+    get_logger().info("generate_report_and_send %s" % settings_report_id)
+    try:
+        report = CompanySettingReports.objects.select_related(
+            'company', 'parking').get(settings_report_id)
+        create_report_for_parking(
+            report.parking, report.last_send_date,
+            report.last_send_date + report.period_in_days
+        )
+    except ObjectDoesNotExist:
+        get_logger().warn("CompanySettingReports with id %d is not found" % settings_report_id)
 
 
 def create_report_for_parking(parking, from_date, to_date):
@@ -27,27 +37,38 @@ def create_report_for_parking(parking, from_date, to_date):
         completed_at__gte=from_date,
         started_at__lte=to_date
     )
-    # TODO add data of buy
-    parking_cards = ParkingCard.objects.filter()
+    parking_cards = RpsParkingCardSession.objects.filter(
+        state=STATE_CONFIRMED,
+        created_at_gte=from_date,
+        created_at__lt=to_date
+    ).select_related('parking_card')
 
-    # TODO add data of buy
-    subscriptions = RpsSubscription.objects.filter()
+    subscriptions = RpsSubscription.objects.filter(
+        started_at__gte=from_date,
+        started_at__lt=to_date,
+        state=STATE_CONFIRMED
+    )
+
+    get_logger().info("reports session:%d, cards:%d, subscriptions:%d " % (sessions.count(), parking_cards.count(), subscriptions.count()))
 
     filename = REPORTS_ROOT + "report-%s(%s-%s).xlsx" % (
         parking.id, from_date, to_date)
 
-    append_df_to_excel(filename, gen_session_report_df(sessions), "Sessions")
-    append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Parking card")
-    append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Subscriptions")
+    if not os.path.isfile(filename):
+        open(filename, 'a').close()
+
+    append_df_to_excel(filename, gen_session_report_df(sessions), "Парковочные сессии", index_key="#")
+    append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Парковочные карты", index_key="#")
+    append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Абонементы", index_key="#")
 
 
 def gen_session_report_df(qs):
-    ID_COL = " #"
-    START_COL = "START DATETIME"
-    END_COL = "END DATETIME"
-    DURATION_COL = "DURATION"
-    DEBT_COL = "DEBT"
-    STATE_COL = "STATE"
+    ID_COL = "#"
+    START_COL = "Время въезда"
+    END_COL = "Время выезда"
+    DURATION_COL = "Продолжительность"
+    DEBT_COL = "Стоймость"
+    STATE_COL = "Статус"
 
     propotype = {
         ID_COL: [],
@@ -63,17 +84,32 @@ def gen_session_report_df(qs):
         propotype[START_COL].append(session.started_at)
         propotype[DURATION_COL].append(session.duration)
         propotype[DEBT_COL].append(session.debt)
-        propotype[STATE_COL].append(session.status)
+
+        if session.client_state == ParkingSession.CLIENT_STATE_CANCELED:
+            propotype[STATE_COL].append("Отменена")
+
+        if session.client_state == ParkingSession.CLIENT_STATE_CLOSED:
+            propotype[STATE_COL].append("Оплачена")
+
+        if session.client_state == ParkingSession.CLIENT_STATE_ACTIVE:
+            propotype[STATE_COL].append("Активная")
+
+        if session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
+            propotype[STATE_COL].append("Приостановлена пользователем")
+
+        if session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
+            propotype[STATE_COL].append("Ожидает оплаты")
 
     return pd.DataFrame(data=propotype)
 
 
 def gen_parking_card_report_df(qs):
-    ID_COL = " #"
-    START_COL = "START DATETIME"
-    END_COL = "END DATETIME"
-    DURATION_COL = "DURATION"
-    PRICE_COL = "PRICE"
+    ID_COL = "#"
+    START_COL = "Время въезда"
+    END_COL = "Время выезда"
+    DURATION_COL = "Продолжительность"
+    PRICE_COL = "Стоймость"
+    BUY_DATETIME_COL = "Дата оплаты"
 
     propotype = {
         ID_COL: [],
@@ -81,16 +117,27 @@ def gen_parking_card_report_df(qs):
         END_COL: [],
         DURATION_COL: [],
         PRICE_COL: [],
+        BUY_DATETIME_COL: []
     }
+
+    for parking_card_session in qs:
+        propotype[ID_COL].append(parking_card_session.id)
+        propotype[START_COL].append("-")
+        propotype[END_COL].append("-")
+        propotype[DURATION_COL].append(parking_card_session.duration)
+        propotype[PRICE_COL].append(parking_card_session.debt)
+        propotype[BUY_DATETIME_COL].append(parking_card_session.created_at)
+
     return pd.DataFrame(data=propotype)
 
 
 def gen_subscription_report_df(qs):
-    ID_COL = " #"
-    VENDOR_ID_COL = "VENDOR #"
-    START_COL = "START DATETIME"
-    DURATION_COL = "DURATION"
-    PRICE_COL = "PRICE"
+    ID_COL = "#"
+    VENDOR_ID_COL = "# в системе вендора"
+    START_COL = "Время покупки"
+    DURATION_COL = "Продолжительность"
+    PRICE_COL = "Стоимость абонемента"
+    BUY_DATETIME_COL = "Дата покупки"
 
     propotype = {
         ID_COL: [],
@@ -98,12 +145,22 @@ def gen_subscription_report_df(qs):
         START_COL: [],
         DURATION_COL: [],
         PRICE_COL: [],
+        BUY_DATETIME_COL: []
     }
+
+    for subscription in qs:
+        propotype[ID_COL].append(subscription.id)
+        propotype[VENDOR_ID_COL].append(subscription.idts)
+        propotype[START_COL].append(subscription.started_at)
+        propotype[DURATION_COL].append(subscription.duration)
+        propotype[PRICE_COL].append(subscription.sum)
+        propotype[BUY_DATETIME_COL].append(subscription.started_at)
+
     return pd.DataFrame(data=propotype)
 
 
 def append_df_to_excel(filename, df, sheet_name,
-                       startrow=None, truncate_sheet=True, **to_excel_kwargs):
+                       startrow=None, truncate_sheet=True, index_key=None, **to_excel_kwargs):
     """
     Parameters:
     filename : File path or existing ExcelWriter
@@ -126,20 +183,18 @@ def append_df_to_excel(filename, df, sheet_name,
     if 'engine' in to_excel_kwargs:
         to_excel_kwargs.pop('engine')
 
-    writer = pd.ExcelWriter(filename, engine='openpyxl')
+    #writer = pd.ExcelWriter(filename, engine='openpyxl')
+    writer = pd.ExcelWriter(filename)
 
     # Python 2.x: define [FileNotFoundError] exception if it doesn't exist
     # try:
     #     FileNotFoundError
     # except NameError:
     #     FileNotFoundError = IOError
+
     FileNotFoundError = IOError
     try:
-        # try to open an existing workbook
         writer.book = load_workbook(filename)
-
-        # get the last row in the existing Excel sheet
-        # if it was not specified explicitly
         if startrow is None and sheet_name in writer.book.sheetnames:
             startrow = writer.book[sheet_name].max_row
 
@@ -156,22 +211,23 @@ def append_df_to_excel(filename, df, sheet_name,
         writer.sheets = {ws.title: ws for ws in writer.book.worksheets}
 
     except FileNotFoundError:
+        # TODO write logs if something occurs
         # file does not exist yet, we will create it
         pass
 
     if startrow is None:
         startrow = 0
 
-    # write out the new sheet
-    df.to_excel(writer, sheet_name, startrow=startrow, **to_excel_kwargs)
+    if index_key:
+        df.set_index(index_key, inplace=True)
 
-    # save the workbook
+    df.to_excel(writer, sheet_name, startrow=startrow, **to_excel_kwargs)
     writer.save()
 
 
 @app.task()
 def check_send_reports():
-    logging.info("start checking reports for owners")
+    get_logger().info("start checking reports for owners")
     qs = CompanySettingReports.objects.filter(available=True)
     for settings in qs:
         if (timezone.now() - settings.last_send_date).days > settings.period_in_days:
