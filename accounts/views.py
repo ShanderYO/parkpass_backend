@@ -331,7 +331,7 @@ class AccountParkingListView(LoginRequiredAPIView):
             result_query = result_query.filter(
                 created_at__gt=from_date_datetime, created_at__lt=to_date_datetime).order_by("-id")
 
-        elif page:
+        if page:
             id = int(page)
             result_query = result_query.filter(pk__lt=id).order_by("-id")
 
@@ -428,14 +428,6 @@ class ChangeEmailView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        # check if email is binded to another account
-        if Account.objects.filter(email=email).exists():
-            e = ValidationException(
-                ValidationException.ALREADY_EXISTS,
-                "Such email is already binded to other account"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-
         # check non-unique email
         if Account.objects.filter(email=email).exists():
             e = ValidationException(
@@ -463,6 +455,7 @@ class ChangeEmailView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
+
 class EmailConfirmationView(View):
     def get(self, request, *args, **kwargs):
         confirmations = EmailConfirmation.objects.filter(code=kwargs["code"])
@@ -473,16 +466,22 @@ class EmailConfirmationView(View):
             else:
                 try:
                     account = Account.objects.get(email_confirmation=confirmation)
-                    account.email = confirmation.email
-                    account.email_confirmation = None
-                    account.create_password_and_send()
-                    account.save()
-
-                    confirmation.delete()
-                    return JsonResponse({"message": "Email is activated successfully"})
+                    if account.email:
+                        account.email = confirmation.email
+                        account.email_confirmation = None
+                        account.create_password_and_send()
+                        account.save()
+                        confirmation.delete()
+                        return JsonResponse({"message": "Email is activated successfully"})
+                    else:
+                        account.email = confirmation.email
+                        account.email_confirmation = None
+                        account.save()
+                        confirmation.delete()
+                        return JsonResponse({"message": "Email is activated successfully"})
 
                 except ObjectDoesNotExist:
-                    return JsonResponse({"error": "Invalid link. Account does not found"}, status=200)
+                    return JsonResponse({"error": "Email was changes successfully"}, status=200)
 
         else:
             return JsonResponse({"error": "Invalid link"}, status=200)
