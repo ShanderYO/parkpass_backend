@@ -146,7 +146,7 @@ class CompanySettingReports(models.Model):
     available = models.BooleanField(default=True)
     report_emails = models.TextField(validators=(comma_separated_emails,), null=True, blank=True)
     period_in_days = models.IntegerField(default=30)
-    last_send_date = models.DateTimeField()
+    last_send_date = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

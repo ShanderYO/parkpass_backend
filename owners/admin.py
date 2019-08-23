@@ -44,3 +44,8 @@ class IssueAdmin(admin.ModelAdmin):
         queryset.delete()
 
     reject_issue.short_description = 'Reject these issues'
+
+
+@admin.register(CompanySettingReports)
+class CompanySettingReports(admin.ModelAdmin):
+    pass
