@@ -2,6 +2,7 @@
 
 import logging
 import os.path
+from datetime import timedelta
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
@@ -27,7 +28,7 @@ def generate_report_and_send(settings_report_id):
             'company').select_related('parking').get(id=settings_report_id)
         filename = create_report_for_parking(
             report.parking, report.last_send_date,
-            report.last_send_date + report.period_in_days
+            report.last_send_date + timedelta(seconds=report.period_in_days * 24 * 60 * 60)
         )
         send_report(report.report_emails, filename)
     except ObjectDoesNotExist:
