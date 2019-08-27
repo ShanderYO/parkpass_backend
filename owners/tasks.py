@@ -4,6 +4,7 @@ import logging
 import os.path
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import EmailMessage
 from openpyxl import load_workbook
 
 import pandas as pd
@@ -14,7 +15,7 @@ from base.utils import get_logger
 from owners.models import CompanySettingReports
 from parkings.models import ParkingSession
 from parkpass.celery import app
-from parkpass.settings import REPORTS_ROOT
+from parkpass.settings import REPORTS_ROOT, EMAIL_HOST_USER
 from rps_vendor.models import RpsSubscription, ParkingCard, RpsParkingCardSession, STATE_CONFIRMED
 
 
@@ -23,11 +24,12 @@ def generate_report_and_send(settings_report_id):
     get_logger().info("generate_report_and_send %s" % settings_report_id)
     try:
         report = CompanySettingReports.objects.select_related(
-            'company', 'parking').get(settings_report_id)
-        create_report_for_parking(
+            'company').select_related('parking').get(settings_report_id)
+        filename = create_report_for_parking(
             report.parking, report.last_send_date,
             report.last_send_date + report.period_in_days
         )
+        send_report(report.report_emails, filename)
     except ObjectDoesNotExist:
         get_logger().warn("CompanySettingReports with id %d is not found" % settings_report_id)
 
@@ -60,6 +62,17 @@ def create_report_for_parking(parking, from_date, to_date):
     append_df_to_excel(filename, gen_session_report_df(sessions), "Парковочные сессии", index_key="#")
     append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Парковочные карты", index_key="#")
     append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Абонементы", index_key="#")
+
+    return filename
+
+
+def send_report(emails, filename):
+    targets = emails.split(",")
+    msg = EmailMessage('Parkpass report', 'Hello. Your report inside...', EMAIL_HOST_USER, targets)
+    msg.content_subtype = "html"
+    msg.attach_file(filename)
+    msg.send()
+
 
 
 def gen_session_report_df(qs):
