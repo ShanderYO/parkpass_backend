@@ -3,6 +3,7 @@
 import logging
 import os.path
 from datetime import timedelta
+from zipfile import ZipFile
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
@@ -17,7 +18,7 @@ from owners.models import CompanySettingReports
 from parkings.models import ParkingSession
 from parkpass.celery import app
 from parkpass.settings import REPORTS_ROOT, EMAIL_HOST_USER
-from rps_vendor.models import RpsSubscription, ParkingCard, RpsParkingCardSession, STATE_CONFIRMED
+from rps_vendor.models import RpsSubscription, RpsParkingCardSession, STATE_CONFIRMED
 
 
 @app.task()
@@ -52,10 +53,11 @@ def create_report_for_parking(parking, from_date, to_date):
         state=STATE_CONFIRMED
     )
 
-    get_logger().info("reports session:%d, cards:%d, subscriptions:%d " % (sessions.count(), parking_cards.count(), subscriptions.count()))
+    get_logger().info("reports session:%d, cards:%d, subscriptions:%d " % (
+        sessions.count(), parking_cards.count(), subscriptions.count()))
 
-    filename = REPORTS_ROOT + "report-%s(%s-%s).xlsx" % (
-        parking.id, from_date, to_date)
+    filename = os.path.join(REPORTS_ROOT, "report-%s(%s_%s).xlsx" % (
+        parking.id, from_date.date(), to_date.date()))
 
     if not os.path.isfile(filename):
         open(filename, 'a').close()
@@ -73,7 +75,6 @@ def send_report(emails, filename):
     msg.content_subtype = "html"
     msg.attach_file(filename)
     msg.send()
-
 
 
 def gen_session_report_df(qs):
@@ -208,7 +209,7 @@ def append_df_to_excel(filename, df, sheet_name,
 
     FileNotFoundError = IOError
     try:
-        writer.book = load_workbook(filename)
+        writer.book = load_workbook(ZipFile(filename))
         if startrow is None and sheet_name in writer.book.sheetnames:
             startrow = writer.book[sheet_name].max_row
 
