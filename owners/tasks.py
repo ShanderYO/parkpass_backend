@@ -42,7 +42,7 @@ def create_report_for_parking(parking, from_date, to_date):
     )
     parking_cards = RpsParkingCardSession.objects.filter(
         state=STATE_CONFIRMED,
-        created_at_gte=from_date,
+        created_at__gte=from_date,
         created_at__lt=to_date
     ).select_related('parking_card')
 
