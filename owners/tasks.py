@@ -24,7 +24,7 @@ def generate_report_and_send(settings_report_id):
     get_logger().info("generate_report_and_send %s" % settings_report_id)
     try:
         report = CompanySettingReports.objects.select_related(
-            'company').select_related('parking').get(settings_report_id)
+            'company').select_related('parking').get(id=settings_report_id)
         filename = create_report_for_parking(
             report.parking, report.last_send_date,
             report.last_send_date + report.period_in_days
