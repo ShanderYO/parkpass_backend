@@ -1,23 +1,20 @@
 # -*- coding: utf-8 -*-
-
-import logging
 import os.path
 from datetime import timedelta
-from zipfile import ZipFile
+
+import pandas as pd
+import shutil
+from openpyxl import load_workbook
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
-from openpyxl import load_workbook
-
-import pandas as pd
-
 from django.utils import timezone
 
 from base.utils import get_logger
 from owners.models import CompanySettingReports
 from parkings.models import ParkingSession
 from parkpass.celery import app
-from parkpass.settings import REPORTS_ROOT, EMAIL_HOST_USER
+from parkpass.settings import REPORTS_ROOT, EMAIL_HOST_USER, STATIC_ROOT
 from rps_vendor.models import RpsSubscription, RpsParkingCardSession, STATE_CONFIRMED
 
 
@@ -60,7 +57,8 @@ def create_report_for_parking(parking, from_date, to_date):
         parking.id, from_date.date(), to_date.date()))
 
     if not os.path.isfile(filename):
-        open(filename, 'a').close()
+        source = os.path.join(STATIC_ROOT, "files/%s" % "report_template.xlsx")
+        shutil.copy2(source, filename)
 
     append_df_to_excel(filename, gen_session_report_df(sessions), "Парковочные сессии", index_key="#")
     append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Парковочные карты", index_key="#")
@@ -209,7 +207,7 @@ def append_df_to_excel(filename, df, sheet_name,
 
     FileNotFoundError = IOError
     try:
-        writer.book = load_workbook(ZipFile(filename))
+        writer.book = load_workbook(filename)
         if startrow is None and sheet_name in writer.book.sheetnames:
             startrow = writer.book[sheet_name].max_row
 
