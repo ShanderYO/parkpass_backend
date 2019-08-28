@@ -197,8 +197,7 @@ def append_df_to_excel(filename, df, sheet_name,
     if 'engine' in to_excel_kwargs:
         to_excel_kwargs.pop('engine')
 
-    #writer = pd.ExcelWriter(filename, engine='openpyxl')
-    writer = pd.ExcelWriter(filename)
+    writer = pd.ExcelWriter(filename, engine='openpyxl')
 
     # Python 2.x: define [FileNotFoundError] exception if it doesn't exist
     # try:
