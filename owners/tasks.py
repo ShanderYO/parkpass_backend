@@ -225,7 +225,6 @@ def append_df_to_excel(filename, df, sheet_name,
 
         # copy existing sheets
         writer.sheets = {ws.title: ws for ws in writer.book.worksheets}
-        """
 
     except FileNotFoundError:
         # TODO write logs if something occurs
