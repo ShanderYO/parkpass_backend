@@ -10,7 +10,7 @@ from accounts.views import (
     PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
     ZendeskUserJWTChatView, UpdateTokenView, AccountSubscriptionListView, AccountSubscriptionSettingsView,
-    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView)
+    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -28,6 +28,7 @@ urlpatterns = [
     url(r'^vendor/$', VendorIssueView.as_view()),
 
     url(r'^jwt/chat/$', ZendeskUserJWTChatView.as_view()),
+    url(r'^jwt/mobile/$', ZendeskUserJWTMobileView.as_view()),
 
     url(r'^me/$', AccountView.as_view()),
     url(r'^avatar/set/$', SetAvatarView.as_view()),

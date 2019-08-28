@@ -75,8 +75,9 @@ class LoginWithEmailView(APIView):
             account = Account.objects.get(email=email)
             if account.check_password(raw_password=password):
                 session = Session.objects.create(
-                    user=account,
-                    type=TokenTypes.WEB
+                    #user=account,
+                    type=TokenTypes.WEB,
+                    temp_user_id=account.id
                 )
                 access_token = session.update_access_token()
                 response_dict = serializer(session, include_attr=("refresh_token", 'expires_at',))

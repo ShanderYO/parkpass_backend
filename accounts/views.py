@@ -22,7 +22,7 @@ from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView, ObjectView, SignedRequestAPIView
 from owners.models import OwnerIssue
 from parkings.models import ParkingSession, Parking
-from parkpass.settings import DEFAULT_AVATAR_URL
+from parkpass.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
@@ -764,10 +764,21 @@ class ZendeskUserJWTChatView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         name = None
         if request.owner:
-            jwt_token = request.owner.get_or_create_jwt_for_zendesk_chat()
+            jwt_token = request.owner.get_or_create_jwt_for_zendesk(ZENDESK_CHAT_SECRET)
             return HttpResponse(jwt_token)
         else:
-            jwt_token = request.account.get_or_create_jwt_for_zendesk_chat()
+            jwt_token = request.account.get_or_create_jwt_for_zendesk(ZENDESK_CHAT_SECRET)
+            return HttpResponse(jwt_token)
+
+
+class ZendeskUserJWTMobileView(LoginRequiredAPIView):
+    def get(self, request, *args, **kwargs):
+        name = None
+        if request.owner:
+            jwt_token = request.owner.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
+            return HttpResponse(jwt_token)
+        else:
+            jwt_token = request.account.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
             return HttpResponse(jwt_token)
 
 
