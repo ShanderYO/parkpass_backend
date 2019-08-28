@@ -10,6 +10,7 @@ RUN \
   apt-get install -y supervisor && \
   rm -rf /var/lib/apt/lists/*
 
+
 # Install Python2
 RUN apt-get update && apt-get install -y python-dev && apt-get install -y python-pip
 
@@ -25,6 +26,8 @@ RUN mkdir -p /app
 RUN mkdir -p /app/media/logs
 
 COPY /. /app
+
+#RUN apt-get install -y curl libreoffice-calc
 
 # Upgrade pip manager
 RUN pip install --upgrade pip
