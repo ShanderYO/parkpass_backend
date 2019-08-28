@@ -28,7 +28,11 @@ def generate_report_and_send(settings_report_id):
             report.parking, report.last_send_date,
             report.last_send_date + timedelta(seconds=report.period_in_days * 24 * 60 * 60)
         )
-        send_report(report.report_emails, filename)
+        #send_report(report.report_emails, filename)
+        report.last_send_date + timedelta(seconds=report.period_in_days * 24 * 60 * 60)
+        report.save()
+        get_logger().info("Report done: %s" % filename)
+
     except ObjectDoesNotExist:
         get_logger().warn("CompanySettingReports with id %d is not found" % settings_report_id)
 
@@ -58,7 +62,7 @@ def create_report_for_parking(parking, from_date, to_date):
 
     if not os.path.isfile(filename):
         source = os.path.join(STATIC_ROOT, "files/%s" % "report_template.xlsx")
-        shutil.copy(source, filename)
+        shutil.copy2(source, filename)
 
     append_df_to_excel(filename, gen_session_report_df(sessions), "Session", index_key="#")
     #append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Карты", index_key="#")
