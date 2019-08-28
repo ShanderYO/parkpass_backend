@@ -209,6 +209,7 @@ def append_df_to_excel(filename, df, sheet_name,
     FileNotFoundError = IOError
     try:
         writer.book = load_workbook(filename)
+        """
         if startrow is None and sheet_name in writer.book.sheetnames:
             startrow = writer.book[sheet_name].max_row
 
@@ -220,9 +221,11 @@ def append_df_to_excel(filename, df, sheet_name,
             writer.book.remove(writer.book.worksheets[idx])
             # create an empty sheet [sheet_name] using old index
             writer.book.create_sheet(sheet_name, idx)
+        """
 
         # copy existing sheets
         writer.sheets = {ws.title: ws for ws in writer.book.worksheets}
+        """
 
     except FileNotFoundError:
         # TODO write logs if something occurs
