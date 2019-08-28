@@ -60,9 +60,9 @@ def create_report_for_parking(parking, from_date, to_date):
         source = os.path.join(STATIC_ROOT, "files/%s" % "report_template.xlsx")
         shutil.copy(source, filename)
 
-    append_df_to_excel(filename, gen_session_report_df(sessions), "Cессии", index_key="#")
-    append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Карты", index_key="#")
-    append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Абонементы", index_key="#")
+    append_df_to_excel(filename, gen_session_report_df(sessions), "Session", index_key="#")
+    #append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Карты", index_key="#")
+    #append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Абонементы", index_key="#")
 
     return filename
 
@@ -77,11 +77,11 @@ def send_report(emails, filename):
 
 def gen_session_report_df(qs):
     ID_COL = "#"
-    START_COL = "Время въезда"
-    END_COL = "Время выезда"
-    DURATION_COL = "Продолжительность"
-    DEBT_COL = "Стоймость"
-    STATE_COL = "Статус"
+    START_COL = "1"#"1Время въезда"
+    END_COL = "1"#"Время выезда"
+    DURATION_COL = "1"#"Продолжительность"
+    DEBT_COL = "1"#"Стоймость"
+    STATE_COL = "1"#"Статус"
 
     propotype = {
         ID_COL: [],
