@@ -279,8 +279,11 @@ def validate_sms_code(value):
 
 def validate_password_format(value):
     # Format more than 5
-    if len(str(value)) < 6:
-        raise ValidationError("Too short password. Must be 6 or more symbols")
+    try:
+        if len(str(value)) < 6:
+            raise ValidationError("Too short password. Must be 6 or more symbols")
+    except UnicodeEncodeError:
+        raise ValidationError("Invalid coding for password")
 
 
 def validate_parking_card_id(value):
