@@ -57,6 +57,7 @@ def create_report_for_parking(parking, from_date, to_date):
         parking.id, from_date.date(), to_date.date()))
 
     if not os.path.isfile(filename):
+        open(filename, 'a').close()
         source = os.path.join(STATIC_ROOT, "files/%s" % "report_template.xlsx")
         shutil.copy2(source, filename)
 
