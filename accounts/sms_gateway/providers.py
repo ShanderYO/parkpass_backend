@@ -22,7 +22,12 @@ class SMSProviderUnisender(SMSBaseProvider):
     def send_sms(self, phone, message):
         self.phone = phone
         self.message = message
-        result = self.send_by_request().json()
+
+        result = self.send_by_request()
+        if result.status_code == 200:
+            return
+
+        result = result.json()
 
         if result and result.get(u"error", None):
             self.exception = NetworkException(
