@@ -38,7 +38,7 @@ def generate_report_and_send(settings_report_id):
         else:
             if create_report_for_parking(report_settings.parking, report_settings.last_send_date,
                                          report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)):
-                CompanyReport.objects.create(filename=filename)
+                CompanyReport.objects.create(company=report_settings.company, filename=filename)
                 send_report(report.report_emails, filename)
                 get_logger().info("Report done: %s" % filename)
 
