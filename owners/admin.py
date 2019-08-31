@@ -49,3 +49,8 @@ class IssueAdmin(admin.ModelAdmin):
 @admin.register(CompanySettingReports)
 class CompanySettingReports(admin.ModelAdmin):
     pass
+
+
+@admin.register(CompanyReport)
+class CompanyReportAdmin(admin.ModelAdmin):
+    pass

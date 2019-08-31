@@ -155,3 +155,15 @@ class CompanySettingReports(models.Model):
 
     def __unicode__(self):
         return "Report settings for %s %s" % (self.company, self.parking)
+
+
+class CompanyReport(models.Model):
+    company = models.ForeignKey(Company)
+    filename = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'owner_report'
+
+    def __unicode__(self):
+        return "Report for %s [%s]" % (self.company, self.created_at)

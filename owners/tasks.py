@@ -11,7 +11,7 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 
 from base.utils import get_logger
-from owners.models import CompanySettingReports
+from owners.models import CompanySettingReports, CompanyReport
 from parkings.models import ParkingSession
 from parkpass.celery import app
 from parkpass.settings import REPORTS_ROOT, EMAIL_HOST_USER, STATIC_ROOT
@@ -22,16 +22,27 @@ from rps_vendor.models import RpsSubscription, RpsParkingCardSession, STATE_CONF
 def generate_report_and_send(settings_report_id):
     get_logger().info("generate_report_and_send %s" % settings_report_id)
     try:
-        report = CompanySettingReports.objects.select_related(
+        report_settings = CompanySettingReports.objects.select_related(
             'company').select_related('parking').get(id=settings_report_id)
-        filename = create_report_for_parking(
-            report.parking, report.last_send_date,
-            report.last_send_date + timedelta(seconds=report.period_in_days * 24 * 60 * 60)
-        )
-        #send_report(report.report_emails, filename)
+
+        filename = os.path.join(REPORTS_ROOT, "report-%s-%s_%s.xlsx" % (
+            report_settings.parking.id,
+            report_settings.from_date.date(),
+            report_settings.to_date.date()))
+
+        report = CompanyReport.objects.filter(filename=filename).first()
+        if report:
+            get_logger().warning("Report is already exist: %s" % filename)
+
+        else:
+            if create_report_for_parking(report_settings.parking, report_settings.last_send_date,
+                                         report_settings.last_send_date + timedelta(seconds=report.period_in_days * 24 * 60 * 60)):
+                CompanyReport.objects.create(filename=filename)
+                send_report(report.report_emails, filename)
+                get_logger().info("Report done: %s" % filename)
+
         report.last_send_date + timedelta(seconds=report.period_in_days * 24 * 60 * 60)
         report.save()
-        get_logger().info("Report done: %s" % filename)
 
     except ObjectDoesNotExist:
         get_logger().warn("CompanySettingReports with id %d is not found" % settings_report_id)
@@ -57,7 +68,7 @@ def create_report_for_parking(parking, from_date, to_date):
     get_logger().info("reports session:%d, cards:%d, subscriptions:%d " % (
         sessions.count(), parking_cards.count(), subscriptions.count()))
 
-    filename = os.path.join(REPORTS_ROOT, "report-%s(%s_%s).xlsx" % (
+    filename = os.path.join(REPORTS_ROOT, "report-%s-%s_%s.xlsx" % (
         parking.id, from_date.date(), to_date.date()))
 
     if not os.path.isfile(filename):
@@ -68,7 +79,7 @@ def create_report_for_parking(parking, from_date, to_date):
     append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Cards", index_key="#")
     append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Subscriptions", index_key="#")
 
-    return filename
+    return True
 
 
 def send_report(emails, filename):
