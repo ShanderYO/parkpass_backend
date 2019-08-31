@@ -28,7 +28,7 @@ def generate_report_and_send(settings_report_id):
         filename = os.path.join(REPORTS_ROOT, "report-%s-%s_%s.xlsx" % (
             report_settings.parking.id,
             report_settings.last_send_date.date(),
-            report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
+            (report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)).date()
         ))
 
         report = CompanyReport.objects.filter(filename=filename).first()
