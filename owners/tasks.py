@@ -65,8 +65,8 @@ def create_report_for_parking(parking, from_date, to_date):
         shutil.copy2(source, filename)
 
     append_df_to_excel(filename, gen_session_report_df(sessions), "Session", index_key="#")
-    #append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Карты", index_key="#")
-    #append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Абонементы", index_key="#")
+    append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Cards", index_key="#")
+    append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Subscriptions", index_key="#")
 
     return filename
 
@@ -81,11 +81,11 @@ def send_report(emails, filename):
 
 def gen_session_report_df(qs):
     ID_COL = "#"
-    START_COL = ""#"1Время въезда"
-    END_COL = "1"#"Время выезда"
-    DURATION_COL = "1"#"Продолжительность"
-    DEBT_COL = "1"#"Стоймость"
-    STATE_COL = "1"#"Статус"
+    START_COL = "Check-in"#"Время въезда"
+    END_COL = "Check-out"#"Время выезда"
+    DURATION_COL = "Duration"#"Продолжительность"
+    DEBT_COL = "Debt"#"Стоймость"
+    STATE_COL = "State"#"Статус"
 
     propotype = {
         ID_COL: [],
@@ -122,11 +122,11 @@ def gen_session_report_df(qs):
 
 def gen_parking_card_report_df(qs):
     ID_COL = "#"
-    START_COL = "Время въезда"
-    END_COL = "Время выезда"
-    DURATION_COL = "Продолжительность"
-    PRICE_COL = "Стоймость"
-    BUY_DATETIME_COL = "Дата оплаты"
+    START_COL = "Check-in"#"Время въезда"
+    END_COL = "Check-out"#"Время выезда"
+    DURATION_COL = "Duration" #"Продолжительность"
+    PRICE_COL = "Debt" #"Стоймость"
+    BUY_DATETIME_COL = "Paid at" # "Дата оплаты"
 
     propotype = {
         ID_COL: [],
@@ -150,11 +150,11 @@ def gen_parking_card_report_df(qs):
 
 def gen_subscription_report_df(qs):
     ID_COL = "#"
-    VENDOR_ID_COL = "# в системе вендора"
-    START_COL = "Время покупки"
-    DURATION_COL = "Продолжительность"
-    PRICE_COL = "Стоимость абонемента"
-    BUY_DATETIME_COL = "Дата покупки"
+    VENDOR_ID_COL = "Vendor #" #"# в системе вендора"
+    START_COL = "Paid at" # "Время покупки"
+    DURATION_COL = "Duration" #"Продолжительность"
+    PRICE_COL = "Debt" #"Стоймость"
+    BUY_DATETIME_COL = "Paid at" # "Дата оплаты"
 
     propotype = {
         ID_COL: [],
