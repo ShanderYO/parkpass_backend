@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from base.exceptions import NetworkException
 from parkpass import settings
 from . import providers
 
@@ -44,7 +45,9 @@ class SMSGateway(object):
         try:
             self.provider.send_sms(formatted_phone, message)
         except Exception as e:
-            self.exception = e
-
+            self.exception = NetworkException(
+                NetworkException.SMD_GATEWAY_ERROR,
+                str(e)
+            )
     def _get_phone_format(self, phone):
         return phone.replace('+', '').replace('(', '').replace(')', '').replace(' ', '')

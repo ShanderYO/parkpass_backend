@@ -230,7 +230,7 @@ class BaseAccount(models.Model):
     def send_wellcome_email(self):
         pass
 
-    def get_or_create_jwt_for_zendesk_chat(self):
+    def get_or_create_jwt_for_zendesk(self, secret):
         timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
         payload = {
             'name': self.get_represent_name(),
@@ -239,7 +239,7 @@ class BaseAccount(models.Model):
             'iat': timestamp,
             'exp':timestamp + 120
         }
-        return jwt.encode(payload, ZENDESK_CHAT_SECRET)
+        return jwt.encode(payload, secret)
 
     def get_represent_name(self):
         if hasattr(self, "name") and getattr(self, "name"):
