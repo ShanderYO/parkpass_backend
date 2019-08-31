@@ -81,7 +81,7 @@ def send_report(emails, filename):
 
 def gen_session_report_df(qs):
     ID_COL = "#"
-    START_COL = "1"#"1Время въезда"
+    START_COL = ""#"1Время въезда"
     END_COL = "1"#"Время выезда"
     DURATION_COL = "1"#"Продолжительность"
     DEBT_COL = "1"#"Стоймость"
@@ -103,19 +103,19 @@ def gen_session_report_df(qs):
         propotype[DEBT_COL].append(session.debt)
 
         if session.client_state == ParkingSession.CLIENT_STATE_CANCELED:
-            propotype[STATE_COL].append("Отменена")
+            propotype[STATE_COL].append("Canceled")
 
         if session.client_state == ParkingSession.CLIENT_STATE_CLOSED:
-            propotype[STATE_COL].append("Оплачена")
+            propotype[STATE_COL].append("Paid")
 
         if session.client_state == ParkingSession.CLIENT_STATE_ACTIVE:
-            propotype[STATE_COL].append("Активная")
+            propotype[STATE_COL].append("Active")
 
         if session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
-            propotype[STATE_COL].append("Приостановлена пользователем")
+            propotype[STATE_COL].append("Suspended")
 
         if session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
-            propotype[STATE_COL].append("Ожидает оплаты")
+            propotype[STATE_COL].append("Waited pay")
 
     return pd.DataFrame(data=propotype)
 
@@ -223,10 +223,10 @@ def append_df_to_excel(filename, df, sheet_name,
             writer.book.remove(writer.book.worksheets[idx])
             # create an empty sheet [sheet_name] using old index
             writer.book.create_sheet(sheet_name, idx)
-        """
 
         # copy existing sheets
         writer.sheets = {ws.title: ws for ws in writer.book.worksheets}
+        """
 
     except FileNotFoundError:
         # TODO write logs if something occurs
