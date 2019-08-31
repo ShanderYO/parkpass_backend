@@ -39,11 +39,11 @@ def generate_report_and_send(settings_report_id):
             if create_report_for_parking(report_settings.parking, report_settings.last_send_date,
                                          report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)):
                 CompanyReport.objects.create(company=report_settings.company, filename=filename)
-                send_report(report.report_emails, filename)
+                send_report(report_settings.report_emails, filename)
                 get_logger().info("Report done: %s" % filename)
 
-        report.last_send_date + timedelta(seconds=report.period_in_days * 24 * 60 * 60)
-        report.save()
+        report_settings.last_send_date + timedelta(seconds=report.period_in_days * 24 * 60 * 60)
+        report_settings.save()
 
     except ObjectDoesNotExist:
         get_logger().warn("CompanySettingReports with id %d is not found" % settings_report_id)
