@@ -77,8 +77,8 @@ def create_report_for_parking(parking, from_date, to_date):
         shutil.copy2(source, filename)
 
     append_df_to_excel(filename, gen_session_report_df(sessions), "Session", index_key="#")
-    append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Cards", index_key="#")
-    append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Subscriptions", index_key="#")
+    #append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Cards", index_key="#")
+    #append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Subscriptions", index_key="#")
 
     return True
 
