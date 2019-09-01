@@ -158,11 +158,16 @@ def gen_parking_card_report_df(qs):
 
     for parking_card_session in qs:
         propotype[ID_COL].append(parking_card_session.id)
-        propotype[START_COL].append("-")
-        propotype[END_COL].append("-")
-        propotype[DURATION_COL].append(parking_card_session.duration)
-        propotype[PRICE_COL].append(parking_card_session.debt)
-        propotype[BUY_DATETIME_COL].append(parking_card_session.created_at)
+
+        if parking_card_session.from_datetime:
+            propotype[START_COL].append(parking_card_session.from_datetime.strftime("%Y-%m-%d %I:%M:%S %p"))
+        else:
+            propotype[START_COL].append('No data')
+
+        propotype[END_COL].append(parking_card_session.created_at.strftime("%Y-%m-%d %I:%M:%S %p"))
+        propotype[DURATION_COL].append(parking_card_session.get_cool_duration())
+        propotype[PRICE_COL].append(float(parking_card_session.debt))
+        propotype[BUY_DATETIME_COL].append(parking_card_session.created_at.strftime("%Y-%m-%d %I:%M:%S %p"))
 
     get_logger().info(propotype)
     return pd.DataFrame(data=propotype)

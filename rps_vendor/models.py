@@ -176,6 +176,8 @@ class RpsParkingCardSession(models.Model):
         choices=CARD_SESSION_STATES, default=STATE_CREATED)
     account = models.ForeignKey(Account, null=True, default=None)
     client_uuid = models.UUIDField(null=True, default=None)
+
+    from_datetime = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __unicode__(self):
@@ -183,6 +185,15 @@ class RpsParkingCardSession(models.Model):
             self.parking_card,
             self.parking_id
         )
+
+    def get_cool_duration(self):
+        if self.duration <= 0:
+            return 0
+
+        secs = self.duration % 60
+        hours = self.duration / 3600
+        mins = (self.duration - hours * 3600 - secs) / 60
+        return "%02d:%02d:%02d" % (hours, mins, secs)
 
     def notify_authorize(self, order):
         self.state = STATE_AUTHORIZED
