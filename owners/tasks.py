@@ -76,9 +76,13 @@ def create_report_for_parking(parking, from_date, to_date):
         source = os.path.join(STATIC_ROOT, "files/%s" % "report_template_empty.xlsx")
         shutil.copy2(source, filename)
 
-    append_df_to_excel(filename, gen_session_report_df(sessions), "Session", index_key="#")
-    #append_df_to_excel(filename, gen_parking_card_report_df(parking_cards), "Cards", index_key="#")
-    #append_df_to_excel(filename, gen_subscription_report_df(subscriptions), "Subscriptions", index_key="#")
+    pages = {
+        "Session": gen_session_report_df(sessions),
+        "Cards": gen_parking_card_report_df(parking_cards),
+        "Subscriptions": gen_subscription_report_df(subscriptions)
+    }
+
+    append_dfs_to_excel(filename, pages, index_key="#")
 
     return True
 
@@ -189,7 +193,7 @@ def gen_subscription_report_df(qs):
     return pd.DataFrame(data=propotype)
 
 
-def append_df_to_excel(filename, df, sheet_name,
+def append_dfs_to_excel(filename, pages,
                        startrow=None, truncate_sheet=True, index_key=None, **to_excel_kwargs):
     """
     Parameters:
@@ -249,10 +253,12 @@ def append_df_to_excel(filename, df, sheet_name,
     if startrow is None:
         startrow = 0
 
-    if index_key:
-        df.set_index(index_key, inplace=True)
+    for page in pages:
+        df = pages[page]
+        if index_key:
+            df.set_index(index_key, inplace=True)
+        df.to_excel(writer, page, startrow=startrow, **to_excel_kwargs)
 
-    df.to_excel(writer, sheet_name, startrow=startrow, **to_excel_kwargs)
     writer.save()
 
 
