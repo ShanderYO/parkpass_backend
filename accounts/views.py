@@ -779,7 +779,7 @@ class ZendeskUserJWTMobileView(LoginRequiredAPIView):
             return HttpResponse(jwt_token)
         else:
             jwt_token = request.account.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
-            return HttpResponse(jwt_token)
+            return JsonResponse({"token":jwt_token})
 
 
 class UpdateTokenView(APIView):

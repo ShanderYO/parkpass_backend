@@ -117,17 +117,19 @@ def gen_session_report_df(qs):
         if session.client_state == ParkingSession.CLIENT_STATE_CANCELED:
             propotype[STATE_COL].append("Canceled")
 
-        if session.client_state == ParkingSession.CLIENT_STATE_CLOSED:
+        elif session.client_state == ParkingSession.CLIENT_STATE_CLOSED:
             propotype[STATE_COL].append("Paid")
 
-        if session.client_state == ParkingSession.CLIENT_STATE_ACTIVE:
+        elif session.client_state == ParkingSession.CLIENT_STATE_ACTIVE:
             propotype[STATE_COL].append("Active")
 
-        if session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
+        elif session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
             propotype[STATE_COL].append("Suspended")
 
-        if session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
+        elif session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
             propotype[STATE_COL].append("Waited pay")
+        else:
+            propotype[STATE_COL].append("Unknown")
 
     return pd.DataFrame(data=propotype)
 
