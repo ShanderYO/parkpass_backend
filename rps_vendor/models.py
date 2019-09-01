@@ -352,6 +352,13 @@ class RpsSubscription(models.Model):
     def save(self, *args, **kwargs):
         super(RpsSubscription, self).save(*args, **kwargs)
 
+    def get_cool_duration(self):
+        if self.duration <= 0:
+            return 0
+
+        days = self.duration / (3600 * 24)
+        return "%d" % days
+
     def check_prolong_payment(self):
         if timezone.now() >= self.expired_at and self.active:
             self.active = False

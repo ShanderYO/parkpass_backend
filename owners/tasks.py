@@ -170,7 +170,6 @@ def gen_subscription_report_df(qs):
     START_COL = "Paid at" # "Время покупки"
     DURATION_COL = "Duration" #"Продолжительность"
     PRICE_COL = "Debt" #"Стоймость"
-    BUY_DATETIME_COL = "Paid at" # "Дата оплаты"
 
     propotype = {
         ID_COL: [],
@@ -178,7 +177,6 @@ def gen_subscription_report_df(qs):
         START_COL: [],
         DURATION_COL: [],
         PRICE_COL: [],
-        BUY_DATETIME_COL: []
     }
 
     for subscription in qs:
@@ -186,8 +184,7 @@ def gen_subscription_report_df(qs):
         propotype[VENDOR_ID_COL].append(subscription.idts)
         propotype[START_COL].append(subscription.started_at)
         propotype[DURATION_COL].append(subscription.duration)
-        propotype[PRICE_COL].append(subscription.sum)
-        propotype[BUY_DATETIME_COL].append(subscription.started_at)
+        propotype[PRICE_COL].append(float(subscription.sum))
 
     return pd.DataFrame(data=propotype)
 
