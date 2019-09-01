@@ -73,7 +73,7 @@ def create_report_for_parking(parking, from_date, to_date):
         parking.id, from_date.date(), to_date.date()))
 
     if not os.path.isfile(filename):
-        source = os.path.join(STATIC_ROOT, "files/%s" % "report_template.xlsx")
+        source = os.path.join(STATIC_ROOT, "files/%s" % "report_template_empty.xlsx")
         shutil.copy2(source, filename)
 
     append_df_to_excel(filename, gen_session_report_df(sessions), "Session", index_key="#")
@@ -132,7 +132,6 @@ def gen_session_report_df(qs):
         else:
             propotype[STATE_COL].append("Unknown")
 
-    get_logger().info(propotype)
     return pd.DataFrame(data=propotype)
 
 
@@ -161,6 +160,7 @@ def gen_parking_card_report_df(qs):
         propotype[PRICE_COL].append(parking_card_session.debt)
         propotype[BUY_DATETIME_COL].append(parking_card_session.created_at)
 
+    get_logger().info(propotype)
     return pd.DataFrame(data=propotype)
 
 
