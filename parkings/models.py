@@ -270,6 +270,16 @@ class ParkingSession(models.Model):
         except ObjectDoesNotExist:
             return None
 
+    def get_cool_duration(self):
+        if self.duration <= 0:
+            return 0
+
+        secs = self.duration % 60
+        hours = self.duration / 3600
+        mins = (self.duration - hours * 3600 - secs) / 60
+        return "%02d:%02d:%02d" % (hours, mins, secs)
+
+
     def resolve_client_status(self):
         if self.state < 0:
             self.client_state = self.CLIENT_STATE_CANCELED

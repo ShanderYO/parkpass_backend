@@ -110,9 +110,10 @@ def gen_session_report_df(qs):
 
     for session in qs:
         propotype[ID_COL].append(session.id)
-        propotype[START_COL].append(session.started_at)
-        propotype[DURATION_COL].append(session.duration)
-        propotype[DEBT_COL].append(session.debt)
+        propotype[START_COL].append(session.started_at.strftime("%Y-%m-%d %I:%M:%S %p"))
+        propotype[END_COL].append(session.completed_at.strftime("%Y-%m-%d %I:%M:%S %p"))
+        propotype[DURATION_COL].append(session.get_cool_duration())
+        propotype[DEBT_COL].append(float(session.debt))
 
         if session.client_state == ParkingSession.CLIENT_STATE_CANCELED:
             propotype[STATE_COL].append("Canceled")
@@ -131,6 +132,7 @@ def gen_session_report_df(qs):
         else:
             propotype[STATE_COL].append("Unknown")
 
+    get_logger().info(propotype)
     return pd.DataFrame(data=propotype)
 
 
