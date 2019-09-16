@@ -4,6 +4,7 @@ from decimal import Decimal
 from dateutil import parser
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
+from django.utils import timezone
 
 from base.exceptions import ValidationException
 from base.models import Terminal
@@ -327,6 +328,11 @@ class SubscriptionCallbackView(SignedRequestAPIView):
             rps_subscription.expired_at = parser.parse(expired_at)
             rps_subscription.data = data
             rps_subscription.save()
+
+            RpsSubscription.objects.filter(
+                parking=rps_subscription.parking,
+                account=rps_subscription.account
+            ).exclude(id=rps_subscription.id).update(expired_at=timezone.now())
 
             for payment in payments:
                 if payment.status == PAYMENT_STATUS_AUTHORIZED:
