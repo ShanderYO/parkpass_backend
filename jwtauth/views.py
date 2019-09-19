@@ -79,7 +79,7 @@ class LoginWithEmailView(APIView):
                     type=TokenTypes.WEB,
                     temp_user_id=account.id
                 )
-                access_token = session.update_access_token()
+                access_token = session.update_access_token(group=Groups.BASIC)
                 response_dict = serializer(session, include_attr=("refresh_token", 'expires_at',))
                 response_dict["access_token"] = access_token
                 return JsonResponse(response_dict)
