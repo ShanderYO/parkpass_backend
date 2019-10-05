@@ -262,24 +262,19 @@ def append_dfs_to_excel(filename, pages,
         df = pages[page]
         if index_key:
             df.set_index(index_key, inplace=True)
-            df.style.apply(highlight_header, axis=1)
+            # df.style.apply(highlight_header, axis=1)
 
         df.to_excel(writer, page, startrow=startrow, **to_excel_kwargs)
-        worksheet = writer.sheets[page]
-        for idx, col in enumerate(df):
-            series = df[col]
-            max_len = max((
-                series.astype(str).map(len).max(),  # len of largest item
-                len(str(series.name))  # len of column name/header
-            )) + 1  # adding a little extra space
-            worksheet.set_column(idx, idx, max_len)  # set column width
-    #writer.sheets['Summary'].column_dimensions['A'].width = 15
-    writer.save()
-
-
-def highlight_header(s):
-    #if s.B > 1.0:
-    return ['background-color: yellow'] * 5
+    #     worksheet = writer.sheets[page]
+    #     for idx, col in enumerate(df):
+    #         series = df[col]
+    #         max_len = max((
+    #             series.astype(str).map(len).max(),  # len of largest item
+    #             len(str(series.name))  # len of column name/header
+    #         )) + 1  # adding a little extra space
+    #         worksheet.set_column(idx, idx, max_len)  # set column width
+    # writer.sheets['Summary'].column_dimensions['A'].width = 15
+    # writer.save()
 
 
 @app.task()
