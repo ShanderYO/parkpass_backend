@@ -237,9 +237,10 @@ class BaseAccount(models.Model):
             'email': self.email,
             'external_id': "user_%s" % self.id,
             'iat': timestamp,
+            'jti': self.id,
             'exp':timestamp + 120
         }
-        return jwt.encode(payload, secret)
+        return jwt.encode(payload, secret, algorithm='HS256')
 
     def get_represent_name(self):
         if hasattr(self, "name") and getattr(self, "name"):

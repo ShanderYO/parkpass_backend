@@ -37,7 +37,7 @@ class Owner(BaseAccount):
             'jti':self.id,
             'iat':timestamp
         }
-        return jwt.encode(payload, secret)
+        return jwt.encode(payload, secret, algorithm='HS256')
 
 
 class OwnerSession(BaseAccountSession):
