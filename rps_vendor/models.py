@@ -323,9 +323,17 @@ class RpsSubscription(models.Model):
         self.save()
 
     def activate(self):
+        self.disable_current_subscriptions()
         self.active = True
         self.state = STATE_CONFIRMED
         self.save()
+
+    def disable_current_subscriptions(self):
+        RpsSubscription.objects.filter(
+            account=self.account,
+            parking=self.parking,
+            active=True,
+        ).update(active=False)
 
     def reset(self, error_message=None):
         self.data = None

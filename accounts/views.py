@@ -20,7 +20,7 @@ from base.models import EmailConfirmation
 from base.utils import clear_phone
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView, ObjectView, SignedRequestAPIView
-from owners.models import OwnerIssue
+from owners.models import OwnerIssue, Owner
 from parkings.models import ParkingSession, Parking
 from parkpass.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET
 from payments.models import CreditCard, Order
@@ -28,7 +28,7 @@ from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
 
 from sms_gateway import sms_sender
-from vendors.models import VendorIssue
+from vendors.models import VendorIssue, Vendor
 
 
 class SetAvatarView(LoginRequiredAPIView):
@@ -771,15 +771,25 @@ class ZendeskUserJWTChatView(LoginRequiredAPIView):
             return HttpResponse(jwt_token)
 
 
-class ZendeskUserJWTMobileView(LoginRequiredAPIView):
+class ZendeskUserJWTMobileView(View):
     def get(self, request, *args, **kwargs):
-        name = None
-        if request.owner:
-            jwt_token = request.owner.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
-            return HttpResponse(jwt_token)
+        get_logger().info("ZendeskUserJWTMobileView GET")
+        get_logger().info(str(request.GET))
+
+    def post(self, request, *args, **kwargs):
+        get_logger().info("ZendeskUserJWTMobileView POST")
+        get_logger().info(str(request.POST))
+
+        jwt_token = request.POST.get("user_token", "0")
+        account = Account.objects.filter(id=long(jwt_token)).first()
+        if not account:
+            account = Owner.objects.filter(id=long(jwt_token)).first()
+
+        if account:
+            jwt_token = account.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
+            return JsonResponse({"jwt": jwt_token})
         else:
-            jwt_token = request.account.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
-            return JsonResponse({"token":jwt_token})
+            return HttpResponse("User is not found", status=400)
 
 
 class UpdateTokenView(APIView):

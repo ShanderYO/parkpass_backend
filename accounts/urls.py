@@ -1,5 +1,6 @@
 from django.conf.urls import url
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 
 from accounts.views import (
@@ -28,7 +29,7 @@ urlpatterns = [
     url(r'^vendor/$', VendorIssueView.as_view()),
 
     url(r'^jwt/chat/$', ZendeskUserJWTChatView.as_view()),
-    url(r'^jwt/mobile/$', ZendeskUserJWTMobileView.as_view()),
+    url(r'^jwt/mobile/$', csrf_exempt(ZendeskUserJWTMobileView.as_view())),
 
     url(r'^me/$', AccountView.as_view()),
     url(r'^avatar/set/$', SetAvatarView.as_view()),
