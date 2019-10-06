@@ -60,6 +60,8 @@ class Session(models.Model):
 
     temp_user_id = models.BigIntegerField()
 
+    last_expired_access_token = models.IntegerField(default=0, editable=False)
+
     class Meta:
         db_table = 'jwt_session'
 
@@ -90,12 +92,16 @@ class Session(models.Model):
         self.refresh_token = create_jwt(refresh_claims)
 
     def update_access_token(self, group, app="parkpass"):
+        new_expires = create_future_timestamp(settings.ACCESS_TOKEN_LIFETIME_IN_SECONDS)
+        self.last_expired_access_token = new_expires
+        self.save()
+
         return create_jwt({
             "user_id": self.temp_user_id,
             "app": app,
             "type": self.type,
             "group": group,
-            "expires_at": create_future_timestamp(settings.ACCESS_TOKEN_LIFETIME_IN_SECONDS)
+            "expires_at": new_expires
         })
 
         # access_token = encode_access_token(

@@ -4,7 +4,7 @@ from django.utils.six import text_type
 
 # Header encoding (see RFC5987)
 from accounts.models import AccountSession, Account
-from jwtauth.models import Groups
+from jwtauth.models import Groups, TokenTypes, Session
 from jwtauth.utils import parse_jwt
 from base.utils import datetime_from_unix_timestamp_tz
 from control.models import AdminSession, Admin
@@ -57,11 +57,27 @@ class JWTTokenAuthenticationMiddleware(object):
             print(claims)
             expires_at = int(claims.get("expires_at", 0))
             groups = int(claims.get("groups", 0))
+            type = int(claims.get("type", -1))
             user_id = int(claims.get("user_id", 0))
 
             # If token is expired
             if datetime_from_unix_timestamp_tz(expires_at) <= timezone.now():
                 return None
+
+            if TokenTypes.MOBILE == type:
+                sessions = Session.objects.filter(
+                    temp_user_id=user_id,
+                    type=TokenTypes.MOBILE,
+                    last_expired_access_token__gte = expires_at
+                ).order_by('-last_expired_access_token__gte')
+
+                active_session = sessions.first()
+
+                if not active_session:
+                    return None
+
+                if active_session.last_expired_access_token != expires_at:
+                    return None
 
             if group == Groups.BASIC:
                 print("Return basic")
