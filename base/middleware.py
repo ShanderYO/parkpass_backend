@@ -69,7 +69,7 @@ class JWTTokenAuthenticationMiddleware(object):
                     temp_user_id=user_id,
                     type=TokenTypes.MOBILE,
                     last_expired_access_token__gte = expires_at
-                ).order_by('-last_expired_access_token__gte')
+                ).order_by('-last_expired_access_token')
 
                 active_session = sessions.first()
 
