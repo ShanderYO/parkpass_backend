@@ -5,11 +5,11 @@ from .views import *
 
 urlpatterns = [
                   url(r'^jwt/widget/$', ZendeskJWTWidgetView.as_view()),
-                  url(r'^login/$', LoginView.as_view()),
-                  url(r'^login/phone/$', LoginWithPhoneView.as_view()),
-                  url(r'^login/email/$', LoginWithEmailView.as_view()),
-                  url(r'^password/change/$', PasswordChangeView.as_view()),
+
+                  url(r'^login/$', LoginWithEmailView.as_view()),
                   url(r'^logout/$', LogoutView.as_view()),
+
+                  url(r'^password/change/$', PasswordChangeView.as_view()),
                   url(r'^password/restore/$', PasswordRestoreView.as_view()),
                   url(r'^email/add/$', ChangeEmailView.as_view()),
                   url(r'^email/confirm/(?P<code>\w+)/$', EmailConfirmationView.as_view()),

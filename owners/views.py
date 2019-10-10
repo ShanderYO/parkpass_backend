@@ -14,9 +14,10 @@ from base.utils import *
 from base.validators import *
 from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
+from jwtauth.models import Session, TokenTypes, Groups
 from parkings.models import Parking, ParkingSession
 from vendors.models import Vendor
-from .models import OwnerApplication
+from .models import OwnerApplication, Owner
 from .models import Owner as Account
 from .models import OwnerSession as AccountSession
 from .models import Company
@@ -585,70 +586,6 @@ class PasswordChangeView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class LoginView(APIView):
-    validator_class = LoginAndPasswordValidator
-
-    def post(self, request):
-        name = request.data["login"]
-        password = request.data["password"]
-
-        try:
-            account = Account.objects.get(name=name)
-            if account.check_password(raw_password=password):
-                if AccountSession.objects.filter(owner=account).exists():
-                    session = AccountSession.objects.filter(owner=account).order_by('-created_at')[0]
-                    response_dict = serializer(session)
-                    return JsonResponse(response_dict)
-                else:
-                    account.login()
-                    session = account.get_session()
-                    response_dict = serializer(session)
-                    return JsonResponse(response_dict)
-            else:
-                e = AuthException(
-                    AuthException.INVALID_PASSWORD,
-                    "Invalid password"
-                )
-                return JsonResponse(e.to_dict(), status=400)
-
-        except ObjectDoesNotExist:
-            e = AuthException(
-                AuthException.NOT_FOUND_CODE,
-                "Owner with such login not found")
-            return JsonResponse(e.to_dict(), status=400)
-
-
-class LoginWithPhoneView(APIView):
-    validator_class = LoginParamValidator
-
-    def post(self, request):
-        phone = clear_phone(request.data.get("phone", None))
-        password = request.data.get('password', None)
-        if not all((phone, password)):
-            e = ValidationException(ValidationException.VALIDATION_ERROR,
-                                    'phone and password are required')
-            return JsonResponse(e.to_dict(), status=400)
-        if Account.objects.filter(phone=phone).exists():
-            account = Account.objects.get(phone=phone)
-            if account.check_password(password):
-                account.login()
-                session = account.get_session()
-            else:
-                e = AuthException(
-                    AuthException.INVALID_PASSWORD,
-                    "Invalid password"
-                )
-                return JsonResponse(e.to_dict(), status=400)
-        else:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "Account with such phone number doesn't exist"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-
-        return JsonResponse(serializer(session, exclude_attr=("created_at",)))
-
-
 class PasswordRestoreView(APIView):
     validator_class = EmailValidator
 
@@ -677,16 +614,18 @@ class LoginWithEmailView(APIView):
         email = raw_email.lower()
 
         try:
-            account = Account.objects.get(email=email)
-            if account.check_password(raw_password=password):
-                if AccountSession.objects.filter(owner=account).exists():
-                    session = AccountSession.objects.filter(owner=account).order_by('-created_at')[0]
-                    response_dict = serializer(session, exclude_attr=("created_at",))
-                    return JsonResponse(response_dict)
-                else:
-                    account.login()
-                    session = account.get_session()
-                    return JsonResponse(serializer(session, exclude_attr=("created_at",)))
+            owner = Owner.objects.get(email=email)
+            if owner.check_password(raw_password=password):
+                session = Session.objects.create(
+                    #user=account,
+                    type=TokenTypes.WEB,
+                    temp_user_id=owner.id
+                )
+                access_token = session.update_access_token(group=Groups.OWNER)
+                response_dict = serializer(session, include_attr=("refresh_token", 'expires_at',))
+                response_dict["access_token"] = access_token
+                return JsonResponse(response_dict)
+
             else:
                 e = AuthException(
                     AuthException.INVALID_PASSWORD,
@@ -703,7 +642,9 @@ class LoginWithEmailView(APIView):
 
 class LogoutView(LoginRequiredAPIView):
     def post(self, request):
-        request.account.clean_session()
+        Session.objects.filter(
+            temp_user_id=request.owner.id
+        ).delete()
         return JsonResponse({}, status=200)
 
 
