@@ -181,6 +181,19 @@ class BaseAccount(models.Model):
         send_mail('Восстановление пароля', "", EMAIL_HOST_USER,
                   [str(self.email)], html_message=msg_html)
 
+    def send_recovery_password_owner_mail(self, raw_password):
+        if not self.email:
+            return
+
+        render_data = {
+            "email": self.email,
+            "password": raw_password,
+        }
+        msg_html = render_to_string('emails/password_recovery_owner.html',
+                                render_data)
+        send_mail('Восстановление пароля', "", EMAIL_HOST_USER,
+                  [str(self.email)], html_message=msg_html)
+
     def send_password_mail(self, raw_password):
         if not self.email:
             return

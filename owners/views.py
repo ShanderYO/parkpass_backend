@@ -593,8 +593,8 @@ class PasswordRestoreView(APIView):
         email = request.data["email"].lower()
 
         try:
-            account = Account.objects.get(email=email)
-            account.create_password_and_send(is_recovery=True)
+            owner = Owner.objects.get(email=email)
+            owner.create_password_and_send_mail()
             return JsonResponse({}, status=200)
 
         except ObjectDoesNotExist:

@@ -40,6 +40,13 @@ class Owner(BaseAccount):
         return jwt.encode(payload, secret, algorithm='HS256')
 
 
+    def create_password_and_send_mail(self):
+        raw_password = self.generate_random_password()
+        self.set_password(raw_password)
+        self.save()
+        self.send_recovery_password_mail(raw_password)
+
+
 class OwnerSession(BaseAccountSession):
     owner = models.OneToOneField(Owner)
 
