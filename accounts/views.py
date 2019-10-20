@@ -807,6 +807,7 @@ class AccountSubscriptionListView(LoginRequiredAPIView):
         subscription_qs = RpsSubscription.objects.filter(
             #started_at__lt = timezone.now(),
             #expired_at__gte = timezone.now(),
+            active=True,
             account=request.account
         ).select_related('parking')
 
