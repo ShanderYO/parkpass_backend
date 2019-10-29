@@ -77,7 +77,7 @@ class LoginAndPasswordValidator(BaseValidator):
             validate_password_format(password)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -118,7 +118,7 @@ def create_generic_validator(fields):
                         fields[key].parse(data[key])
                     except Exception as e:
                         self.code = 400
-                        self.message = '"%s" key parse failed, error is "%s"' % (key, e.message)
+                        self.message = '"%s" key parse failed, error is "%s"' % (key, e)
                         return False
             return True
 

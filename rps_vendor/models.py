@@ -42,14 +42,14 @@ class RpsParking(models.Model):
 
     last_response_code = models.IntegerField(default=0)
     last_response_body = models.TextField(null=True, blank=True)
-    parking = models.ForeignKey(to='parkings.Parking')
+    parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
 
     class Meta:
         ordering = ["-id"]
         verbose_name = 'RpsParking'
         verbose_name_plural = 'RpsParking'
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s" % (self.parking.name)
 
     def get_parking_card_debt_url(self, query):
@@ -148,7 +148,7 @@ class ParkingCard(models.Model):
     phone = models.CharField(max_length=32)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __unicode__(self):
+    def __str__(self):
         return "Parking card %s" % self.card_id
 
 
@@ -168,19 +168,19 @@ CARD_SESSION_STATES = (
 
 
 class RpsParkingCardSession(models.Model):
-    parking_card = models.ForeignKey(ParkingCard)
+    parking_card = models.ForeignKey(ParkingCard, on_delete=models.CASCADE)
     parking_id = models.IntegerField()
     debt = models.IntegerField(default=0)
     duration = models.IntegerField(default=0)
     state = models.PositiveSmallIntegerField(
         choices=CARD_SESSION_STATES, default=STATE_CREATED)
-    account = models.ForeignKey(Account, null=True, default=None)
+    account = models.ForeignKey(Account, null=True, default=None, on_delete=models.CASCADE)
     client_uuid = models.UUIDField(null=True, default=None)
 
     from_datetime = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __unicode__(self):
+    def __str__(self):
         return "Parking RPS session %s %s" % (
             self.parking_card,
             self.parking_id
@@ -303,8 +303,8 @@ class RpsSubscription(models.Model):
     started_at = models.DateTimeField()
     expired_at = models.DateTimeField()
     duration = models.IntegerField()
-    parking = models.ForeignKey(to='parkings.Parking')
-    account = models.ForeignKey(Account)
+    parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE)
     prolongation = models.BooleanField(default=True)
 
     data = models.TextField(help_text="Byte array as base64", null=True, blank=True)

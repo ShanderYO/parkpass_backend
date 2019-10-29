@@ -7,7 +7,8 @@ class ApiException(Exception, SerializableException):
     """
 
     def __init__(self, message, code=400):
-        super(Exception, self).__init__(message)
+        super(Exception, self).__init__()
+        self.message = message
         self.exception = self.__class__.__name__
         self.http_code = code
 

@@ -16,7 +16,7 @@ from base.exceptions import ValidationException, AuthException, PermissionExcept
 from base.utils import get_logger, datetime_from_unix_timestamp_tz, parse_int
 from base.utils import parse_get_param as parse
 from base.validators import ValidatePostParametersMixin, validate_phone_number
-from parkpass.settings import REQUESTS_LOGGER_NAME, PAGINATION_OBJECTS_PER_PAGE
+from parkpass_backend.settings import REQUESTS_LOGGER_NAME, PAGINATION_OBJECTS_PER_PAGE
 from vendors.models import Vendor
 from .models import NotifyIssue
 
@@ -48,7 +48,7 @@ class APIView(View, ValidatePostParametersMixin):
             except Exception as e:
                 e = ValidationException(
                     ValidationException.INVALID_JSON_FORMAT,
-                    e.message
+                    str(e)
                 )
                 return JsonResponse(e.to_dict(), status=400)
             # Validate json-parameters
@@ -162,7 +162,7 @@ class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):
             except Exception as e:
                 e = ValidationException(
                     ValidationException.INVALID_JSON_FORMAT,
-                    e.message
+                    str(e)
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
@@ -366,14 +366,6 @@ class ObjectView(object):
 
         obj.save()
         response_data = self.on_post_create(request, obj)
-
-        """
-        try:
-            obj.full_clean()
-        except ValidationError, e:
-            raise ValidationException(ValidationException.VALIDATION_ERROR,
-                                      e.message_dict)
-        """
 
         location = request.path if id else request.path + unicode(obj.id) + u'/'
 

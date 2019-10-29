@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from base.utils import get_logger
 from parkings.models import ParkingSession, Parking
-from parkpass.celery import app
+from parkpass_backend.celery import app
 from rps_vendor.models import RpsParking, RpsSubscription
 
 

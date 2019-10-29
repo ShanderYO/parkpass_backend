@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
 from base.exceptions import NetworkException
-from parkpass import settings
+
+from parkpass_backend import settings
+
 from . import providers
 
 
@@ -26,7 +27,7 @@ def _load_provider(conf):
     return cls(conf)
 """
 
-class SMSGateway(object):
+class SMSGateway:
     def __init__(self):
         self.provider = get_default_sms_provider()
         self.exception = False

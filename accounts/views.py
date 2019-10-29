@@ -22,12 +22,12 @@ from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView, ObjectView, SignedRequestAPIView
 from owners.models import OwnerIssue, Owner
 from parkings.models import ParkingSession, Parking
-from parkpass.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET
+from parkpass_backend.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
 
-from sms_gateway import sms_sender
+from .sms_gateway import sms_sender
 from vendors.models import VendorIssue, Vendor
 
 

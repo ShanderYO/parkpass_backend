@@ -1,8 +1,7 @@
 from django.contrib import admin
 
 from base.admin import AccountAdmin
-# Register your models here.
-from models import Account, AccountSession
+from .models import Account, AccountSession
 
 
 @admin.register(Account)

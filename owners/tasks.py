@@ -13,8 +13,8 @@ from django.utils import timezone
 from base.utils import get_logger
 from owners.models import CompanySettingReports, CompanyReport
 from parkings.models import ParkingSession
-from parkpass.celery import app
-from parkpass.settings import REPORTS_ROOT, EMAIL_HOST_USER, STATIC_ROOT
+from parkpass_backend.celery import app
+from parkpass_backend.settings import REPORTS_ROOT, EMAIL_HOST_USER, STATIC_ROOT
 from rps_vendor.models import RpsSubscription, RpsParkingCardSession, STATE_CONFIRMED
 
 

@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from base.models import Terminal
 from base.utils import get_logger
-from parkpass import settings
+from parkpass_backend import settings
 
 
 class TinkoffApiException:

@@ -11,7 +11,7 @@ from .utils import (
     unique_code, create_jwt, create_future_timestamp
 )
 
-from parkpass import settings
+from parkpass_backend import settings
 
 class TokenTypes:
     MOBILE = 1 << 0

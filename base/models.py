@@ -25,8 +25,8 @@ from django.utils import timezone
 from accounts.validators import validate_name
 from base.exceptions import ValidationException
 from base.validators import validate_phone_number
-from parkpass import settings
-from parkpass.settings import EMAIL_HOST_USER, AVATARS_URL, AVATARS_ROOT, ZENDESK_CHAT_SECRET
+from parkpass_backend import settings
+from parkpass_backend.settings import EMAIL_HOST_USER, AVATARS_URL, AVATARS_ROOT, ZENDESK_CHAT_SECRET
 
 
 class Terminal(models.Model):
@@ -35,7 +35,7 @@ class Terminal(models.Model):
     password = models.CharField(max_length=255)
     is_selected = models.BooleanField(default=False)
 
-    def __unicode__(self):
+    def __str__(self):
         return "Terminal %s" % self.terminal_key
 
     def save(self, *args, **kwargs):
@@ -71,7 +71,7 @@ class EmailConfirmation(models.Model):
                                     )
                                     )
 
-    def __unicode__(self):
+    def __str__(self):
         return "Code %s [%s]" %(self.code, self.email)
 
     def create_code(self):
@@ -105,7 +105,8 @@ class BaseAccount(models.Model):
     sms_code = models.CharField(max_length=6, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     password = models.CharField(max_length=255, default="stub")
-    email_confirmation = models.ForeignKey(EmailConfirmation, null=True, blank=True, on_delete=models.CASCADE)
+    email_confirmation = models.ForeignKey(EmailConfirmation, null=True,
+                                           blank=True, on_delete=models.CASCADE)
     avatar = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
 
@@ -115,7 +116,7 @@ class BaseAccount(models.Model):
         verbose_name_plural = 'Accounts'
         abstract = True
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s %s [ID: %s]" % (self.first_name, self.last_name, self.id)
 
     @property
@@ -334,7 +335,7 @@ class BaseAccountIssue(models.Model):
     class Meta:
         abstract = True
 
-    def __unicode__(self):
+    def __str__(self):
         return '%s %s' % (self.name, self.created_at)
 
     def send_mail(self, email):

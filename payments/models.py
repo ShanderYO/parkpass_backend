@@ -8,7 +8,7 @@ from dss.Serializer import serializer
 from accounts.models import Account
 from base.models import Terminal
 from base.utils import get_logger
-from parkpass.settings import EMAIL_HOST_USER
+from parkpass_backend.settings import EMAIL_HOST_USER
 from payments.payment_api import TinkoffAPI
 
 
@@ -27,7 +27,7 @@ class FiskalNotification(models.Model):
     card_pan = models.CharField(max_length=31)
     type = models.CharField(max_length=15)
 
-    def __unicode__(self):
+    def __str__(self):
         return u"Fiscal notification: %s (%s)" \
                % (self.fiscal_number, self.shift_number)
 
@@ -43,9 +43,10 @@ class CreditCard(models.Model):
     is_default = models.BooleanField(default=False)
     rebill_id = models.BigIntegerField(blank=True, null=True)
     created_at = models.DateField(auto_now_add=True)
-    account = models.ForeignKey(Account, related_name="credit_cards")
+    account = models.ForeignKey(Account, related_name="credit_cards",
+                                on_delete=models.CASCADE)
 
-    def __unicode__(self):
+    def __str__(self):
         return u"Card: %s (%s %s)" % (self.pan,
                                       self.account.first_name,
                                       self.account.last_name)
@@ -128,27 +129,31 @@ class Order(models.Model):
     authorized = models.BooleanField(default=False)
     paid = models.BooleanField(default=False)
     paid_card_pan = models.CharField(max_length=31, default="")
-    session = models.ForeignKey(to='parkings.ParkingSession', null=True, blank=True)
+    session = models.ForeignKey(to='parkings.ParkingSession',
+                                null=True, blank=True, on_delete=models.CASCADE)
     refund_request = models.BooleanField(default=False)
     refunded_sum = models.DecimalField(max_digits=8, decimal_places=2, default=0)
-    fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
+    fiscal_notification = models.ForeignKey(FiskalNotification,
+                                            null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     # for init payment order
-    account = models.ForeignKey(Account, null=True, blank=True)
+    account = models.ForeignKey(Account, null=True, blank=True, on_delete=models.CASCADE)
 
     # for parking card
-    parking_card_session = models.ForeignKey(to='rps_vendor.RpsParkingCardSession', null=True, blank=True)
+    parking_card_session = models.ForeignKey(to='rps_vendor.RpsParkingCardSession',
+                                             null=True, blank=True, on_delete=models.CASCADE)
     paid_notified_at = models.DateTimeField(null=True, blank=True)
 
     # for subscription
-    subscription = models.ForeignKey(to='rps_vendor.RpsSubscription', null=True, blank=True)
+    subscription = models.ForeignKey(to='rps_vendor.RpsSubscription',
+                                     null=True, blank=True, on_delete=models.CASCADE)
 
     # for non-accounts payments
     client_uuid = models.UUIDField(null=True, default=None)
 
     # use multiple terminals
-    terminal = models.ForeignKey(Terminal, null=True)
+    terminal = models.ForeignKey(Terminal, null=True, on_delete=models.CASCADE)
 
     class Meta:
         ordering = ["-created_at"]
@@ -470,7 +475,7 @@ PAYMENT_STATUSES = (
 class TinkoffPayment(models.Model):
     payment_id = models.BigIntegerField(unique=True, blank=True, null=True)
     status = models.SmallIntegerField(choices=PAYMENT_STATUSES, default=PAYMENT_STATUS_INIT)
-    order = models.ForeignKey(Order, null=True, blank=True)  # TODO DELETE FROM THIS
+    order = models.ForeignKey(Order, null=True, blank=True, on_delete=models.CASCADE)  # TODO DELETE FROM THIS
     receipt_data = models.TextField(null=True, blank=True)
 
     # Fields for debug

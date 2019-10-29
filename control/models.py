@@ -9,7 +9,7 @@ from base.models import BaseAccount, BaseAccountSession
 class Admin(BaseAccount):
     name = models.CharField(max_length=255, unique=True)
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s" % self.name
 
     @property
@@ -22,7 +22,7 @@ class Admin(BaseAccount):
 
 
 class AdminSession(BaseAccountSession):
-    admin = models.OneToOneField(Admin)
+    admin = models.OneToOneField(Admin, on_delete=models.CASCADE)
 
     @classmethod
     def get_account_by_token(cls, token):

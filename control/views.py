@@ -17,8 +17,8 @@ from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
 from owners.models import Owner, Company, OwnerApplication, OwnerIssue
 from parkings.models import Parking, ParkingSession, ComplainSession
-from parkpass.settings import LOG_DIR
-from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
+from parkpass_backend.settings import LOG_DIR
+from parkpass_backend.settings import PAGINATION_OBJECTS_PER_PAGE
 from payments.models import Order
 from vendors.models import Vendor, VendorIssue
 from .models import Admin as Account
