@@ -375,8 +375,12 @@ class RpsSubscription(models.Model):
         if self.duration <= 0:
             return 0
 
-        days = self.duration / (3600 * 24)
-        return "%d" % days
+        days = self.duration // (3600 * 24)
+        if days < 30:
+            return "% д." % days
+        if days % 30 == 0:
+            return "%d мес." % (days // 30)
+        return "%d мес. %d д." % (days // 30, days % 30)
 
     def check_prolong_payment(self):
         if timezone.now() >= self.expired_at and self.active:

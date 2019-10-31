@@ -275,8 +275,8 @@ class ParkingSession(models.Model):
             return 0
 
         secs = self.duration % 60
-        hours = self.duration / 3600
-        mins = (self.duration - hours * 3600 - secs) / 60
+        hours = self.duration // 3600
+        mins = (self.duration - hours * 3600 - secs) // 60
         return "%02d:%02d:%02d" % (hours, mins, secs)
 
 
