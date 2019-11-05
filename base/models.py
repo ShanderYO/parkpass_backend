@@ -147,7 +147,7 @@ class BaseAccount(models.Model):
                     ValidationException.INVALID_IMAGE,
                     "Image must be JPEG and not be larger than 300x300 px"
                    )
-        with open(write_path, "w") as dest:
+        with open(write_path, "wb") as dest:
             dest.write(f)
 
         self.avatar = url_path
