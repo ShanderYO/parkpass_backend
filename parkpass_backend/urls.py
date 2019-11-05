@@ -27,6 +27,7 @@ urlpatterns = [
     #path('admin_tools/', include('admin_tools.urls')),
     path('api/v1/', include('base.urls')),
     path('api/v1/account/', include("accounts.urls")),
+    path('api/v1/payments/', include("payments.urls")),
     path('api/v1/parking/', include("parkings.urls")),
     path('api/v1/control/', include("control.urls")),
     path('api/v1/owner/', include("owners.urls")),
