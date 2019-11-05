@@ -67,7 +67,7 @@ class CreditCard(models.Model):
         init_payment = TinkoffPayment.objects.create(order=init_order, receipt_data=receipt_data)
         request_data = init_payment.build_init_request_data(account.id)
         get_logger().info("Init request:")
-        get_logger().info(request_data)
+        #get_logger().info(request_data)
         result = TinkoffAPI().sync_call(
             TinkoffAPI.INIT, request_data
         )

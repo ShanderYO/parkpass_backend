@@ -133,7 +133,7 @@ class BaseAccount(models.Model):
         return check_password(raw_password, self.password, setter)
 
     def update_avatar(self, f):
-        path = md5(self.phone + str(random.randint(1,1000))).hexdigest() + '.jpg'
+        path = md5((self.phone + str(random.randint(1,1000))).encode('utf-8')).hexdigest() + '.jpg'
         write_path = '/' + AVATARS_ROOT + '/' + path
         url_path = AVATARS_URL + path
 
