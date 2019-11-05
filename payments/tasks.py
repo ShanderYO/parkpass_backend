@@ -3,7 +3,7 @@ import logging
 from django.core.exceptions import ObjectDoesNotExist
 
 from base.utils import get_logger
-from parkpass.celery import app
+from parkpass_backend.celery import app
 from payments.payment_api import TinkoffAPI
 from payments.models import TinkoffPayment, Order, PAYMENT_STATUS_AUTHORIZED
 from rps_vendor.models import RpsSubscription
