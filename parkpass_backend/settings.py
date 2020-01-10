@@ -132,7 +132,7 @@ if os.environ.get("PROD"):
             'NAME': os.environ.get("POSTGRES_DB_NAME", "parkpass"),
             'USER': os.environ.get("POSTGRES_USER", "parkpass"),
             'PASSWORD': os.environ.get("POSTGRES_PASSWORD", "parkpass"),
-            'HOST': os.environ.get("POSTGRES_DATABASE_HOST", "sandbox.parkpass.ru"), # Set to empty string for localhost.
+            'HOST': os.environ.get("POSTGRES_DATABASE_HOST", "127.0.0.1"), # Set to empty string for localhost.
             'PORT': '', # Set to empty string for default.
         }
     }
