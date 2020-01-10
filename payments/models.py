@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
+import urllib
+
 from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 from dss.Serializer import serializer
 
@@ -566,3 +569,59 @@ class TinkoffPayment(models.Model):
             self.status = PAYMENT_STATUS_REFUNDED
 
         self.save()
+
+
+class TinkoffSession(models.Model):
+    refresh_token = models.TextField()
+    access_token = models.TextField(null=True, blank=True)
+    expires_in = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tinkoff_session'
+
+    def build_update_token_body(self):
+        value = urllib.quote(self.refresh_token, "utf-8")
+        body = "grant_type=refresh_token&refresh_token=%s" % value
+        print(body)
+        return body
+
+    def is_session_valid(self):
+        return timezone.now() < self.expires_in
+
+
+class InvoiceWithdraw(models.Model):
+    documentNumber = models.TextField(null=True, blank=True, help_text="Номер документа")
+    documentDate = models.DateField(null=True, blank=True, help_text="Дата документа")
+    amount = models.IntegerField(help_text="Сумма платежа")
+    recipientName = models.TextField(help_text="Получатель")
+    inn = models.TextField()
+    kpp = models.TextField()
+
+    accountNumber = models.TextField(help_text="Номер счета получателя")
+    bankAcnt = models.TextField(null=True, blank=True, help_text="Банк получателя")
+    bankBik = models.TextField(null=True, blank=True, help_text="БИК банка получателя")
+
+    paymentPurpose = models.TextField(default="", blank=True, help_text="Назначение платежа")
+    executionOrder = models.IntegerField(default=0, help_text="Очередность платежа")
+
+    taxPayerStatus = models.TextField(null=True, blank=True, help_text="Статус составителя расчетного документа")
+    kbk = models.TextField(null=True, blank=True, help_text="Код бюджетной классификации")
+    oktmo = models.TextField(null=True, blank=True, help_text="Код ОКТМО территории, на которой мобилизуютсяденежные "
+                                                              "средства от уплаты налога, сбора и иного платежа")
+
+    taxEvidence = models.TextField(null=True, blank=True, help_text="Основание налогового платежа")
+    taxPeriod = models.TextField(null=True, blank=True, help_text="Налоговый период / код таможенного органа")
+    uin = models.TextField(null=True, blank=True, help_text="Уникальный идентификатор платежа")
+
+    taxDocNumber = models.TextField(null=True, blank=True, help_text="Номер налогового документа")
+    taxDocDate = models.TextField(null=True, blank=True, help_text="Дата налогового документа")
+
+    is_send = models.BooleanField(default=False)
+    error = models.TextField()
+
+    class Meta:
+        db_table = 'invoice_withdraw'
+
+    def __str__(self):
+        return "(%s) %s" % (self.amount, self.accountNumber)

@@ -168,3 +168,12 @@ class CompanyReport(models.Model):
 
     def __str__(self):
         return "Report for %s [%s]" % (self.company, self.created_at)
+
+
+class OwnerPaymentOrder(models.Model):
+    document_number = models.CharField(max_length=16)
+    amount = models.DecimalField(max_digits=22, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table="owner_payment_order"
