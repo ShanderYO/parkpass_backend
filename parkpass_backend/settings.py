@@ -54,6 +54,8 @@ TINKOFF_TERMINAL_PASSWORD = TINKOFF_DEFAULT_TERMINAL_PASSWORD
 
 # Application definition
 TINKOFF_API_REFRESH_TOKEN = 'kRfnfbAbeslS73haYLSR2Ow5xrJ2aILnujTU3CFE0AkoYXmPhEiNESvaE+I2a7msR82h6foPj3sZCuYdRMfa6Q=='
+PARKPASS_INN = "7725415044"
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -132,7 +134,7 @@ if os.environ.get("PROD"):
             'NAME': os.environ.get("POSTGRES_DB_NAME", "parkpass"),
             'USER': os.environ.get("POSTGRES_USER", "parkpass"),
             'PASSWORD': os.environ.get("POSTGRES_PASSWORD", "parkpass"),
-            'HOST': os.environ.get("POSTGRES_DATABASE_HOST", "127.0.0.1"), # Set to empty string for localhost.
+            'HOST': os.environ.get("POSTGRES_DATABASE_HOST", "185.158.155.26"), # Set to empty string for localhost.
             'PORT': '', # Set to empty string for default.
         }
     }

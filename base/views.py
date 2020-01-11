@@ -92,7 +92,7 @@ class SignedRequestAPIView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        signature = hmac.new(str(request.vendor.secret), request.body, hashlib.sha512)
+        signature = hmac.new(str(request.vendor.secret), request.body.decode('utf-8'), hashlib.sha512)
 
         if request.vendor.account_state == request.vendor.ACCOUNT_STATE.DISABLED:
             e = PermissionException(
