@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     #admin_tools.dashboard',
 
     'django_celery_beat',
+    'tests',
     'base',
     'accounts',
     'vendors',
@@ -125,7 +126,7 @@ WSGI_APPLICATION = 'parkpass_backend.wsgi.application'
 
 DATABASES = {}
 
-if not os.environ.get("PROD"):
+if os.environ.get("PROD"):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',

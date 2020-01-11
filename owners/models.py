@@ -11,6 +11,7 @@ from base.validators import validate_phone_number
 from owners.validators import validate_inn, validate_kpp
 from parkings.models import Parking
 from parkpass_backend.settings import ZENDESK_WIDGET_SECRET
+from payments.models import InvoiceWithdraw
 
 
 class Owner(BaseAccount):
@@ -84,15 +85,16 @@ class Company(models.Model):
     name = models.CharField(max_length=256)
     inn = models.CharField(max_length=15, validators=(validate_inn,), null=True, blank=True)
     kpp = models.CharField(max_length=15, validators=(validate_kpp,), null=True, blank=True)
+
     bic = models.CharField(max_length=20, null=True, blank=True)
+    bank = models.CharField(max_length=256, null=True, blank=True)
+    account = models.CharField(max_length=64, null=True, blank=True)
+
     legal_address = models.CharField(max_length=512)
     actual_address = models.CharField(max_length=512)
     email = models.EmailField(null=True, blank=True)
     phone = models.CharField(max_length=15, null=True, blank=True, validators=(validate_phone_number,))
     use_profile_contacts = models.BooleanField(default=False)
-
-    bank = models.CharField(max_length=256, null=True, blank=True)
-    account = models.CharField(max_length=64, null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -163,17 +165,12 @@ class CompanyReport(models.Model):
     filename = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    invoice_withdraw = models.ForeignKey(
+        to=InvoiceWithdraw, on_delete=models.CASCADE,
+        null=True, blank=True)
+
     class Meta:
         db_table = 'owner_report'
 
     def __str__(self):
         return "Report for %s [%s]" % (self.company, self.created_at)
-
-
-class OwnerPaymentOrder(models.Model):
-    document_number = models.CharField(max_length=16)
-    amount = models.DecimalField(max_digits=22, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table="owner_payment_order"

@@ -638,6 +638,7 @@ class InvoiceWithdraw(models.Model):
         self.is_requested = False
         super(InvoiceWithdraw, self).save(*args, **kwargs)
 
+
     def _get_saved_access_token(self):
         active_session = TinkoffSession.objects.all().order_by('-created_at').first()
         if active_session and active_session.is_session_valid():
@@ -713,8 +714,8 @@ class InvoiceWithdraw(models.Model):
         }
         try:
             body = {
-                "documentNumber": self.documentNumber,
-                "date": None,
+                "documentNumber": str(self.id),
+                "date": None, # right now
                 "amount": self.amount,
                 "recipientName": self.recipientName,
                 "inn": self.inn,
@@ -725,13 +726,13 @@ class InvoiceWithdraw(models.Model):
                 "paymentPurpose": self.paymentPurpose,
                 "executionOrder": self.executionOrder,
                 "taxPayerStatus": self.taxPayerStatus,
-                "kbk": self.kbk,
-                "oktmo": self.oktmo,
-                "taxEvidence": self.taxEvidence,
-                "taxPeriod": self.taxPeriod,
-                "uin": self.uin,
-                # "taxDocNumber": self.taxDocNumber,
-                # "taxDocDate": None
+                "kbk": self.kbk if self.kbk else "0",
+                "oktmo": self.oktmo if self.oktmo else "0",
+                "taxEvidence": self.taxEvidence if self.taxEvidence else "0",
+                "taxPeriod": self.taxPeriod if self.taxPeriod else "0",
+                "uin": self.uin if self.uin else "0",
+                "taxDocNumber": self.taxDocNumber if self.taxDocNumber else "0",
+                "taxDocDate": self.taxDocDate if self.taxDocDate else "0"
             }
 
             print(body)

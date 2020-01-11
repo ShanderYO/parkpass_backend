@@ -15,6 +15,7 @@ from owners.models import CompanySettingReports, CompanyReport
 from parkings.models import ParkingSession
 from parkpass_backend.celery import app
 from parkpass_backend.settings import REPORTS_ROOT, EMAIL_HOST_USER, STATIC_ROOT
+from payments.models import InvoiceWithdraw
 from rps_vendor.models import RpsSubscription, RpsParkingCardSession, STATE_CONFIRMED
 
 
@@ -36,11 +37,45 @@ def generate_report_and_send(settings_report_id):
             get_logger().warning("Report is already exist: %s" % filename)
 
         else:
-            if create_report_for_parking(report_settings.parking, report_settings.last_send_date,
-                                         report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)):
-                CompanyReport.objects.create(company=report_settings.company, filename=filename)
+            total_sum, status = create_report_for_parking(
+                report_settings.parking,
+                report_settings.last_send_date,
+                report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
+            )
+
+            if status:
+                report = CompanyReport.objects.create(
+                    company=report_settings.company,
+                    filename=filename
+                )
                 send_report(report_settings.report_emails, filename)
                 get_logger().info("Report done: %s" % filename)
+
+                recipient_name = report.company.name
+                inn = report.company.inn
+                kpp = report.company.kpp
+                account_number = report.company.account
+                bank_acnt = report.company.bank
+                bank_bik = report.company.bik
+                payment_purpose = "Плановая выплата"
+
+                if all([recipient_name, inn, kpp, account_number, bank_acnt, bank_bik, payment_purpose]):
+                    invoice = InvoiceWithdraw.objects.create(
+                        amount=total_sum,
+                        recipientName=recipient_name,
+                        inn=inn,
+                        kpp=kpp,
+                        accountNumber=account_number,
+                        bankAcnt=bank_acnt,
+                        bankBik=bank_bik,
+                        paymentPurpose=payment_purpose,
+                        executionOrder=1
+                    )
+                    report.invoice_withdraw = invoice
+                    report.save()
+                else:
+                    get_logger().warn("Company has no valid requisites %s"
+                                      % [recipient_name, inn, kpp, account_number, bank_acnt, bank_bik, payment_purpose])
 
         report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
         report_settings.save()
@@ -93,15 +128,21 @@ def create_report_for_parking(parking, from_date, to_date):
         source = os.path.join(STATIC_ROOT, "files/%s" % "report_template_empty.xlsx")
         shutil.copy2(source, filename)
 
+    session_df, session_sum = gen_session_report_df_and_sum(sessions)
+    parking_card_df, parking_card_sum = gen_parking_card_report_df_and_sum(parking_cards)
+    subscriptions_df, subscription_sum = gen_subscription_report_df_and_sum(subscriptions)
+
     pages = {
-        "Сессии": gen_session_report_df(sessions),
-        "Парковочные карты": gen_parking_card_report_df(parking_cards),
-        "Абонементы": gen_subscription_report_df(subscriptions)
+        "Сессии": session_df,
+        "Парковочные карты": parking_card_df,
+        "Абонементы": subscriptions_df
     }
 
     append_dfs_to_excel(filename, pages, index_key="#")
 
-    return True
+    total_sum = session_sum + parking_card_sum + subscription_sum
+
+    return total_sum, True
 
 
 def send_report(emails, filename):
@@ -112,7 +153,7 @@ def send_report(emails, filename):
     msg.send()
 
 
-def gen_session_report_df(qs):
+def gen_session_report_df_and_sum(qs):
     ID_COL = "#"
     START_COL = "Время въезда"
     END_COL = "Время выезда"
@@ -164,10 +205,10 @@ def gen_session_report_df(qs):
     propotype[DEBT_COL].extend(["", "Итог: "])
     propotype[STATE_COL].extend(["", "%s руб." % int(total_sum)])
 
-    return pd.DataFrame(data=propotype)
+    return pd.DataFrame(data=propotype), int(total_sum)
 
 
-def gen_parking_card_report_df(qs):
+def gen_parking_card_report_df_and_sum(qs):
     ID_COL = "#"
     START_COL = "Время въезда"
     END_COL = "Время выезда"
@@ -208,10 +249,10 @@ def gen_parking_card_report_df(qs):
     propotype[BUY_DATETIME_COL].extend(["","%s руб." % int(total_sum)])
 
     get_logger().info(propotype)
-    return pd.DataFrame(data=propotype)
+    return pd.DataFrame(data=propotype), int(total_sum)
 
 
-def gen_subscription_report_df(qs):
+def gen_subscription_report_df_and_sum(qs):
     ID_COL = "#"
     VENDOR_ID_COL = "# системы вендора"
     START_COL = "Время покупки"
@@ -242,7 +283,8 @@ def gen_subscription_report_df(qs):
 
     propotype[DURATION_COL].extend(["", "Итог: "])
     propotype[PRICE_COL].extend(["", "%s руб." % int(total_sum)])
-    return pd.DataFrame(data=propotype)
+
+    return pd.DataFrame(data=propotype), int(total_sum)
 
 
 def highlight_max(x):
