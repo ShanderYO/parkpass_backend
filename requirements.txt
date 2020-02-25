@@ -4,6 +4,7 @@
 Django==2.1
 Pillow==3.4.2
 psycopg2==2.7.1
+psycopg2-binary==2.8.4
 requests==2.18.4
 python-jose==3.0.1
 pytz==2018.9

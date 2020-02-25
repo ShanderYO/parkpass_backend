@@ -6,7 +6,6 @@ from payments.models import (
     FiskalNotification, InvoiceWithdraw
 )
 
-
 @admin.register(CreditCard)
 class CreditCardAdmin(admin.ModelAdmin):
     search_fields = ('account', 'id', 'card_id',)
@@ -43,3 +42,4 @@ class FiskalNotificationAdmin(admin.ModelAdmin):
 @admin.register(InvoiceWithdraw)
 class InvoiceWithdrawAdmin(admin.ModelAdmin):
     pass
+

@@ -77,7 +77,7 @@ class RpsParkingSessionListUpdateView(SignedRequestAPIView):
         return JsonResponse({}, status=202)
 
 
-class GetParkingCardDebt(APIView):
+class GetParkingCardDebtMixin:
     validator_class = ParkingCardRequestBodyValidator
 
     def post(self, request, *args, **kwargs):
@@ -112,6 +112,10 @@ class GetParkingCardDebt(APIView):
                 message="Parking does not found or parking card is unavailable"
             )
             return JsonResponse(e.to_dict(), status=400)
+
+
+class GetParkingCardDebt(GetParkingCardDebtMixin, APIView):
+    pass
 
 
 class AccountInitPayment(LoginRequiredAPIView):
@@ -157,7 +161,7 @@ class AccountInitPayment(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
 
-class InitPayDebt(APIView):
+class InitPayDebtMixin:
     validator_class = ParkingCardSessionBodyValidator
 
     def post(self, request, *args, **kwargs):
@@ -208,7 +212,11 @@ class InitPayDebt(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
 
-class GetCardSessionStatus(APIView):
+class InitPayDebt(InitPayDebtMixin, APIView):
+    pass
+
+
+class GetCardSessionStatusMixin:
     validator_class = ParkingCardSessionBodyValidator
 
     def post(self, request, *args, **kwargs):
@@ -253,6 +261,10 @@ class GetCardSessionStatus(APIView):
                 message="Parking card session does not exist"
             )
             return JsonResponse(e.to_dict(), status=400)
+
+
+class GetCardSessionStatus(GetCardSessionStatusMixin, APIView):
+    pass
 
 
 class MockingGetParkingCardDebt(SignedRequestAPIView):

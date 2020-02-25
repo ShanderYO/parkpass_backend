@@ -16,7 +16,10 @@ from base.exceptions import ValidationException, AuthException, PermissionExcept
 from base.utils import get_logger, datetime_from_unix_timestamp_tz, parse_int
 from base.utils import parse_get_param as parse
 from base.validators import ValidatePostParametersMixin, validate_phone_number
+
 from parkpass_backend.settings import REQUESTS_LOGGER_NAME, PAGINATION_OBJECTS_PER_PAGE
+from partners.models import Partner
+
 from vendors.models import Vendor
 from .models import NotifyIssue
 
@@ -109,6 +112,47 @@ class SignedRequestAPIView(APIView):
             return JsonResponse(e.to_dict(), status=400)
 
         return super(SignedRequestAPIView, self).dispatch(request, *args, **kwargs)
+
+
+class PartnerRequestAPIView(APIView):
+    @method_decorator(csrf_exempt)
+    def dispatch(self, request, *args, **kwargs):
+        if not request.META.get('HTTP_X_PARTNER_NAME', None):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "The partner name is empty. [x-partner-name] header required"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        try:
+            request.partner = Partner.objects.get(
+                canonical_name=str(request.META["HTTP_X_PARTNER_NAME"]),
+            )
+        except ObjectDoesNotExist:
+            e = PermissionException(
+                PermissionException.VENDOR_NOT_FOUND,
+                "Invalid partner name"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        if request.method == "POST":
+            if not request.META.get('HTTP_X_SIGNATURE', None):
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Signature is empty. [x-signature] header required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            signature = hmac.new(request.partner.secret.encode('utf-8'), request.body, hashlib.sha512)
+
+            if signature.hexdigest() != request.META["HTTP_X_SIGNATURE"].lower():
+                e = PermissionException(
+                    PermissionException.SIGNATURE_INVALID,
+                    "Invalid signature"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        return super(PartnerRequestAPIView, self).dispatch(request, *args, **kwargs)
 
 
 class LoginRequiredAPIView(APIView):

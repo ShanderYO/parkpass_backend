@@ -184,7 +184,7 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
         return JsonResponse({'parkings': result, 'count': length}, status=200)
 
 
-class GetParkingView(LoginRequiredAPIView):
+class GetParkingViewMixin:
     def get(self, request, *args, **kwargs):
         try:
             parking = Parking.objects.get(id=kwargs["pk"])
@@ -197,6 +197,10 @@ class GetParkingView(LoginRequiredAPIView):
         result_dict = serializer(parking, exclude_attr=("vendor_id", "company_id", "max_client_debt",
                                                         "tariff", "tariff_file_name", "tariff_file_content"))
         return JsonResponse(result_dict, status=200)
+
+
+class GetParkingView(GetParkingViewMixin, LoginRequiredAPIView):
+    pass
 
 
 class GetTariffParkingView(View):
@@ -225,9 +229,8 @@ class GetTariffParkingView(View):
             return HttpResponse("Invalid file content. Decoding error")
 
 
-class GetParkingViewList(LoginRequiredAPIView):
-
-    def get(self, request):
+class GetParkingViewListMixin:
+    def get(self, request, *args, **kwargs):
         left_top_latitude = request.GET.get("lt_lat", None)
         left_top_longitude = request.GET.get("lt_lon", None)
         right_bottom_latitude = request.GET.get("rb_lat", None)
@@ -269,6 +272,10 @@ class GetParkingViewList(LoginRequiredAPIView):
                                         "longitude", "free_places", "approved",)
         )
         return JsonResponse(response_dict, status=200)
+
+
+class GetParkingViewList(GetParkingViewListMixin, LoginRequiredAPIView):
+    pass
 
 
 class GetAvailableParkingsView(APIView):

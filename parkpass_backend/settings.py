@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     #admin_tools.dashboard',
 
     'django_celery_beat',
+    #'tests',
     'base',
     'accounts',
     'vendors',
@@ -79,7 +80,8 @@ INSTALLED_APPS = [
     'jwtauth',
     'rps_vendor',
     'owners',
-    'control'
+    'control',
+    'partners'
 ]
 
 MIDDLEWARE = [
@@ -243,11 +245,11 @@ LOGGING = {
         'django.request': {
             'handlers': ['file'],
             'level': 'DEBUG',
-            'propagate': True,
+            'propagate': True
         },
         BASE_LOGGER_NAME: {
             'handlers': ['file'],
-            'level': 'DEBUG',
+            'level': 'DEBUG'
         },
         REQUESTS_LOGGER_NAME: {
             'handlers': ['requests_file'],

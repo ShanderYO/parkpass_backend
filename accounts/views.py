@@ -27,7 +27,8 @@ from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
 
-from .sms_gateway import sms_sender
+from accounts.sms_gateway import sms_sender
+
 from vendors.models import VendorIssue, Vendor
 
 
@@ -781,9 +782,9 @@ class ZendeskUserJWTMobileView(View):
         get_logger().info(str(request.POST))
 
         jwt_token = request.POST.get("user_token", "0")
-        account = Account.objects.filter(id=long(jwt_token)).first()
+        account = Account.objects.filter(id=int(jwt_token)).first()
         if not account:
-            account = Owner.objects.filter(id=long(jwt_token)).first()
+            account = Owner.objects.filter(id=int(jwt_token)).first()
 
         if account:
             jwt_token = account.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
