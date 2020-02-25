@@ -242,7 +242,7 @@ class TinkoffCallbackView(APIView):
         try:
             order = Order.objects.get(id=order_id)
         except ObjectDoesNotExist as e:
-            get_logger().warn(e.message)
+            get_logger().warn(e)
             return
 
         fiskal = FiskalNotification.objects.create(
@@ -311,7 +311,7 @@ class TinkoffCallbackView(APIView):
             order = Order.objects.get(id=order_id)
             return order
         except ObjectDoesNotExist as e:
-            get_logger().warn(e.message)
+            get_logger().warn(e)
             return None
 
     def update_payment_info(self, payment_id):
@@ -369,7 +369,7 @@ class TinkoffCallbackView(APIView):
                                                              error_code=-1)
                         session_order.confirm_payment(payment)
                     except ObjectDoesNotExist as e:
-                        get_logger().info(e.message)
+                        get_logger().info(e)
         else:
             get_logger().info("Wait closing session")
 

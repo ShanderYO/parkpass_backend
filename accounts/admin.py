@@ -1,7 +1,10 @@
 from django.contrib import admin
 
 from base.admin import AccountAdmin
+<<<<<<< HEAD
 # Register your models here.
+=======
+>>>>>>> 7fdbb28b0983c82f55bf488c7b4dd7cad1b0aba3
 from .models import Account, AccountSession
 
 

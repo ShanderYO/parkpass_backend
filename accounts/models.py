@@ -28,9 +28,9 @@ class AccountSession(BaseAccountSession):
     token = models.CharField(max_length=63)
     expired_at = models.DateTimeField()
     created_at = models.DateField(auto_now_add=True)
-    account = models.OneToOneField(Account)
+    account = models.OneToOneField(Account, on_delete=models.CASCADE)
 
-    def __unicode__(self):
+    def __str__(self):
         return "Session for %s %s [ID: %s]" % (
             self.account.first_name, self.account.last_name, self.account.id)
 

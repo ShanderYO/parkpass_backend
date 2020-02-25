@@ -3,7 +3,7 @@ import logging
 from django.core.exceptions import ObjectDoesNotExist
 
 from parkings.models import ParkingSession
-from parkpass.celery import app
+from parkpass_backend.celery import app
 
 
 @app.task()

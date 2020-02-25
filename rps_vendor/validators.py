@@ -23,21 +23,21 @@ class RpsCreateParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_id(client_id, "client_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_unix_timestamp(started_at, "started_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -64,14 +64,14 @@ class RpsUpdateParkingSessionValidator(BaseValidator):
             validate_id(client_id, "client_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
@@ -87,14 +87,14 @@ class RpsUpdateParkingSessionValidator(BaseValidator):
             validate_unix_timestamp(started_at, "started_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_unix_timestamp(updated_at, "updated_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -117,21 +117,21 @@ class RpsCancelParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_id(client_id, "client_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_unix_timestamp(started_at, "started_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -158,14 +158,14 @@ class RpsCompleteParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_id(client_id, "client_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
@@ -181,14 +181,14 @@ class RpsCompleteParkingSessionValidator(BaseValidator):
             validate_unix_timestamp(started_at, "started_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_unix_timestamp(completed_at, "completed_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -209,7 +209,7 @@ class RpsUpdateListParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         if type(sessions) != type([]):
@@ -232,7 +232,7 @@ class RpsUpdateListParkingSessionValidator(BaseValidator):
                 validate_id(client_id, "client_id")
             except ValidationError as e:
                 self.code = ValidationException.VALIDATION_ERROR
-                self.message = str(e.message) + "Item %s" % index
+                self.message = str(e) + "Item %s" % index
                 return False
 
             try:
@@ -248,14 +248,14 @@ class RpsUpdateListParkingSessionValidator(BaseValidator):
                 validate_unix_timestamp(started_at, "started_at")
             except ValidationError as e:
                 self.code = ValidationException.VALIDATION_ERROR
-                self.message = str(e.message) + "Item %s" % index
+                self.message = str(e) + "Item %s" % index
                 return False
 
             try:
                 validate_unix_timestamp(updated_at, "updated_at")
             except ValidationError as e:
                 self.code = ValidationException.VALIDATION_ERROR
-                self.message = str(e.message)+"Item %s" % index
+                self.message = str(e)+"Item %s" % index
                 return False
         return True
 
@@ -276,21 +276,21 @@ class ParkingCardRequestBodyValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_parking_card_id(card_id)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_phone_number(phone)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -310,7 +310,7 @@ class ParkingCardSessionBodyValidator(BaseValidator):
             validate_id(card_session, "card_session")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True

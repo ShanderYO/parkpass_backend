@@ -10,9 +10,17 @@ RUN \
   apt-get install -y supervisor && \
   rm -rf /var/lib/apt/lists/*
 
+# Install Python3
+RUN apt-get update && \
+  apt-get install -y software-properties-common && \
+  add-apt-repository ppa:jonathonf/python-3.6
+RUN apt-get update
+RUN apt-get install -y build-essential python3.6 python3.6-dev python3-pip python3.6-venv
+RUN apt-get install -y git
 
-# Install Python2
-RUN apt-get update && apt-get install -y python-dev && apt-get install -y python-pip
+# update pip
+RUN python3.6 -m pip install pip --upgrade
+RUN python3.6 -m pip install wheel
 
 # Install Pillow ubuntu dependencies
 RUN apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev \
@@ -28,8 +36,6 @@ RUN mkdir -p /app/media/reports
 
 COPY /. /app
 
-#RUN apt-get install -y curl libreoffice-calc
-
 # Upgrade pip manager
 RUN pip install --upgrade pip
 
@@ -40,10 +46,6 @@ RUN pip install -r /app/requirements.txt
 RUN mkdir /var/log/uwsgi
 
 WORKDIR /app/
-
-# Remove overrided file for localhost development
-#RUN rm -f parkpass_backend/local_settings.py
-#RUN rm -f parkpass_backend/local_settings.pyc
 
 # Config for socket upstream from nginx
 ARG SOCKNAME_DEFAULT="app.sock"

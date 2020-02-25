@@ -58,14 +58,14 @@ class UpdateParkingValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_id(free_places, "free_places")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -108,7 +108,7 @@ class CreateParkingValidator(BaseValidator):
             validate_uint(a['max_client_debt'], 'max_client_debt')
         except ValidationError as e:
             self.code = e.code,
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -134,21 +134,21 @@ class CreateParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_id(client_id, "client_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
             validate_uint(started_at, "started_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         vendor_id = self.request.data.get("vendor_id", None)
@@ -157,7 +157,7 @@ class CreateParkingSessionValidator(BaseValidator):
                 validate_id(vendor_id)
             except ValidationError as e:
                 self.code = ValidationException.VALIDATION_ERROR
-                self.message = str(e.message)
+                self.message = str(e)
                 return False
 
         return True
@@ -186,7 +186,7 @@ class UpdateParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
@@ -202,7 +202,7 @@ class UpdateParkingSessionValidator(BaseValidator):
             validate_uint(updated_at, "updated_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -231,7 +231,7 @@ class CompleteParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         try:
@@ -247,7 +247,7 @@ class CompleteParkingSessionValidator(BaseValidator):
             validate_uint(completed_at, "completed_at")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -271,7 +271,7 @@ class CancelParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True
@@ -291,7 +291,7 @@ class UpdateListParkingSessionValidator(BaseValidator):
             validate_id(parking_id, "parking_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         if type(sessions) != type([]):
@@ -322,7 +322,7 @@ class UpdateListParkingSessionValidator(BaseValidator):
                 validate_uint(updated_at, "updated_at")
             except ValidationError as e:
                 self.code = ValidationException.VALIDATION_ERROR
-                self.message = str(e.message)+"Item %s" % index
+                self.message = str(e)+"Item %s" % index
                 return False
         return True
 
@@ -342,14 +342,14 @@ class ComplainSessionValidator(BaseValidator):
             validate_id(session_id, "session_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         # TODO add type list validator and message requirements lenght
 
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
 
         return True

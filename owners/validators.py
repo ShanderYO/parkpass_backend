@@ -43,7 +43,7 @@ class IssueValidator(BaseValidator):
                 validate_phone_number(phone)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -83,6 +83,6 @@ class ConnectIssueValidator(BaseValidator):
 
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True

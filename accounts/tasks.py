@@ -5,7 +5,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 
 from parkings.models import ParkingSession
-from parkpass.celery import app
+from parkpass_backend.celery import app
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED
 from payments.payment_api import TinkoffAPI
 
@@ -98,7 +98,7 @@ def confirm_all_orders_if_needed(parking_session):
                         error_code=-1)
                     session_order.confirm_payment(payment)
                 except ObjectDoesNotExist as e:
-                    logging.warning(e.message)
+                    logging.warning(e)
     else:
         logging.info("Wait vendor completing session")
 

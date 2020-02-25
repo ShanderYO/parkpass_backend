@@ -259,7 +259,7 @@ class GetParkingViewList(LoginRequiredAPIView):
         except ValidationError as e:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
-                e.message
+                str(e)
             )
             return JsonResponse(e.to_dict(), status=400)
 

@@ -7,7 +7,7 @@ import jwt
 
 from django.utils import timezone
 
-from parkpass.settings import SECRET_KEY_JWT
+from parkpass_backend.settings import SECRET_KEY_JWT
 
 
 def unique_code():

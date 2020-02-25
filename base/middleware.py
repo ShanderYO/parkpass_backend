@@ -26,14 +26,20 @@ def get_authorization_header(self, request):
     return authorization
 
 
-class ComplexAuthenticationMiddleware(object):
-    def process_request(self, request):
+class ComplexAuthenticationMiddleware():
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
         if self.is_jwt_authorize(request):
             print("is_jwt_authorize")
-            return JWTTokenAuthenticationMiddleware().process_request(request)
+            middleware = JWTTokenAuthenticationMiddleware(self.get_response)
+            return middleware(request)
+
         else:
             print("is_old_authorize")
-            return TokenAuthenticationMiddleware().process_request(request)
+            middleware = TokenAuthenticationMiddleware(self.get_response)
+            return middleware(request)
 
     def is_jwt_authorize(self, request):
         auth = get_authorization_header(request).split()
@@ -42,17 +48,23 @@ class ComplexAuthenticationMiddleware(object):
         return True
 
 
-class JWTTokenAuthenticationMiddleware(object):
-    def process_request(self, request):
+class JWTTokenAuthenticationMiddleware():
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
         print("JWTTokenAuthenticationMiddleware process request")
         request.account = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.BASIC))
         request.vendor = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.VENDOR))
         request.owner = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.OWNER))
         request.admin = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.ADMIN))
 
+        return self.get_response(request)
+
     def get_jwt_account(self, request, group):
         access_token = self.get_access_token(request)
         claims = parse_jwt(access_token)
+
         if claims:
             print(claims)
             expires_at = int(claims.get("expires_at", 0))
@@ -102,7 +114,7 @@ class JWTTokenAuthenticationMiddleware(object):
         if len(auth) == 1 or len(auth) > 2:
             return None
 
-        return auth[1]
+        return auth[1].decode()
 
     def get_authorization_header(self, request):
         authorization = request.META.get('HTTP_AUTHORIZATION', b'')
@@ -111,14 +123,18 @@ class JWTTokenAuthenticationMiddleware(object):
         return authorization
 
 
-class TokenAuthenticationMiddleware(object):
-    def process_request(self, request):
-        print("TokenAuthenticationMiddleware process request")
+class TokenAuthenticationMiddleware():
+    def __init__(self, get_response):
+        self.get_response = get_response
 
+    def __call__(self, request):
+        print("TokenAuthenticationMiddleware process request")
         request.account = SimpleLazyObject(lambda: get_account(request, account))
         request.vendor = SimpleLazyObject(lambda: get_account(request, vendor))
         request.owner = SimpleLazyObject(lambda: get_account(request, owner))
         request.admin = SimpleLazyObject(lambda: get_account(request, admin))
+
+        return self.get_response(request)
 
 
 def get_authorization_header(request):
@@ -141,7 +157,7 @@ def get_account(request, ac_type):
         return None
     try:
         token = auth[1].decode()
-    except UnicodeError:
+    except Exception:
         return None
 
     return ac_type[1].get_account_by_token(token)

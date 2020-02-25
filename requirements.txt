@@ -1,21 +1,33 @@
 # This is an implicit value, here for clarity
 --index-url https://pypi.python.org/simple/
 
+<<<<<<< HEAD
 Django==2.2
 Pillow==7.0.0
 psycopg2-binary==2.8.4
+=======
+Django==2.1
+Pillow==3.4.2
+psycopg2==2.7.1
+>>>>>>> 7fdbb28b0983c82f55bf488c7b4dd7cad1b0aba3
 requests==2.18.4
-django-simple-serializer==2.0.7
 python-jose==3.0.1
 pytz==2018.9
 django-admin-tools==0.8.1
 uwsgi==2.0.18
-celery==4.2.2
+celery==4.2.0
 django-celery-beat==1.4.0
 redis==3.2.1
 python-dateutil==2.8.0
 PyJWT==1.7.1
+<<<<<<< HEAD
 numpy==1.18.1
 pandas==0.20.3
 openpyxl==1.8.6
 
+=======
+numpy==1.14.0
+pandas==0.23.0
+openpyxl==2.6.0
+Jinja2==2.10.3
+>>>>>>> 7fdbb28b0983c82f55bf488c7b4dd7cad1b0aba3

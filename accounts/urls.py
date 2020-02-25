@@ -57,5 +57,3 @@ urlpatterns = [
     url(r'^subscription/(?P<pk>\d+)/$', AccountSubscriptionView.as_view()),
     url(r'^subscription/(?P<pk>\d+)/settings/$', AccountSubscriptionSettingsView.as_view()),
 ]
-
-urlpatterns += staticfiles_urlpatterns()

@@ -96,7 +96,7 @@ class UpdateParkingTestCase(TestCase):
             ]
         })
         response = self._make_signed_json_post(url, body)
-        # print response
+        # print(response)
         time.sleep(10)
         self.assertEqual(response.status_code, 202)
 
@@ -114,6 +114,6 @@ class UpdateParkingTestCase(TestCase):
             ]
         })
         response = self._make_signed_json_post(url, body)
-        # print response
+        # print(response)
         time.sleep(10)
         self.assertEqual(response.status_code, 202)

@@ -10,8 +10,8 @@ from django.http import JsonResponse
 from dss.Serializer import serializer
 
 from base.exceptions import ValidationException
-from parkpass.settings import BASE_LOGGER_NAME
-from parkpass.settings import PAGINATION_OBJECTS_PER_PAGE
+from parkpass_backend.settings import BASE_LOGGER_NAME
+from parkpass_backend.settings import PAGINATION_OBJECTS_PER_PAGE
 
 
 def strtobool(s):
