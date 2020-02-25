@@ -184,7 +184,7 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
         return JsonResponse({'parkings': result, 'count': length}, status=200)
 
 
-class GetParkingView(LoginRequiredAPIView):
+class GetParkingViewMixin:
     def get(self, request, *args, **kwargs):
         try:
             parking = Parking.objects.get(id=kwargs["pk"])
@@ -197,6 +197,11 @@ class GetParkingView(LoginRequiredAPIView):
         result_dict = serializer(parking, exclude_attr=("vendor_id", "company_id", "max_client_debt",
                                                         "tariff", "tariff_file_name", "tariff_file_content"))
         return JsonResponse(result_dict, status=200)
+
+
+# TODO check it
+class GetParkingView(GetParkingViewMixin, LoginRequiredAPIView):
+    pass
 
 
 class GetTariffParkingView(View):

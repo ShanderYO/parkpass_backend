@@ -1,3 +1,3 @@
-from gateway import SMSGateway
+from .gateway import SMSGateway
 
 sms_sender = SMSGateway()

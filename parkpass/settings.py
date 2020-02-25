@@ -54,7 +54,8 @@ INSTALLED_APPS = (
     'jwtauth',
     'rps_vendor',
     'owners',
-    'control'
+    'control',
+    'partners'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -110,6 +111,17 @@ if os.environ.get("PROD"):
             'USER': os.environ.get("POSTGRES_USER"),
             'PASSWORD': os.environ.get("POSTGRES_PASSWORD"),
             'HOST': os.environ.get("POSTGRES_DATABASE_HOST"), # Set to empty string for localhost.
+            'PORT': '', # Set to empty string for default.
+        }
+    }
+elif os.environ.get("DEV"):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': "parkpass",
+            'USER': "parkpass",
+            'PASSWORD': "parkpass",
+            'HOST': "sandbox.parkpass.ru",
             'PORT': '', # Set to empty string for default.
         }
     }
@@ -192,11 +204,11 @@ LOGGING = {
         'django.request': {
             'handlers': ['file'],
             'level': 'DEBUG',
-            'propagate': True,
+            'propagate': True
         },
         BASE_LOGGER_NAME: {
             'handlers': ['file'],
-            'level': 'DEBUG',
+            'level': 'DEBUG'
         },
         REQUESTS_LOGGER_NAME: {
             'handlers': ['requests_file'],

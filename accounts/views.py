@@ -27,7 +27,7 @@ from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
 
-from sms_gateway import sms_sender
+from accounts.sms_gateway import sms_sender
 from vendors.models import VendorIssue, Vendor
 
 
