@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/v1/account/', include("accounts.urls")),
     path('api/v1/payments/', include("payments.urls")),
     path('api/v1/parking/', include("parkings.urls")),
+    path('api/v1/partner/', include("partners.urls")),
     path('api/v1/control/', include("control.urls")),
     path('api/v1/owner/', include("owners.urls")),
     path('api/v1/parking/', include("rps_vendor.urls")),

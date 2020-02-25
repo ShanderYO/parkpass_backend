@@ -199,7 +199,6 @@ class GetParkingViewMixin:
         return JsonResponse(result_dict, status=200)
 
 
-# TODO check it
 class GetParkingView(GetParkingViewMixin, LoginRequiredAPIView):
     pass
 
@@ -230,9 +229,8 @@ class GetTariffParkingView(View):
             return HttpResponse("Invalid file content. Decoding error")
 
 
-class GetParkingViewList(LoginRequiredAPIView):
-
-    def get(self, request):
+class GetParkingViewListMixin:
+    def get(self, request, *args, **kwargs):
         left_top_latitude = request.GET.get("lt_lat", None)
         left_top_longitude = request.GET.get("lt_lon", None)
         right_bottom_latitude = request.GET.get("rb_lat", None)
@@ -274,6 +272,10 @@ class GetParkingViewList(LoginRequiredAPIView):
                                         "longitude", "free_places", "approved",)
         )
         return JsonResponse(response_dict, status=200)
+
+
+class GetParkingViewList(GetParkingViewListMixin, LoginRequiredAPIView):
+    pass
 
 
 class GetAvailableParkingsView(APIView):

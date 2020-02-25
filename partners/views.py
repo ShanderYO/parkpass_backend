@@ -1,22 +1,34 @@
 from base.views import PartnerRequestAPIView
-from parkings.views import GetParkingViewMixin
+from parkings.views import GetParkingViewMixin, GetParkingViewListMixin
+from rps_vendor.views import GetParkingCardDebtMixin, InitPayDebt, GetCardSessionStatusMixin
 
 
 class GetPartnerParkingView(GetParkingViewMixin, PartnerRequestAPIView):
     pass
 
 
-class GetPartnerTariffParkingView(PartnerRequestAPIView):
-    pass
-
 class GetPartnerAvailableParkingsView(PartnerRequestAPIView):
+    def get(self, request, *args, **kwargs):
+        if not request.GET.get("lt_lat", None) and not request.GET.get("lt_lon", None) \
+                and not request.GET.get("rb_lat", None) and not request.GET.get("rb_lon", None):
+            get_params = request.GET.copy()
+            get_params["lt_lat"] = 90
+            get_params["lt_lon"] = -180
+            get_params["rb_lat"] = -90
+            get_params["rb_lon"] = 180
+            request.GET = get_params
+
+        mixin = GetParkingViewListMixin()
+        return mixin.get(request, *args, **kwargs)
+
+
+class GetPartnerParkingCardDebt(GetParkingCardDebtMixin, PartnerRequestAPIView):
     pass
 
-class GetPartnerParkingCardDebt(PartnerRequestAPIView):
+
+class InitPartnerPayDebt(InitPayDebt, PartnerRequestAPIView):
     pass
 
-class InitPartnerPayDebt(PartnerRequestAPIView):
-    pass
 
-class GetPartnerCardSessionStatus(PartnerRequestAPIView):
+class GetPartnerCardSessionStatus(GetCardSessionStatusMixin, PartnerRequestAPIView):
     pass

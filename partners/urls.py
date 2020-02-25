@@ -2,13 +2,12 @@ from django.conf.urls import url
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from partners.views import (
-    GetPartnerParkingView, GetPartnerTariffParkingView, GetPartnerAvailableParkingsView,
+    GetPartnerParkingView, GetPartnerAvailableParkingsView,
     GetPartnerCardSessionStatus, InitPartnerPayDebt, GetPartnerParkingCardDebt
 )
 
 urlpatterns = [
     url(r'^get/(?P<pk>\d+)/$', GetPartnerParkingView.as_view()),
-    url(r'^get/(?P<pk>\d+)/tariff/$', GetPartnerTariffParkingView.as_view()),
     url(r'^all/$', GetPartnerAvailableParkingsView.as_view()),
 
     url(r'^cards/debt/$', GetPartnerParkingCardDebt.as_view()),
