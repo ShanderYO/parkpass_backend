@@ -64,8 +64,10 @@ curl https://parkpass.ru/api/v1/partner/<url> -H "x-partner-name: partner_name"
 
 Например, чтобы получить список доступных парковок, выполните: 
 ```bash
-curl https://sandbox.parkpass.ru/api/v1/partner/all/ -H "x-partner-name: test_name"
+curl https://sandbox.parkpass.ru/api/v1/partner/all/ -H "x-partner-name: test_partner"
 ```
+
+Для отправки POST-запросов используйте ```partner_secret=c2a0a5647d33080ad103ac33d02be4d3671c774a30a2e90d4a54de0f6f81ccf8```
 
 
 ### Описание API для работы с парковочными картами
