@@ -127,7 +127,7 @@ WSGI_APPLICATION = 'parkpass_backend.wsgi.application'
 
 DATABASES = {}
 
-if not os.environ.get("PROD"):
+if os.environ.get("DEV"):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -136,6 +136,17 @@ if not os.environ.get("PROD"):
             'PASSWORD': os.environ.get("POSTGRES_PASSWORD", "parkpass"),
             'HOST': os.environ.get("POSTGRES_DATABASE_HOST", "185.158.155.26"), # Set to empty string for localhost.
             'PORT': '', # Set to empty string for default.
+        }
+    }
+elif os.environ.get("PROD"):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': os.environ.get("POSTGRES_DB_NAME", ""),
+            'USER': os.environ.get("POSTGRES_USER", ""),
+            'PASSWORD': os.environ.get("POSTGRES_PASSWORD", ""),
+            'HOST': os.environ.get("POSTGRES_DATABASE_HOST", ""),  # Set to empty string for localhost.
+            'PORT': '',  # Set to empty string for default.
         }
     }
 else:
