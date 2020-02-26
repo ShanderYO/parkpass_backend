@@ -1,33 +1,15 @@
-FROM ubuntu:16.04
-
-# Install.
-RUN \
-  apt-get update && \
-  apt-get install -y build-essential && \
-  apt-get install -y software-properties-common && \
-  apt-get install -y byobu curl git htop man unzip vim wget && \
-  apt-get install -y nginx && \
-  apt-get install -y supervisor && \
-  rm -rf /var/lib/apt/lists/*
-
-# Install Python3
-RUN apt-get update && \
-  apt-get install -y software-properties-common && \
-  add-apt-repository ppa:jonathonf/python-3.6
-RUN apt-get update
-RUN apt-get install -y build-essential python3.6 python3.6-dev python3-pip python3.6-venv
-RUN apt-get install -y git
+FROM python:3.6.9-buster
 
 # update pip
 RUN python3.6 -m pip install pip --upgrade
 RUN python3.6 -m pip install wheel
 
 # Install Pillow ubuntu dependencies
-RUN apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev \
-    libfreetype6-dev liblcms2-dev libgdal-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk
+RUN apt-get install -y zlib1g-dev \
+    libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev
 
 # Install OpenSSL for python
-RUN apt-get install -y python-openssl
+# RUN apt-get install -y python-openssl
 
 # Install parkpass project to /deploy
 RUN mkdir -p /app
