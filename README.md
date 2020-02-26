@@ -1,5 +1,73 @@
 Основаная документация перенесена в [вики](/strevg/parkpass_backend/wiki/Home)
 
+### Описание использования API партнера
+
+#### Регистрация партнера
+Для начала работы необходимо зарегистрироваться как партнер.
+При регистрации патнер получает пару значений
+ ```partner_name``` и ```partner_secret``` от администратора сервиса PARKPASS.
+Значения этих полей необходимы при обращении к API партнеров PARKPASS
+
+#### Использование API
+API партнера позволяет получить или отправить данные в PARKPASS через GET и POST запросы.
+При выполнениие GET-запроса партнер должен указать выданные ему ```partner_name``` в заголовке запроса:
+
+```bash
+curl https://parkpass.ru/api/v1/partner/<url> -H "x-partner-name: partner_name"
+```
+
+При передаче пустого заголовка ```x-partner-name``` в ответ будет получена ошибка:
+```json
+{
+  "code": 400,
+  "exception": "ValidationException",
+  "message": "The partner name is empty. [x-partner-name] header required",
+}
+```
+
+При передаче ошибочного значения ```partner_name``` в ответ будет получена ошибка:
+```json
+{
+  "code": 303,
+  "exception": "PermissionException",
+  "message": "Invalid partner name"
+}
+```
+При выполнении POST-запросов сервису PARKPASS необходимо предать
+вместе с телом запроса подпись. Подпись осуществляется с помощью алгоритма hmac-sha512.
+
+Например для ```partner_secret=secret``` и тела
+```{"foo": "bar"}```
+Зачение hmac-sha512 hex-сигнатуры - ```c92a5c48818a913faa02546ca27079405e5d49b98690e1030435555662674f53f96281ad803b75cb651a5c908908f27b95c63c814a8cc72d73c299a6e1e04e00```
+
+При отправке POST-запроса без передачи подписи в заголовке, будет выдана ошибку:
+```json
+{
+  "code": 400,
+  "exception": "ValidationException",
+  "message": "Signature is empty. [x-signature] header required"
+}
+```
+
+При ошибке валидации на стороне сервиса PARKPASS:
+```json
+{
+  "code": 300,
+  "exception": "ValidationException",
+  "message": "Invalid signature"
+}
+```
+
+#### Проверка интеграции с API партнера
+Для проверки интеграции можно использовать тестовый сервер сервиса PARKPASS
+``` https://sandbox.parkpass.ru ```
+
+Например, чтобы получить список доступных парковок, выполните: 
+```bash
+curl https://sandbox.parkpass.ru/api/v1/partner/all/ -H "x-partner-name: test_name"
+```
+
+
 ### Описание API для работы с парковочными картами
 Все используемые REST API вызовы используют только подписанные запросы с помощью ```hmac-sha512"```.
 Все методы по умолчанию используют ```Content-type: application/json```
