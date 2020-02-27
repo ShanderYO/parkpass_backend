@@ -88,7 +88,7 @@ class RpsParking(models.Model):
         prefix_query_str = "ticket_id=%s&FromPay=ParkPass" % parking_card
 
         str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
-        hash_str = hashlib.sha1(str_for_hash).hexdigest()
+        hash_str = hashlib.sha1(str_for_hash.encode('utf-8')).hexdigest()
 
         query_str = prefix_query_str + '&hash=%s' % hash_str
 
@@ -204,7 +204,7 @@ class RpsParkingCardSession(models.Model):
         prefix_query_str = "ticket_id=%s&amount=%s&FromPay=ParkPass" % (self.parking_card.card_id, int(order.sum))
 
         str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
-        hash_str = hashlib.sha1(str_for_hash).hexdigest()
+        hash_str = hashlib.sha1(str_for_hash.encode('utf-8')).hexdigest()
 
         payload = json.dumps({
             "ticket_id": self.parking_card.card_id,
