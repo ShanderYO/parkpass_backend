@@ -370,7 +370,7 @@ class SubscriptionCallbackView(SignedRequestAPIView):
         return JsonResponse({"status":"OK"}, status=200)
 
 
-class SubscriptionUpdateView(APIView): #SignedRequestAPIView):
+class SubscriptionUpdateView(SignedRequestAPIView):
     validator_class = SubscriptionUpdateBodyValidator
 
     def post(self, request, *args, **kwargs):
@@ -443,7 +443,7 @@ class SubscriptionUpdateView(APIView): #SignedRequestAPIView):
         return JsonResponse({}, status=200)
 
 
-class RpsCreateOrGetAccount(APIView): #(SignedRequestAPIView):
+class RpsCreateOrGetAccount(SignedRequestAPIView):
     validator_class = CreateOrGetAccountBodyValidator
 
     def post(self, request, *args, **kwargs):
