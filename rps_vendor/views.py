@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from decimal import Decimal
 
@@ -6,9 +7,10 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.utils import timezone
 
+from accounts.models import Account
 from base.exceptions import ValidationException
 from base.models import Terminal
-from base.utils import get_logger
+from base.utils import get_logger, clear_phone, datetime_from_unix_timestamp_tz
 from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
@@ -16,11 +18,12 @@ from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, C
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED
 from payments.payment_api import TinkoffAPI
 from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR, \
-    RpsSubscription
+    RpsSubscription, STATE_CONFIRMED
 from rps_vendor.tasks import rps_process_updated_sessions
 from rps_vendor.validators import RpsCreateParkingSessionValidator, RpsUpdateParkingSessionValidator, \
     RpsCancelParkingSessionValidator, RpsCompleteParkingSessionValidator, RpsUpdateListParkingSessionValidator, \
-    ParkingCardRequestBodyValidator, ParkingCardSessionBodyValidator
+    ParkingCardRequestBodyValidator, ParkingCardSessionBodyValidator, CreateOrGetAccountBodyValidator, \
+    SubscriptionUpdateBodyValidator
 
 
 class RpsCreateParkingSessionView(SignedRequestAPIView):
@@ -365,3 +368,107 @@ class SubscriptionCallbackView(SignedRequestAPIView):
                     break
 
         return JsonResponse({"status":"OK"}, status=200)
+
+
+class SubscriptionUpdateView(APIView): #SignedRequestAPIView):
+    validator_class = SubscriptionUpdateBodyValidator
+
+    def post(self, request, *args, **kwargs):
+        get_logger().info(request.data)
+
+        user_id = int(request.data["user_id"])
+        parking_id = int(request.data["parking_id"])
+        name = request.data["name"]
+        description = request.data["description"]
+        duration = int(request.data["duration"], 0)
+        id_ts = int(request.data["id_ts"])
+        id_transition = int(request.data["id_transaction"])
+        expired_at = int(request.data["expired_at"], 0)
+        data = request.data["data"]
+
+        account = None
+        try:
+            account = Account.objects.get(id=user_id)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "User with id %s does not exist" % user_id
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        parking = None
+        try:
+            parking = Parking.objects.get(id=parking_id)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking with id %s is not found" % parking_id
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        subscription_qs = RpsSubscription.objects.filter(
+            account=account,
+            parking=parking,
+            active=True)
+
+        prolongation = False
+        subscription = subscription_qs.first()
+        if subscription:
+            prolongation = subscription.prolongation
+            # Disable all subscriptions
+            subscription_qs.update(active=False)
+
+        default_infinity_duration = 60*60*24*356*10
+        default_infinity_expiration_datetime = timezone.now() + datetime.timedelta(seconds=default_infinity_duration)
+
+        RpsSubscription.objects.create(
+            name=name,
+            description=description,
+            sum=0,
+            started_at=timezone.now(),
+            expired_at=datetime_from_unix_timestamp_tz(expired_at) if expired_at else default_infinity_expiration_datetime,
+            duration=duration if duration else default_infinity_duration,
+            parking=parking,
+            account=account,
+            prolongation=prolongation,
+            idts=id_ts,
+            id_transition=id_transition,
+            data=data,
+            active=True,
+            state=STATE_CONFIRMED
+        )
+
+        return JsonResponse({}, state=200)
+
+
+class RpsCreateOrGetAccount(APIView): #(SignedRequestAPIView):
+    validator_class = CreateOrGetAccountBodyValidator
+
+    def post(self, request, *args, **kwargs):
+        phone = clear_phone(request.data["phone"])
+        parking_id = int(request.data["parking_id"])
+        is_new_user = True
+        subscription_data = None
+
+        account = Account.objects.filter(phone=phone).first()
+        if not account:
+            account = Account(phone=phone)
+            account.save()
+
+        else:
+            is_new_user = False
+            subscription = RpsSubscription.objects.filter(
+                account=account,
+                parking_id=parking_id,
+                active=True
+            ).first()
+            if subscription:
+                subscription_data = subscription.data
+
+        return JsonResponse({
+            "user_id": account.id,
+            "is_new_user": is_new_user,
+            "data": subscription_data
+        })
