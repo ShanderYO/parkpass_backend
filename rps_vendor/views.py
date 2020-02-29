@@ -380,10 +380,10 @@ class SubscriptionUpdateView(APIView): #SignedRequestAPIView):
         parking_id = int(request.data["parking_id"])
         name = request.data["name"]
         description = request.data["description"]
-        duration = int(request.data["duration"], 0)
+        duration = int(request.data.get("duration", 0))
         id_ts = int(request.data["id_ts"])
-        id_transition = int(request.data["id_transaction"])
-        expired_at = int(request.data["expired_at"], 0)
+        id_transition = int(request.data["id_transition"])
+        expired_at = int(request.data.get("expired_at", 0))
         data = request.data["data"]
 
         account = None
@@ -440,7 +440,7 @@ class SubscriptionUpdateView(APIView): #SignedRequestAPIView):
             state=STATE_CONFIRMED
         )
 
-        return JsonResponse({}, state=200)
+        return JsonResponse({}, status=200)
 
 
 class RpsCreateOrGetAccount(APIView): #(SignedRequestAPIView):

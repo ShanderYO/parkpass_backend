@@ -69,8 +69,7 @@ curl https://sandbox.parkpass.ru/api/v1/partner/all/ -H "x-partner-name: test_pa
 
 Для отправки POST-запросов используйте ```partner_secret=c2a0a5647d33080ad103ac33d02be4d3671c774a30a2e90d4a54de0f6f81ccf8```
 
-
-### Описание API для работы с парковочными картами
+### Описание API для работы с парковочными картами и абонементами
 Все используемые REST API вызовы используют только подписанные запросы с помощью ```hmac-sha512"```.
 Все методы по умолчанию используют ```Content-type: application/json```
 
@@ -225,6 +224,82 @@ Status 400
     "message": "Payment is not yet inited. Please, call /payment/init/ method"
 }
 ```
+
+
+``` - POST api/v1/parking/rps/account/register/ ``` - Регистрация или получение пользователя по номеру телефона с получением данных по абонементу.
+
+Тело:
+```
+{
+    "phone": "79056172133",
+    "parking_id": 10
+}
+```
+
+Status 200
+```
+{
+    "user_id": 100000000000000257,
+    "is_new_user": false,
+    "data": "hex-data" (String)
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Key 'phone' and 'parking_id' is required"
+}
+
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "['Phone number has invalid format. Please, send like something +7(909)1234332']"
+}
+
+```
+
+
+``` - POST api/v1/parking/rps/subscription/update/ ``` - Обновление абонемента пользователя от RPS.
+
+Тело:
+```json
+{
+  "user_id": 1,
+  "parking_id": 1,
+  "name": "Subscription name",
+  "description": "Subscription description",
+  "duration": 7776000, // 3 month
+  "id_ts": "1",
+  "id_transition": "11-SD",
+  "expired_at": 1000,
+  "data": "00000000HHFSJ"
+}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'user_id', 'parking_id', 'name', 'description', 'id_ts', 'id_transition', 'data' are required"
+}
+
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "User with id 1000000000000002574 does not exist"
+}
+
+{
+    "exception": "ValidationException",
+    "code": 402,
+    "message": "User with id 1000000000000002574 does not exist"
+}
+```
+
 
 ### Требуемый API от RPS
 - ```POST```-метод на получения задолженности по парковочной карте
