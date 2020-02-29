@@ -26,7 +26,7 @@ urlpatterns = [
     url(r'^rps/mock/confirm/$', MockingOrderConfirm.as_view()),
     url(r'^rps/mock/refund/$', MockingOrderRefund.as_view()),
 
-    url(r'^rps/account/register', RpsCreateOrGetAccount.as_view())
+    url(r'^rps/account/register/$', RpsCreateOrGetAccount.as_view())
 ]
 
 urlpatterns += staticfiles_urlpatterns()

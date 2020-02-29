@@ -353,7 +353,8 @@ class SubscriptionUpdateBodyValidator(BaseValidator):
 
         if not all([user_id, parking_id, name, description, id_ts, id_transition, data]):
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Keys 'user_id', 'parking_id', 'name', 'description', 'id_ts', 'id_transition', 'data' are required"
+            self.message = "Keys 'user_id', 'parking_id', 'name', " \
+                           "'description', 'id_ts', 'id_transition', 'data' are required"
             return False
         try:
             if duration:
