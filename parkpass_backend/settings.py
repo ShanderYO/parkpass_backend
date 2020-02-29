@@ -127,7 +127,7 @@ WSGI_APPLICATION = 'parkpass_backend.wsgi.application'
 
 DATABASES = {}
 
-if not os.environ.get("DEV"):
+if os.environ.get("DEV"):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
