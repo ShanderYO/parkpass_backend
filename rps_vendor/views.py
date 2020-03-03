@@ -15,7 +15,7 @@ from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
-from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED
+from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED
 from payments.payment_api import TinkoffAPI
 from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR, \
     RpsSubscription, STATE_CONFIRMED
@@ -350,7 +350,7 @@ class SubscriptionCallbackView(SignedRequestAPIView):
             ).exclude(id=rps_subscription.id).update(expired_at=timezone.now())
 
             for payment in payments:
-                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
                     order.confirm_payment(payment)
                     break
         else:
@@ -358,7 +358,7 @@ class SubscriptionCallbackView(SignedRequestAPIView):
             rps_subscription.reset(error_message=error_message)
 
             for payment in payments:
-                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
                     request_data = payment.build_cancel_request_data()
                     result = TinkoffAPI().sync_call(
                         TinkoffAPI.CANCEL, request_data

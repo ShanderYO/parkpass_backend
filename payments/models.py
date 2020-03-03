@@ -406,11 +406,16 @@ class Order(models.Model):
             payment.payment_id, default_account_credit_card.rebill_id
         )
         get_logger().info(request_data)
+
+        # Add
+        payment.status = PAYMENT_STATUS_PREPARED_AUTHORIZED
+        payment.save()
         result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.CHARGE, request_data
         )
         if result[u'Status'] == u'AUTHORIZED':
-            payment.status = PAYMENT_STATUS_AUTHORIZED
+            payment.status = PAYMENT_STATUS_AUTHORIZED \
+                if payment.status != PAYMENT_STATUS_CONFIRMED else PAYMENT_STATUS_CONFIRMED
             payment.save()
 
         get_logger().info(str(result))
@@ -463,6 +468,7 @@ PAYMENT_STATUS_REVERSED = 8
 PAYMENT_STATUS_REFUNDED = 9
 PAYMENT_STATUS_PARTIAL_REFUNDED = 10
 PAYMENT_STATUS_RECEIPT = 11
+PAYMENT_STATUS_PREPARED_AUTHORIZED = 12
 
 PAYMENT_STATUSES = (
     (PAYMENT_STATUS_UNKNOWN, 'Unknown'),
@@ -476,6 +482,7 @@ PAYMENT_STATUSES = (
     (PAYMENT_STATUS_CONFIRMED, 'Confirmed'),
     (PAYMENT_STATUS_REFUNDED, 'Refunded'),
     (PAYMENT_STATUS_PARTIAL_REFUNDED, 'Partial_refunded'),
+    (PAYMENT_STATUS_PREPARED_AUTHORIZED, 'Authorization prepared'),
 )
 
 

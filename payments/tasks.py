@@ -5,7 +5,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from base.utils import get_logger
 from parkpass_backend.celery import app
 from payments.payment_api import TinkoffAPI
-from payments.models import TinkoffPayment, Order, PAYMENT_STATUS_AUTHORIZED
+from payments.models import TinkoffPayment, Order, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED
 from rps_vendor.models import RpsSubscription
 
 
@@ -44,12 +44,12 @@ def make_buy_subscription_request(subscription_id):
 
         if subscription.request_buy():
             for payment in payments:
-                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
                     order.confirm_payment(payment)
                     return
         else:
             for payment in payments:
-                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
                     request_data = payment.build_cancel_request_data()
                     result = TinkoffAPI().sync_call(
                         TinkoffAPI.CANCEL, request_data
