@@ -237,7 +237,7 @@ class TinkoffCallbackView(APIView):
 
         datetime_object = datetime.datetime.strptime(
             receipt_datetime_str.split("+")[0], "%Y-%m-%dT%H:%M:%S")
-        order_id = long(data.get("OrderId", -1))
+        order_id = int(data.get("OrderId", -1))
 
         try:
             order = Order.objects.get(id=order_id)
