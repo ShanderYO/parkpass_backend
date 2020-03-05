@@ -12,6 +12,7 @@ from base.exceptions import ValidationException
 from base.models import Terminal
 from base.utils import get_logger, clear_phone, datetime_from_unix_timestamp_tz
 from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
+from jwtauth.utils import datetime_to_timestamp
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
@@ -322,7 +323,7 @@ class SubscriptionCallbackView(SignedRequestAPIView):
         get_logger().info(request.data)
 
         subscription_id = request.data["subscription_id"]
-        rps_subscription = RpsSubscription.objects.filter(id=int(subscription_id)).first()
+        rps_subscription = RpsSubscription.objects.filter(id=int(subscription_id)).select_related('parking').first()
 
         if not rps_subscription:
             get_logger().warning("RpsSubscription with %s does not exists " % subscription_id)
@@ -338,9 +339,19 @@ class SubscriptionCallbackView(SignedRequestAPIView):
         status = request.data.get("status")
         if status:
             data = str(request.data["data"])
-            expired_at = str(request.data["expired_at"])
+            str_expired_at = str(request.data["expired_at"])
 
-            rps_subscription.expired_at = parser.parse(expired_at)
+            ISO_KOZULIN_FORMAT = "%d.%m.%Y %H:%M:%S"
+
+            try:
+                parsed_datetime = datetime.datetime.strptime(str_expired_at, ISO_KOZULIN_FORMAT)
+                parsed_timestamp = datetime_to_timestamp(parsed_datetime)
+                tz_datetime = rps_subscription.parking.get_utc_parking_datetime(parsed_timestamp)
+                rps_subscription.expired_at = tz_datetime
+
+            except ValueError:
+                get_logger().info("Error parsing kozulin date: %s " % str_expired_at)
+
             rps_subscription.data = data
             rps_subscription.save()
 
