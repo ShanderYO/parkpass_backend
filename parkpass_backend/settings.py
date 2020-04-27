@@ -53,7 +53,7 @@ TINKOFF_TERMINAL_KEY = TINKOFF_DEFAULT_TERMINAL_KEY
 TINKOFF_TERMINAL_PASSWORD = TINKOFF_DEFAULT_TERMINAL_PASSWORD
 
 # Application definition
-TINKOFF_API_REFRESH_TOKEN = 'kRfnfbAbeslS73haYLSR2Ow5xrJ2aILnujTU3CFE0AkoYXmPhEiNESvaE+I2a7msR82h6foPj3sZCuYdRMfa6Q=='
+#TINKOFF_API_REFRESH_TOKEN = 't.MQCiorv_cccpkAw5u5kknrpNd54WbunlOx4iy6cCEH69BbwSDQQWql2nnTuHxY_VpuHtrPW8dHUojjwOl3uc5A'
 PARKPASS_INN = "7725415044"
 
 
@@ -127,7 +127,7 @@ WSGI_APPLICATION = 'parkpass_backend.wsgi.application'
 
 DATABASES = {}
 
-if os.environ.get("DEV"):
+if not os.environ.get("DEV"):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',

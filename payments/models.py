@@ -15,7 +15,7 @@ from dss.Serializer import serializer
 from accounts.models import Account
 from base.models import Terminal
 from base.utils import get_logger
-from parkpass_backend.settings import EMAIL_HOST_USER, TINKOFF_API_REFRESH_TOKEN, PARKPASS_INN
+from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN
 from payments.payment_api import TinkoffAPI
 
 
@@ -597,7 +597,7 @@ class TinkoffSession(models.Model):
 
 class InvoiceWithdraw(models.Model):
 
-    URL_UPDATE_TOKEN = "https://openapi.tinkoff.ru/sso//secure/token"
+    URL_UPDATE_TOKEN = "https://openapi.tinkoff.ru/sso/secure/token"
     URL_WITHDRAW = "https://openapi.tinkoff.ru/sme/api/v1/partner/company/%s/payment"
 
     documentNumber = models.TextField(null=True, blank=True, help_text="Номер документа")
@@ -648,7 +648,7 @@ class InvoiceWithdraw(models.Model):
 
     def _get_saved_access_token(self):
         active_session = TinkoffSession.objects.all().order_by('-created_at').first()
-        if active_session and active_session.is_session_valid():
+        if active_session:
             print("Get token from store")
             return active_session.access_token
         return None
@@ -672,46 +672,8 @@ class InvoiceWithdraw(models.Model):
 
     def get_or_update_token(self):
         access_token = self._get_saved_access_token()
-        if access_token is None:
-            try:
-                value = urllib.parse.quote(TINKOFF_API_REFRESH_TOKEN, safe='')
-                body = "grant_type=refresh_token&refresh_token=%s" % value
-                print(body)
-                headers = {
-                    "Content-Type":"application/x-www-form-urlencoded"
-                }
-                res = requests.post(InvoiceWithdraw.URL_UPDATE_TOKEN, body, headers=headers)
-                print(res.status_code, res.content)
-
-                if res.status_code == 200:
-                    json_data = res.json()
-
-                    refresh_token = json_data["refresh_token"]
-                    access_token = json_data["access_token"]
-                    expires_in = timezone.now() + timedelta(seconds=int(json_data["expires_in"]))
-                    sessionId = json_data["sessionId"]
-
-                    TinkoffSession.objects.create(
-                        refresh_token=refresh_token,
-                        access_token=access_token,
-                        expires_in=expires_in
-                    )
-                    # {
-                    #     "access_token": "6pg5FjCleGtoV_5uni-chWvIg_dYur_EbnjvBVyj_NYKYYc8fGdobUh9KzNRQx1W_zHX6O0iS2hqRL6p6GDHpw",
-                    #     "token_type": "Bearer",
-                    #     "expires_in": 1800,
-                    #     "refresh_token": "7ErUSl5Nc1l/PImQ8zLYJ9TV25FGtkxvoqbJKbenhRBVT9N81ATNyroMFmKZsfu+cWzfT/C12Zo6dDoV/0YUQg==",
-                    #     "sessionId": "eb5F-G4AUb9S0t4ZXhUiHGIpHDzQuaEOFzX8KTaGIELUQauiZrjxyDzFajeARDy4IEJ4nkZGxinkfkwlOCWwqg"
-                    # }
-                    #
-                    return access_token, None
-
-            except Exception as e:
-                print(str(e))
-                return None, str(e)
-
-            return None, "Status not 200 %s" % res.content
-
+        if not access_token:
+            return None, "Empty access_token"
         return access_token, None
 
     def _withdraw_request(self, token):
