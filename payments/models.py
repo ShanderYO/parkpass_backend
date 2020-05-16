@@ -630,7 +630,8 @@ class InvoiceWithdraw(models.Model):
     is_requested = models.BooleanField(default=False)
     error = models.TextField(null=True, blank=True)
 
-    responseDocumentId = models.TextField(null=True, blank=True, help_text="Идентифиакор созданного платежного поручения")
+    responseDocumentId = models.TextField(null=True, blank=True,
+                                          help_text="Идентифиакор созданного платежного поручения")
 
     class Meta:
         db_table = 'invoice_withdraw'
