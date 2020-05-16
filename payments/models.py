@@ -630,6 +630,8 @@ class InvoiceWithdraw(models.Model):
     is_requested = models.BooleanField(default=False)
     error = models.TextField(null=True, blank=True)
 
+    responseDocumentId = models.TextField(null=True, blank=True, help_text="Идентифиакор созданного платежного поручения")
+
     class Meta:
         db_table = 'invoice_withdraw'
 
@@ -644,7 +646,6 @@ class InvoiceWithdraw(models.Model):
 
         self.is_requested = False
         super(InvoiceWithdraw, self).save(*args, **kwargs)
-
 
     def _get_saved_access_token(self):
         active_session = TinkoffSession.objects.all().order_by('-created_at').first()
@@ -710,7 +711,8 @@ class InvoiceWithdraw(models.Model):
 
             if res.status_code == 200:
                 json_data = res.json()
-                if json_data.get("result") == "OK":
+                if json_data.get("documentId"):
+                    self.responseDocumentId = str(json_data["documentId"])
                     return True, None
 
             return False, "Status not 200 %s" % res.content
