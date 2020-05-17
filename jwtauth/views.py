@@ -50,7 +50,7 @@ class ConfirmPhoneLoginView(APIView):
         sms_code = request.data["sms_code"]
         try:
             user = Account.objects.get(phone=phone, sms_code=sms_code)
-            session = Session.objects.get_or_create(
+            session, created  = Session.objects.get_or_create(
                 type=TokenTypes.MOBILE,
                 temp_user_id=user.id
             )
