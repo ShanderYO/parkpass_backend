@@ -153,7 +153,7 @@ class UpdateTokensView(APIView):
 # TODO delete
 class ReplaceTokensView(LoginRequiredAPIView):
     def post(self, request, *args, **kwargs):
-        session = Session.objects.create(
+        session, created = Session.objects.get_or_create(
             type=TokenTypes.MOBILE,
             temp_user_id=request.account.id
         )
