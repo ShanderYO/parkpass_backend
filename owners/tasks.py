@@ -307,13 +307,13 @@ def append_dfs_to_excel(filename, pages,
 
         df.to_excel(writer, sheet_name=page, startrow=startrow)
         worksheet = writer.sheets[page]
-        for idx, col in enumerate(df):
-            series = df[col]
-            max_len = max((
-                series.astype(str).map(len).max(),  # len of largest item
-                len(str(series.name)) * 2  # len of column name/header
-            )) + 1  # adding a little extra space
-            worksheet.set_column(idx, idx, max_len)  # set column width
+        # for idx, col in enumerate(df):
+        #     series = df[col]
+        #     max_len = max((
+        #         series.astype(str).map(len).max(),  # len of largest item
+        #         len(str(series.name)) * 2  # len of column name/header
+        #     )) + 1  # adding a little extra space
+        #     worksheet.set_column(idx, idx, max_len)  # set column width
     writer.save()
 
 
