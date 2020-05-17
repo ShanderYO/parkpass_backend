@@ -670,6 +670,7 @@ class SubscriptionsPayView(LoginRequiredAPIView):
         id_transition = request.data["id_transition"]
 
         parking_id = int(request.data["parking_id"])
+        prolongation = bool(request.data.get("prolong", False))
 
         # TODO get description
         description = request.data.get("description", "")
@@ -688,6 +689,7 @@ class SubscriptionsPayView(LoginRequiredAPIView):
                 name=name, description=description,
                 sum=sum, started_at=timezone.now(),
                 duration=duration,
+                prolongation=prolongation,
                 expired_at=timezone.now() + timedelta(seconds=duration),
                 parking=parking,
                 data=data,
