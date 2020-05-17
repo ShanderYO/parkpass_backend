@@ -391,14 +391,14 @@ class SubscriptionUpdateView(SignedRequestAPIView):
         parking_id = int(request.data["parking_id"])
         data = request.data["data"]
 
-        unlimited = request.data["unlimited"]
+        unlimited = bool(request.data.get("unlimited", False))
 
         if not unlimited:
             name = request.data["name"]
             description = request.data["description"]
             duration = int(request.data.get("duration", 0))
-            id_ts = int(request.data["id_ts"])
-            id_transition = int(request.data["id_transition"])
+            id_ts = request.data["id_ts"]
+            id_transition = request.data["id_transition"]
             expired_at = int(request.data.get("expired_at", 0))
 
         account = None
@@ -441,7 +441,7 @@ class SubscriptionUpdateView(SignedRequestAPIView):
                 description="",
                 sum=0,
                 idts="",
-                id_tra="",
+                id_transition="",
                 started_at=timezone.now(),
                 expired_at=0,
                 duration=0,
