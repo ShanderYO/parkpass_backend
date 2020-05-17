@@ -378,7 +378,7 @@ class RpsSubscription(models.Model):
 
         days = self.duration // (3600 * 24)
         if days < 30:
-            return "% д." % days
+            return "%d д." % days
         if days % 30 == 0:
             return "%d мес." % (days // 30)
         return "%d мес. %d д." % (days // 30, days % 30)
