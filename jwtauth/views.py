@@ -3,6 +3,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 
 # Create your views here.
+from django.utils import timezone
+
 from dss.Serializer import serializer
 
 from accounts.models import Account
@@ -48,10 +50,15 @@ class ConfirmPhoneLoginView(APIView):
         sms_code = request.data["sms_code"]
         try:
             user = Account.objects.get(phone=phone, sms_code=sms_code)
-            session = Session.objects.create(
+            session = Session.objects.get_or_create(
                 type=TokenTypes.MOBILE,
                 temp_user_id=user.id
             )
+            if not session.is_valid():
+                # Prolong session
+                session.expires_at = None
+                session.save()
+
             response_dict = serializer(session, include_attr=("refresh_token", 'expires_at',))
             response_dict["access_token"] = session.update_access_token(group=Groups.BASIC)
             return JsonResponse(response_dict)
