@@ -300,7 +300,7 @@ class RpsSubscription(models.Model):
     description = models.TextField()
     sum = models.IntegerField()
 
-    unlimited = models.BooleanField(default=False)
+    unlimited = models.BooleanField(default=False, null=True, blank=True)
     started_at = models.DateTimeField()
     expired_at = models.DateTimeField()
     duration = models.IntegerField()
