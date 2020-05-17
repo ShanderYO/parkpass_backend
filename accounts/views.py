@@ -814,7 +814,7 @@ class AccountSubscriptionListView(LoginRequiredAPIView):
 
         serialized_subs = serializer(subscription_qs,
                                      include_attr=('id','name', 'description', 'sum', 'data', 'started_at',
-                                                   'expired_at', 'duration', 'prolongation',
+                                                   'expired_at', 'duration', 'prolongation', 'unlimited',
                                                    'state', 'active', 'error_message',))
         for index, sub in enumerate(subscription_qs):
             serialized_subs[index]["parking"] = serializer(
@@ -833,7 +833,7 @@ class AccountSubscriptionView(LoginRequiredAPIView):
                 account=request.account,
                 id=kwargs["pk"])
             result_dict = serializer(sub, include_attr=('id','name', 'description', 'sum', 'data', 'started_at',
-                                                        'expired_at', 'duration', 'prolongation',
+                                                        'expired_at', 'duration', 'prolongation', 'unlimited',
                                                         'state', 'active', 'error_message',))
             result_dict["parking"] = serializer(
                     sub.parking, include_attr=('id', 'name', 'description'))

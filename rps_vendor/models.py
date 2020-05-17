@@ -300,6 +300,7 @@ class RpsSubscription(models.Model):
     description = models.TextField()
     sum = models.IntegerField()
 
+    unlimited = models.BooleanField(default=False)
     started_at = models.DateTimeField()
     expired_at = models.DateTimeField()
     duration = models.IntegerField()
@@ -395,7 +396,7 @@ class RpsSubscription(models.Model):
                     parking=self.parking,
                     data=self.data,
                     account=self.account,
-                    prolongation = True,
+                    prolongation=True,
                     idts=self.idts, id_transition=self.id_transition
                 )
                 new_subscription.create_order_and_pay()

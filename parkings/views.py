@@ -710,7 +710,7 @@ class SubscriptionsPayStatusView(APIView):
         try:
             subs = RpsSubscription.objects.get(id=kwargs["pk"])
             result_dict = serializer(subs, include_attr=("id", "name", "description", "data",
-                                                         "started_at", "idts", "id_transition",
+                                                         "started_at", "idts", "id_transition", "unlimited",
                                                          "state", "error_message"))
             return JsonResponse(result_dict, status=200)
 

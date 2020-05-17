@@ -389,13 +389,17 @@ class SubscriptionUpdateView(SignedRequestAPIView):
 
         user_id = int(request.data["user_id"])
         parking_id = int(request.data["parking_id"])
-        name = request.data["name"]
-        description = request.data["description"]
-        duration = int(request.data.get("duration", 0))
-        id_ts = int(request.data["id_ts"])
-        id_transition = int(request.data["id_transition"])
-        expired_at = int(request.data.get("expired_at", 0))
         data = request.data["data"]
+
+        unlimited = request.data["unlimited"]
+
+        if not unlimited:
+            name = request.data["name"]
+            description = request.data["description"]
+            duration = int(request.data.get("duration", 0))
+            id_ts = int(request.data["id_ts"])
+            id_transition = int(request.data["id_transition"])
+            expired_at = int(request.data.get("expired_at", 0))
 
         account = None
         try:
@@ -431,25 +435,44 @@ class SubscriptionUpdateView(SignedRequestAPIView):
             # Disable all subscriptions
             subscription_qs.update(active=False)
 
-        default_infinity_duration = 60*60*24*356*10
-        default_infinity_expiration_datetime = timezone.now() + datetime.timedelta(seconds=default_infinity_duration)
+        if unlimited:
+            RpsSubscription.objects.create(
+                name="",
+                description="",
+                sum=0,
+                idts="",
+                id_tra="",
+                started_at=timezone.now(),
+                expired_at=0,
+                duration=0,
+                parking=parking,
+                account=account,
+                prolongation=prolongation,
+                data=data,
+                active=True,
+                state=STATE_CONFIRMED
+            )
 
-        RpsSubscription.objects.create(
-            name=name,
-            description=description,
-            sum=0,
-            started_at=timezone.now(),
-            expired_at=datetime_from_unix_timestamp_tz(expired_at) if expired_at else default_infinity_expiration_datetime,
-            duration=duration if duration else default_infinity_duration,
-            parking=parking,
-            account=account,
-            prolongation=prolongation,
-            idts=id_ts,
-            id_transition=id_transition,
-            data=data,
-            active=True,
-            state=STATE_CONFIRMED
-        )
+        else:
+            default_infinity_duration = 60*60*24*356*10
+            default_infinity_expiration_datetime = timezone.now() + datetime.timedelta(seconds=default_infinity_duration)
+
+            RpsSubscription.objects.create(
+                name=name,
+                description=description,
+                sum=0,
+                started_at=timezone.now(),
+                expired_at=datetime_from_unix_timestamp_tz(expired_at) if expired_at else default_infinity_expiration_datetime,
+                duration=duration if duration else default_infinity_duration,
+                parking=parking,
+                account=account,
+                prolongation=prolongation,
+                idts=id_ts,
+                id_transition=id_transition,
+                data=data,
+                active=True,
+                state=STATE_CONFIRMED
+            )
 
         return JsonResponse({}, status=200)
 

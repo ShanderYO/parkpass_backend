@@ -341,30 +341,45 @@ class SubscriptionUpdateBodyValidator(BaseValidator):
     def is_valid(self):
         get_logger().info("SubscriptionUpdateBodyValidator: " + str(self.request.data))
 
+        unlimited = self.request.data.get("unlimited", False)
+
         user_id = self.request.data.get("user_id", None)
         parking_id = self.request.data.get("parking_id", None)
+        data = self.request.data.get("data", None)
+
         name = self.request.data.get("name", None)
         description = self.request.data.get("description", None)
         duration = self.request.data.get("duration", None)
         id_ts = self.request.data.get("id_ts", None)
         id_transition = self.request.data.get("id_transition", None)
         expired_at = self.request.data.get("expired_at", None)
-        data = self.request.data.get("data", None)
 
-        if not all([user_id, parking_id, name, description, id_ts, id_transition, data]):
-            self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Keys 'user_id', 'parking_id', 'name', " \
+        if unlimited:
+            if not all([user_id, parking_id, data]):
+                self.code = ValidationException.VALIDATION_ERROR
+                self.message = "Keys 'user_id', 'parking_id', 'data' are required"
+                return False
+        else:
+            if not all([user_id, parking_id, name, description, id_ts, id_transition, data]):
+                self.code = ValidationException.VALIDATION_ERROR
+                self.message = "Keys 'user_id', 'parking_id', 'name', " \
                            "'description', 'id_ts', 'id_transition', 'data' are required"
-            return False
-        try:
-            if duration:
-                validate_id(duration, 'duration')
-            if expired_at:
-                validate_unix_timestamp(expired_at, 'expired_at')
+                return False
 
+            try:
+                if duration:
+                    validate_id(duration, 'duration')
+                if expired_at:
+                    validate_unix_timestamp(expired_at, 'expired_at')
+
+            except Exception as e:
+                self.code = ValidationException.VALIDATION_ERROR
+                self.message = str(e)
+                return False
+
+        try:
             validate_id(user_id, 'user_id')
             validate_id(parking_id, 'parking_id')
-
 
         except Exception as e:
             self.code = ValidationException.VALIDATION_ERROR
