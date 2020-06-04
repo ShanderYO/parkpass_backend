@@ -387,6 +387,7 @@ class SubscriptionUpdateView(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
         get_logger().info(request.data)
 
+        name = request.data.get("name")
         user_id = int(request.data["user_id"])
         parking_id = int(request.data["parking_id"])
         data = request.data["data"]
@@ -394,7 +395,6 @@ class SubscriptionUpdateView(SignedRequestAPIView):
         unlimited = bool(request.data.get("unlimited", False))
 
         if not unlimited:
-            name = request.data["name"]
             description = request.data["description"]
             duration = int(request.data.get("duration", 0))
             id_ts = request.data["id_ts"]
@@ -436,15 +436,19 @@ class SubscriptionUpdateView(SignedRequestAPIView):
             subscription_qs.update(active=False)
 
         if unlimited:
+            default_infinity_duration = 60 * 60 * 24 * 356 * 10
+            default_infinity_expiration_datetime = timezone.now() + datetime.timedelta(
+                seconds=default_infinity_duration)
+
             RpsSubscription.objects.create(
-                name="",
-                description="",
+                name=name if name else "Постоянный клиент",
+                description="-",
                 sum=0,
                 idts="",
                 id_transition="",
                 started_at=timezone.now(),
-                expired_at="1970-01-01",
-                duration=0,
+                expired_at=default_infinity_expiration_datetime,
+                duration=default_infinity_duration,
                 parking=parking,
                 account=account,
                 prolongation=prolongation,
@@ -454,16 +458,13 @@ class SubscriptionUpdateView(SignedRequestAPIView):
             )
 
         else:
-            default_infinity_duration = 60*60*24*356*10
-            default_infinity_expiration_datetime = timezone.now() + datetime.timedelta(seconds=default_infinity_duration)
-
             RpsSubscription.objects.create(
                 name=name,
                 description=description,
                 sum=0,
                 started_at=timezone.now(),
-                expired_at=datetime_from_unix_timestamp_tz(expired_at) if expired_at else default_infinity_expiration_datetime,
-                duration=duration if duration else default_infinity_duration,
+                expired_at=datetime_from_unix_timestamp_tz(expired_at),
+                duration=duration,
                 parking=parking,
                 account=account,
                 prolongation=prolongation,
