@@ -443,6 +443,7 @@ class SubscriptionUpdateView(SignedRequestAPIView):
             RpsSubscription.objects.create(
                 name=name if name else "Постоянный клиент",
                 description="-",
+                unlimited=True,
                 sum=0,
                 idts="",
                 id_transition="",
