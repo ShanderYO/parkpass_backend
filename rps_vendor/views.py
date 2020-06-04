@@ -443,7 +443,7 @@ class SubscriptionUpdateView(SignedRequestAPIView):
                 idts="",
                 id_transition="",
                 started_at=timezone.now(),
-                expired_at=0,
+                expired_at="1970-01-01",
                 duration=0,
                 parking=parking,
                 account=account,

@@ -21,19 +21,19 @@ class UpdateSubscriptionTestCase(TestCase):
         )
         vendor.save(not_generate_secret=True)
 
-        parking1 = Parking.objects.create(
-            id=1,
-            name="parking-1",
-            description="default",
-            latitude=1,
-            longitude=1,
-            max_places=5,
-            vendor=vendor
-        )
+        # parking1 = Parking.objects.create(
+        #     id=1,
+        #     name="parking-1",
+        #     description="default",
+        #     latitude=1,
+        #     longitude=1,
+        #     max_places=5,
+        #     vendor=vendor
+        # )
 
-        RpsParking.objects.create(
-            parking=parking1
-        )
+        # RpsParking.objects.create(
+        #     parking=parking1
+        # )
 
         account = Account.objects.create(
             id="100000000000000001",
@@ -70,24 +70,24 @@ class UpdateSubscriptionTestCase(TestCase):
         time.sleep(10)
         self.assertEqual(response.status_code, 200)
 
-    def test_rps_update_expiring_subscription(self):
-        url = '/api/v1/parking/rps/subscription/update/'
-        body = json.dumps({
-            "parking_id": 1,
-            "user_id": 100000000000000001,
-            "data": "zdasdasdas",
-            "name":  "Name",
-            "description": "Desc",
-            "duration": 10022,
-            "id_ts": "lalka",
-            "id_transition": "transition",
-            "expired_at": 111
-        })
-
-        response = self._make_signed_json_post(url, body.encode('utf-8'))
-        print(response.content)
-        time.sleep(10)
-        self.assertEqual(response.status_code, 200)
+    # def test_rps_update_expiring_subscription(self):
+    #     url = '/api/v1/parking/rps/subscription/update/'
+    #     body = json.dumps({
+    #         "parking_id": 1,
+    #         "user_id": 100000000000000001,
+    #         "data": "zdasdasdas",
+    #         "name":  "Name",
+    #         "description": "Desc",
+    #         "duration": 10022,
+    #         "id_ts": "lalka",
+    #         "id_transition": "transition",
+    #         "expired_at": 111
+    #     })
+    #
+    #     response = self._make_signed_json_post(url, body.encode('utf-8'))
+    #     print(response.content)
+    #     time.sleep(10)
+    #     self.assertEqual(response.status_code, 200)
 
 #
 # class UpdateParkingTestCase(TestCase):
