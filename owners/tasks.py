@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import os.path
+import subprocess
 from datetime import timedelta
 
-import pandas as pd
+# import pandas as pd
 import shutil
-from openpyxl import load_workbook
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
@@ -14,7 +14,7 @@ from base.utils import get_logger
 from owners.models import CompanySettingReports, CompanyReport
 from parkings.models import ParkingSession
 from parkpass_backend.celery import app
-from parkpass_backend.settings import REPORTS_ROOT, EMAIL_HOST_USER, STATIC_ROOT
+from parkpass_backend.settings import REPORTS_ROOT, EMAIL_HOST_USER, STATIC_ROOT, MEDIA_ROOT
 from payments.models import InvoiceWithdraw
 from rps_vendor.models import RpsSubscription, RpsParkingCardSession, STATE_CONFIRMED
 
@@ -26,59 +26,60 @@ def generate_report_and_send(settings_report_id):
         report_settings = CompanySettingReports.objects.select_related(
             'company').select_related('parking').get(id=settings_report_id)
 
-        filename = os.path.join(REPORTS_ROOT, "report-%s-%s_%s.xlsx" % (
-            report_settings.parking.id,
-            report_settings.last_send_date.date(),
-            (report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)).date()
-        ))
+        filepath = __make_file_for_report(report_settings)
 
-        report = CompanyReport.objects.filter(filename=filename).first()
-        if report:
-            get_logger().warning("Report is already exist: %s" % filename)
+        print(filepath)
+        write(filepath)
+        return
 
-        else:
-            total_sum, status = create_report_for_parking(
-                report_settings.parking,
-                report_settings.last_send_date,
-                report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
-            )
-
-            if status:
-                report = CompanyReport.objects.create(
-                    company=report_settings.company,
-                    filename=filename
-                )
-                send_report(report_settings.report_emails, filename)
-                get_logger().info("Report done: %s" % filename)
-
-                recipient_name = report.company.name
-                inn = report.company.inn
-                kpp = report.company.kpp
-                account_number = report.company.account
-                bank_acnt = report.company.bank
-                bank_bik = report.company.bik
-                payment_purpose = "Плановая выплата"
-
-                if all([recipient_name, inn, kpp, account_number, bank_acnt, bank_bik, payment_purpose]):
-                    invoice = InvoiceWithdraw.objects.create(
-                        amount=total_sum,
-                        recipientName=recipient_name,
-                        inn=inn,
-                        kpp=kpp,
-                        accountNumber=account_number,
-                        bankAcnt=bank_acnt,
-                        bankBik=bank_bik,
-                        paymentPurpose=payment_purpose,
-                        executionOrder=1
-                    )
-                    report.invoice_withdraw = invoice
-                    report.save()
-                else:
-                    get_logger().warn("Company has no valid requisites %s"
-                                      % [recipient_name, inn, kpp, account_number, bank_acnt, bank_bik, payment_purpose])
-
-        report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
-        report_settings.save()
+        #
+        # report = CompanyReport.objects.filter(filename=filepath).first()
+        # if report:
+        #     get_logger().warning("Report is already exist: %s" % filepath)
+        #
+        # else:
+        #     total_sum, status = create_report_for_parking(
+        #         report_settings.parking,
+        #         report_settings.last_send_date,
+        #         report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
+        #     )
+        #
+        #     if status:
+        #         report = CompanyReport.objects.create(
+        #             company=report_settings.company,
+        #             filename=filepath
+        #         )
+        #         send_report(report_settings.report_emails, filepath)
+        #         get_logger().info("Report done: %s" % filepath)
+        #
+        #         recipient_name = report.company.name
+        #         inn = report.company.inn
+        #         kpp = report.company.kpp
+        #         account_number = report.company.account
+        #         bank_acnt = report.company.bank
+        #         bank_bik = report.company.bik
+        #         payment_purpose = "Плановая выплата"
+        #
+        #         if all([recipient_name, inn, kpp, account_number, bank_acnt, bank_bik, payment_purpose]):
+        #             invoice = InvoiceWithdraw.objects.create(
+        #                 amount=total_sum,
+        #                 recipientName=recipient_name,
+        #                 inn=inn,
+        #                 kpp=kpp,
+        #                 accountNumber=account_number,
+        #                 bankAcnt=bank_acnt,
+        #                 bankBik=bank_bik,
+        #                 paymentPurpose=payment_purpose,
+        #                 executionOrder=1
+        #             )
+        #             report.invoice_withdraw = invoice
+        #             report.save()
+        #         else:
+        #             get_logger().warn("Company has no valid requisites %s"
+        #                               % [recipient_name, inn, kpp, account_number, bank_acnt, bank_bik, payment_purpose])
+        #
+        # report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
+        # report_settings.save()
 
     except ObjectDoesNotExist:
         get_logger().warn("CompanySettingReports with id %d is not found" % settings_report_id)
@@ -138,7 +139,7 @@ def create_report_for_parking(parking, from_date, to_date):
         "Абонементы": subscriptions_df
     }
 
-    append_dfs_to_excel(filename, pages, index_key="#")
+    # append_dfs_to_excel(filename, pages, index_key="#")
 
     total_sum = session_sum + parking_card_sum + subscription_sum
 
@@ -205,7 +206,7 @@ def gen_session_report_df_and_sum(qs):
     propotype[DEBT_COL].extend(["", "Итог: "])
     propotype[STATE_COL].extend(["", "%s руб." % int(total_sum)])
 
-    return pd.DataFrame(data=propotype), int(total_sum)
+    # return pd.DataFrame(data=propotype), int(total_sum)
 
 
 def gen_parking_card_report_df_and_sum(qs):
@@ -249,7 +250,7 @@ def gen_parking_card_report_df_and_sum(qs):
     propotype[BUY_DATETIME_COL].extend(["","%s руб." % int(total_sum)])
 
     get_logger().info(propotype)
-    return pd.DataFrame(data=propotype), int(total_sum)
+    #return pd.DataFrame(data=propotype), int(total_sum)
 
 
 def gen_subscription_report_df_and_sum(qs):
@@ -284,37 +285,28 @@ def gen_subscription_report_df_and_sum(qs):
     propotype[DURATION_COL].extend(["", "Итог: "])
     propotype[PRICE_COL].extend(["", "%s руб." % int(total_sum)])
 
-    return pd.DataFrame(data=propotype), int(total_sum)
+    #return pd.DataFrame(data=propotype), int(total_sum)
 
 
 def highlight_max(x):
     return ['background-color: yellow']
 
 
-def append_dfs_to_excel(filename, pages,
-                       startrow=None, truncate_sheet=True, index_key=None, **to_excel_kwargs):
-
-    writer = pd.ExcelWriter(filename)
-
-    if startrow is None:
-        startrow = 0
-
-    for page in pages:
-
-        df = pages[page]
-        if index_key:
-            df.set_index(index_key, inplace=True)
-
-        df.to_excel(writer, sheet_name=page, startrow=startrow)
-        worksheet = writer.sheets[page]
-        # for idx, col in enumerate(df):
-        #     series = df[col]
-        #     max_len = max((
-        #         series.astype(str).map(len).max(),  # len of largest item
-        #         len(str(series.name)) * 2  # len of column name/header
-        #     )) + 1  # adding a little extra space
-        #     worksheet.set_column(idx, idx, max_len)  # set column width
-    writer.save()
+# def append_dfs_to_excel(filename, pages,
+#                        startrow=None, truncate_sheet=True, index_key=None, **to_excel_kwargs):
+#
+#     writer = pd.ExcelWriter(filename)
+#
+#     if startrow is None:
+#         startrow = 0
+#
+#     for page in pages:
+#         df = pages[page]
+#         if index_key:
+#             df.set_index(index_key, inplace=True)
+#
+#         df.to_excel(writer, sheet_name=page, startrow=startrow)
+#     writer.save()
 
 
 @app.task()
@@ -324,3 +316,84 @@ def check_send_reports():
     for settings in qs:
         if (timezone.now() - settings.last_send_date).days > settings.period_in_days:
             generate_report_and_send.delay(settings.id)
+
+
+def caret_mover(fs):
+    cur_row = 1
+
+    def inner_func(count=1, with_white_space=False):
+        nonlocal cur_row, fs
+        for i in range(count):
+            fs.write('{}\x0c'.format('\x1d' * 8 + ' ' if with_white_space else ''))
+            cur_row += 1
+        return cur_row
+
+    return inner_func
+
+
+def __make_file_for_report(report_settings):
+    """Create empty file to work with
+        directory looks like this
+        - media
+            - reports
+                - report_<datetime>.xlsm
+                - sheets
+            ...
+    """
+
+    report_dir = os.path.join(REPORTS_ROOT, "report-%s-%s_%s" % (
+        report_settings.parking.id,
+        report_settings.last_send_date.date(),
+        (report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)).date()
+    ))
+
+    shutil.rmtree(report_dir, ignore_errors=True)
+
+    try:
+        os.mkdir(report_dir)
+    except FileExistsError:
+        pass
+
+    #os.mkdir(os.path.join(report_dir, 'report.xlsx'))
+    os.mkdir(os.path.join(report_dir, 'sheets'))
+
+    return report_dir
+
+
+def __write_session(filepath):
+    with open(filepath + '/sheets/' + 'Сессии', 'w') as f:
+        move_down = caret_mover(f)
+
+        move_down(7)
+
+        f.write('\x1d{name}\x1d{requisite_type}\x1d{requisite}'.format(
+            name="lalka1",
+            requisite_type="lalka2",
+            requisite="Lalka3"
+        ))
+        move_down()
+
+
+def __write_cards(filepath):
+    with open(filepath + '/sheets/' + 'Карты', 'w') as f:
+        move_down = caret_mover(f)
+        move_down(21)
+        position = 1
+
+        for i in range(10):
+            f.write('\x1d' + str(position) + '\x1d')
+            position += 1
+            f.write('\x1d'.join(["jljlk","kgkgk","hkhkj"]))
+            move_down()
+
+        f.write('\x1dИТОГО')
+        move_down()
+
+
+def write(filepath):
+    __write_session(filepath)
+    __write_cards(filepath)
+
+    filename = filepath + '/report_{}.xlsx'
+    full_name = os.path.join(filepath + filename)
+    subprocess.run(["./lib/OpenXLSX/install/bin/Demo1", filepath + '/sheets', full_name])

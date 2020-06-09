@@ -294,7 +294,6 @@ SUBSCRIPTION_PAYMENT_STATUSES = (
     (STATE_ERROR, "Error"),
 )
 
-
 class RpsSubscription(models.Model):
     name = models.CharField(max_length=1024)
     description = models.TextField()
