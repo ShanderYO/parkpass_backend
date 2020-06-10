@@ -32,7 +32,7 @@ WORKDIR /app/
 RUN cd lib && tar -xvf cmake-3.14.6-Linux-x86_64.tar.gz && cd cmake-3.14.6-Linux-x86_64 \
 && cp -r bin /usr/ && cp -r share /usr/ && cp -r doc /usr/share/ && cp -r man /usr/share/
 
-RUN cd /app/lib/OpenXLSX && cmake . && make && cp output_restore_01.xlsx install/bin/output_restore_01.xlsx
+RUN cd /app/lib/OpenXLSX && cmake . && make && cp output_restore_01.xlsm install/bin/output_restore_01.xlsm
 
 # Config for socket upstream from nginx
 ARG SOCKNAME_DEFAULT="app.sock"
