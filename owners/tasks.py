@@ -364,7 +364,7 @@ def __write_session(filepath):
     with open(filepath + '/sheets/' + 'Сессии', 'w') as f:
         move_down = caret_mover(f)
 
-        move_down(7)
+        move_down(6)
 
         f.write('\x1d{name}\x1d{requisite_type}\x1d{requisite}'.format(
             name="lalka1",
@@ -394,6 +394,6 @@ def write(filepath):
     __write_session(filepath)
     __write_cards(filepath)
 
-    filename = filepath + '/report_{}.xlsx'
+    filename = filepath + '/report_{}.xlsm'
     full_name = os.path.join(filepath + filename)
     subprocess.run(["./lib/OpenXLSX/install/bin/Demo1", filepath + '/sheets', full_name])
