@@ -7,7 +7,7 @@ from django.db.models import signals
 
 from accounts.models import Account
 from base.utils import get_logger
-from parkpass.settings import ALLOWED_HOSTS
+from parkpass_backend.settings import ALLOWED_HOSTS
 from vendors.models import Vendor
 
 
@@ -47,9 +47,9 @@ class Parking(models.Model):
     max_places = models.IntegerField(default=0)
     max_permitted_time = models.IntegerField(default=3600, help_text="Max offline time in minutes")
     max_client_debt = models.DecimalField(max_digits=10, decimal_places=2, default=100)
-    vendor = models.ForeignKey(Vendor, null=True, blank=True)
-    owner = models.ForeignKey("owners.Owner", null=True, blank=True)
-    company = models.ForeignKey(to='owners.Company', null=True, blank=True)
+    vendor = models.ForeignKey(Vendor, null=True, blank=True, on_delete=models.CASCADE)
+    owner = models.ForeignKey("owners.Owner", null=True, blank=True, on_delete=models.CASCADE)
+    company = models.ForeignKey(to='owners.Company', null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateField(auto_now_add=True)
     software_updated_at = models.DateField(blank=True, null=True)
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
@@ -78,7 +78,7 @@ class Parking(models.Model):
         verbose_name = 'Parking'
         verbose_name_plural = 'Parkings'
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s [%s]" % (self.name, self.id)
 
     def get_utc_parking_datetime(self, timezone_timestamp):
@@ -101,10 +101,10 @@ class Wish(models.Model):
         verbose_name_plural = 'Wishes'
 
     id = models.BigAutoField(primary_key=True)
-    parking = models.ForeignKey(to=Parking, null=True, blank=True)
-    user = models.ForeignKey(to=Account, default=None)
+    parking = models.ForeignKey(to=Parking, null=True, blank=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(to=Account, default=None, on_delete=models.CASCADE)
 
-    def __unicode__(self):
+    def __str__(self):
         return "[User %s wants %s parking]" % (self.user.phone, self.parking.name)
 
     @classmethod
@@ -129,11 +129,11 @@ class Wish(models.Model):
 
 
 class TopParkingWish(models.Model):
-    parking = models.OneToOneField(to=Parking)
+    parking = models.OneToOneField(to=Parking, on_delete=models.CASCADE)
     users = models.ManyToManyField(Account)
     count = models.IntegerField(default=0)
 
-    def __unicode__(self):
+    def __str__(self):
         return self.parking.name
 
 
@@ -212,8 +212,8 @@ class ParkingSession(models.Model):
     id = models.AutoField(unique=True, primary_key=True)
     session_id = models.CharField(max_length=128)
 
-    client = models.ForeignKey('accounts.Account')
-    parking = models.ForeignKey(Parking)
+    client = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
+    parking = models.ForeignKey(Parking, on_delete=models.CASCADE)
 
     debt = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     state = models.IntegerField(choices=STATE_CHOICES)
@@ -242,7 +242,7 @@ class ParkingSession(models.Model):
         verbose_name_plural = 'Parking Sessions'
         unique_together = ("session_id", "parking")
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s [%s] session %s" % (self.parking.id, self.client.id, self.session_id)
 
     def save(self, *args, **kwargs):
@@ -275,8 +275,8 @@ class ParkingSession(models.Model):
             return 0
 
         secs = self.duration % 60
-        hours = self.duration / 3600
-        mins = (self.duration - hours * 3600 - secs) / 60
+        hours = self.duration // 3600
+        mins = (self.duration - hours * 3600 - secs) // 60
         return "%02d:%02d:%02d" % (hours, mins, secs)
 
 
@@ -363,8 +363,8 @@ class ComplainSession(models.Model):
     )
     type = models.PositiveSmallIntegerField(choices=COMPLAIN_TYPE_CHOICES)
     message = models.TextField(max_length=1023)
-    session = models.ForeignKey(ParkingSession)
-    account = models.ForeignKey('accounts.Account')
+    session = models.ForeignKey(ParkingSession, on_delete=models.CASCADE)
+    account = models.ForeignKey('accounts.Account', on_delete=models.CASCADE)
 
 
 def create_test_parking(sender, instance, created, **kwargs):

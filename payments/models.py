@@ -1,14 +1,21 @@
 # -*- coding: utf-8 -*-
+import json
+import os
+import urllib.parse
+
+import requests
+from datetime import timedelta
 from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 from dss.Serializer import serializer
 
 from accounts.models import Account
 from base.models import Terminal
 from base.utils import get_logger
-from parkpass.settings import EMAIL_HOST_USER
+from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN
 from payments.payment_api import TinkoffAPI
 
 
@@ -27,7 +34,7 @@ class FiskalNotification(models.Model):
     card_pan = models.CharField(max_length=31)
     type = models.CharField(max_length=15)
 
-    def __unicode__(self):
+    def __str__(self):
         return u"Fiscal notification: %s (%s)" \
                % (self.fiscal_number, self.shift_number)
 
@@ -43,9 +50,10 @@ class CreditCard(models.Model):
     is_default = models.BooleanField(default=False)
     rebill_id = models.BigIntegerField(blank=True, null=True)
     created_at = models.DateField(auto_now_add=True)
-    account = models.ForeignKey(Account, related_name="credit_cards")
+    account = models.ForeignKey(Account, related_name="credit_cards",
+                                on_delete=models.CASCADE)
 
-    def __unicode__(self):
+    def __str__(self):
         return u"Card: %s (%s %s)" % (self.pan,
                                       self.account.first_name,
                                       self.account.last_name)
@@ -66,7 +74,7 @@ class CreditCard(models.Model):
         init_payment = TinkoffPayment.objects.create(order=init_order, receipt_data=receipt_data)
         request_data = init_payment.build_init_request_data(account.id)
         get_logger().info("Init request:")
-        get_logger().info(request_data)
+        #get_logger().info(request_data)
         result = TinkoffAPI().sync_call(
             TinkoffAPI.INIT, request_data
         )
@@ -128,27 +136,31 @@ class Order(models.Model):
     authorized = models.BooleanField(default=False)
     paid = models.BooleanField(default=False)
     paid_card_pan = models.CharField(max_length=31, default="")
-    session = models.ForeignKey(to='parkings.ParkingSession', null=True, blank=True)
+    session = models.ForeignKey(to='parkings.ParkingSession',
+                                null=True, blank=True, on_delete=models.CASCADE)
     refund_request = models.BooleanField(default=False)
     refunded_sum = models.DecimalField(max_digits=8, decimal_places=2, default=0)
-    fiscal_notification = models.ForeignKey(FiskalNotification, null=True, blank=True)
+    fiscal_notification = models.ForeignKey(FiskalNotification,
+                                            null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     # for init payment order
-    account = models.ForeignKey(Account, null=True, blank=True)
+    account = models.ForeignKey(Account, null=True, blank=True, on_delete=models.CASCADE)
 
     # for parking card
-    parking_card_session = models.ForeignKey(to='rps_vendor.RpsParkingCardSession', null=True, blank=True)
+    parking_card_session = models.ForeignKey(to='rps_vendor.RpsParkingCardSession',
+                                             null=True, blank=True, on_delete=models.CASCADE)
     paid_notified_at = models.DateTimeField(null=True, blank=True)
 
     # for subscription
-    subscription = models.ForeignKey(to='rps_vendor.RpsSubscription', null=True, blank=True)
+    subscription = models.ForeignKey(to='rps_vendor.RpsSubscription',
+                                     null=True, blank=True, on_delete=models.CASCADE)
 
     # for non-accounts payments
     client_uuid = models.UUIDField(null=True, default=None)
 
     # use multiple terminals
-    terminal = models.ForeignKey(Terminal, null=True)
+    terminal = models.ForeignKey(Terminal, null=True, on_delete=models.CASCADE)
 
     class Meta:
         ordering = ["-created_at"]
@@ -394,11 +406,16 @@ class Order(models.Model):
             payment.payment_id, default_account_credit_card.rebill_id
         )
         get_logger().info(request_data)
+
+        # Add
+        payment.status = PAYMENT_STATUS_PREPARED_AUTHORIZED
+        payment.save()
         result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.CHARGE, request_data
         )
         if result[u'Status'] == u'AUTHORIZED':
-            payment.status = PAYMENT_STATUS_AUTHORIZED
+            payment.status = PAYMENT_STATUS_AUTHORIZED \
+                if payment.status != PAYMENT_STATUS_CONFIRMED else PAYMENT_STATUS_CONFIRMED
             payment.save()
 
         get_logger().info(str(result))
@@ -451,6 +468,7 @@ PAYMENT_STATUS_REVERSED = 8
 PAYMENT_STATUS_REFUNDED = 9
 PAYMENT_STATUS_PARTIAL_REFUNDED = 10
 PAYMENT_STATUS_RECEIPT = 11
+PAYMENT_STATUS_PREPARED_AUTHORIZED = 12
 
 PAYMENT_STATUSES = (
     (PAYMENT_STATUS_UNKNOWN, 'Unknown'),
@@ -464,13 +482,14 @@ PAYMENT_STATUSES = (
     (PAYMENT_STATUS_CONFIRMED, 'Confirmed'),
     (PAYMENT_STATUS_REFUNDED, 'Refunded'),
     (PAYMENT_STATUS_PARTIAL_REFUNDED, 'Partial_refunded'),
+    (PAYMENT_STATUS_PREPARED_AUTHORIZED, 'Authorization prepared'),
 )
 
 
 class TinkoffPayment(models.Model):
     payment_id = models.BigIntegerField(unique=True, blank=True, null=True)
     status = models.SmallIntegerField(choices=PAYMENT_STATUSES, default=PAYMENT_STATUS_INIT)
-    order = models.ForeignKey(Order, null=True, blank=True)  # TODO DELETE FROM THIS
+    order = models.ForeignKey(Order, null=True, blank=True, on_delete=models.CASCADE)  # TODO DELETE FROM THIS
     receipt_data = models.TextField(null=True, blank=True)
 
     # Fields for debug
@@ -561,3 +580,144 @@ class TinkoffPayment(models.Model):
             self.status = PAYMENT_STATUS_REFUNDED
 
         self.save()
+
+
+class TinkoffSession(models.Model):
+    refresh_token = models.TextField()
+    access_token = models.TextField(null=True, blank=True)
+    expires_in = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tinkoff_session'
+
+    def is_session_valid(self):
+        return timezone.now() < self.expires_in
+
+
+class InvoiceWithdraw(models.Model):
+
+    URL_UPDATE_TOKEN = "https://openapi.tinkoff.ru/sso/secure/token"
+    URL_WITHDRAW = "https://openapi.tinkoff.ru/sme/api/v1/partner/company/%s/payment"
+
+    documentNumber = models.TextField(null=True, blank=True, help_text="Номер документа")
+    documentDate = models.DateField(null=True, blank=True, help_text="Дата документа")
+    amount = models.IntegerField(help_text="Сумма платежа")
+    recipientName = models.TextField(help_text="Получатель")
+    inn = models.TextField()
+    kpp = models.TextField()
+
+    accountNumber = models.TextField(help_text="Номер счета получателя")
+    bankAcnt = models.TextField(null=True, blank=True, help_text="Банк получателя")
+    bankBik = models.TextField(null=True, blank=True, help_text="БИК банка получателя")
+
+    paymentPurpose = models.TextField(default="", blank=True, help_text="Назначение платежа")
+    executionOrder = models.IntegerField(default=0, help_text="Очередность платежа")
+
+    taxPayerStatus = models.TextField(null=True, blank=True, help_text="Статус составителя расчетного документа")
+    kbk = models.TextField(null=True, blank=True, help_text="Код бюджетной классификации")
+    oktmo = models.TextField(null=True, blank=True, help_text="Код ОКТМО территории, на которой мобилизуютсяденежные "
+                                                              "средства от уплаты налога, сбора и иного платежа")
+
+    taxEvidence = models.TextField(null=True, blank=True, help_text="Основание налогового платежа")
+    taxPeriod = models.TextField(null=True, blank=True, help_text="Налоговый период / код таможенного органа")
+    uin = models.TextField(null=True, blank=True, help_text="Уникальный идентификатор платежа")
+
+    taxDocNumber = models.TextField(null=True, blank=True, help_text="Номер налогового документа")
+    taxDocDate = models.TextField(null=True, blank=True, help_text="Дата налогового документа")
+
+    is_send = models.BooleanField(default=False)
+    is_requested = models.BooleanField(default=False)
+    error = models.TextField(null=True, blank=True)
+
+    responseDocumentId = models.TextField(null=True, blank=True,
+                                          help_text="Идентифиакор созданного платежного поручения")
+
+    class Meta:
+        db_table = 'invoice_withdraw'
+
+    def __str__(self):
+        return "(%s) %s" % (self.amount, self.accountNumber)
+
+    def save(self, *args, **kwargs):
+        if not self.is_send and not self.is_requested:
+            self.is_requested = True
+            super(InvoiceWithdraw, self).save(*args, **kwargs)
+            self.is_send = self.send_withdraw_request()
+
+        self.is_requested = False
+        super(InvoiceWithdraw, self).save(*args, **kwargs)
+
+    def _get_saved_access_token(self):
+        active_session = TinkoffSession.objects.all().order_by('-created_at').first()
+        if active_session:
+            print("Get token from store")
+            return active_session.access_token
+        return None
+
+    def send_withdraw_request(self):
+        print("send_withdraw_request")
+        token, error = self.get_or_update_token()
+        print("Obtained token %s" % token)
+        if error:
+            self.error = "Fetch token %s" % str(error)
+            self.is_send = False
+            return False
+
+        status, error = self._withdraw_request(token)
+        if error:
+            self.error = "Withdraw %s" % str(error)
+            self.is_send = False
+            return False
+
+        return True
+
+    def get_or_update_token(self):
+        access_token = self._get_saved_access_token()
+        if not access_token:
+            return None, "Empty access_token"
+        return access_token, None
+
+    def _withdraw_request(self, token):
+        headers = {
+            "Authorization": "Bearer %s" % token,
+            "Content-Type": "application/json"
+        }
+        try:
+            body = {
+                "documentNumber": str(self.id),
+                "date": None, # right now
+                "amount": self.amount,
+                "recipientName": self.recipientName,
+                "inn": self.inn,
+                "kpp": self.kpp,
+                "bankAcnt": self.bankAcnt,
+                "bankBik": self.bankBik,
+                "accountNumber": self.accountNumber,
+                "paymentPurpose": self.paymentPurpose,
+                "executionOrder": self.executionOrder,
+                "taxPayerStatus": self.taxPayerStatus,
+                "kbk": self.kbk if self.kbk else "0",
+                "oktmo": self.oktmo if self.oktmo else "0",
+                "taxEvidence": self.taxEvidence if self.taxEvidence else "0",
+                "taxPeriod": self.taxPeriod if self.taxPeriod else "0",
+                "uin": self.uin if self.uin else "0",
+                "taxDocNumber": self.taxDocNumber if self.taxDocNumber else "0",
+                "taxDocDate": self.taxDocDate if self.taxDocDate else "0"
+            }
+
+            print(body)
+            res = requests.post(InvoiceWithdraw.URL_WITHDRAW % PARKPASS_INN, json.dumps(body), headers=headers)
+            print(res.content)
+
+            if res.status_code == 200:
+                json_data = res.json()
+                if json_data.get("documentId"):
+                    self.responseDocumentId = str(json_data["documentId"])
+                    return True, None
+
+            return False, "Status not 200 %s" % res.content
+
+        except Exception as e:
+            print(str(e))
+            return False, str(e)

@@ -22,12 +22,13 @@ from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView, ObjectView, SignedRequestAPIView
 from owners.models import OwnerIssue, Owner
 from parkings.models import ParkingSession, Parking
-from parkpass.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET
+from parkpass_backend.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
 
-from sms_gateway import sms_sender
+from accounts.sms_gateway import sms_sender
+
 from vendors.models import VendorIssue, Vendor
 
 
@@ -781,9 +782,9 @@ class ZendeskUserJWTMobileView(View):
         get_logger().info(str(request.POST))
 
         jwt_token = request.POST.get("user_token", "0")
-        account = Account.objects.filter(id=long(jwt_token)).first()
+        account = Account.objects.filter(id=int(jwt_token)).first()
         if not account:
-            account = Owner.objects.filter(id=long(jwt_token)).first()
+            account = Owner.objects.filter(id=int(jwt_token)).first()
 
         if account:
             jwt_token = account.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
@@ -813,7 +814,7 @@ class AccountSubscriptionListView(LoginRequiredAPIView):
 
         serialized_subs = serializer(subscription_qs,
                                      include_attr=('id','name', 'description', 'sum', 'data', 'started_at',
-                                                   'expired_at', 'duration', 'prolongation',
+                                                   'expired_at', 'duration', 'prolongation', 'unlimited',
                                                    'state', 'active', 'error_message',))
         for index, sub in enumerate(subscription_qs):
             serialized_subs[index]["parking"] = serializer(
@@ -832,7 +833,7 @@ class AccountSubscriptionView(LoginRequiredAPIView):
                 account=request.account,
                 id=kwargs["pk"])
             result_dict = serializer(sub, include_attr=('id','name', 'description', 'sum', 'data', 'started_at',
-                                                        'expired_at', 'duration', 'prolongation',
+                                                        'expired_at', 'duration', 'prolongation', 'unlimited',
                                                         'state', 'active', 'error_message',))
             result_dict["parking"] = serializer(
                     sub.parking, include_attr=('id', 'name', 'description'))

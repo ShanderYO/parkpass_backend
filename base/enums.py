@@ -1,3 +1,3 @@
-class AccountTypes(object):
+class AccountTypes:
     USER = "User"
     VENDOR = "Vendor"

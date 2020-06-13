@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import binascii
 import hashlib
 import hmac
@@ -84,7 +82,7 @@ class Vendor(BaseAccount):
         verbose_name = 'Vendor'
         verbose_name_plural = 'Vendors'
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s" % self.name
 
     def save(self, *args, **kwargs):
@@ -195,7 +193,7 @@ class Vendor(BaseAccount):
 
 
 class VendorSession(BaseAccountSession):
-    vendor = models.OneToOneField(Vendor)
+    vendor = models.OneToOneField(Vendor, on_delete=models.CASCADE)
 
     @classmethod
     def get_account_by_token(cls, token):
@@ -228,9 +226,9 @@ VENDOR_NOTIFICATION_TYPES = (
 
 
 class VendorNotification(models.Model):
-    parking_session = models.ForeignKey(to='parkings.ParkingSession', null=True, blank=True)
-    parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True, blank=True)
-    rps_subscription = models.ForeignKey(RpsSubscription, null=True, blank=True)
+    parking_session = models.ForeignKey(to='parkings.ParkingSession', null=True, blank=True, on_delete=models.CASCADE)
+    parking_card_session = models.ForeignKey(RpsParkingCardSession, null=True, blank=True, on_delete=models.CASCADE)
+    rps_subscription = models.ForeignKey(RpsSubscription, null=True, blank=True, on_delete=models.CASCADE)
     type = models.PositiveSmallIntegerField(
         choices=VENDOR_NOTIFICATION_TYPES, default=0)
     confirmed_at = models.DateTimeField(null=True, blank=True)

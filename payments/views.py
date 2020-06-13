@@ -10,7 +10,8 @@ from base.views import APIView
 from parkings.models import ParkingSession
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
-    PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN
+    PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
+    PAYMENT_STATUS_PREPARED_AUTHORIZED
 from payments.payment_api import TinkoffAPI
 
 from payments.tasks import start_cancel_request, make_buy_subscription_request
@@ -237,12 +238,12 @@ class TinkoffCallbackView(APIView):
 
         datetime_object = datetime.datetime.strptime(
             receipt_datetime_str.split("+")[0], "%Y-%m-%dT%H:%M:%S")
-        order_id = long(data.get("OrderId", -1))
+        order_id = int(data.get("OrderId", -1))
 
         try:
             order = Order.objects.get(id=order_id)
         except ObjectDoesNotExist as e:
-            get_logger().warn(e.message)
+            get_logger().warn(e)
             return
 
         fiskal = FiskalNotification.objects.create(
@@ -311,7 +312,7 @@ class TinkoffCallbackView(APIView):
             order = Order.objects.get(id=order_id)
             return order
         except ObjectDoesNotExist as e:
-            get_logger().warn(e.message)
+            get_logger().warn(e)
             return None
 
     def update_payment_info(self, payment_id):
@@ -364,12 +365,15 @@ class TinkoffCallbackView(APIView):
             for session_order in session_orders:
                 if session_order.authorized and not session_order.paid:
                     try:
+                        get_logger().info(str(session_order))
+                        get_logger().info(str(PAYMENT_STATUS_AUTHORIZED))
                         payment = TinkoffPayment.objects.get(order=session_order,
-                                                             status=PAYMENT_STATUS_AUTHORIZED,
+                                                             status__in=[PAYMENT_STATUS_PREPARED_AUTHORIZED,
+                                                                         PAYMENT_STATUS_AUTHORIZED],
                                                              error_code=-1)
                         session_order.confirm_payment(payment)
                     except ObjectDoesNotExist as e:
-                        get_logger().info(e.message)
+                        get_logger().info(e)
         else:
             get_logger().info("Wait closing session")
 

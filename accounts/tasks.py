@@ -5,8 +5,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 
 from parkings.models import ParkingSession
-from parkpass.celery import app
-from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED
+from parkpass_backend.celery import app
+from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED
 from payments.payment_api import TinkoffAPI
 
 
@@ -94,11 +94,11 @@ def confirm_all_orders_if_needed(parking_session):
                 try:
                     payment = TinkoffPayment.objects.get(
                         order=session_order,
-                        status=PAYMENT_STATUS_AUTHORIZED,
+                        status__in=[PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED],
                         error_code=-1)
                     session_order.confirm_payment(payment)
                 except ObjectDoesNotExist as e:
-                    logging.warning(e.message)
+                    logging.warning(e)
     else:
         logging.info("Wait vendor completing session")
 
@@ -116,7 +116,7 @@ def force_pay(parking_session_id):
             for order in not_paid_orders:
                 payments = TinkoffPayment.objects.filter(order=order)
                 for payment in payments:
-                    if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                    if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
                         order.confirm_payment(payment)
                         return
                 if payments.exists():

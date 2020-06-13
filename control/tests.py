@@ -54,7 +54,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        # print response.content
+        # print(response.content)
         self.assertEqual(200, response.status_code)
 
     def test_login_by_phone(self):
@@ -67,7 +67,7 @@ class Authorization(TestCase):
 
         response = Client().post(url, body, content_type="application/json")
 
-        # print response.content
+        # print(response.content)
         self.assertEqual(200, response.status_code)
 
 
@@ -81,7 +81,7 @@ class ParkingEdit(TestCase):
 
         response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
-        # print json.dumps(j, indent=2)
+        # print(json.dumps(j, indent=2))
         self.assertEqual(200, response.status_code)
         # self.assertEqual(j, serializer(Parking.objects.get(id=1)))
 
@@ -104,7 +104,7 @@ class ParkingEdit(TestCase):
 
         response = Client().put(url, body, **TOKEN_DICT)
         j = json.loads(response.content)
-        # print json.dumps(j, indent=2), '!@#'
+        # print(json.dumps(j, indent=2))
         self.assertEqual(200, response.status_code)
 
     def test_invalid_changes(self):
@@ -167,7 +167,7 @@ class ParkingSessionEdit(TestCase):
 
         response = Client().get(url, **TOKEN_DICT)
         # j = json.loads(response.content)
-        # print json.dumps(j, indent=2)
+        # print(json.dumps(j, indent=2))
         self.assertEqual(200, response.status_code)
 
     def test_delete_ps(self):
@@ -213,7 +213,7 @@ class VendorEdit(TestCase):
         response = Client().get(url, **TOKEN_DICT)
         j = json.loads(response.content)
 
-        # print json.dumps(j, indent=2)
+        # print(json.dumps(j, indent=2))
 
         self.assertEqual(200, response.status_code)
 
@@ -241,7 +241,7 @@ class VendorEdit(TestCase):
         )
 
         response = Client().put(url, body, **TOKEN_DICT)
-        # print response.content
+        # print(response.content)
         self.assertEqual(200, response.status_code)
 
 
@@ -270,7 +270,7 @@ class ComplainPagination(TestCase):
         response = Client().get(self.url, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(200, response.status_code)
-        # print json.dumps(j, indent=4)
+        # print(json.dumps(j, indent=4))
 
 
 class ParkingsStatistics(TestCase):
@@ -309,7 +309,7 @@ class ParkingsStatistics(TestCase):
 
         response = Client().post(url, body, **TOKEN_DICT)
 
-        # print json.dumps(json.loads(response.content), indent=2)
+        # print(json.dumps(json.loads(response.content), indent=2))
 
         self.assertEqual(200, response.status_code)
 

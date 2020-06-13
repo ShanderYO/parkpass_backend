@@ -1,25 +1,15 @@
-FROM ubuntu:16.04
+FROM python:3.6.9-buster
 
-# Install.
-RUN \
-  apt-get update && \
-  apt-get install -y build-essential && \
-  apt-get install -y software-properties-common && \
-  apt-get install -y byobu curl git htop man unzip vim wget && \
-  apt-get install -y nginx && \
-  apt-get install -y supervisor && \
-  rm -rf /var/lib/apt/lists/*
-
-
-# Install Python2
-RUN apt-get update && apt-get install -y python-dev && apt-get install -y python-pip
+# update pip
+RUN python3.6 -m pip install pip --upgrade
+RUN python3.6 -m pip install wheel
 
 # Install Pillow ubuntu dependencies
-RUN apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev \
-    libfreetype6-dev liblcms2-dev libgdal-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk
+RUN apt-get install -y zlib1g-dev \
+    libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev
 
 # Install OpenSSL for python
-RUN apt-get install -y python-openssl
+# RUN apt-get install -y python-openssl
 
 # Install parkpass project to /deploy
 RUN mkdir -p /app
@@ -27,8 +17,6 @@ RUN mkdir -p /app/media/logs
 RUN mkdir -p /app/media/reports
 
 COPY /. /app
-
-#RUN apt-get install -y curl libreoffice-calc
 
 # Upgrade pip manager
 RUN pip install --upgrade pip
@@ -40,10 +28,6 @@ RUN pip install -r /app/requirements.txt
 RUN mkdir /var/log/uwsgi
 
 WORKDIR /app/
-
-# Remove overrided file for localhost development
-#RUN rm -f parkpass_backend/local_settings.py
-#RUN rm -f parkpass_backend/local_settings.pyc
 
 # Config for socket upstream from nginx
 ARG SOCKNAME_DEFAULT="app.sock"

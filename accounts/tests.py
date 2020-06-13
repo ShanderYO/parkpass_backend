@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from accounts.models import Account, AccountSession
 from parkings.models import Parking, ParkingSession, Wish
-from parkpass.settings import AVATARS_ROOT
+from parkpass_backend.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
 from vendors.models import Vendor
 
@@ -93,7 +93,7 @@ class PasswordTestCase(TestCase):
         response = Client().post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 400)
-        # print response.content
+        # print(response.content)
 
     def test_valid_email_restore(self):
         """
@@ -107,7 +107,7 @@ class PasswordTestCase(TestCase):
         response = Client().post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
     def test_invalid_old_change(self):
         """
@@ -122,7 +122,7 @@ class PasswordTestCase(TestCase):
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        # print response.content
+        # print(response.content)
 
     def test_valid_password_change(self):
         """
@@ -137,14 +137,14 @@ class PasswordTestCase(TestCase):
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
         # self.assertTrue(self.account.check_password("uiop"))     # New password should be valid
         # self.assertFalse(self.account.check_password("qwerty"))  # Old password shouldn't
 
     def test_zendesk_token(self):
         url = URL_PREFIX + "jwt/chat/"
         response = Client().get(url, **TOKEN_DICT)
-        print response.content
+        print(response.content)
         self.assertEqual(200, response.status_code)
 
 
@@ -163,7 +163,7 @@ class LoginEmailTestCase(TestCase):
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        # print response.content
+        # print(response.content)
 
     def test_invalid_password_login_with_email(self):
         url = URL_PREFIX + "login/email/"
@@ -175,7 +175,7 @@ class LoginEmailTestCase(TestCase):
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        # print response.content
+        # print(response.content)
 
     def test_valid_login_with_email(self):
         url = URL_PREFIX + "login/email/"
@@ -191,7 +191,7 @@ class LoginEmailTestCase(TestCase):
         response = Client().get(url2, content_type='application/json',
                                 HTTP_AUTHORIZATION='Token %s' % j['token'])
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
 
 class AccountTestCase(TestCase):
@@ -233,7 +233,7 @@ class AccountTestCase(TestCase):
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertNotEqual(response.status_code, 200)
         j = json.loads(response.content)
-        # print json.dumps(j, indent=4), 222333
+        # print(json.dumps(j, indent=4), 222333)
         # self.assertEqual(305, j['code'])
 
 
@@ -286,7 +286,7 @@ class AccountDeactivateTestCase(AccountTestCase):
     def test_deactivate_account(self):
         url = URL_PREFIX + "deactivate/"
         response = Client().post(url, "{}", **TOKEN_DICT)
-        # print response.content
+        # print(response.content)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(CreditCard.objects.all().count(), 0)
         self.assertIsNone(ParkingSession.get_active_session(account=self.account))
@@ -320,7 +320,7 @@ class AccountWithCardTestCase(AccountTestCase):
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
-        # print response.content
+        # print(response.content)
 
     def test_change_default_card_repeat(self):
         url = URL_PREFIX + "card/default/"
@@ -331,7 +331,7 @@ class AccountWithCardTestCase(AccountTestCase):
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
     def test_change_default_card(self):
         url = URL_PREFIX + "card/default/"
@@ -342,7 +342,7 @@ class AccountWithCardTestCase(AccountTestCase):
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
     def test_delete_card(self):
         url = URL_PREFIX + "card/delete/"
@@ -441,7 +441,7 @@ class AccountSessionsTestCase(TestCase):
 
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
         # Check pagination
         response_dict = json.loads(response.content)
@@ -450,7 +450,7 @@ class AccountSessionsTestCase(TestCase):
         url = URL_PREFIX + "session/list/?page=%s" % page_token
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        print response.content
+        print(response.content)
 
     def test_parking_session_interval_invalid_params_view(self):
 
@@ -458,35 +458,35 @@ class AccountSessionsTestCase(TestCase):
         url = URL_PREFIX + "session/list/?from_date=11"
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
-        # print response.content
+        # print(response.content)
 
         # skip to_date=11
         url = URL_PREFIX + "session/list/?to_date=11"
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
-        # print response.content
+        # print(response.content)
 
         url = URL_PREFIX + "session/list/?from_date=11&to_date=12"
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
         # skip to_date=Privet
         url = URL_PREFIX + "session/list/?to_date=11&to_date=Privet"
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
     def test_parking_session_interval_too_big_period_view(self):
         url = URL_PREFIX + "session/list/?from_date=0&to_date=1527539422"
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
-        # print response.content
+        # print(response.content)
 
     def test_parking_session_interval_valid_view(self):
         url = URL_PREFIX + "session/list/?from_date=1510000000&to_date=1537539422"
         response = Client().get(url, **TOKEN_DICT)
-        # print response.content
+        # print(response.content)
         self.assertEqual(response.status_code, 200)
 
     def test_get_debt_request(self):
@@ -494,7 +494,7 @@ class AccountSessionsTestCase(TestCase):
 
         response = Client().get(url, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
     def test_session_pay_invalid_id(self):
         url = URL_PREFIX + "session/pay/"
@@ -514,7 +514,7 @@ class AccountSessionsTestCase(TestCase):
         })
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        # print response.content
+        # print(response.content)
 
 
 class StartAccountTestCaseWithDebt(TestCase):
@@ -580,7 +580,7 @@ class StartAccountTestCaseWithDebt(TestCase):
         })
 
         response = Client().post(url, body, **TOKEN_DICT)
-        # print response.content, 12321
+        # print(response.content, 12321)
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
         self.assertEqual(402, j['code'])
@@ -708,7 +708,7 @@ class AccountAvatarTestCase(AccountTestCase):
 
         url = URL_PREFIX + "me/"
         response = Client().get(url, **TOKEN_DICT)
-        print response.content
+        print(response.content)
         self.assertEqual(response.status_code, 200)
 
     def test_set_large_avatar(self):
@@ -756,13 +756,12 @@ class WantedParkingsTestCase(TestCase):
         self.p3.save()
 
     def test_adding_wannamarks(self):
-        # print Parking.objects.all()
         resp = []
 
         for i in [2, 4, 6]:
             url = "/api/v1/parking/wish/%d/" % i
             resp.append(Client().get(url, **TOKEN_DICT))
-            # print resp[-1].content
+            # print(resp[-1].content)
 
         w = []
         wishes = Wish.objects.all()
@@ -789,7 +788,7 @@ class Issue(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        # print response.content
+        # print(response.content)
         self.assertEqual(200, response.status_code)
 
     def test_partial_data(self):
@@ -801,7 +800,7 @@ class Issue(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        # print response.content
+        # print(response.content)
         self.assertEqual(200, response.status_code)
 
         url = URL_PREFIX + 'owner/'
@@ -812,7 +811,7 @@ class Issue(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        # print response.content
+        # print(response.content)
         self.assertEqual(200, response.status_code)
 
     def test_no_name(self):
@@ -824,7 +823,7 @@ class Issue(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        # print response.content
+        # print(response.content)
         self.assertEqual(200, response.status_code)
 
 
@@ -856,7 +855,7 @@ class ExtenalLoginTestCase(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        print response.content
+        print(response.content)
         self.assertEqual(400, response.status_code)
 
     def test_exists_external_login(self):
@@ -868,5 +867,5 @@ class ExtenalLoginTestCase(TestCase):
         })
 
         response = Client().post(url, body, content_type='application/json')
-        print response.content
+        print(response.content)
         self.assertEqual(200, response.status_code)

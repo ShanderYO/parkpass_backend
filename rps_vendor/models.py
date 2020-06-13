@@ -42,14 +42,14 @@ class RpsParking(models.Model):
 
     last_response_code = models.IntegerField(default=0)
     last_response_body = models.TextField(null=True, blank=True)
-    parking = models.ForeignKey(to='parkings.Parking')
+    parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
 
     class Meta:
         ordering = ["-id"]
         verbose_name = 'RpsParking'
         verbose_name_plural = 'RpsParking'
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s" % (self.parking.name)
 
     def get_parking_card_debt_url(self, query):
@@ -88,7 +88,7 @@ class RpsParking(models.Model):
         prefix_query_str = "ticket_id=%s&FromPay=ParkPass" % parking_card
 
         str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
-        hash_str = hashlib.sha1(str_for_hash).hexdigest()
+        hash_str = hashlib.sha1(str_for_hash.encode('utf-8')).hexdigest()
 
         query_str = prefix_query_str + '&hash=%s' % hash_str
 
@@ -148,7 +148,7 @@ class ParkingCard(models.Model):
     phone = models.CharField(max_length=32)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __unicode__(self):
+    def __str__(self):
         return "Parking card %s" % self.card_id
 
 
@@ -168,19 +168,19 @@ CARD_SESSION_STATES = (
 
 
 class RpsParkingCardSession(models.Model):
-    parking_card = models.ForeignKey(ParkingCard)
+    parking_card = models.ForeignKey(ParkingCard, on_delete=models.CASCADE)
     parking_id = models.IntegerField()
     debt = models.IntegerField(default=0)
     duration = models.IntegerField(default=0)
     state = models.PositiveSmallIntegerField(
         choices=CARD_SESSION_STATES, default=STATE_CREATED)
-    account = models.ForeignKey(Account, null=True, default=None)
+    account = models.ForeignKey(Account, null=True, default=None, on_delete=models.CASCADE)
     client_uuid = models.UUIDField(null=True, default=None)
 
     from_datetime = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __unicode__(self):
+    def __str__(self):
         return "Parking RPS session %s %s" % (
             self.parking_card,
             self.parking_id
@@ -204,7 +204,7 @@ class RpsParkingCardSession(models.Model):
         prefix_query_str = "ticket_id=%s&amount=%s&FromPay=ParkPass" % (self.parking_card.card_id, int(order.sum))
 
         str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
-        hash_str = hashlib.sha1(str_for_hash).hexdigest()
+        hash_str = hashlib.sha1(str_for_hash.encode('utf-8')).hexdigest()
 
         payload = json.dumps({
             "ticket_id": self.parking_card.card_id,
@@ -300,11 +300,12 @@ class RpsSubscription(models.Model):
     description = models.TextField()
     sum = models.IntegerField()
 
+    unlimited = models.BooleanField(default=False, null=True, blank=True)
     started_at = models.DateTimeField()
     expired_at = models.DateTimeField()
     duration = models.IntegerField()
-    parking = models.ForeignKey(to='parkings.Parking')
-    account = models.ForeignKey(Account)
+    parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE)
     prolongation = models.BooleanField(default=True)
 
     data = models.TextField(help_text="Byte array as base64", null=True, blank=True)
@@ -375,8 +376,12 @@ class RpsSubscription(models.Model):
         if self.duration <= 0:
             return 0
 
-        days = self.duration / (3600 * 24)
-        return "%d" % days
+        days = self.duration // (3600 * 24)
+        if days < 30:
+            return "%d д." % days
+        if days % 30 == 0:
+            return "%d мес." % (days // 30)
+        return "%d мес. %d д." % (days // 30, days % 30)
 
     def check_prolong_payment(self):
         if timezone.now() >= self.expired_at and self.active:
@@ -391,7 +396,7 @@ class RpsSubscription(models.Model):
                     parking=self.parking,
                     data=self.data,
                     account=self.account,
-                    prolongation = True,
+                    prolongation=True,
                     idts=self.idts, id_transition=self.id_transition
                 )
                 new_subscription.create_order_and_pay()

@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 import abc
 import requests
 
 from base.exceptions import NetworkException
 
 
-class SMSBaseProvider(object):
+class SMSBaseProvider:
     SEND_SMS_URL = "stub"
 
     def __init__(self):

@@ -37,7 +37,7 @@ class EmailValidator(BaseValidator):
             validate_email(email)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -53,7 +53,7 @@ class LoginParamValidator(BaseValidator):
             validate_phone_number(phone)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -70,7 +70,7 @@ class ConfirmLoginParamValidator(BaseValidator):
 
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -90,7 +90,7 @@ class NewConfirmLoginParamValidator(BaseValidator):
 
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -121,7 +121,7 @@ class EmailAndPasswordValidator(BaseValidator):
             validate_password_format(password)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -139,7 +139,7 @@ class LoginAndPasswordValidator(BaseValidator):
             validate_password_format(password)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 
@@ -159,7 +159,7 @@ class AccountParamValidator(BaseValidator):
                 validate_name(last_name)
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e.message)
+            self.message = str(e)
             return False
         return True
 

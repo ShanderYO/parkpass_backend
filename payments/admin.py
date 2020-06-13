@@ -1,8 +1,10 @@
 from django.contrib import admin
 
 # Register your models here.
-from models import CreditCard, TinkoffPayment, Order, FiskalNotification
-
+from payments.models import (
+    CreditCard, TinkoffPayment, Order,
+    FiskalNotification, InvoiceWithdraw
+)
 
 @admin.register(CreditCard)
 class CreditCardAdmin(admin.ModelAdmin):
@@ -35,3 +37,9 @@ class TinkoffPaymentAdmin(admin.ModelAdmin):
 @admin.register(FiskalNotification)
 class FiskalNotificationAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(InvoiceWithdraw)
+class InvoiceWithdrawAdmin(admin.ModelAdmin):
+    pass
+

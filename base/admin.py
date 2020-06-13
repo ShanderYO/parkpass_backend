@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from models import Terminal, EmailConfirmation
+from .models import Terminal, EmailConfirmation
 
 
 @admin.register(Terminal)

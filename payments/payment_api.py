@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from base.models import Terminal
 from base.utils import get_logger
-from parkpass import settings
+from parkpass_backend import settings
 
 
 class TinkoffApiException:
@@ -55,7 +55,7 @@ class TinkoffAPI():
         concat_str = ""
         for key in params:
             concat_str += str(params[key])
-        return hashlib.sha256(concat_str).hexdigest()
+        return hashlib.sha256(concat_str.encode('utf-8')).hexdigest()
 
     def get_response(self, url, payload):
         connect_timeout = 2
