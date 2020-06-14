@@ -25,8 +25,6 @@ class Migration(migrations.Migration):
                 ('password', models.CharField(default='stub', max_length=255)),
                 ('avatar', models.CharField(blank=True, max_length=64, null=True)),
                 ('created_at', models.DateField(auto_now_add=True)),
-                ('external_vendor_id', models.IntegerField(default=None, null=True)),
-                ('external_id', models.CharField(blank=True, max_length=1024, null=True)),
                 ('email_confirmation', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='base.EmailConfirmation')),
             ],
             options={
