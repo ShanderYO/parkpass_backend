@@ -29,8 +29,6 @@ class Migration(migrations.Migration):
                 ('request_update_url', models.URLField(blank=True, null=True)),
                 ('request_parking_card_debt_url', models.URLField(default='https://parkpass.ru/api/v1/parking/rps/mock/debt/')),
                 ('request_payment_authorize_url', models.URLField(default='https://parkpass.ru/api/v1/parking/rps/mock/authorized/')),
-                ('request_get_subscriptions_list_url', models.URLField(default='https://parkpass.ru/api/v1/parking/rps/mock/subscriptions/')),
-                ('request_subscription_pay_url', models.URLField(default='https://parkpass.ru/api/v1/parking/rps/mock/subscription/pay/')),
                 ('polling_enabled', models.BooleanField(default=False)),
                 ('last_request_body', models.TextField(blank=True, null=True)),
                 ('last_request_date', models.DateTimeField(auto_now_add=True)),
