@@ -51,7 +51,6 @@ class Migration(migrations.Migration):
                 ('duration', models.IntegerField(default=0)),
                 ('state', models.PositiveSmallIntegerField(choices=[(1, 'Only created'), (2, 'Inited pay'), (3, 'Authorized pay'), (4, 'Confirmed pay'), (5, 'Error')], default=1)),
                 ('client_uuid', models.UUIDField(default=None, null=True)),
-                ('from_datetime', models.DateTimeField(blank=True, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('account', models.ForeignKey(default=None, null=True, on_delete=django.db.models.deletion.CASCADE, to='accounts.Account')),
                 ('parking_card', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='rps_vendor.ParkingCard')),

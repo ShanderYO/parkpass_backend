@@ -32,7 +32,6 @@ class Migration(migrations.Migration):
             name='Terminal',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255, null=True, unique=True)),
                 ('terminal_key', models.CharField(max_length=255)),
                 ('password', models.CharField(max_length=255)),
                 ('is_selected', models.BooleanField(default=False)),
