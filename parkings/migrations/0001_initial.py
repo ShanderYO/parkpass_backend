@@ -74,7 +74,6 @@ class Migration(migrations.Migration):
                 ('target_refund_sum', models.DecimalField(decimal_places=2, default=0, max_digits=7)),
                 ('current_refund_sum', models.DecimalField(decimal_places=2, default=0, max_digits=7)),
                 ('extra_data', models.TextField(blank=True, null=True)),
-                ('vendor_id', models.IntegerField(default=0)),
                 ('created_at', models.DateField(auto_now_add=True)),
                 ('client', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='accounts.Account')),
                 ('parking', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='parkings.Parking')),
