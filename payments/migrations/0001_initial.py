@@ -73,7 +73,6 @@ class Migration(migrations.Migration):
                 ('fiscal_notification', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='payments.FiskalNotification')),
                 ('parking_card_session', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='rps_vendor.RpsParkingCardSession')),
                 ('session', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='parkings.ParkingSession')),
-                ('terminal', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='base.Terminal')),
             ],
             options={
                 'verbose_name': 'Order',

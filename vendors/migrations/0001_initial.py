@@ -44,7 +44,6 @@ class Migration(migrations.Migration):
                 ('actual_address', models.CharField(blank=True, max_length=512, null=True)),
                 ('checking_account', models.CharField(blank=True, max_length=64, null=True)),
                 ('checking_kpp', models.CharField(blank=True, max_length=15, null=True)),
-                ('fetch_extern_user_data_url', models.URLField(max_length=1024, null=True)),
                 ('email_confirmation', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='base.EmailConfirmation')),
                 ('test_parking', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='parking_vendor', to='parkings.Parking')),
                 ('test_user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='accounts.Account')),
