@@ -27,8 +27,6 @@ def generate_report_and_send(settings_report_id):
             'company').select_related('parking').get(id=settings_report_id)
 
         filepath = __make_file_for_report(report_settings)
-
-        print(filepath)
         write(filepath)
         return
 
@@ -394,6 +392,7 @@ def write(filepath):
     __write_session(filepath)
     __write_cards(filepath)
 
-    filename = filepath + '/report_{}.xlsm'
-    full_name = os.path.join(filepath + filename)
-    subprocess.run(["./lib/OpenXLSX/install/bin/Demo1", filepath + '/sheets', full_name])
+    filename = filepath + '/report.xlsm'
+    print(filepath)
+    print(filename)
+    subprocess.run(["./lib/OpenXLSX/install/bin/Demo1", filepath + '/sheets', filename])
