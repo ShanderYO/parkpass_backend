@@ -26,7 +26,19 @@ def generate_report_and_send(settings_report_id):
         report_settings = CompanySettingReports.objects.select_related(
             'company').select_related('parking').get(id=settings_report_id)
 
+        sessions = ParkingSession.objects.filter(
+            completed_at__isnull=False
+        )
+        parking_cards = RpsParkingCardSession.objects.filter()
+
+        subscriptions = RpsSubscription.objects.filter()
+
         filepath = __make_file_for_report(report_settings)
+
+        __write_cards(filepath, parking_cards)
+        __write_session(filepath, sessions)
+        __write_subscriptions(filepath, subscriptions)
+
         write(filepath)
         return
 
@@ -358,40 +370,94 @@ def __make_file_for_report(report_settings):
     return report_dir
 
 
-def __write_session(filepath):
+def __write_session(filepath, qs):
     with open(filepath + '/sheets/' + 'Сессии', 'w') as f:
         move_down = caret_mover(f)
+        move_down(4)
 
-        move_down(6)
+        total_sum = 0
 
-        f.write('\x1d{name}\x1d{requisite_type}\x1d{requisite}'.format(
-            name="lalka1",
-            requisite_type="lalka2",
-            requisite="Lalka3"
-        ))
-        move_down()
+        for session in qs:
+            total_sum += session.debt
+            status_str = ""
 
+            if session.client_state == ParkingSession.CLIENT_STATE_CANCELED:
+                status_str = "Отменена"
 
-def __write_cards(filepath):
-    with open(filepath + '/sheets/' + 'Карты', 'w') as f:
-        move_down = caret_mover(f)
-        move_down(21)
-        position = 1
+            elif session.client_state == ParkingSession.CLIENT_STATE_CLOSED:
+                status_str = "Оплачена"
 
-        for i in range(10):
-            f.write('\x1d' + str(position) + '\x1d')
-            position += 1
-            f.write('\x1d'.join(["jljlk","kgkgk","hkhkj"]))
+            elif session.client_state == ParkingSession.CLIENT_STATE_ACTIVE:
+                status_str = "Активная"
+
+            elif session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
+                status_str = "Приостановлена"
+
+            elif session.client_state == ParkingSession.CLIENT_STATE_SUSPENDED:
+                status_str = "Ожидает оплаты"
+            else:
+                status_str = "Не определен"
+
+            f.write('\x1d\x1d{id}\x1d{started_at}\x1d{completed_at}\x1d{duration}\x1d{sum}\x1d{state}'.format(
+                id=session.id,
+                started_at=session.started_at.strftime("%Y-%m-%d %H:%M:%S"),
+                completed_at=session.completed_at.strftime("%Y-%m-%d %H:%M:%S"),
+                duration=session.get_cool_duration(),
+                sum=float(session.debt),
+                state=status_str
+            ))
             move_down()
 
-        f.write('\x1dИТОГО')
-        move_down()
+        move_down(1000-qs.count())
+        f.write('\x1d\x1d\x1d\x1d\x1d\x1d{total}'.format(total=total_sum))
+
+
+def __write_cards(filepath, qs):
+    with open(filepath + '/sheets/' + 'Карты', 'w') as f:
+        move_down = caret_mover(f)
+        move_down(4)
+
+        total_sum = 0
+
+        for session in qs:
+            total_sum += session.debt
+            status_str = ""
+
+            # propotype[ID_COL].append(parking_card_session.id)
+            #
+            # if parking_card_session.from_datetime:
+            #     propotype[START_COL].append(parking_card_session.from_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+            # else:
+            #     propotype[START_COL].append('Нет данных')
+            #
+            # propotype[END_COL].append(parking_card_session.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+            # propotype[DURATION_COL].append(parking_card_session.get_cool_duration())
+            # propotype[PRICE_COL].append(float(parking_card_session.debt))
+            # total_sum += parking_card_session.debt
+            # propotype[BUY_DATETIME_COL].append(parking_card_session.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+
+
+def __write_subscriptions(filepath, qs):
+    with open(filepath + '/sheets/' + 'Подписки', 'w') as f:
+        move_down = caret_mover(f)
+        move_down(4)
+
+        total_sum = 0
+
+        for subscription in qs:
+            f.write('\x1d{id}\x1d{sum}\x1d{duration}\x1d{started_at}\x1d{vendor_idts}'.format(
+                id=subscription.id,
+                sum=float(subscription.sum),
+                duration=subscription.get_cool_duration(),
+                started_at=subscription.started_at.strftime("%Y-%m-%d %H:%M:%S"),
+                vendor_idts=subscription.idts,
+            ))
+            move_down()
+
+        f.write('\x1d\x1d{total} руб. '.format(total=total_sum))
 
 
 def write(filepath):
-    __write_session(filepath)
-    __write_cards(filepath)
-
     filename = filepath + '/report.xlsm'
     print(filepath)
     print(filename)
