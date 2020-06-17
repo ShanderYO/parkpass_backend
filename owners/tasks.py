@@ -42,7 +42,6 @@ def generate_report_and_send(settings_report_id):
         write(filepath)
         return
 
-        #
         # report = CompanyReport.objects.filter(filename=filepath).first()
         # if report:
         #     get_logger().warning("Report is already exist: %s" % filepath)
@@ -93,23 +92,6 @@ def generate_report_and_send(settings_report_id):
 
     except ObjectDoesNotExist:
         get_logger().warn("CompanySettingReports with id %d is not found" % settings_report_id)
-
-
-def test_generate():
-    report_settings = CompanySettingReports.objects.select_related(
-        'company').select_related('parking').all()[0]
-
-    filename = os.path.join(REPORTS_ROOT, "report-%s-%s_%s.xlsx" % (
-        report_settings.parking.id,
-        report_settings.last_send_date.date(),
-        (report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)).date()
-    ))
-
-    create_report_for_parking(
-        report_settings.parking,
-        report_settings.last_send_date,
-        report_settings.last_send_date + timedelta(
-            seconds=report_settings.period_in_days * 24 * 60 * 60))
 
 
 def create_report_for_parking(parking, from_date, to_date):
@@ -364,7 +346,6 @@ def __make_file_for_report(report_settings):
     except FileExistsError:
         pass
 
-    #os.mkdir(os.path.join(report_dir, 'report.xlsx'))
     os.mkdir(os.path.join(report_dir, 'sheets'))
 
     return report_dir
@@ -408,33 +389,22 @@ def __write_session(filepath, qs):
             ))
             move_down()
 
-        move_down(1000-qs.count())
-        f.write('\x1d\x1d\x1d\x1d\x1d\x1d{total}'.format(total=total_sum))
-
 
 def __write_cards(filepath, qs):
     with open(filepath + '/sheets/' + 'Карты', 'w') as f:
         move_down = caret_mover(f)
         move_down(4)
 
-        total_sum = 0
+        for parking_card_session in qs:
+            paid_at = parking_card_session.from_datetime.strftime("%Y-%m-%d %H:%M:%S") \
+                if parking_card_session.from_datetime else 'н/д'
 
-        for session in qs:
-            total_sum += session.debt
-            status_str = ""
-
-            # propotype[ID_COL].append(parking_card_session.id)
-            #
-            # if parking_card_session.from_datetime:
-            #     propotype[START_COL].append(parking_card_session.from_datetime.strftime("%Y-%m-%d %H:%M:%S"))
-            # else:
-            #     propotype[START_COL].append('Нет данных')
-            #
-            # propotype[END_COL].append(parking_card_session.created_at.strftime("%Y-%m-%d %H:%M:%S"))
-            # propotype[DURATION_COL].append(parking_card_session.get_cool_duration())
-            # propotype[PRICE_COL].append(float(parking_card_session.debt))
-            # total_sum += parking_card_session.debt
-            # propotype[BUY_DATETIME_COL].append(parking_card_session.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+            f.write('\x1d\x1d{id}\x1d{paid_at}\x1d{duration}\x1d{sum}'.format(
+                id=parking_card_session.id,
+                paid_at=paid_at,
+                duration=parking_card_session.get_cool_duration(),
+                sum=float(parking_card_session.debt)
+            ))
 
 
 def __write_subscriptions(filepath, qs):
