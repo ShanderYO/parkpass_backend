@@ -200,8 +200,11 @@ def write_session(filepath, qs):
             ))
             move_down()
 
-        f.write('\x1d{total_title}\x1d\x1d\x1d\x1d{total} руб.'.format(
-            total_title="Итого",
+        rows = qs.count()
+        move_down(MAX_ROWS_IN_SHEET - rows + 1)
+
+        f.write('\x1d\x1d\x1d\x1d\x1d\x1d{total} руб.'.format(
+            #total_title="Итого",
             total=total_sum,
         ))
         move_down()
@@ -228,7 +231,7 @@ def write_cards(filepath, qs):
             total_sum += parking_card_session.debt
 
         rows = qs.count()
-        move_down(MAX_ROWS_IN_SHEET - rows)
+        move_down(MAX_ROWS_IN_SHEET - rows + 1)
         f.write('\x1d\x1d\x1d\x1d{total} руб.'.format(total=total_sum))
         move_down()
 
@@ -253,9 +256,9 @@ def write_subscriptions(filepath, qs):
             move_down()
 
         rows = qs.count()
-        move_down(MAX_ROWS_IN_SHEET - rows)
-        f.write('\x1d{total_title}\x1d{total} руб. '.format(
-            total_title="Итого",
+        move_down(MAX_ROWS_IN_SHEET - rows + 1)
+        f.write('\x1d\x1d{total} руб. '.format(
+            # total_title="Итого",
             total=total_sum
         ))
         move_down()
