@@ -70,7 +70,7 @@ def generate_report_and_send(settings_report_id):
                 company=report_settings.company,
                 filename=filepath
             )
-            send_report(report_settings.report_emails, filepath)
+            # send_report(report_settings.report_emails, filepath + "/report.xlsm")
             get_logger().info("Report done: %s" % filepath)
 
             # create_withdraw_request(report, sum=total_sum)
@@ -200,9 +200,11 @@ def write_session(filepath, qs):
             ))
             move_down()
 
-        rows = qs.count()
-        move_down(MAX_ROWS_IN_SHEET - rows)
-        f.write('\x1d\x1d\x1d\x1d\x1d\x1d{total} руб.'.format(total=total_sum))
+        f.write('\x1d{space}\x1d{total_title}\x1d\x1d\x1d\x1d{total} руб.'.format(
+            space="",
+            total_title="Итого",
+            total=total_sum,
+        ))
 
     return total_sum
 
@@ -224,10 +226,12 @@ def write_cards(filepath, qs):
                 sum=float(parking_card_session.debt)
             ))
             total_sum += parking_card_session.debt
+            move_down()
 
-        rows = qs.count()
-        move_down(MAX_ROWS_IN_SHEET - rows)
-        f.write('\x1d\x1d\x1d\x1d{total} руб.'.format(total=total_sum))
+        f.write('\x1d{total_title}\x1d\x1d\x1d{total} руб.'.format(
+            total_title="Итого",
+            total=total_sum
+        ))
 
     return total_sum
 
@@ -249,9 +253,10 @@ def write_subscriptions(filepath, qs):
             total_sum += subscription.sum
             move_down()
 
-        rows = qs.count()
-        move_down(MAX_ROWS_IN_SHEET - rows)
-        f.write('\x1d\x1d{total} руб. '.format(total=total_sum))
+        f.write('\x1d{total_title}\x1d{total} руб. '.format(
+            total_title="Итого",
+            total=total_sum
+        ))
 
     return total_sum
 
