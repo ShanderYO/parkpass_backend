@@ -160,11 +160,10 @@ def make_dir_for_report(paring_id, last_send_date, period_in_days):
 
 
 def write_session(filepath, qs):
+    total_sum = 0
     with open(filepath + '/sheets/' + 'Сессии', 'w') as f:
         move_down = caret_mover(f)
         move_down(4)
-
-        total_sum = 0
 
         for session in qs:
             status_str = ""
@@ -209,11 +208,10 @@ def write_session(filepath, qs):
 
 
 def write_cards(filepath, qs):
+    total_sum = 0
     with open(filepath + '/sheets/' + 'Карты', 'w') as f:
         move_down = caret_mover(f)
         move_down(4)
-
-        total_sum = 0
 
         for parking_card_session in qs:
             paid_at = parking_card_session.from_datetime.strftime("%Y-%m-%d %H:%M:%S") \
@@ -235,11 +233,10 @@ def write_cards(filepath, qs):
 
 
 def write_subscriptions(filepath, qs):
+    total_sum = 0
     with open(filepath + '/sheets/' + 'Подписки', 'w') as f:
         move_down = caret_mover(f)
         move_down(4)
-
-        total_sum = 0
 
         for subscription in qs:
             f.write('\x1d{id}\x1d{sum}\x1d{duration}\x1d{started_at}\x1d{vendor_idts}'.format(
@@ -255,6 +252,8 @@ def write_subscriptions(filepath, qs):
         rows = qs.count()
         move_down(MAX_ROWS_IN_SHEET - rows)
         f.write('\x1d\x1d{total} руб. '.format(total=total_sum))
+
+    return total_sum
 
 
 def write(filepath):
