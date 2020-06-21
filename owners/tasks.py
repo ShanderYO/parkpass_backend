@@ -73,7 +73,8 @@ def generate_report_and_send(settings_report_id):
             send_report(report_settings.report_emails, filepath + "/report.xlsm")
             get_logger().info("Report done: %s" % filepath)
 
-            create_withdraw_request(report, sum=total_sum)
+            if total_sum > 0:
+                create_withdraw_request(report, sum=total_sum)
 
             report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
             report_settings.save()
