@@ -639,14 +639,14 @@ class InvoiceWithdraw(models.Model):
     def __str__(self):
         return "(%s) %s" % (self.amount, self.accountNumber)
 
-    def save(self, *args, **kwargs):
+    def init_send(self):
         if not self.is_send and not self.is_requested:
             self.is_requested = True
-            super(InvoiceWithdraw, self).save(*args, **kwargs)
-            self.is_send = self.send_withdraw_request()
+            self.save()
 
+            self.is_send = self.send_withdraw_request()
         self.is_requested = False
-        super(InvoiceWithdraw, self).save(*args, **kwargs)
+        self.save()
 
     def _get_saved_access_token(self):
         active_session = TinkoffSession.objects.all().order_by('-created_at').first()
@@ -696,7 +696,7 @@ class InvoiceWithdraw(models.Model):
                 "accountNumber": self.accountNumber,
                 "paymentPurpose": self.paymentPurpose,
                 "executionOrder": self.executionOrder,
-                "taxPayerStatus": self.taxPayerStatus,
+                "taxPayerStatus": self.taxPayerStatus if self.taxPayerStatus else 0,
                 "kbk": self.kbk if self.kbk else "0",
                 "oktmo": self.oktmo if self.oktmo else "0",
                 "taxEvidence": self.taxEvidence if self.taxEvidence else "0",

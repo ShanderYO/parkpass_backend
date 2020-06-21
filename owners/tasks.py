@@ -112,10 +112,12 @@ def create_withdraw_request(report, sum=0):
             bankAcnt=bank_acnt,
             bankBik=bank_bik,
             paymentPurpose=payment_purpose,
-            executionOrder=1
+            executionOrder=1,
+            taxPayerStatus='0'
         )
         report.invoice_withdraw = invoice
         report.save()
+        invoice.init_send()
     else:
         get_logger().warn("Company has no valid requisites %s"
                           % [recipient_name, inn, kpp, account_number, bank_acnt, bank_bik, payment_purpose])
