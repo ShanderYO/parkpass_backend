@@ -99,7 +99,7 @@ def create_withdraw_request(report, sum=0):
     kpp = report.company.kpp
     account_number = report.company.account
     bank_acnt = report.company.bank
-    bank_bik = report.company.bik
+    bank_bik = report.company.bic
     payment_purpose = "Регулярная выплата"
 
     if all([recipient_name, inn, kpp, account_number, bank_acnt, bank_bik, payment_purpose]):
