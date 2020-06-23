@@ -33,12 +33,18 @@ def rps_process_updated_sessions(parking_id, sessions):
 
         if parking_sessions.count() > 0:
             parking_session = parking_sessions[0]
+
+            if parking_session.state == ParkingSession.STATE_CLOSED:
+                logging.info("Skip update for %s because closed" % session_id)
+                continue
+
             if not parking_session.is_completed_by_vendor():
                 parking_session.debt = debt
                 utc_updated_at = parking.get_utc_parking_datetime(updated_at)
                 parking_session.updated_at = utc_updated_at
                 logging.info("Update list parking at %s", str(utc_updated_at))
                 parking_session.save()
+    return None
 
 
 @app.task()
