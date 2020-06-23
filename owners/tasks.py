@@ -70,13 +70,13 @@ def generate_report_and_send(settings_report_id):
                 company=report_settings.company,
                 filename=filepath
             )
-            send_report(report_settings.report_emails, filepath + "/report.xlsm")
+            send_report(report_settings.report_emails, filepath + "/report.xlsm", from_date, to_date)
             get_logger().info("Report done: %s" % filepath)
 
             if total_sum > 0:
                 create_withdraw_request(report, sum=total_sum)
 
-            report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
+            report_settings.last_send_date = to_date
             report_settings.save()
 
         else:
@@ -86,9 +86,16 @@ def generate_report_and_send(settings_report_id):
         get_logger().warn("CompanySettingReports with id %d is not found" % settings_report_id)
 
 
-def send_report(emails, filename):
+def send_report(emails, filename, from_date, to_date):
     targets = emails.split(",")
-    msg = EmailMessage('Parkpass report', 'Hello. Your report inside...', EMAIL_HOST_USER, targets)
+    from_date_str = from_date.strftime("%Y-%m-%d")
+    to_date_str = to_date.strftime("%Y-%m-%d")
+    msg = EmailMessage(
+        'Отчет по парковке от Parkpass',
+        'Добрый день. \nВо вложении отчет за период с %s по %s' % (from_date_str, to_date_str),
+        EMAIL_HOST_USER,
+        targets
+    )
     msg.content_subtype = "html"
     msg.attach_file(filename)
     msg.send()
