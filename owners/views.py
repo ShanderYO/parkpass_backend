@@ -24,7 +24,7 @@ from .models import Company
 from .validators import ConnectIssueValidator, TariffValidator
 
 
-LoginRequiredAPIView = generic_login_required_view(Account)
+LoginRequiredAPIView = generic_login_required_view(Owner)
 
 
 class AccountInfoView(LoginRequiredAPIView):

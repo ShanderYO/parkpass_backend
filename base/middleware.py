@@ -92,7 +92,6 @@ class JWTTokenAuthenticationMiddleware():
                     return None
 
             if group == Groups.BASIC:
-                print("Return basic")
                 return Account.objects.filter(id=user_id).first()
 
             if group == Groups.VENDOR and groups & group > 0:

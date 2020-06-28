@@ -100,7 +100,7 @@ class Session(models.Model):
             "user_id": self.temp_user_id,
             "app": app,
             "type": self.type,
-            "group": group,
+            "groups": group,
             "expires_at": new_expires
         })
 
