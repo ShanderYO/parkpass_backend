@@ -47,16 +47,19 @@ def generate_report_and_send(settings_report_id):
             return
 
         sessions = ParkingSession.objects.filter(
+            parking=report_settings.parking,
             completed_at__gte=from_date,
             started_at__lte=to_date)
 
         parking_cards = RpsParkingCardSession.objects.filter(
+            parking_id=report_settings.parking_id,
             state=STATE_CONFIRMED,
             created_at__gte=from_date,
             created_at__lt=to_date
         ).select_related('parking_card')
 
         subscriptions = RpsSubscription.objects.filter(
+            parking=report_settings.parking,
             started_at__gte=from_date,
             started_at__lt=to_date,
             state=STATE_CONFIRMED
