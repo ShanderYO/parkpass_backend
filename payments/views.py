@@ -117,7 +117,8 @@ class TinkoffCallbackView(APIView):
 
                 if not CreditCard.objects.filter(account=order.account).exists():
                     credit_card.is_default = True
-                    credit_card.save()
+
+                credit_card.save()
 
                 if self.status == PAYMENT_STATUS_AUTHORIZED:
                     order.authorized = True
