@@ -14,7 +14,7 @@ from accounts.models import Account, AccountSession
 from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator, AccountParamValidator, IdValidator, \
     StartAccountParkingSessionValidator, CompleteAccountParkingSessionValidator, EmailValidator, \
-    EmailAndPasswordValidator, ExternalLoginValidator
+    EmailAndPasswordValidator, ExternalLoginValidator, UsersLogValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.models import EmailConfirmation
 from base.utils import clear_phone
@@ -927,3 +927,13 @@ class MockingExternalLoginView(SignedRequestAPIView):
             }
             return JsonResponse(data, status=200)
         return JsonResponse({}, status=400)
+
+
+class WriteUsersLogsView(APIView):
+    validator_class = UsersLogValidator
+
+    def post(self, request):
+        user_id = int(request.data["user_id"])
+        logs = request.data["logs"]
+
+        return JsonResponse({}, status=200)
