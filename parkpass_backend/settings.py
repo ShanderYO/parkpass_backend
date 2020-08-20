@@ -336,4 +336,4 @@ ELASTICSEARCH_URL = 'http://185.158.155.26:9200'
 ELASTICSEARCH_CONNECTION_KWARGS = {}
 
 ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD") else "sandbox-app-bluetooth-logs"
-ES_PAYMENT_INDEX_NAME = "payment-logs" if os.environ.get("PROD") else "payment-logs"
+ES_PAYMENT_INDEX_NAME = "payment-logs" if os.environ.get("PROD") else "sandbox-payment-logs"
