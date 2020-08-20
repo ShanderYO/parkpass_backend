@@ -370,3 +370,42 @@ Status 200
 {}
 ```
 Другие значения ```status_code``` будут игнорироваться
+
+
+### Требуемый API для логгирования
+``` - POST api/v1/account/logs/write/``` - передача списка логов с устройства пользователя
+Тело:
+```
+{
+  "userId": 1000000000000000001, # Идентификатор пользователя Parkpass
+  "logs": [{
+    "id": "1000000000000000001-2020-02-25 19:35:06.750-N", # Уникальный идентификатор записи
+    "level": "INFO", 
+    "datetime": "2020-02-25 19:35:06.750", 
+    "message": "Sample message" # Свободный формат текста сообщения
+  },
+  ...
+  ]
+}
+```
+
+Валидый ответ:
+Status 200
+```
+{}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'user_id' and 'logs' are required"
+}
+
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'logs' must be list and required"
+}
+```
