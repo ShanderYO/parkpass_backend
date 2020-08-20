@@ -231,7 +231,7 @@ class UsersLogValidator(BaseValidator):
             self.message = "Keys 'user_id' and 'logs' are required"
             return False
 
-        if not logs or type(logs) is not list:
+        if logs is None or type(logs) is not list:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Keys 'logs' must be list and required"
             return False

@@ -936,4 +936,8 @@ class WriteUsersLogsView(APIView):
         user_id = int(request.data["user_id"])
         logs = request.data["logs"]
 
+        get_logger().info("Write user logs " + str(user_id))
+        get_logger().info(str(logs))
+        get_logger().info("End user logs " + str(user_id))
+
         return JsonResponse({}, status=200)
