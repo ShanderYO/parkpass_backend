@@ -19,3 +19,5 @@ numpy==1.14.0
 pandas==0.23.0
 openpyxl==2.6.0
 Jinja2==2.10.3
+elasticsearch==7.9.1
+git+https://github.com/liberation/django_elasticsearch.git

@@ -7,6 +7,8 @@ from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.views import View
+from django_elasticsearch.client import es_client
+
 from dss.Serializer import serializer
 
 from accounts.models import Account, AccountSession
@@ -22,7 +24,8 @@ from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView, ObjectView, SignedRequestAPIView
 from owners.models import OwnerIssue, Owner
 from parkings.models import ParkingSession, Parking
-from parkpass_backend.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET
+from parkpass_backend.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET, \
+    ES_APP_BLUETOOTH_LOGS_INDEX_NAME
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription
@@ -936,8 +939,19 @@ class WriteUsersLogsView(APIView):
         user_id = int(request.data["user_id"])
         logs = request.data["logs"]
 
+        for item in logs:
+            _id = item.pop("id")
+            item["user_id"] = user_id
+
+            es_client.index(
+                index=ES_APP_BLUETOOTH_LOGS_INDEX_NAME,
+                id=_id,
+                body=item
+            )
+
         get_logger().info("Write user logs " + str(user_id))
         get_logger().info(str(logs))
         get_logger().info("End user logs " + str(user_id))
 
         return JsonResponse({}, status=200)
+
