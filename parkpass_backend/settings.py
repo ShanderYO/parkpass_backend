@@ -332,8 +332,7 @@ ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
 REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
 
-ELASTICSEARCH_URL = 'http://185.158.155.26:9200'
+ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://185.158.155.26:9200')
 ELASTICSEARCH_CONNECTION_KWARGS = {}
 
 ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD") else "sandbox-app-bluetooth-logs"
-ES_PAYMENT_INDEX_NAME = "payment-logs" if os.environ.get("PROD") else "sandbox-payment-logs"
