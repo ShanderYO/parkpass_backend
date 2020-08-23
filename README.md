@@ -79,15 +79,18 @@ curl https://sandbox.parkpass.ru/api/v1/partner/all/ -H "x-partner-name: test_pa
 {
     "card_id": "N..", # must be more 6 symbols 
     "parking_id": 2
-    "phone":"+7(909)1234332"
 }
 ```
 
 Status 200
 ```
 {
+    "parking_id": 2,
     "duration":100, # (sec)
-    "debt":10 # (rub)
+    "debt":10, # (rub)
+    "entered_at": 1592786422315, # (ms)
+    "parking_name": "Parking2",
+    "parking_address": "ул. Вавилова, 3, ТРК Гагаринский"
 }
 ```
 
@@ -113,7 +116,8 @@ Status 400
 Тело:
 ```
 {
-    "card_session": 1
+    "card_session": 1,
+    "phone":"+7(909)1234332"
 }
 ```
 
