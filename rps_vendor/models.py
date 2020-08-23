@@ -82,6 +82,8 @@ class RpsParking(models.Model):
         resp = serializer(card_session)
         resp["entered_at"] = enter_ts
 
+        return resp
+
     def _make_http_for_parking_card_debt(self, parking_card):
         connect_timeout = 2
 
@@ -123,11 +125,11 @@ class RpsParking(models.Model):
                     elif result.get("status") == "CardNotFound":
                         return None, None, None
                     else:
-                        return 0,0,0
+                        return 0, 0, 0
                 else:
                     self.last_response_body = ""
                 self.save()
-                return 0,0,0
+                return 0, 0, 0
 
             except Exception as e:
                 get_logger().warn(e)
@@ -143,7 +145,7 @@ class RpsParking(models.Model):
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
             self.save()
 
-        return 0, 0
+        return 0, 0, 0
 
 
 class ParkingCard(models.Model):
