@@ -265,11 +265,11 @@ class ParkingCardRequestBodyValidator(BaseValidator):
         get_logger().info("ParkingCardRequestBodyValidator: " + str(self.request.data))
         parking_id = self.request.data.get("parking_id", None)
         card_id = self.request.data.get("card_id", None)
-        phone = self.request.data.get("phone", None)
+        # phone = self.request.data.get("phone", None)
 
-        if not parking_id or not card_id or not phone:
+        if not parking_id or not card_id:
             self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Keys 'parking_id', 'card_id', 'phone' are required"
+            self.message = "Keys 'parking_id', 'card_id' are required"
             return False
 
         try:
@@ -286,12 +286,12 @@ class ParkingCardRequestBodyValidator(BaseValidator):
             self.message = str(e)
             return False
 
-        try:
-            validate_phone_number(phone)
-        except ValidationError as e:
-            self.code = ValidationException.VALIDATION_ERROR
-            self.message = str(e)
-            return False
+        # try:
+        #     validate_phone_number(phone)
+        # except ValidationError as e:
+        #     self.code = ValidationException.VALIDATION_ERROR
+        #     self.message = str(e)
+        #     return False
 
         return True
 

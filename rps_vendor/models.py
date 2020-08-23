@@ -1,3 +1,4 @@
+import time
 from decimal import Decimal
 import hashlib
 import json
@@ -56,7 +57,7 @@ class RpsParking(models.Model):
         return self.request_parking_card_debt_url + '?' + query
 
     def get_parking_card_debt(self, parking_card):
-        debt, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
+        debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
         get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
 
         # if Card
@@ -78,7 +79,10 @@ class RpsParking(models.Model):
             card_session.duration = duration
             card_session.save()
 
-        return serializer(card_session)
+        resp = serializer(card_session)
+        resp["entered_at"] = enter_ts
+
+        return resp
 
     def _make_http_for_parking_card_debt(self, parking_card):
         connect_timeout = 2
@@ -115,16 +119,17 @@ class RpsParking(models.Model):
 
                         seconds_ago = int((server_time - entered_at).total_seconds())
 
-                        return result["amount"], seconds_ago if seconds_ago > 0 else 0
+                        entered_at_ts = int(time.mktime(entered_at.timetuple()) * 1000 + entered_at.microsecond / 1000)
+                        return result["amount"], entered_at_ts, seconds_ago if seconds_ago > 0 else 0
 
                     elif result.get("status") == "CardNotFound":
-                        return None, None
+                        return None, None, None
                     else:
-                        return 0,0
+                        return 0, 0, 0
                 else:
                     self.last_response_body = ""
                 self.save()
-                return 0,0
+                return 0, 0, 0
 
             except Exception as e:
                 get_logger().warn(e)
@@ -140,12 +145,12 @@ class RpsParking(models.Model):
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
             self.save()
 
-        return 0, 0
+        return 0, 0, 0
 
 
 class ParkingCard(models.Model):
     card_id = models.CharField(max_length=255, unique=True, primary_key=True)
-    phone = models.CharField(max_length=32)
+    phone = models.CharField(max_length=32, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
