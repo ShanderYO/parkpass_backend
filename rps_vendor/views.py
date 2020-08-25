@@ -252,6 +252,7 @@ class GetCardSessionStatusMixin:
                 "refunded_sum":last_order.refunded_sum,
                 "authorized": last_order.authorized,
                 "paid": last_order.paid,
+                "leave_at": datetime_to_timestamp(card_session.leave_at) if card_session.leave_at else None,
                 "error": None,
             }
 
