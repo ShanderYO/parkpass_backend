@@ -249,6 +249,7 @@ class RpsParkingCardSession(models.Model):
         return True
 
     def _make_http_ok_status(self, url, payload):
+        get_logger().log("_make_http_ok_status")
         connect_timeout = 2
 
         self.last_request_date = timezone.now()
@@ -259,6 +260,7 @@ class RpsParkingCardSession(models.Model):
         }
 
         try:
+            get_logger().log("Try to make_http_ok")
             r = requests.post(url, data=payload, headers=headers,
                               timeout=(connect_timeout, 30.0)) # TODO make
             try:
@@ -277,12 +279,14 @@ class RpsParkingCardSession(models.Model):
                 return False
 
             except Exception as e:
+                get_logger().warn(str(e))
                 traceback_str = traceback.format_exc()
                 self.last_response_code = 998
                 self.last_response_body = "Parkpass intenal error: " + str(e) + '\n' + traceback_str
                 self.save()
 
         except Exception as e:
+            get_logger().warn(str(e))
             traceback_str = traceback.format_exc()
             self.last_response_code = 999
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
