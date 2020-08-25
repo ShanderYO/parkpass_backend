@@ -233,7 +233,9 @@ class RpsParkingCardSession(models.Model):
                 rps_parking.request_payment_authorize_url, payload)
             if leave_at is not None:
                 order.parking_card_session.leave_at = leave_at
-
+                order.parking_card_session.save()
+                return True
+            get_logger().info("Get `leave_at` is None from RPS")
 
         except ObjectDoesNotExist:
             self.state = STATE_ERROR

@@ -204,6 +204,7 @@ Status 200
     "refunded_sum":0,
     "authorized":true/false,
     "paid":true/false,
+    "leave_at": 1598373919, # (Optional)
     "error":"Error reason" # (Optional)
 }
 ```
