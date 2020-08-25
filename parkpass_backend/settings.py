@@ -72,6 +72,7 @@ INSTALLED_APPS = [
 
     'django_celery_beat',
     'django_elasticsearch',
+    'corsheaders',
     #'tests',
     'base',
     'accounts',
