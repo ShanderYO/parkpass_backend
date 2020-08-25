@@ -249,7 +249,7 @@ class RpsParkingCardSession(models.Model):
         return True
 
     def _make_http_ok_status(self, url, payload):
-        get_logger().log("_make_http_ok_status")
+        get_logger().info("_make_http_ok_status")
         connect_timeout = 2
 
         self.last_request_date = timezone.now()
@@ -260,7 +260,7 @@ class RpsParkingCardSession(models.Model):
         }
 
         try:
-            get_logger().log("Try to make_http_ok")
+            get_logger().info("Try to make_http_ok")
             r = requests.post(url, data=payload, headers=headers,
                               timeout=(connect_timeout, 30.0)) # TODO make
             try:
