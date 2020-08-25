@@ -183,6 +183,7 @@ class RpsParkingCardSession(models.Model):
     client_uuid = models.UUIDField(null=True, default=None)
 
     from_datetime = models.DateTimeField(null=True, blank=True)
+    leave_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -228,8 +229,11 @@ class RpsParkingCardSession(models.Model):
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(parking__id=self.parking_id)
 
-            return self._make_http_ok_status(
+            leave_at = self._make_http_ok_status(
                 rps_parking.request_payment_authorize_url, payload)
+            if leave_at is not None:
+                order.parking_card_session.leave_at = leave_at
+
 
         except ObjectDoesNotExist:
             self.state = STATE_ERROR
@@ -265,18 +269,18 @@ class RpsParkingCardSession(models.Model):
                               timeout=(connect_timeout, 30.0)) # TODO make
             try:
                 self.last_response_code = r.status_code
-                get_logger("GET RESPONSE FORM RPS %s" % r.status_code)
-                get_logger(r.content)
+                get_logger().info("GET RESPONSE FORM RPS %s" % r.status_code)
+                get_logger().info(r.content)
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
                     if result["status"] == "OK":
-                        return True
+                        return parse(result["leave_at"]).replace(tzinfo=None)
                 else:
                     self.last_response_body = ""
                 self.save()
 
-                return False
+                return None
 
             except Exception as e:
                 get_logger().warn(str(e))
@@ -292,7 +296,7 @@ class RpsParkingCardSession(models.Model):
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
             self.save()
 
-        return False
+        return None
 
 
 SUBSCRIPTION_PAYMENT_STATUSES = (
