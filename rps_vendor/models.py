@@ -260,7 +260,7 @@ class RpsParkingCardSession(models.Model):
 
         try:
             r = requests.post(url, data=payload, headers=headers,
-                              timeout=(connect_timeout, 5.0))
+                              timeout=(connect_timeout, 30.0)) # TODO make
             try:
                 self.last_response_code = r.status_code
                 get_logger("GET RESPONSE FORM RPS %s" % r.status_code)
