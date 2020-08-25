@@ -126,6 +126,7 @@ class TinkoffCallbackView(APIView):
                     start_cancel_request.delay(order.id)
 
         elif self.is_non_account_pay(order):
+            get_logger().warn("is_parking_card_pay")
             if self.status == PAYMENT_STATUS_AUTHORIZED:
                 order.authorized = True
                 order.save()
@@ -136,6 +137,7 @@ class TinkoffCallbackView(APIView):
                 order.save()
 
         elif self.is_parking_card_pay(order):
+            get_logger().warn("is_parking_card_pay")
             if self.status == PAYMENT_STATUS_AUTHORIZED:
                 order.authorized = True
                 order.save()
@@ -399,6 +401,7 @@ class TinkoffCallbackView(APIView):
             get_logger().info("No one payment for order")
 
     def notify_authorize_rps(self, order):
+        get_logger().info("notify_authorize_rps")
         if order.parking_card_session.notify_authorize(order):
             self.confirm_order(order)
         else:
