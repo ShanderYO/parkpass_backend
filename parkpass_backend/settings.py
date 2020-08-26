@@ -26,7 +26,7 @@ DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 
 ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1"]
 
-CORS_ALLOWED_ORIGINS = [
+CORS_ORIGIN_WHITELIST = [
     "https://testpay.parkpass.ru",
     "http://testpay.parkpass.ru",
     "http://localhost:8080",
