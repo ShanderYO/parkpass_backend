@@ -81,8 +81,19 @@ INSTALLED_APPS = [
     'rps_vendor',
     'owners',
     'control',
-    'partners'
+    'partners',
+    'fcm_django',
+    'notifications'
 ]
+
+FCM_ID = 117821524483
+FCM_KEY_1 = "AAAAG261ygM:APA91bH-H8vSzFq5TPDN01Cqv2JW3LTXljz8k_nZhU54lFIRoX9oW3lJ9m8ccmoJp-MfIwuB7UHxT_hJ2sb7XXn1FuSxvO7s2alyaKn0-FGYErK8E5eSG8aUWcpl5X6LHHLgjno0o6AT"
+
+
+FCM_DJANGO_SETTINGS = {
+    "FCM_SERVER_KEY": FCM_KEY_1
+}
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
