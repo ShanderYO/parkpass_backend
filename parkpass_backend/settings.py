@@ -26,6 +26,13 @@ DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 
 ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1"]
 
+CORS_ALLOWED_ORIGINS = [
+    "https://testpay.parkpass.ru",
+    "http://testpay.parkpass.ru",
+    "http://localhost:8080",
+    "http://127.0.0.1:8000"
+]
+
 SMS_GATEWAY_ENABLED = int(os.environ.get("SMS_GATEWAY_ENABLE", 1)) == 1
 
 SMS_GATEWAYS = [{
@@ -92,7 +99,6 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'corsheaders.middleware.CorsPostCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'base.middleware.ComplexAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
