@@ -51,7 +51,7 @@ class AccountInfoView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class ParkingStatisticsView(LoginRequiredAPIView):
+class ParkingStatisticsView(APIView):
     def get(self, request):
         period = request.GET.get('period', None)
         parking_id = request.GET.get('parking_id',"0").encode('utf-8')
@@ -97,14 +97,18 @@ class ParkingStatisticsView(LoginRequiredAPIView):
 
         if td:
             t = timezone.now() - td
-            sessions = sessions.filter(started_at__gt=t)
+            sessions = sessions.filter(
+                started_at__gt=t,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
+            )
 
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
             sessions = sessions.filter(
-                started_at__gt=from_date_datetime,
-                started_at__lt=to_date_datetime
+                completed_at__gte=from_date_datetime,
+                started_at__lte=to_date_datetime,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
         else:
             pass
@@ -186,14 +190,18 @@ class SessionsView(LoginRequiredAPIView): #, ObjectView):
 
         if td:
             t = timezone.now() - td
-            qs = qs.filter(created_at__gt=t)
+            qs = qs.filter(
+                started_at__gt=t,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
+            )
 
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
             qs = qs.filter(
-                created_at__gt=from_date_datetime,
-                created_at__lt=to_date_datetime
+                completed_at__gte=from_date_datetime,
+                started_at__lte=to_date_datetime,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
         else:
             pass
@@ -220,7 +228,7 @@ class SessionsView(LoginRequiredAPIView): #, ObjectView):
         return JsonResponse(response_dict)
 
 
-class ParkingSessionsView(LoginRequiredAPIView):
+class ParkingSessionsView(APIView):
     def get(self, request, **kwargs):
         parking_id = kwargs.get('id', "0").encode('utf-8')
         page = parse_int(request.GET.get('page', 0))
@@ -269,14 +277,18 @@ class ParkingSessionsView(LoginRequiredAPIView):
 
         if td:
             t = timezone.now() - td
-            qs = qs.filter(created_at__gt=t)
+            qs = qs.filter(
+                started_at__gt=t,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
+            )
 
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
             qs = qs.filter(
-                created_at__gt=from_date_datetime,
-                created_at__lt=to_date_datetime
+                completed_at__gte=from_date_datetime,
+                started_at__lte=to_date_datetime,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
         else:
             pass
@@ -349,14 +361,18 @@ class ParkingsTopView(LoginRequiredAPIView):
 
         if td:
             t = timezone.now() - td
-            sessions = sessions.filter(started_at__gt=t)
+            sessions = sessions.filter(
+                started_at__gt=t,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
+            )
 
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
             sessions = sessions.filter(
-                started_at__gt=from_date_datetime,
-                started_at__lt=to_date_datetime
+                completed_at__gte=from_date_datetime,
+                started_at__lte=to_date_datetime,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
         else:
             pass
