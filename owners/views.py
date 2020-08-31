@@ -228,7 +228,7 @@ class SessionsView(LoginRequiredAPIView): #, ObjectView):
         return JsonResponse(response_dict)
 
 
-class ParkingSessionsView(APIView):
+class ParkingSessionsView(LoginRequiredAPIView):
     def get(self, request, **kwargs):
         parking_id = kwargs.get('id', "0").encode('utf-8')
         page = parse_int(request.GET.get('page', 0))
