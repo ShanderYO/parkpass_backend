@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.timezone import timedelta
@@ -134,16 +134,7 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         }, status=200)
 
 
-class SessionsView(LoginRequiredAPIView): #, ObjectView):
-    """
-    object = ParkingSession
-    account_filter = 'parking__owner'
-    hide_fields = ('try_refund', 'current_refund_sum', 'target_refund_sum')
-    foreign_field = [('parking', ('id', 'name',))]
-
-    methods = ('GET',)
-    """
-
+class SessionsView(LoginRequiredAPIView):
     def get(self, request, **kwargs):
         page = parse_int(request.GET.get('page', 0))
         period = request.GET.get('period', None)
@@ -198,11 +189,22 @@ class SessionsView(LoginRequiredAPIView): #, ObjectView):
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
-            qs = qs.filter(
+            q1 = Q(
                 completed_at__gte=from_date_datetime,
-                started_at__lte=to_date_datetime,
+                completed_at__lte=to_date_datetime,
                 client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
+
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    completed_at__isnull=True,
+                    started_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
+
         else:
             pass
 

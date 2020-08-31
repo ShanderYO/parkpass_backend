@@ -25,7 +25,7 @@ def check_send_reports():
     get_logger().info("Start checking reports for owners...")
     qs = CompanySettingReports.objects.filter(available=True)
     for settings in qs:
-        if (timezone.now() - settings.last_send_date).days > settings.period_in_days:
+        if (timezone.now() - settings.last_send_date).days >= settings.period_in_days:
             generate_report_and_send.delay(settings.id)
 
 
