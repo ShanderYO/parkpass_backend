@@ -51,7 +51,7 @@ class AccountInfoView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class ParkingStatisticsView(APIView):
+class ParkingStatisticsView(LoginRequiredAPIView):
     def get(self, request):
         period = request.GET.get('period', None)
         parking_id = request.GET.get('parking_id',"0").encode('utf-8')
