@@ -56,8 +56,8 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         period = request.GET.get('period', None)
         parking_id = request.GET.get('parking_id',"0").encode('utf-8')
 
-        from_date = parse_int(request.GET.get("from_date", None))
-        to_date = parse_int(request.GET.get("to_date", None))
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
 
         if from_date or to_date:
             if from_date is None or to_date is None:
@@ -91,13 +91,13 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         else:
             pass
 
-        sessions = ParkingSession.objects.filter(
+        qs = ParkingSession.objects.filter(
             parking__owner=request.owner
         )
 
         if td:
             t = timezone.now() - td
-            sessions = sessions.filter(
+            qs = qs.filter(
                 started_at__gt=t,
                 client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
@@ -105,24 +105,33 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
-            sessions = sessions.filter(
+            q1 = Q(
                 completed_at__gte=from_date_datetime,
-                started_at__lte=to_date_datetime,
+                completed_at__lte=to_date_datetime,
                 client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    completed_at__isnull=True,
+                    started_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
         else:
             pass
 
         if parking_id:
             id = parse_int(parking_id)
             if id:
-                sessions = sessions.filter(parking__id=id)
+                qs = qs.filter(parking__id=id)
 
-        count = sessions.count()
-        debt = sessions.aggregate(Sum('debt'))['debt__sum']
+        count = qs.count()
+        debt = qs.aggregate(Sum('debt'))['debt__sum']
         seen = set()
         users = 0
-        for s in sessions:
+        for s in qs:
             if s.client not in seen:
                 seen.add(s.client)
                 users += 1
@@ -134,19 +143,13 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         }, status=200)
 
 
-class SessionsView(APIView):
+class SessionsView(LoginRequiredAPIView):
     def get(self, request, **kwargs):
         page = parse_int(request.GET.get('page', 0))
         period = request.GET.get('period', None)
 
-        from_date = parse_int(request.GET.get("from_date", None))
-        to_date = parse_int(request.GET.get("to_date", None))
-
-        if from_date:
-            from_date += 60 * 60 * 3
-
-        if to_date:
-            to_date += 60 * 60 * 3
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
 
         if from_date or to_date:
             if from_date is None or to_date is None:
@@ -182,13 +185,15 @@ class SessionsView(APIView):
             pass
 
         qs = ParkingSession.objects.filter(
-            parking__owner=Owner.objects.get(id=11)
+            parking__owner=request.owner
         )
 
         if td:
-            t = timezone.now() - td
+            to_date_datetime = get_today_end_datetime()
+            from_date_datetime = to_date_datetime - td
             qs = qs.filter(
-                started_at__gt=t,
+                completed_at__gte=from_date_datetime,
+                completed_at__lte=to_date_datetime,
                 client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
 
@@ -242,8 +247,8 @@ class ParkingSessionsView(LoginRequiredAPIView):
         page = parse_int(request.GET.get('page', 0))
         period = request.GET.get('period', None)
 
-        from_date = parse_int(request.GET.get("from_date", None))
-        to_date = parse_int(request.GET.get("to_date", None))
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
 
         if from_date or to_date:
             if from_date is None or to_date is None:
@@ -293,11 +298,21 @@ class ParkingSessionsView(LoginRequiredAPIView):
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
-            qs = qs.filter(
+            q1 = Q(
                 completed_at__gte=from_date_datetime,
-                started_at__lte=to_date_datetime,
+                completed_at__lte=to_date_datetime,
                 client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
+
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    completed_at__isnull=True,
+                    started_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
         else:
             pass
 
@@ -309,7 +324,7 @@ class ParkingSessionsView(LoginRequiredAPIView):
 
         for session in qs:
             parking_dict = serializer(session.parking, include_attr=('id', 'name',))
-            session_dict = serializer(session, exclude_attr=('parking_id', 'try_refund', 'current_refund_sum', 'target_refund_sum'))
+            session_dict = serializer(session, datetime_format='timestamp_notimezone', exclude_attr=('parking_id', 'try_refund', 'current_refund_sum', 'target_refund_sum'))
             session_dict["parking"] = parking_dict
             result_list.append(session_dict)
 
@@ -326,8 +341,8 @@ class ParkingsTopView(LoginRequiredAPIView):
         count = parse_int(request.GET.get('count', [3])[0])
         period = request.GET.get('period', None)
 
-        from_date = parse_int(request.GET.get("from_date", None))
-        to_date = parse_int(request.GET.get("to_date", None))
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
 
         if from_date or to_date:
             if from_date is None or to_date is None:
@@ -363,13 +378,13 @@ class ParkingsTopView(LoginRequiredAPIView):
         else:
             pass
 
-        sessions = ParkingSession.objects.filter(
+        qs = ParkingSession.objects.filter(
             parking__owner=request.owner
         )
 
         if td:
             t = timezone.now() - td
-            sessions = sessions.filter(
+            qs = qs.filter(
                 started_at__gt=t,
                 client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
@@ -377,11 +392,21 @@ class ParkingsTopView(LoginRequiredAPIView):
         elif from_date and to_date:
             from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
             to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
-            sessions = sessions.filter(
+            q1 = Q(
                 completed_at__gte=from_date_datetime,
-                started_at__lte=to_date_datetime,
+                completed_at__lte=to_date_datetime,
                 client_state=ParkingSession.CLIENT_STATE_CLOSED
             )
+
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    completed_at__isnull=True,
+                    started_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
         else:
             pass
 
@@ -395,7 +420,7 @@ class ParkingsTopView(LoginRequiredAPIView):
                 'name': p.name,
                 'address': p.address,
                 'city': p.city,
-                'income': sessions.filter(parking=p).aggregate(Sum('debt'))[
+                'income': qs.filter(parking=p).aggregate(Sum('debt'))[
                     'debt__sum'],
             })
         r = sorted(r, key=lambda x: -x['income'] if x['income'] else 0)
@@ -734,4 +759,4 @@ class EmailConfirmationView(View):
 class ZendeskJWTWidgetView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         jwt_token = request.owner.get_or_create_jwt_for_zendesk_widget()
-        return HttpResponse(jwt_token)
+        return HttpResponse(jwt_token

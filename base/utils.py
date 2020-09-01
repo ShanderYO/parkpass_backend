@@ -117,6 +117,19 @@ def parse_int(value, raise_exception=False, allow_none=True, only_positive=False
         return None
 
 
+def parse_timestamp_utc(value):
+    int_val = parse_int(value)
+    if int_val:
+        int_val += 60 * 60 * 3 # Timezome MSK
+    return int_val
+
+
+def get_today_end_datetime():
+    td = datetime.date.today()
+    end_time = datetime.time(23,59,59)
+    return datetime.datetime.combine(td, end_time)
+
+
 def parse_get_param(param):
     result = []
     for key in param:
