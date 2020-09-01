@@ -1,5 +1,5 @@
 # coding: utf-8
-
+import calendar
 import time
 import datetime
 from functools import partial
@@ -35,10 +35,18 @@ class TimeFormatFactory(object):
         return time.mktime(datetime_time.timetuple())
 
     @staticmethod
+    def datetime_to_timestamp_no_tz(datetime_time, time_format=None):
+        if isinstance(datetime_time, datetime.datetime):
+            return time.mktime(datetime_time.utctimetuple()) - 60 * 60 * 3
+        return time.mktime(datetime_time.timetuple())
+
+    @staticmethod
     def get_time_func(func_type='string'):
         if func_type == 'string':
             return TimeFormatFactory.datetime_to_string
         elif func_type == 'timestamp':
             return TimeFormatFactory.datetime_to_timestamp
+        elif func_type == 'timestamp_notimezone':
+            return TimeFormatFactory.datetime_to_timestamp_no_tz
         else:
             return TimeFormatFactory.datetime_to_string

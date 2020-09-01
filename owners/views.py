@@ -134,7 +134,7 @@ class ParkingStatisticsView(LoginRequiredAPIView):
         }, status=200)
 
 
-class SessionsView(LoginRequiredAPIView):
+class SessionsView(APIView):
     def get(self, request, **kwargs):
         page = parse_int(request.GET.get('page', 0))
         period = request.GET.get('period', None)
@@ -176,7 +176,7 @@ class SessionsView(LoginRequiredAPIView):
             pass
 
         qs = ParkingSession.objects.filter(
-            parking__owner=request.owner
+            parking__owner=Owner.objects.get(id=11)
         )
 
         if td:
@@ -216,7 +216,7 @@ class SessionsView(LoginRequiredAPIView):
 
         for session in qs:
             parking_dict = serializer(session.parking, include_attr=('id', 'name',))
-            session_dict = serializer(session,
+            session_dict = serializer(session, datetime_format='timestamp_notimezone',
                                       exclude_attr=('parking_id', 'try_refund',
                                                     'current_refund_sum', 'target_refund_sum'))
             session_dict["parking"] = parking_dict
