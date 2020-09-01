@@ -759,4 +759,5 @@ class EmailConfirmationView(View):
 class ZendeskJWTWidgetView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
         jwt_token = request.owner.get_or_create_jwt_for_zendesk_widget()
-        return HttpResponse(jwt_token
+        return HttpResponse(jwt_token)
+
