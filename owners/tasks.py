@@ -162,7 +162,7 @@ def make_dir_for_report(paring_id, last_send_date, period_in_days):
     report_dir = os.path.join(REPORTS_ROOT, "report-%s-%s_%s" % (
         paring_id,
         last_send_date.date(),
-        (last_send_date + timedelta(seconds=period_in_days * 24 * 60 * 60)).date()
+        (last_send_date + timedelta(seconds=period_in_days * 24 * 60 * 59)).date()
     ))
 
     try:
