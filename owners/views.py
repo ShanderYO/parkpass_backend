@@ -143,10 +143,10 @@ class SessionsView(APIView):
         to_date = parse_int(request.GET.get("to_date", None))
 
         if from_date:
-            from_date -= 60 * 60 * 3
+            from_date += 60 * 60 * 3
 
         if to_date:
-            to_date -= 60 * 60 * 3
+            to_date += 60 * 60 * 3
 
         if from_date or to_date:
             if from_date is None or to_date is None:
