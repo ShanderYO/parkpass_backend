@@ -19,7 +19,6 @@ from parkings.models import Parking, ParkingSession
 from vendors.models import Vendor
 from .models import OwnerApplication, Owner
 from .models import Owner as Account
-from .models import OwnerSession as AccountSession
 from .models import Company
 from .validators import ConnectIssueValidator, TariffValidator
 

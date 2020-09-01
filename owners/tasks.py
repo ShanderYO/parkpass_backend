@@ -37,7 +37,7 @@ def generate_report_and_send(settings_report_id):
             'company').select_related('parking').get(id=settings_report_id)
 
         from_date = report_settings.last_send_date
-        to_date = report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60)
+        to_date = report_settings.last_send_date + timedelta(seconds=report_settings.period_in_days * 24 * 60 * 60) - timedelta(seconds=1)
 
         filepath = make_dir_for_report(report_settings.parking.id, from_date, report_settings.period_in_days)
 
@@ -49,7 +49,9 @@ def generate_report_and_send(settings_report_id):
         sessions = ParkingSession.objects.filter(
             parking=report_settings.parking,
             completed_at__gte=from_date,
-            started_at__lte=to_date)
+            completed_at__lte=to_date,
+            client_state=ParkingSession.CLIENT_STATE_CLOSED
+        )
 
         parking_cards = RpsParkingCardSession.objects.filter(
             parking_id=report_settings.parking_id,
