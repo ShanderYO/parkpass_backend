@@ -26,6 +26,13 @@ DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 
 ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1"]
 
+CORS_ORIGIN_WHITELIST = [
+    "https://testpay.parkpass.ru",
+    "http://testpay.parkpass.ru",
+    "http://localhost:8080",
+    "http://127.0.0.1:8000"
+]
+
 SMS_GATEWAY_ENABLED = int(os.environ.get("SMS_GATEWAY_ENABLE", 1)) == 1
 
 SMS_GATEWAYS = [{
@@ -71,6 +78,8 @@ INSTALLED_APPS = [
     #admin_tools.dashboard',
 
     'django_celery_beat',
+    'django_elasticsearch',
+    'corsheaders',
     #'tests',
     'base',
     'accounts',
@@ -98,6 +107,7 @@ FCM_DJANGO_SETTINGS = {
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -341,3 +351,8 @@ SECRET_KEY_JWT = os.environ.get("SECRET_KEY_JWT", 'secret')
 ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
 REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
+
+ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://185.158.155.26:9200')
+ELASTICSEARCH_CONNECTION_KWARGS = {}
+
+ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD") else "sandbox-app-bluetooth-logs"

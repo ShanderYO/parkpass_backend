@@ -79,15 +79,18 @@ curl https://sandbox.parkpass.ru/api/v1/partner/all/ -H "x-partner-name: test_pa
 {
     "card_id": "N..", # must be more 6 symbols 
     "parking_id": 2
-    "phone":"+7(909)1234332"
 }
 ```
 
 Status 200
 ```
 {
+    "parking_id": 2,
     "duration":100, # (sec)
-    "debt":10 # (rub)
+    "debt":10, # (rub)
+    "entered_at": 1592786422315, # (ms)
+    "parking_name": "Parking2",
+    "parking_address": "ул. Вавилова, 3, ТРК Гагаринский"
 }
 ```
 
@@ -113,7 +116,8 @@ Status 400
 Тело:
 ```
 {
-    "card_session": 1
+    "card_session": 1,
+    "phone":"+7(909)1234332"
 }
 ```
 
@@ -200,6 +204,7 @@ Status 200
     "refunded_sum":0,
     "authorized":true/false,
     "paid":true/false,
+    "leave_at": 1598373919, # (Optional)
     "error":"Error reason" # (Optional)
 }
 ```
@@ -371,6 +376,43 @@ Status 200
 ```
 Другие значения ```status_code``` будут игнорироваться
 
+### Требуемый API для логгирования
+``` - POST api/v1/account/logs/write/``` - передача списка логов с устройства пользователя
+Тело:
+```
+{
+  "userId": 1000000000000000001, # Идентификатор пользователя Parkpass
+  "logs": [{
+    "id": "1000000000000000001-2020-02-25 19:35:06.750-N", # Уникальный идентификатор записи
+    "level": "INFO", 
+    "datetime": "2020-02-25 19:35:06.750", 
+    "message": "Sample message" # Свободный формат текста сообщения
+  },
+  ...
+  ]
+}
+```
+
+Валидый ответ:
+Status 200
+```
+{}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'user_id' and 'logs' are required"
+}
+
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "Keys 'logs' must be list and required"
+}
+```
 
 ### Описание API для работы с нотификациями:
 ``` - POST /api/v1/account/devices/register/ ``` - Регистрация идентфикатора Push-сообщений

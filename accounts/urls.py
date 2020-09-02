@@ -11,7 +11,7 @@ from accounts.views import (
     PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
     ZendeskUserJWTChatView, UpdateTokenView, AccountSubscriptionListView, AccountSubscriptionSettingsView,
-    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView)
+    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView, WriteUsersLogsView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -56,4 +56,6 @@ urlpatterns = [
     url(r'^subscription/list/$', AccountSubscriptionListView.as_view()),
     url(r'^subscription/(?P<pk>\d+)/$', AccountSubscriptionView.as_view()),
     url(r'^subscription/(?P<pk>\d+)/settings/$', AccountSubscriptionSettingsView.as_view()),
+
+    url(r'^logs/write/$', WriteUsersLogsView.as_view())
 ]

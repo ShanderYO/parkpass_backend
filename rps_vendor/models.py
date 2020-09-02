@@ -1,3 +1,4 @@
+import time
 from decimal import Decimal
 import hashlib
 import json
@@ -56,7 +57,7 @@ class RpsParking(models.Model):
         return self.request_parking_card_debt_url + '?' + query
 
     def get_parking_card_debt(self, parking_card):
-        debt, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
+        debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
         get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
 
         # if Card
@@ -78,7 +79,10 @@ class RpsParking(models.Model):
             card_session.duration = duration
             card_session.save()
 
-        return serializer(card_session)
+        resp = serializer(card_session)
+        resp["entered_at"] = enter_ts
+
+        return resp
 
     def _make_http_for_parking_card_debt(self, parking_card):
         connect_timeout = 2
@@ -115,16 +119,17 @@ class RpsParking(models.Model):
 
                         seconds_ago = int((server_time - entered_at).total_seconds())
 
-                        return result["amount"], seconds_ago if seconds_ago > 0 else 0
+                        entered_at_ts = int(time.mktime(entered_at.timetuple()) * 1000 + entered_at.microsecond / 1000)
+                        return result["amount"], entered_at_ts, seconds_ago if seconds_ago > 0 else 0
 
                     elif result.get("status") == "CardNotFound":
-                        return None, None
+                        return None, None, None
                     else:
-                        return 0,0
+                        return 0, 0, 0
                 else:
                     self.last_response_body = ""
                 self.save()
-                return 0,0
+                return 0, 0, 0
 
             except Exception as e:
                 get_logger().warn(e)
@@ -140,12 +145,12 @@ class RpsParking(models.Model):
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
             self.save()
 
-        return 0, 0
+        return 0, 0, 0
 
 
 class ParkingCard(models.Model):
     card_id = models.CharField(max_length=255, unique=True, primary_key=True)
-    phone = models.CharField(max_length=32)
+    phone = models.CharField(max_length=32, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -178,6 +183,7 @@ class RpsParkingCardSession(models.Model):
     client_uuid = models.UUIDField(null=True, default=None)
 
     from_datetime = models.DateTimeField(null=True, blank=True)
+    leave_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -223,8 +229,13 @@ class RpsParkingCardSession(models.Model):
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(parking__id=self.parking_id)
 
-            return self._make_http_ok_status(
+            leave_at = self._make_http_ok_status(
                 rps_parking.request_payment_authorize_url, payload)
+            if leave_at is not None:
+                order.parking_card_session.leave_at = leave_at
+                order.parking_card_session.save()
+                return True
+            get_logger().info("Get `leave_at` is None from RPS")
 
         except ObjectDoesNotExist:
             self.state = STATE_ERROR
@@ -244,6 +255,7 @@ class RpsParkingCardSession(models.Model):
         return True
 
     def _make_http_ok_status(self, url, payload):
+        get_logger().info("_make_http_ok_status")
         connect_timeout = 2
 
         self.last_request_date = timezone.now()
@@ -254,36 +266,39 @@ class RpsParkingCardSession(models.Model):
         }
 
         try:
+            get_logger().info("Try to make_http_ok")
             r = requests.post(url, data=payload, headers=headers,
-                              timeout=(connect_timeout, 5.0))
+                              timeout=(connect_timeout, 30.0)) # TODO make
             try:
                 self.last_response_code = r.status_code
-                get_logger("GET RESPONSE FORM RPS %s" % r.status_code)
-                get_logger(r.content)
+                get_logger().info("GET RESPONSE FORM RPS %s" % r.status_code)
+                get_logger().info(r.content)
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
                     if result["status"] == "OK":
-                        return True
+                        return parse(result["leave_at"]).replace(tzinfo=None)
                 else:
                     self.last_response_body = ""
                 self.save()
 
-                return False
+                return None
 
             except Exception as e:
+                get_logger().warn(str(e))
                 traceback_str = traceback.format_exc()
                 self.last_response_code = 998
                 self.last_response_body = "Parkpass intenal error: " + str(e) + '\n' + traceback_str
                 self.save()
 
         except Exception as e:
+            get_logger().warn(str(e))
             traceback_str = traceback.format_exc()
             self.last_response_code = 999
             self.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
             self.save()
 
-        return False
+        return None
 
 
 SUBSCRIPTION_PAYMENT_STATUSES = (

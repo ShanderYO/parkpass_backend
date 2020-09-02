@@ -221,6 +221,32 @@ class ExternalLoginValidator(BaseValidator):
         return True
 
 
+class UsersLogValidator(BaseValidator):
+    def is_valid(self):
+        user_id = self.request.data.get("user_id", None)
+        logs = self.request.data.get("logs", None)
+
+        if not user_id:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys 'user_id' and 'logs' are required"
+            return False
+
+        if logs is None or type(logs) is not list:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys 'logs' must be list and required"
+            return False
+
+        try:
+            validate_id(user_id, "user_id")
+        except Exception as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e)
+            return False
+
+        return True
+
+
+
 def validate_id(value, key_name):
 
     try:
