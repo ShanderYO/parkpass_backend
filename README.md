@@ -370,3 +370,50 @@ Status 200
 {}
 ```
 Другие значения ```status_code``` будут игнорироваться
+
+
+### Описание API для работы с нотификациями:
+``` - POST /api/v1/account/devices/register/ ``` - Регистрация идентфикатора Push-сообщений
+Тело:
+```
+{
+    "device_type": "android", // ["android", "ios", "web"] 
+    "registration_id": "long-string-code"
+}
+```
+
+Status 200
+```
+{}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "<Some validation error>"
+}
+```
+
+``` - POST /api/v1/account/devices/unregister/ ``` - Принудительное удаление идентфикатора Push-сообщений
+Тело:
+```
+{ 
+    "registration_id": "long-string-code"
+}
+```
+
+Status 200
+```
+{}
+```
+
+Status 400
+```
+{
+    "exception": "ValidationException",
+    "code": 400,
+    "message": "<Some validation error>"
+}
+```
