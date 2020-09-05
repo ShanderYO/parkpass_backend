@@ -5,6 +5,7 @@ from django import forms
 
 # Register your models here.
 from notifications.models import AccountDevice
+from notifications.tasks import send_broadcast_message
 
 
 class PushWidgetForm(forms.ModelForm):
@@ -16,6 +17,7 @@ class PushWidgetForm(forms.ModelForm):
     title = forms.CharField(required=False, max_length=255)
     body = forms.CharField(required=False, max_length=1024, widget=forms.Textarea())
     data = forms.CharField(required=False, max_length=10000, widget=forms.Textarea())
+    is_broadcast = forms.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
         if 'initial' not in kwargs:
@@ -34,12 +36,16 @@ class PushWidgetForm(forms.ModelForm):
         if commit:
             instance.save()
 
+        if self.cleaned_data.get("is_broadcast", None):
+            send_broadcast_message.apply_async((title, body, data))
+            return
+
         if title and body:
             if data:
                 d = json.loads(data)
-                print(instance.send_message(title=title, body=body, data=d))
+                instance.send_message(title=title, body=body, data=d)
             else:
-                print(instance.send_message(title=title, body=body))
+                instance.send_message(title=title, body=body)
         return instance
 
     class Meta:
