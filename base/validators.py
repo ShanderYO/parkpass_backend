@@ -130,3 +130,7 @@ def validate_phone_number(value):
     regex = r'^\+?\d[\( ]?\d\d\d[\) ]?-? ?\d\d\d[ -]?\d\d[ -]?\d\d$'
     if not re.match(regex, value):
         raise ValidationError("Phone number has invalid format. Please, send like something +7(909)1234332")
+
+
+def comma_separated_emails(value):
+    return value

@@ -7,6 +7,7 @@ from django.db.models import signals
 
 from accounts.models import Account
 from base.utils import get_logger
+from base.validators import comma_separated_emails
 from parkpass_backend.settings import ALLOWED_HOSTS
 from vendors.models import Vendor
 
@@ -234,6 +235,7 @@ class ParkingSession(models.Model):
     extra_data = models.TextField(null=True, blank=True)
     vendor_id = models.IntegerField(default=0)
 
+    is_send_warning_non_closed_message = models.BooleanField(default=False)
     created_at = models.DateField(auto_now_add=True)
 
     class Meta:
@@ -387,3 +389,17 @@ def create_test_parking(sender, instance, created, **kwargs):
 
 signals.post_save.connect(receiver=create_test_parking, sender=Vendor)  # Test parking creation, when vendor
 # is being created
+
+
+class ProblemParkingSessionNotifierSettings(models.Model):
+    available = models.BooleanField(default=True)
+    report_emails = models.TextField(validators=(comma_separated_emails,), null=True, blank=True)
+    last_email_send_date = models.DateTimeField()
+    interval_in_mins = models.PositiveSmallIntegerField(default=5)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'problem_parking_session_notifier_settings'
+
+
