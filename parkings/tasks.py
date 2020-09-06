@@ -41,7 +41,7 @@ def check_non_closed_vendor_session():
     qs = ParkingSession.objects.filter(
         completed_at__isnull=False,
         is_send_warning_non_closed_message=False
-    ).exclude(state=ParkingSession.STATE_CLOSED)
+    ).exclude(state=ParkingSession.STATE_CLOSED).select_related('parking')
 
     settings = ProblemParkingSessionNotifierSettings.objects.first()
     for parking_session in qs:
@@ -50,9 +50,15 @@ def check_non_closed_vendor_session():
                 continue
             now = timezone.now()
             if (now - parking_session.completed_at) > timezone.timedelta(minutes=settings.interval_in_mins):
-                msg = "Проблемная сессия parkpass #%s. Время выезда клиента %s. Время обнаружения %s" % (
-                    parking_session.id, parking_session.completed_at, now)
-                print(msg)
+                msg = "Обнаружена проблемная сессия parkpass #%s.\n" \
+                      "Время выезда клиента %s. Время обнаружения %s\n" \
+                      "Пользователь: ID=%s, Парковка %s ID=%s" % (
+                    parking_session.id,
+                    parking_session.completed_at, now,
+                    parking_session.client_id,
+                    parking_session.parking.name,
+                    parking_session.parking.id
+                )
                 email = EmailMessage('Пробемная сессия Parkpass', msg, to=settings.report_emails.split(","))
                 email.send()
                 parking_session.is_send_warning_non_closed_message = True
