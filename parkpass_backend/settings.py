@@ -239,7 +239,7 @@ LOGGING = {
             'format': '%(levelname)s %(asctime)s %(name)s.%(module)s.%(funcName)s:%(lineno)s -> %(message)s'
         },
         'requests': {
-            'format': '%(asctime)s: %(message)s'
+            'format': '%(levelname)s %(asctime)s: %(message)s'
         },
         'notime': {
             'format': '%(levelname)s %(name)s.%(module)s.%(funcName)s:%(lineno)s -> %(message)s'
@@ -270,7 +270,7 @@ LOGGING = {
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter':'notime'
+            'formatter':'verbose'
         },
     },
     'loggers': {
@@ -284,7 +284,7 @@ LOGGING = {
             'level': 'DEBUG'
         },
         REQUESTS_LOGGER_NAME: {
-            'handlers': ['requests_file'],
+            'handlers': ['requests_file', 'console'],
             'level': 'DEBUG'
         }
     }
@@ -356,3 +356,4 @@ ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://185.158.155.26:9
 ELASTICSEARCH_CONNECTION_KWARGS = {}
 
 ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD") else "sandbox-app-bluetooth-logs"
+ES_APP_PAYMENTS_LOGS_INDEX_NAME = "payments-logs" if os.environ.get("PROD") else "sandbox-payments-logs"
