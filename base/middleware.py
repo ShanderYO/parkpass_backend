@@ -32,12 +32,10 @@ class ComplexAuthenticationMiddleware():
 
     def __call__(self, request):
         if self.is_jwt_authorize(request):
-            print("is_jwt_authorize")
             middleware = JWTTokenAuthenticationMiddleware(self.get_response)
             return middleware(request)
 
         else:
-            print("is_old_authorize")
             middleware = TokenAuthenticationMiddleware(self.get_response)
             return middleware(request)
 
@@ -53,7 +51,6 @@ class JWTTokenAuthenticationMiddleware():
         self.get_response = get_response
 
     def __call__(self, request):
-        print("JWTTokenAuthenticationMiddleware process request")
         request.account = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.BASIC))
         request.vendor = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.VENDOR))
         request.owner = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.OWNER))
@@ -127,7 +124,6 @@ class TokenAuthenticationMiddleware():
         self.get_response = get_response
 
     def __call__(self, request):
-        print("TokenAuthenticationMiddleware process request")
         request.account = SimpleLazyObject(lambda: get_account(request, account))
         request.vendor = SimpleLazyObject(lambda: get_account(request, vendor))
         request.owner = SimpleLazyObject(lambda: get_account(request, owner))

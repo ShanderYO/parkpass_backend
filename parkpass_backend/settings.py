@@ -228,7 +228,7 @@ LOGGING = {
             'format': '%(levelname)s %(asctime)s %(name)s.%(module)s.%(funcName)s:%(lineno)s -> %(message)s'
         },
         'requests': {
-            'format': '%(asctime)s: %(message)s'
+            'format': '%(levelname)s %(asctime)s: %(message)s'
         },
         'notime': {
             'format': '%(levelname)s %(name)s.%(module)s.%(funcName)s:%(lineno)s -> %(message)s'
@@ -259,7 +259,7 @@ LOGGING = {
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter':'notime'
+            'formatter':'verbose'
         },
     },
     'loggers': {
@@ -273,7 +273,7 @@ LOGGING = {
             'level': 'DEBUG'
         },
         REQUESTS_LOGGER_NAME: {
-            'handlers': ['requests_file'],
+            'handlers': ['requests_file', 'console'],
             'level': 'DEBUG'
         }
     }
