@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+import json
 import logging
 import re
 import time
@@ -7,6 +8,9 @@ import time
 import pytz
 from django.core.exceptions import ObjectDoesNotExist, FieldError
 from django.http import JsonResponse
+from django.utils import timezone
+from django_elasticsearch.client import es_client
+
 from dss.Serializer import serializer
 
 from base.exceptions import ValidationException
@@ -342,3 +346,18 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None,
     instance.save()
     # TODO: Fix showing str's
     return JsonResponse(serializer(instance, include_attr=incl_attr), status=return_code)
+
+
+def elastic_log(index, message, data):
+    body_dict = {
+        "time": str(timezone.now()),
+        "message":message,
+        "data": data
+    }
+    try:
+        es_client.index(
+            index=index,
+            body=json.dumps(body_dict)
+        )
+    except Exception as e:
+        get_logger(BASE_LOGGER_NAME).warning(str(e))
