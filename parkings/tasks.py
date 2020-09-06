@@ -51,7 +51,7 @@ def check_non_closed_vendor_session():
             now = timezone.now()
             if (now - parking_session.completed_at) > timezone.timedelta(minutes=settings.interval_in_mins):
                 msg = "Обнаружена проблемная сессия parkpass #%s.\n" \
-                      "Время выезда клиента %s. Время обнаружения %s\n" \
+                      "Время выезда клиента %s.\n Время обнаружения %s\n" \
                       "Пользователь: ID=%s, Парковка %s ID=%s" % (
                     parking_session.id,
                     parking_session.completed_at, now,
@@ -66,4 +66,3 @@ def check_non_closed_vendor_session():
 
                 settings.last_email_send_date = timezone.now()
                 settings.save()
-                return
