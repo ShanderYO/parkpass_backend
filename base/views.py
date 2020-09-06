@@ -72,8 +72,9 @@ class APIView(View, ValidatePostParametersMixin):
                 return JsonResponse(e.to_dict(), status=e.http_code)
         except Exception as e:
             logger.error("Request get exception '%s'" % str(e))
+            raise e
 
-        logger.info("Sending response '%s' with code '%d'" % (response.content, response.status_code))
+        logger.info("Sending response '%s' with code '%d'" % (response.content.decode('utf-8'), response.status_code))
         return response
 
 
