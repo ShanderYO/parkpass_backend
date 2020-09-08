@@ -17,6 +17,7 @@ class RegisterAccountDevice(LoginRequiredAPIView):
         registration_id = request.data["registration_id"]
 
         AccountDevice.objects.get_or_create(
+            account=request.account,
             device_id=str(uuid.uuid4()),
             type=device_type,
             registration_id=registration_id,
