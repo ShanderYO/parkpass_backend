@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
 from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
-from base.validators import validate_phone_number
+from base.validators import validate_phone_number, comma_separated_emails
 from owners.validators import validate_inn, validate_kpp
 from parkings.models import Parking
 from parkpass_backend.settings import ZENDESK_WIDGET_SECRET
@@ -137,10 +137,6 @@ class OwnerApplication(models.Model):
 
     def __str__(self):
         return "Application #%s " % self.pk
-
-
-def comma_separated_emails(value):
-    return value
 
 
 class CompanySettingReports(models.Model):

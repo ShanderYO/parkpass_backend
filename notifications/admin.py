@@ -38,7 +38,7 @@ class PushWidgetForm(forms.ModelForm):
 
         if self.cleaned_data.get("is_broadcast", None):
             send_broadcast_message.apply_async((title, body, data))
-            return
+            return instance
 
         if title and body:
             if data:

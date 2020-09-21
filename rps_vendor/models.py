@@ -5,6 +5,8 @@ import json
 import traceback
 
 from datetime import timedelta
+from urllib.parse import urlparse
+
 from dateutil.parser import *
 import requests
 from django.core.exceptions import ObjectDoesNotExist
@@ -81,7 +83,12 @@ class RpsParking(models.Model):
 
         resp = serializer(card_session)
         resp["entered_at"] = enter_ts
+        source_hostname = None
+        if self.request_parking_card_debt_url:
+            parsed_uri = urlparse(self.request_parking_card_debt_url)
+            source_hostname = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
 
+        resp["source_hostname"] = source_hostname
         return resp
 
     def _make_http_for_parking_card_debt(self, parking_card):
@@ -234,8 +241,9 @@ class RpsParkingCardSession(models.Model):
             if leave_at is not None:
                 order.parking_card_session.leave_at = leave_at
                 order.parking_card_session.save()
-                return True
-            get_logger().info("Get `leave_at` is None from RPS")
+            else:
+                get_logger().info("Get `leave_at` is None from RPS")
+            return True
 
         except ObjectDoesNotExist:
             self.state = STATE_ERROR
@@ -277,7 +285,10 @@ class RpsParkingCardSession(models.Model):
                     result = r.json()
                     self.last_response_body = result
                     if result["status"] == "OK":
-                        return parse(result["leave_at"]).replace(tzinfo=None)
+                        if result["leave_at"] is None or result["leave_at"] == '':
+                            return None
+                        else:
+                            return parse(result["leave_at"]).replace(tzinfo=None)
                 else:
                     self.last_response_body = ""
                 self.save()

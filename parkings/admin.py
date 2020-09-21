@@ -4,7 +4,7 @@ from django.contrib import admin
 from .models import (
     Parking, ParkingSession,
     ComplainSession,
-    TopParkingWish)
+    TopParkingWish, ProblemParkingSessionNotifierSettings)
 
 
 @admin.register(Parking)
@@ -35,7 +35,7 @@ class ParkingSessionAdmin(admin.ModelAdmin):
 
     exclude_fields = ('created_at',)
 
-    readonly_fields = ('started_at', 'duration', 'extra_data',)
+    readonly_fields = ('started_at', 'duration', 'extra_data', 'is_send_warning_non_closed_message')
 
     def duration(self, obj):
         return "%d:%02d" % (obj.duration // 60, obj.duration % 60)
@@ -49,3 +49,8 @@ class ComplainSessionAdmin(admin.ModelAdmin):
 @admin.register(TopParkingWish)
 class TopParkingWishAdmin(admin.ModelAdmin):
     list_display = ('parking', 'count',)
+
+
+@admin.register(ProblemParkingSessionNotifierSettings)
+class ProblemParkingSessionNotifierSettingsAdmin(admin.ModelAdmin):
+    list_display = ("report_emails", "last_email_send_date", "available")
