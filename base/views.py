@@ -37,7 +37,8 @@ class APIView(View, ValidatePostParametersMixin):
         elif request.method in {'POST', 'PUT'}:
             logger.info("%s request content: '%s'" % (request.method, request.body))
         else:
-            logger.info("Unrecognized request method")
+            pass
+
         # Only application/json Content-type allow
         if not request.META.get('CONTENT_TYPE', "").startswith("application/json") and request.POST:
             return JsonResponse({
@@ -53,17 +54,27 @@ class APIView(View, ValidatePostParametersMixin):
                     ValidationException.INVALID_JSON_FORMAT,
                     str(e)
                 )
+                logger.warning("Sending exception '%s' with code '%d'" % (e.to_dict(), e.http_code))
                 return JsonResponse(e.to_dict(), status=400)
+
             # Validate json-parameters
             if self.validator_class:
                 exception_response = self.validate_request(request)
                 if exception_response:
+                    logger.warning("Sending exception '%s' with code '%d'" % (
+                        exception_response.content, exception_response.status_code))
                     return exception_response
         try:
-            response = super(APIView, self).dispatch(request, *args, **kwargs)
-        except ApiException as e:
-            return JsonResponse(e.to_dict(), status=e.http_code)
-        logger.info("Sending response '%s' with code '%d'" % (response.content, response.status_code))
+            try:
+                response = super(APIView, self).dispatch(request, *args, **kwargs)
+            except ApiException as e:
+                logger.warning("Sending exception '%s' with code '%d'" % (e.to_dict(), e.http_code))
+                return JsonResponse(e.to_dict(), status=e.http_code)
+        except Exception as e:
+            logger.error("Request get exception '%s'" % str(e))
+            raise e
+
+        logger.info("Sending response '%s' with code '%d'" % (response.content.decode('utf-8'), response.status_code))
         return response
 
 

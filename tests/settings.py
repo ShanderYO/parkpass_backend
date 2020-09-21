@@ -80,24 +80,9 @@ INSTALLED_APPS = [
     'jwtauth',
     'rps_vendor',
     'owners',
-<<<<<<< HEAD
-<<<<<<< HEAD:tests/settings.py
-    'control'
-=======
     'control',
     'partners'
->>>>>>> fe/partners:parkpass_backend/settings.py
 ]
-=======
-<<<<<<< HEAD:parkpass/settings.py
-    'control',
-    'partners'
-)
-=======
-    'control'
-]
->>>>>>> 7fdbb28b0983c82f55bf488c7b4dd7cad1b0aba3:tests/settings.py
->>>>>>> fe/partners
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -142,11 +127,7 @@ WSGI_APPLICATION = 'parkpass_backend.wsgi.application'
 
 DATABASES = {}
 
-<<<<<<< HEAD
 if not os.environ.get("PROD"):
-=======
-if os.environ.get("PROD"):
->>>>>>> fe/partners
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -157,8 +138,7 @@ if os.environ.get("PROD"):
             'PORT': '', # Set to empty string for default.
         }
     }
-<<<<<<< HEAD
-=======
+
 elif os.environ.get("DEV"):
     DATABASES = {
         'default': {
@@ -170,7 +150,6 @@ elif os.environ.get("DEV"):
             'PORT': '', # Set to empty string for default.
         }
     }
->>>>>>> fe/partners
 else:
     DATABASES = {
         'default': {

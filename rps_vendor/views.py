@@ -86,12 +86,10 @@ class GetParkingCardDebtMixin:
 
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
-        phone = request.data["phone"]
         parking_id = request.data["parking_id"]
 
         parking_card, _ = ParkingCard.objects.get_or_create(
-            card_id=card_id,
-            defaults={'phone': phone}
+            card_id=card_id
         )
         try:
             rps_parking = RpsParking.objects.select_related(
@@ -103,6 +101,7 @@ class GetParkingCardDebtMixin:
             response_dict = rps_parking.get_parking_card_debt(parking_card)
             if response_dict:
                 response_dict["parking_name"] = rps_parking.parking.name
+                response_dict["parking_address"] = rps_parking.parking.address
                 return JsonResponse(response_dict, status=200)
             else:
                 e = ValidationException(
@@ -170,10 +169,17 @@ class InitPayDebtMixin:
 
     def post(self, request, *args, **kwargs):
         card_session = int(request.data["card_session"])
+        phone = request.data.get("phone", "-")
+
         try:
             card_session = RpsParkingCardSession.objects.get(
                 id=card_session
             )
+
+            # Update client phone
+            card_session.parking_card.phone = str(phone)
+            card_session.parking_card.save()
+
             if card_session.state not in [STATE_CREATED, STATE_ERROR]:
                 e = ValidationException(
                     code=ValidationException.INVALID_RESOURCE_STATE,
@@ -246,6 +252,7 @@ class GetCardSessionStatusMixin:
                 "refunded_sum":last_order.refunded_sum,
                 "authorized": last_order.authorized,
                 "paid": last_order.paid,
+                "leave_at": datetime_to_timestamp(card_session.leave_at) if card_session.leave_at else None,
                 "error": None,
             }
 

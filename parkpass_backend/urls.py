@@ -21,12 +21,15 @@ from django.conf.urls.static import static
 from parkpass_backend import settings
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
+from fcm_django.api.rest_framework import FCMDeviceAuthorizedViewSet
+
 
 urlpatterns = [
     path('api/admin/', admin.site.urls),
     #path('admin_tools/', include('admin_tools.urls')),
     path('api/v1/', include('base.urls')),
     path('api/v1/account/', include("accounts.urls")),
+    path('api/v1/account/devices/', include("notifications.urls")),
     path('api/v1/payments/', include("payments.urls")),
     path('api/v1/parking/', include("parkings.urls")),
     path('api/v1/partner/', include("partners.urls")),

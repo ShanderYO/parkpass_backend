@@ -26,6 +26,13 @@ DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 
 ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1"]
 
+CORS_ORIGIN_WHITELIST = [
+    "https://testpay.parkpass.ru",
+    "http://testpay.parkpass.ru",
+    "http://localhost:8080",
+    "http://127.0.0.1:8000"
+]
+
 SMS_GATEWAY_ENABLED = int(os.environ.get("SMS_GATEWAY_ENABLE", 1)) == 1
 
 SMS_GATEWAYS = [{
@@ -71,6 +78,8 @@ INSTALLED_APPS = [
     #admin_tools.dashboard',
 
     'django_celery_beat',
+    'django_elasticsearch',
+    'corsheaders',
     #'tests',
     'base',
     'accounts',
@@ -81,12 +90,24 @@ INSTALLED_APPS = [
     'rps_vendor',
     'owners',
     'control',
-    'partners'
+    'partners',
+    'fcm_django',
+    'notifications'
 ]
+
+FCM_ID = 966710494584
+FCM_KEY_1 = "AAAA4RRvhXg:APA91bEthBvT5Ywz5rZ2pkypGHNAU-qBMBWXrRBC6vOzRTfaEjRpdDITP_h9MMQlc397Lf8wmmU2KPIPtq3Y_VlypdZqi6Ahkfx_EJcsi1nhseuqOSFKXwruqFc_t1SlNJt5ZhDqB-JF"
+
+
+FCM_DJANGO_SETTINGS = {
+    "FCM_SERVER_KEY": FCM_KEY_1
+}
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -218,7 +239,7 @@ LOGGING = {
             'format': '%(levelname)s %(asctime)s %(name)s.%(module)s.%(funcName)s:%(lineno)s -> %(message)s'
         },
         'requests': {
-            'format': '%(asctime)s: %(message)s'
+            'format': '%(levelname)s %(asctime)s: %(message)s'
         },
         'notime': {
             'format': '%(levelname)s %(name)s.%(module)s.%(funcName)s:%(lineno)s -> %(message)s'
@@ -249,7 +270,7 @@ LOGGING = {
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter':'notime'
+            'formatter':'verbose'
         },
     },
     'loggers': {
@@ -263,7 +284,7 @@ LOGGING = {
             'level': 'DEBUG'
         },
         REQUESTS_LOGGER_NAME: {
-            'handlers': ['requests_file'],
+            'handlers': ['requests_file', 'console'],
             'level': 'DEBUG'
         }
     }
@@ -330,3 +351,9 @@ SECRET_KEY_JWT = os.environ.get("SECRET_KEY_JWT", 'secret')
 ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
 REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
+
+ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://185.158.155.26:9200')
+ELASTICSEARCH_CONNECTION_KWARGS = {}
+
+ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD") else "sandbox-app-bluetooth-logs"
+ES_APP_PAYMENTS_LOGS_INDEX_NAME = "payments-logs" if os.environ.get("PROD") else "sandbox-payments-logs"
