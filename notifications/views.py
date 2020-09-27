@@ -16,12 +16,20 @@ class RegisterAccountDevice(LoginRequiredAPIView):
         device_type = request.data["device_type"]
         registration_id = request.data["registration_id"]
 
-        AccountDevice.objects.get_or_create(
+        device = AccountDevice.objects.filter(
             account=request.account,
-            device_id=str(uuid.uuid4()),
             type=device_type,
             registration_id=registration_id,
-        )
+            active=True
+        ).first()
+
+        if device is None:
+            AccountDevice.objects.create(
+                account=request.account,
+                device_id=str(uuid.uuid4()),
+                type=device_type,
+                registration_id=registration_id,
+            )
 
         return JsonResponse({}, status=200)
 
