@@ -30,7 +30,7 @@ def _load_provider(conf):
 class SMSGateway:
     def __init__(self):
         self.provider = get_default_sms_provider()
-        self.exception = False
+        self.exception = None
 
     def send_formatted_message(self, phone, template, params):
         message = template % params

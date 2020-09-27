@@ -34,10 +34,13 @@ class PhoneLoginView(APIView):
         account.create_sms_code()
         account.save()
 
+
         sms_sender.send_message(account.phone,
                                 u"Код подтверждения %s" % (account.sms_code,))
         if sms_sender.exception:
-            return JsonResponse(sms_sender.exception.to_dict(), status=400)
+            error_dict = sms_sender.exception.to_dict()
+            sms_sender.exception = None
+            return JsonResponse(error_dict, status=400)
 
         return JsonResponse({}, status=success_status)
 
