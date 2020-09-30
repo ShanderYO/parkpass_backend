@@ -355,7 +355,9 @@ REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
 
 ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://185.158.155.26:9200')
-ELASTICSEARCH_CONNECTION_KWARGS = {}
+ELASTICSEARCH_CONNECTION_KWARGS = {
+    "http_auth":(os.environ.get("ELASTICSEARCH_USER", "elastic"),os.environ.get("ELASTICSEARCH_PASSWORD", "parkpass-elastic2020")),
+}
 
 ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD") else "sandbox-app-bluetooth-logs"
 ES_APP_PAYMENTS_LOGS_INDEX_NAME = "payments-logs" if os.environ.get("PROD") else "sandbox-payments-logs"
