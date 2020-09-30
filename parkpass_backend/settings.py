@@ -359,5 +359,5 @@ ELASTICSEARCH_CONNECTION_KWARGS = {
     "http_auth":(os.environ.get("ELASTICSEARCH_USER", "elastic"),os.environ.get("ELASTICSEARCH_PASSWORD", "parkpass-elastic2020")),
 }
 
-ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD") else "sandbox-app-bluetooth-logs"
-ES_APP_PAYMENTS_LOGS_INDEX_NAME = "payments-logs" if os.environ.get("PROD") else "sandbox-payments-logs"
+ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD","0") == "1" else "sandbox-app-bluetooth-logs"
+ES_APP_PAYMENTS_LOGS_INDEX_NAME = "payments-logs" if os.environ.get("PROD","0") == "1" else "sandbox-payments-logs"

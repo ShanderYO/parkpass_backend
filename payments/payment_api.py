@@ -6,8 +6,9 @@ import requests
 from django.core.exceptions import ObjectDoesNotExist
 
 from base.models import Terminal
-from base.utils import get_logger
+from base.utils import get_logger, elastic_log
 from parkpass_backend import settings
+from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME
 
 
 class TinkoffApiException:
@@ -62,6 +63,8 @@ class TinkoffAPI():
 
         headers = {'Content-Type': 'application/json'}
         json_data = json.dumps(payload)
+
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to Tinkoff", json_data)
         get_logger().info('TinkoffAPI payload: ' + json_data)
 
         try:
@@ -69,36 +72,51 @@ class TinkoffAPI():
                               timeout=(connect_timeout, 5.0))
             try:
                 get_logger().info("Init status code %s" % r.status_code)
+                elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                            "Tinkoff response status %s" % str(r.status_code),
+                            r.content)
                 if r.status_code != 200:
                     get_logger().info("%s", r.content)
                 result = r.json()
                 return result
 
             except Exception as e:
+                elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                            "Tinkoff invoke error", str(e))
                 get_logger().info(e)
                 return None
 
         except requests.exceptions.MissingSchema as e:
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "Tinkoff invoke error", str(e))
             get_logger().info("Missing schema for request error")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ConnectionError as e:
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "Tinkoff invoke error", str(e))
             get_logger().info("requests.exceptions.ConnectionError")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ConnectTimeout as e:
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "Tinkoff invoke error", str(e))
             get_logger().info("requests.exceptions.ConnectTimeout")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ReadTimeout as e:
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "Tinkoff invoke error", str(e))
             get_logger().info("Waited too long between bytes error")
             get_logger().info(e)
             return None
 
         except requests.exceptions.HTTPError as e:
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "Tinkoff invoke error", str(e))
             get_logger().info("requests.exceptions.HTTPError")
             get_logger().info(e)
             return None
