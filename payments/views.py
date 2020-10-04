@@ -5,9 +5,10 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 from django.utils import timezone
 
-from base.utils import get_logger
+from base.utils import get_logger, elastic_log
 from base.views import APIView
 from parkings.models import ParkingSession
+from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
@@ -28,6 +29,7 @@ class TinkoffCallbackView(APIView):
 
     def post(self, request, *args, **kwargs):
         self.log_data(request.data)
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get Tinkoff callback", request.data)
 
         self.is_successful = request.data.get("Success", False)
         self.status = self.parse_status(request.data["Status"])

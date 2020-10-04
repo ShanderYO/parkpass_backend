@@ -14,8 +14,8 @@ from dss.Serializer import serializer
 
 from accounts.models import Account
 from base.models import Terminal
-from base.utils import get_logger
-from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN
+from base.utils import get_logger, elastic_log
+from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN, ES_APP_PAYMENTS_LOGS_INDEX_NAME
 from payments.payment_api import TinkoffAPI
 
 
@@ -74,7 +74,7 @@ class CreditCard(models.Model):
         init_payment = TinkoffPayment.objects.create(order=init_order, receipt_data=receipt_data)
         request_data = init_payment.build_init_request_data(account.id)
         get_logger().info("Init request:")
-        #get_logger().info(request_data)
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Bind card request", request_data)
         result = TinkoffAPI().sync_call(
             TinkoffAPI.INIT, request_data
         )
@@ -82,6 +82,8 @@ class CreditCard(models.Model):
         # Tink-off gateway not responded
         if not result:
             return None
+
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Result bind card", request_data)
 
         # Payment success
         if result.get("Success", False):
@@ -281,8 +283,8 @@ class Order(models.Model):
             self.get_payment_amount(),
             customer_key)
 
-        get_logger().info("Init non recurrent request:")
-        get_logger().info(request_data)
+        get_logger().info("Init non recurrent request")
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make card non recurrent payment", request_data)
 
         result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.INIT, request_data
@@ -292,6 +294,7 @@ class Order(models.Model):
         if not result:
             return None
 
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response card non recurrent payment", result)
         # Payment success
         if result.get("Success", False):
             order_id = int(result["OrderId"])
@@ -348,11 +351,13 @@ class Order(models.Model):
             TinkoffAPI.INIT, request_data
         )
         get_logger().info("Init payment response: ")
-        get_logger().info(str(result))
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make init session payment", request_data)
 
         # Tink-off gateway not responded
         if not result:
             return None
+
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response session payment", result)
 
         # Payment success
         if result.get("Success", False):
@@ -406,6 +411,7 @@ class Order(models.Model):
             payment.payment_id, default_account_credit_card.rebill_id
         )
         get_logger().info(request_data)
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make charge session payment", request_data)
 
         # Add
         payment.status = PAYMENT_STATUS_PREPARED_AUTHORIZED
@@ -413,6 +419,7 @@ class Order(models.Model):
         result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.CHARGE, request_data
         )
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response charge session payment", result)
         if result[u'Status'] == u'AUTHORIZED':
             payment.status = PAYMENT_STATUS_AUTHORIZED \
                 if payment.status != PAYMENT_STATUS_CONFIRMED else PAYMENT_STATUS_CONFIRMED
@@ -438,11 +445,12 @@ class Order(models.Model):
     def confirm_payment(self, payment):
         get_logger().info("Make confirm order: %s" % self.id)
         request_data = payment.build_confirm_request_data(self.get_payment_amount())
-        get_logger().info(request_data)
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make confirm session payment", request_data)
+
         result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.CONFIRM, request_data
         )
-        get_logger().info(str(result))
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response confirm session payment", result)
 
     def send_receipt_to_email(self):
         email = self.session.client.email
