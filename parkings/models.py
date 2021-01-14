@@ -9,6 +9,7 @@ from accounts.models import Account
 from base.utils import get_logger
 from base.validators import comma_separated_emails
 from parkpass_backend.settings import ALLOWED_HOSTS
+from payments.models import Order
 from vendors.models import Vendor
 
 
@@ -271,6 +272,18 @@ class ParkingSession(models.Model):
 
         except ObjectDoesNotExist:
             return None
+
+    def get_session_orders (self):
+        return Order.objects.filter(
+        session=self.pk,
+    )
+
+    def get_session_orders_holding_sum(self):
+        sum = 0
+        for order in self.get_session_orders():
+            if order.authorized and not order.paid:
+                sum = sum + order.sum
+        return sum
 
     def get_cool_duration(self):
         if self.duration <= 0:

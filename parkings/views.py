@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import base64
+import traceback
 from datetime import timedelta
+from decimal import Decimal
 from io import BytesIO
 
+from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
-from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 from django.views import View
 from dss.Serializer import serializer
@@ -724,3 +727,58 @@ class SubscriptionsPayStatusView(APIView):
             "Target subscription with order such id not found"
         )
         return JsonResponse(e.to_dict(), status=400)
+
+
+class CloseSessionRequest(APIView):
+    def get(self, request, *args, **kwargs):
+        if request.user.is_superuser:
+            try:
+                active_session = ParkingSession.objects.get(id=request.GET['session_id'])
+                session_orders = active_session.get_session_orders()
+                sum_to_pay = Decimal(request.GET['sum'])
+                target_refund_sum = 0
+
+                for order in session_orders:
+                    if sum_to_pay >= order.sum:
+                        # pay
+                        order.try_pay()
+                        print(sum_to_pay)
+                        sum_to_pay = sum_to_pay - order.sum
+                    else:
+                        # refund
+
+                        order.refunded_sum = order.sum - sum_to_pay
+                        target_refund_sum = target_refund_sum + order.refunded_sum
+                        order.refund_request = False
+                        order.save()
+                        print(sum_to_pay)
+                        sum_to_pay = 0
+
+                if target_refund_sum:
+                    active_session.try_refund = True
+                    active_session.target_refund_sum = True
+
+                if sum_to_pay:
+                    new_order = Order.objects.create(
+                        session=active_session,
+                        sum=sum_to_pay)
+                    new_order.try_pay()
+                    print(sum_to_pay)
+
+                messages.add_message(
+                    request,
+                    messages.SUCCESS,
+                    'Сессия успешно закрыта'
+                )
+                active_session.state = ParkingSession.STATE_CLOSED
+                active_session.save()
+            except Exception as e:
+                trace_back = traceback.format_exc()
+                message = str(e) + " " + str(trace_back)
+                messages.add_message(
+                    request,
+                    messages.ERROR,
+                    message
+                )
+
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER'))

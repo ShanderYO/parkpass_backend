@@ -24,6 +24,9 @@ urlpatterns = [
     url(r'^subscription/pay/(?P<pk>\d+)/status/$', SubscriptionsPayStatusView.as_view()),
 
     url(r'^test/$', TestSignedRequestView.as_view()),
+
+    url(r'^close-session/$', CloseSessionRequest.as_view()),
+
 ]
 
 urlpatterns += staticfiles_urlpatterns()
