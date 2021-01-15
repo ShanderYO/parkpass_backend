@@ -778,6 +778,7 @@ class CloseSessionRequest(APIView):
                     'Сессия успешно закрыта'
                 )
                 active_session.state = ParkingSession.STATE_CLOSED
+                active_session.manual_pay = True
                 active_session.save()
             except Exception as e:
                 trace_back = traceback.format_exc()

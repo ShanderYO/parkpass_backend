@@ -239,6 +239,8 @@ class ParkingSession(models.Model):
     is_send_warning_non_closed_message = models.BooleanField(default=False)
     created_at = models.DateField(auto_now_add=True)
 
+    manual_pay = models.BooleanField(default=False)
+
     class Meta:
         ordering = ["-id"]
         verbose_name = 'Parking Session'
