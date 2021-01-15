@@ -745,9 +745,6 @@ class CloseSessionRequest(APIView):
                         for payment in payments:
                             if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
                                 order.confirm_payment(payment)
-                                return
-                        if payments.exists():
-                            order.confirm_payment(payments[0])
                         sum_to_pay = sum_to_pay - order.sum
                     else:
                         # refund
@@ -768,6 +765,11 @@ class CloseSessionRequest(APIView):
                         session=active_session,
                         sum=sum_to_pay)
                     new_order.try_pay()
+
+                    payments = TinkoffPayment.objects.filter(order=new_order)
+                    for payment in payments:
+                        if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                            new_order.confirm_payment(payment)
                     print(sum_to_pay)
 
                 messages.add_message(
