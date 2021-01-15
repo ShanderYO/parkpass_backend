@@ -25,7 +25,7 @@ from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, SubscriptionsPayValidator
-from payments.models import Order
+from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED
 from rps_vendor.models import RpsSubscription, RpsParking
 from vendors.models import Vendor, VendorNotification, VENDOR_NOTIFICATION_TYPE_SESSION_CREATED, \
     VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED
@@ -741,8 +741,13 @@ class CloseSessionRequest(APIView):
                 for order in session_orders:
                     if sum_to_pay >= order.sum:
                         # pay
-                        order.try_pay()
-                        print(sum_to_pay)
+                        payments = TinkoffPayment.objects.filter(order=order)
+                        for payment in payments:
+                            if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                                order.confirm_payment(payment)
+                                return
+                        if payments.exists():
+                            order.confirm_payment(payments[0])
                         sum_to_pay = sum_to_pay - order.sum
                     else:
                         # refund
