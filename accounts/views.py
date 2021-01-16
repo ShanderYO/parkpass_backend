@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import base64
+from decimal import Decimal
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
@@ -721,6 +722,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
         session_id = request.data["id"]
         parking_id = int(request.data["parking_id"])
         completed_at = int(request.data["completed_at"])
+        sum_to_pay = Decimal(request.GET['sum'])
 
         try:
             parking_session = ParkingSession.objects.select_related('parking').get(
@@ -753,6 +755,21 @@ class CompleteParkingSession(LoginRequiredAPIView):
                 parking_session.completed_at = utc_completed_at
 
             parking_session.add_client_complete_mark()
+
+            # holding
+            session_orders = parking_session.get_session_orders()
+
+            for order in session_orders:
+                order.try_pay()
+                sum_to_pay = sum_to_pay - order.sum
+
+            if sum_to_pay:
+                new_order = Order.objects.create(
+                    session=parking_session,
+                    sum=sum_to_pay)
+                new_order.try_pay()
+            # end holding
+
             parking_session.save()
 
         except ObjectDoesNotExist:

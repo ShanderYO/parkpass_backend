@@ -563,6 +563,16 @@ class CompleteParkingSessionView(SignedRequestAPIView):
 
             utc_completed_at = session.parking.get_utc_parking_datetime(completed_at)
 
+            # payment
+            session_orders = session.get_session_orders()
+
+            for order in session_orders:
+                payments = TinkoffPayment.objects.filter(order=order)
+                for payment in payments:
+                    if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                        order.confirm_payment(payment)
+            # end payment
+
             session.debt = debt
             session.completed_at = utc_completed_at
             session.add_vendor_complete_mark()
