@@ -24,7 +24,8 @@ from vendors.models import Vendor
 from .models import NotifyIssue
 
 _lookups = ('exact', 'iexact', 'contains', 'icontains', 'in', 'gt', 'lt', 'gte', 'lte', 'eq', 'ne'
-            'startswith', 'istartswith', 'endswith', 'iendswith', 'range', 'isnull', 'regex', 'iregex',)
+                                                                                              'startswith',
+            'istartswith', 'endswith', 'iendswith', 'range', 'isnull', 'regex', 'iregex',)
 
 
 class APIView(View, ValidatePostParametersMixin):
@@ -74,7 +75,12 @@ class APIView(View, ValidatePostParametersMixin):
             logger.error("Request get exception '%s'" % str(e))
             raise e
 
-        logger.info("Sending response '%s' with code '%d'" % (response.content.decode('utf-8'), response.status_code))
+        try:
+            logger.info(
+                "Sending response '%s' with code '%d'" % (response.content.decode('utf-8'), response.status_code))
+        except (ValueError, TypeError):
+            logger.info("Sending file response with code '%d'" % response.status_code)
+
         return response
 
 
@@ -270,7 +276,7 @@ class ObjectView(object):
 
     def serialize_obj(self, obj):
         root_item = serializer(obj, include_attr=self.show_fields,
-                                exclude_attr=self.hide_fields)
+                               exclude_attr=self.hide_fields)
         for key, fields in self.foreign_field:
             inner_item = serializer(
                 getattr(obj, key),

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 
+import xlwt
 from django.db.models import Sum, Q
 from django.http import HttpResponse
 from django.utils import timezone
@@ -16,6 +17,7 @@ from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
 from jwtauth.models import Session, TokenTypes, Groups
 from parkings.models import Parking, ParkingSession
+from rps_vendor.models import RpsSubscription, STATE_CONFIRMED
 from vendors.models import Vendor
 from .models import OwnerApplication, Owner
 from .models import Owner as Account
@@ -239,6 +241,233 @@ class SessionsView(LoginRequiredAPIView):
 
         return JsonResponse(response_dict)
 
+class SubscriptionsView(LoginRequiredAPIView):
+    def get(self, request, **kwargs):
+
+        page = parse_int(request.GET.get('page', 0))
+        period = request.GET.get('period', None)
+
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        if period and period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        td = None
+
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        elif period == "month":
+            td = timedelta(days=30)
+        else:
+            pass
+
+        parkings = Parking.objects.filter(owner=request.owner)
+
+        qs = RpsSubscription.objects.filter(
+            parking__in=parkings,
+            state=STATE_CONFIRMED,
+            data__isnull=False
+        ).select_related('account')
+
+        if td:
+            to_date_datetime = get_today_end_datetime()
+            from_date_datetime = to_date_datetime - td
+            qs = qs.filter(
+                started_at__gte=from_date_datetime,
+                started_at__lte=to_date_datetime,
+            )
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            q1 = Q(
+                started_at__gte=from_date_datetime,
+                started_at__lte=to_date_datetime
+            )
+
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    started_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
+
+        else:
+            pass
+
+        result_list = []
+        if page != 0:
+            qs = qs.filter(id__lt=page).order_by('-id')[:10]
+        else:
+            qs = qs.filter().order_by('-id')[:10]
+
+
+        for subscriptions in qs:
+            session_dict = serializer(subscriptions, datetime_format='timestamp_notimezone',
+                                      include_attr=('id', 'name', 'account_id', 'unlimited', 'started_at',
+                                                    'expired_at', 'sum', 'active', 'prolongation'))
+            result_list.append(session_dict)
+
+        response_dict = {
+            "result": result_list,
+            "next": result_list[len(result_list) - 1]["id"] if len(result_list) > 0 else None
+        }
+
+        return JsonResponse(response_dict)
+
+class SubscriptionsViewForExcel(LoginRequiredAPIView):
+    def get(self, request, **kwargs):
+
+        period = request.GET.get('period', None)
+
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        if period and period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        td = None
+
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        elif period == "month":
+            td = timedelta(days=30)
+        else:
+            pass
+
+        parkings = Parking.objects.filter(owner=request.owner)
+
+        qs = RpsSubscription.objects.filter(
+            parking__in=parkings,
+            state=STATE_CONFIRMED,
+            data__isnull=False
+        ).select_related('account')
+
+        if td:
+            to_date_datetime = get_today_end_datetime()
+            from_date_datetime = to_date_datetime - td
+            qs = qs.filter(
+                started_at__gte=from_date_datetime,
+                started_at__lte=to_date_datetime,
+            )
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            q1 = Q(
+                started_at__gte=from_date_datetime,
+                started_at__lte=to_date_datetime
+            )
+
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    started_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
+
+        else:
+            pass
+
+        result_list = []
+
+        qs = qs.filter().order_by('-id')
+
+        response = HttpResponse(content_type='application/ms-excel')
+        response['Content-Disposition'] = 'attachment; filename="file.xls"'
+
+        wb = xlwt.Workbook(encoding='utf-8')
+        ws = wb.add_sheet('Абонементы')
+
+        # Sheet header, first row
+        row_num = 0
+
+        font_style = xlwt.XFStyle()
+        font_style.font.bold = True
+
+        columns = ['ID', 'Название', 'CardId', 'Тип клиента', 'Дата покупки', 'Дата окончания', 'Сумма', 'Статус', 'Автопродление']
+
+        for col_num in range(len(columns)):
+            ws.write(row_num, col_num, columns[col_num], font_style)
+
+        # Sheet body, remaining rows
+        font_style = xlwt.XFStyle()
+        rows = qs.values_list('id', 'name', 'account_id','unlimited', 'started_at', 'expired_at', 'sum', 'active',
+                              'prolongation')
+        if rows:
+            for row in rows:
+                row_num += 1
+                for col_num in range(len(row)):
+                    value = str(row[col_num])
+                    if col_num == 3:
+                        if row[col_num]:
+                            value = 'Постоянный'
+                        else:
+                            value = 'Непостоянный'
+                    if col_num == 6:
+                        value = value + ' руб.'
+                    if col_num == 7:
+                        if row[col_num]:
+                            value = 'Активна'
+                        else:
+                            value = 'Не активна'
+                    if col_num == 8:
+                        if row[col_num]:
+                            value = 'Да'
+                        else:
+                            value = 'Нет'
+                    ws.write(row_num, col_num, value, font_style)
+
+        wb.save(response)
+
+        return response
 
 class ParkingSessionsView(LoginRequiredAPIView):
     def get(self, request, **kwargs):
