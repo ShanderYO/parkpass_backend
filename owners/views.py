@@ -445,25 +445,32 @@ class SubscriptionsViewForExcel(LoginRequiredAPIView):
             for row in rows:
                 row_num += 1
                 for col_num in range(len(row)):
+                    format = font_style
+                    date_format = xlwt.XFStyle()
                     value = str(row[col_num])
                     if col_num == 3:
                         if row[col_num]:
                             value = 'Постоянный'
                         else:
-                            value = 'Непостоянный'
+                            value = 'Разовый'
+                    if col_num == 4 or col_num == 5:
+                        date_format.num_format_str = 'dd-mm-yyyy h:mm'
+                        value = row[col_num].strftime("%d-%m-%Y %H:%M")
+                        value = datetime.datetime.strptime(value, "%d-%m-%Y %H:%M")
+                        format = date_format
                     if col_num == 6:
                         value = value + ' руб.'
                     if col_num == 7:
                         if row[col_num]:
-                            value = 'Активна'
+                            value = 'Активен'
                         else:
-                            value = 'Не активна'
+                            value = 'Не активен'
                     if col_num == 8:
                         if row[col_num]:
                             value = 'Да'
                         else:
                             value = 'Нет'
-                    ws.write(row_num, col_num, value, font_style)
+                    ws.write(row_num, col_num, value, format)
 
         wb.save(response)
 
@@ -563,6 +570,161 @@ class ParkingSessionsView(LoginRequiredAPIView):
 
         return JsonResponse(response_dict)
 
+class ParkingSessionsViewForExcel(LoginRequiredAPIView):
+    def get(self, request, **kwargs):
+        period = request.GET.get('period', None)
+
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        if period and period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        td = None
+
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        elif period == "month":
+            td = timedelta(days=30)
+        else:
+            pass
+
+        qs = ParkingSession.objects.filter(
+            parking__owner=request.owner
+        )
+
+        if td:
+            to_date_datetime = get_today_end_datetime()
+            from_date_datetime = to_date_datetime - td
+            qs = qs.filter(
+                completed_at__gte=from_date_datetime,
+                completed_at__lte=to_date_datetime,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
+            )
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            q1 = Q(
+                completed_at__gte=from_date_datetime,
+                completed_at__lte=to_date_datetime,
+                client_state=ParkingSession.CLIENT_STATE_CLOSED
+            )
+
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    completed_at__isnull=True,
+                    started_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
+
+        else:
+            pass
+
+        result_list = []
+        qs = qs.filter().order_by('-id')
+
+        for session in qs:
+            parking_dict = serializer(session.parking, include_attr=('id', 'name',))
+            session_dict = serializer(session, datetime_format='timestamp_notimezone',
+                                      exclude_attr=('parking_id', 'try_refund',
+                                                    'current_refund_sum', 'target_refund_sum'))
+            session_dict["parking"] = parking_dict
+            result_list.append(session_dict)
+
+        response = HttpResponse(content_type='application/ms-excel')
+        response['Content-Disposition'] = 'attachment; filename="file.xls"'
+
+        wb = xlwt.Workbook(encoding='utf-8')
+        ws = wb.add_sheet('Сессии')
+
+        # Sheet header, first row
+        row_num = 0
+
+        font_style = xlwt.XFStyle()
+        font_style.font.bold = True
+
+        columns = ['ID', 'Местоположение', 'Дата парковки', 'Заезд', 'Выезд', 'Длительность', 'Сумма', 'Статус']
+
+        for col_num in range(len(columns)):
+            ws.write(row_num, col_num, columns[col_num], font_style)
+
+        # Sheet body, remaining rows
+        font_style = xlwt.XFStyle()
+
+        if len(result_list) > 0:
+            for row in result_list:
+                row_num += 1
+                for col_num in range(len(columns)):
+                    format = font_style
+                    date_format = xlwt.XFStyle()
+                    value = '...'
+                    if col_num == 0:
+                        value = row['id']
+                    elif col_num == 1:
+                        value = row['parking']['name']
+                    elif col_num == 2:
+                        date_format.num_format_str = 'dd-mm-yyyy'
+                        value = datetime.datetime.utcfromtimestamp(row['started_at']).strftime("%d-%m-%Y")
+                        value = datetime.datetime.strptime(value, "%d-%m-%Y")
+                        format = date_format
+                    elif col_num == 3:
+                        date_format.num_format_str = 'h:mm'
+                        value = datetime.datetime.utcfromtimestamp(row['started_at']).strftime("%H:%M")
+                        value = datetime.datetime.strptime(value, "%H:%M")
+                        format = date_format
+                    elif col_num == 4:
+                        date_format.num_format_str = 'h:mm'
+                        value = datetime.datetime.utcfromtimestamp(row['completed_at']).strftime("%H:%M")
+                        value = datetime.datetime.strptime(value, "%H:%M")
+                        format = date_format
+                    elif col_num == 5:
+                        value = "%d:%02d" % (int(row['duration']) // 60, int(row['duration']) % 60)
+                        format = date_format
+                    elif col_num == 6:
+                        value = str(row['debt']) + ' руб.'
+                    elif col_num == 7:
+                        status = int(row['client_state'])
+                        if status == -1:
+                            value = 'Отменена'
+                        elif status == 0:
+                            value = 'Завершена'
+                        elif status == 1:
+                            value = 'Активна'
+                        elif status == 2:
+                            value = 'Приостановлена'
+                        elif status == 3:
+                            value = 'Ожидает оплаты'
+
+                    ws.write(row_num, col_num, value, format)
+
+        wb.save(response)
+
+        return response
 
 class ParkingsTopView(LoginRequiredAPIView):
     def get(self, request):

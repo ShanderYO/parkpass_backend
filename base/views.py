@@ -337,7 +337,7 @@ class ObjectView(object):
         if len(qs) == 0:
             raise ValidationException(ValidationException.RESOURCE_NOT_FOUND,
                                       "Object with such id wasn't found.")
-        qs = self._account_filter(request, qs)
+        qs = qs.filter(owner=request.owner)
 
         if len(qs) == 0:
             raise PermissionException(PermissionException.NOT_PRIVELEGIED, "You're not privelegied to see"
@@ -466,8 +466,8 @@ class ObjectView(object):
                 elif fieldtype in ('DateField', 'DateTimeField'):
                     value = datetime_from_unix_timestamp_tz(value)
                 flt[key.encode('utf-8')] = value
-
-            qs = self._account_filter(request, self.object.objects.filter(**flt))
+            flt['owner'] = request.owner
+            qs = self.object.objects.filter(**flt)
 
             # Add id pagination
             if page != 0:
