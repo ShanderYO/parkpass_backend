@@ -722,7 +722,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
         session_id = request.data["id"]
         parking_id = int(request.data["parking_id"])
         completed_at = int(request.data["completed_at"])
-        sum_to_pay = Decimal(request.data['sum'])
+        sum_to_pay = abs(Decimal(request.data['sum']))
 
         try:
             parking_session = ParkingSession.objects.select_related('parking').get(
