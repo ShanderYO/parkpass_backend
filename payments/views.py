@@ -9,13 +9,12 @@ from django.utils import timezone
 from base.utils import get_logger, elastic_log
 from base.views import APIView
 from parkings.models import ParkingSession
-from parkpass_backend import settings
 from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
     PAYMENT_STATUS_PREPARED_AUTHORIZED
-from payments.payment_api import TinkoffAPI, HahykBankAPI
+from payments.payment_api import TinkoffAPI
 
 from payments.tasks import start_cancel_request, make_buy_subscription_request
 
