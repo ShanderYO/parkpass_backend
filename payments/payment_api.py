@@ -5,15 +5,12 @@ import os
 from base64 import b64encode, b64decode
 
 import requests
-from Crypto.Cipher import PKCS1_OAEP
 from django.core.exceptions import ObjectDoesNotExist
 
 from base.models import Terminal
 from base.utils import get_logger, elastic_log
 from parkpass_backend import settings
 from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME
-import Crypto
-from Crypto.PublicKey import RSA
 
 class TinkoffApiException:
     TINKOFF_EXCEPTION_3DS_NOT_AUTH = [101]
