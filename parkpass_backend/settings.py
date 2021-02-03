@@ -168,7 +168,7 @@ if not os.environ.get("DEV"):
             'NAME': os.environ.get("POSTGRES_DB_NAME", "parkpass"),
             'USER': os.environ.get("POSTGRES_USER", "parkpass"),
             'PASSWORD': os.environ.get("POSTGRES_PASSWORD", "parkpass"),
-            'HOST': os.environ.get("POSTGRES_DATABASE_HOST", "localhost"),  # 185.158.155.26 Set to empty string for localhost.
+            'HOST': os.environ.get("POSTGRES_DATABASE_HOST", "185.158.155.26"),  # 185.158.155.26 Set to empty string for localhost.
             'PORT': '', # Set to empty string for default.
         }
     }
@@ -365,8 +365,8 @@ ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
 REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
 
-# ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://185.158.155.26:9200')
-ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://localhost:9200')
+ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://185.158.155.26:9200')
+# ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://localhost:9200')
 
 ELASTICSEARCH_CONNECTION_KWARGS = {
     "http_auth":(os.environ.get("ELASTICSEARCH_USER", "elastic"),os.environ.get("ELASTICSEARCH_PASSWORD", "parkpass-elastic2020")),
