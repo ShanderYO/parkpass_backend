@@ -1,15 +1,19 @@
 import collections
 import hashlib
 import json
+import os
+from base64 import b64encode, b64decode
 
 import requests
+from Crypto.Cipher import PKCS1_OAEP
 from django.core.exceptions import ObjectDoesNotExist
 
 from base.models import Terminal
 from base.utils import get_logger, elastic_log
 from parkpass_backend import settings
 from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME
-
+import Crypto
+from Crypto.PublicKey import RSA
 
 class TinkoffApiException:
     TINKOFF_EXCEPTION_3DS_NOT_AUTH = [101]
@@ -117,6 +121,124 @@ class TinkoffAPI():
         except requests.exceptions.HTTPError as e:
             elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
                         "Tinkoff invoke error", str(e))
+            get_logger().info("requests.exceptions.HTTPError")
+            get_logger().info(e)
+            return None
+
+
+class HomeBankAPI():
+    TOKEN_URL = "https://testoauth.homebank.kz/epay2/oauth2/token"
+    PAYMENT_URL = "https://testepay.homebank.kz/api/payments/cards/auth"
+
+    token = None
+
+    def get_token(self, params, scope="webapi"):
+        get_logger().info("Get HomeBank token")
+        payload = {
+            "grant_type": "client_credentials",
+            "scope": scope,
+            "client_id": settings.HOMEBANK_CLIENT_ID,
+            "client_secret": settings.HOMEBANK_CLIENT_SECRET,
+        }
+        r = self.get_response(self.TOKEN_URL, payload)
+
+        if r['access_token']:
+            self.token = r['access_token']
+            return True
+
+        return None
+
+    def cancel_payment(self, payment_id):
+        token = self.get_token()
+        if not token:
+            get_logger().error("No token for request")
+            return None
+
+        return self.get_response('https://testoauth.homebank.kz/operation/%s/cancel' % payment_id, {})
+
+    def pay(self, data):
+        params = {
+            'invoiceID': data['invoiceID'],
+            'amount': data['amount'],
+            "terminal": data['terminal'],
+            'currency': 'KZT',
+            'postLink': '',
+            'failurePostLink': '',
+            'description': data['description']
+        }
+
+        token = self.get_token(params, 'payment')
+        if not token:
+            get_logger().error("No token for request")
+            return None
+
+        return self.get_response(self.PAY_URL, data)
+
+
+    def get_response(self, url, payload):
+        connect_timeout = 5
+
+        json_data = payload
+
+        headers = {}
+
+        if self.token:
+            headers['Authorization'] = 'Bearer ' + self.token
+            print(self.token)
+
+        # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to HomeBank", json_data)
+        log_data = json_data.copy()
+        log_data.pop('cryptogram', None)
+        get_logger().info('HomeBank payload: ' + json.dumps(log_data))
+
+        if 'cryptogram' in json_data:
+            json_data = json.dumps(json_data)
+            print(json_data)
+            print('Bearer ' + self.token)
+
+        try:
+            r = requests.post(url, data=json_data, headers=headers,
+                              timeout=(connect_timeout, 5.0))
+            try:
+                get_logger().info("Init status code %s" % r.status_code)
+                # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                #             "HomeBank response status %s" % str(r.status_code),
+                #             r.content)
+                if r.status_code != 200:
+                    get_logger().info("%s", r.content)
+                result = r.json()
+                return result
+
+            except Exception as e:
+                # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                #             "HomeBank invoke error", str(e))
+                get_logger().info(e)
+                return None
+
+        except requests.exceptions.MissingSchema as e:
+            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+            #             "HomeBank invoke error", str(e))
+            get_logger().info("Missing schema for request error")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.ConnectionError as e:
+            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+            #             "HomeBank invoke error", str(e))
+            get_logger().info("requests.exceptions.ConnectionError")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.ReadTimeout as e:
+            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+            #             "HomeBank invoke error", str(e))
+            get_logger().info("Waited too long between bytes error")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.HTTPError as e:
+            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+            #             "HomeBank invoke error", str(e))
             get_logger().info("requests.exceptions.HTTPError")
             get_logger().info(e)
             return None

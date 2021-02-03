@@ -59,7 +59,7 @@ def check_non_closed_vendor_session():
                     parking_session.parking.name,
                     parking_session.parking.id
                 )
-                email = EmailMessage('Пробемная сессия Parkpass', msg, to=settings.report_emails.split(","))
+                email = EmailMessage('Проблемная сессия Parkpass', msg, to=settings.report_emails.split(","))
                 email.send()
                 parking_session.is_send_warning_non_closed_message = True
                 parking_session.save()

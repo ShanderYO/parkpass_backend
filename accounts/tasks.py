@@ -6,7 +6,8 @@ from django.utils import timezone
 
 from parkings.models import ParkingSession
 from parkpass_backend.celery import app
-from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED
+from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED, \
+    HomeBankPayment
 from payments.payment_api import TinkoffAPI
 
 
@@ -41,7 +42,8 @@ def generate_current_debt_order(parking_session_id):
         if new_order_sum > 0:
             new_order = Order.objects.create(
                 session=active_session,
-                sum=new_order_sum)
+                sum=new_order_sum,
+                acquiring=active_session.parking.acquiring)
             new_order.try_pay()
 
         # if start confirm only
@@ -52,12 +54,19 @@ def generate_current_debt_order(parking_session_id):
         if new_order_sum < 0:
             last_order = Order.objects.filter(session=active_session)[0]
             logging.info("Try reverse order #%s", last_order.id)
-            payment = TinkoffPayment.objects.get(order=last_order, status=PAYMENT_STATUS_AUTHORIZED)
-            request_data = payment.build_cancel_request_data(int(last_order.sum * 100))
-            result = TinkoffAPI().sync_call(
-                TinkoffAPI.CANCEL, request_data
-            )
-            logging.info(result)
+
+            if (last_order.acquiring ==  'homebank'):
+                payment = HomeBankPayment.objects.get(order=last_order)
+                payment.cancel_payment()
+
+            else:
+                payment = TinkoffPayment.objects.get(order=last_order, status=PAYMENT_STATUS_AUTHORIZED)
+                request_data = payment.build_cancel_request_data(int(last_order.sum * 100))
+                result = TinkoffAPI().sync_call(
+                    TinkoffAPI.CANCEL, request_data
+                )
+                logging.info(result)
+
             last_order.delete()
             return generate_current_debt_order(parking_session_id)
 
@@ -158,14 +167,14 @@ def generate_orders_and_pay():
 
                 current_account_debt = session.debt - ordered_sum
                 order = Order(
-                    sum=current_account_debt, session=session
+                    sum=current_account_debt, session=session, acquiring=session.parking.acquiring
                 )
                 order.save()
             else:
                 current_account_debt = session.debt - ordered_sum
                 if current_account_debt >= session.parking.max_client_debt:
                     order = Order(
-                        sum=session.parking.max_client_debt, session=session
+                        sum=session.parking.max_client_debt, session=session, acquiring=session.parking.acquiring
                     )
                     order.save()
             if order:
@@ -190,23 +199,27 @@ def _init_refund(parking_session):
             continue
         refund = min(remaining_sum, order.sum)
         remaining_sum = remaining_sum - refund
-        payment = TinkoffPayment.objects.get(order=order, status=PAYMENT_STATUS_AUTHORIZED)
-        request_data = payment.build_cancel_request_data(int(refund*100))
-        result = TinkoffAPI().sync_call(
-            TinkoffAPI.CANCEL, request_data
-        )
-        logging.info(result)
-
-        if result.get("Status") == u'REFUNDED':
-            order.refunded_sum = float(result.get("OriginalAmount",0))/100
-            logging.info('REFUNDED: %s' % order.refunded_sum)
-            order.save()
-        elif result.get("Status") == u'PARTIAL_REFUNDED':
-            order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
-            logging.info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
-            order.save()
+        if (order.acquiring == 'homebank'):
+            payment = HomeBankPayment.objects.get(order=order)
+            payment.cancel_payment()
         else:
-            logging.warning('Refund undefined status')
+            payment = TinkoffPayment.objects.get(order=order, status=PAYMENT_STATUS_AUTHORIZED)
+            request_data = payment.build_cancel_request_data(int(refund*100))
+            result = TinkoffAPI().sync_call(
+                TinkoffAPI.CANCEL, request_data
+            )
+            logging.info(result)
+
+            if result.get("Status") == u'REFUNDED':
+                order.refunded_sum = float(result.get("OriginalAmount",0))/100
+                logging.info('REFUNDED: %s' % order.refunded_sum)
+                order.save()
+            elif result.get("Status") == u'PARTIAL_REFUNDED':
+                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
+                logging.info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
+                order.save()
+            else:
+                logging.warning('Refund undefined status')
 
     current_refunded_sum = Decimal(0)
     for order in orders:

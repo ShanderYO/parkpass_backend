@@ -513,8 +513,13 @@ class ForcePayView(LoginRequiredAPIView):
 
 class AddCardView(LoginRequiredAPIView):
     def post(self, request):
-        result_dict = CreditCard.bind_request(request.account)
+        last_active_session = ParkingSession.get_active_session(request.account)
+        acquiring = 'tinkoff'
 
+        if last_active_session:
+            acquiring = last_active_session.parking.acquiring
+
+        result_dict = CreditCard.bind_request(request.account, acquiring=acquiring)
         # If error request
         if not result_dict:
             e = PaymentException(
@@ -767,7 +772,8 @@ class CompleteParkingSession(LoginRequiredAPIView):
                 if sum_to_pay:
                     new_order = Order.objects.create(
                         session=parking_session,
-                        sum=sum_to_pay)
+                        sum=sum_to_pay,
+                        acquiring=parking_session.parking.acquiring)
                     new_order.try_pay()
             # end holding
 

@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 import os
 import urllib.parse
+from decimal import Decimal
 
 import requests
 from datetime import timedelta
@@ -15,8 +17,9 @@ from dss.Serializer import serializer
 from accounts.models import Account
 from base.models import Terminal
 from base.utils import get_logger, elastic_log
-from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN, ES_APP_PAYMENTS_LOGS_INDEX_NAME
-from payments.payment_api import TinkoffAPI
+from parkpass_backend import settings
+from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN, ES_APP_PAYMENTS_LOGS_INDEX_NAME, ACQUIRING_LIST
+from payments.payment_api import TinkoffAPI, HomeBankAPI
 
 
 class FiskalNotification(models.Model):
@@ -44,12 +47,17 @@ class FiskalNotification(models.Model):
 
 class CreditCard(models.Model):
     id = models.AutoField(primary_key=True)
-    card_id = models.IntegerField(default=1)
+    card_id = models.IntegerField(default=1, blank=True)
+    card_char_id = models.CharField(max_length=100, blank=True, null=True)
     pan = models.CharField(blank=True, max_length=31)
-    exp_date = models.CharField(blank=True, max_length=61)
+    exp_date = models.CharField(blank=True, max_length=61, null=True)
     is_default = models.BooleanField(default=False)
     rebill_id = models.BigIntegerField(blank=True, null=True)
     created_at = models.DateField(auto_now_add=True)
+    acquiring = models.CharField(max_length=61, default='tinkoff', choices=(
+        ('Тинькофф', "tinkoff"),
+        ('HomeBank', "homebank"),
+    ))
     account = models.ForeignKey(Account, related_name="credit_cards",
                                 on_delete=models.CASCADE)
 
@@ -68,67 +76,78 @@ class CreditCard(models.Model):
         return CreditCard.objects.filter(account=account)
 
     @classmethod
-    def bind_request(cls, account):
-        init_order = Order.objects.create(sum=1, account=account)
-        receipt_data = init_order.generate_receipt_data()
-        init_payment = TinkoffPayment.objects.create(order=init_order, receipt_data=receipt_data)
-        request_data = init_payment.build_init_request_data(account.id)
-        get_logger().info("Init request:")
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Bind card request", request_data)
-        result = TinkoffAPI().sync_call(
-            TinkoffAPI.INIT, request_data
-        )
-
-        # Tink-off gateway not responded
-        if not result:
-            return None
-
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Result bind card", request_data)
-
-        # Payment success
-        if result.get("Success", False):
-            order_id = int(result["OrderId"])
-            payment_id = int(result["PaymentId"])
-            payment_url = result["PaymentURL"]
-
-            raw_status = result["Status"]
-            status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
-                else PAYMENT_STATUS_REJECTED
-
-            if init_payment.order.id != order_id:
-                return None
-
-            init_payment.payment_id = payment_id
-            init_payment.status = status
-            init_payment.save()
-
-            if status == PAYMENT_STATUS_REJECTED:
-                return None
-
+    def bind_request(cls, account, acquiring):
+        if acquiring == 'homebank':
+            init_order = Order.objects.create(sum=1, account=account, acquiring='homebank')
+            receipt_data = init_order.generate_receipt_data()
+            init_payment = HomeBankPayment.objects.create(order=init_order, receipt_data=receipt_data)
+            request_data = init_payment.build_init_request_data(account.id)
+            get_logger().info("bind homebank card request:")
             # Send url to user
             return {
-                "payment_url": payment_url
+                "payment_url": "https://%s/api/v1/payments/homebank?order_id=%s" % (settings.BASE_DOMAIN, init_order.id)
             }
+        else:
+            init_order = Order.objects.create(sum=1, account=account)
+            receipt_data = init_order.generate_receipt_data()
+            init_payment = TinkoffPayment.objects.create(order=init_order, receipt_data=receipt_data)
+            request_data = init_payment.build_init_request_data(account.id)
+            get_logger().info("Init request:")
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Bind card request", request_data)
+            result = TinkoffAPI().sync_call(
+                TinkoffAPI.INIT, request_data
+            )
 
-        # Payment exception
-        elif int(result.get("ErrorCode", -1)) > 0:
-            error_code = int(result["ErrorCode"])
-            error_message = result.get("Message", "")
-            error_details = result.get("Details", "")
+            # Tink-off gateway not responded
+            if not result:
+                return None
 
-            init_payment.error_code = error_code
-            init_payment.error_message = error_message
-            init_payment.error_description = error_details
-            init_payment.save()
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Result bind card", request_data)
 
-            return {
-                "exception": {
-                    "error_code":error_code,
-                    "error_message":error_message,
-                    "error_details":error_details
+            # Payment success
+            if result.get("Success", False):
+                order_id = int(result["OrderId"])
+                payment_id = int(result["PaymentId"])
+                payment_url = result["PaymentURL"]
+
+                raw_status = result["Status"]
+                status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
+                    else PAYMENT_STATUS_REJECTED
+
+                if init_payment.order.id != order_id:
+                    return None
+
+                init_payment.payment_id = payment_id
+                init_payment.status = status
+                init_payment.save()
+
+                if status == PAYMENT_STATUS_REJECTED:
+                    return None
+
+                # Send url to user
+                return {
+                    "payment_url": payment_url
                 }
-            }
-        return None
+
+            # Payment exception
+            elif int(result.get("ErrorCode", -1)) > 0:
+                error_code = int(result["ErrorCode"])
+                error_message = result.get("Message", "")
+                error_details = result.get("Details", "")
+
+                init_payment.error_code = error_code
+                init_payment.error_message = error_message
+                init_payment.error_description = error_details
+                init_payment.save()
+
+                return {
+                    "exception": {
+                        "error_code": error_code,
+                        "error_message": error_message,
+                        "error_details": error_details
+                    }
+                }
+            return None
 
 
 class Order(models.Model):
@@ -164,6 +183,8 @@ class Order(models.Model):
     # use multiple terminals
     terminal = models.ForeignKey(Terminal, null=True, on_delete=models.CASCADE)
 
+    acquiring = models.CharField(max_length=20, choices=ACQUIRING_LIST, default='tinkoff')
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = 'Order'
@@ -190,12 +211,141 @@ class Order(models.Model):
             email = self.subscription.account.email if self.subscription.account else None
             phone = self.subscription.account.phone if self.subscription.account else None
 
+            if self.acquiring == 'homebank':
+                return {
+                    'invoiceID': str(self.id).zfill(9),
+                    'amount': str(int(self.sum * 100)),
+                    "terminal": settings.HOMEBANK_TERMINAL_ID,
+                    'currency': 'KZT',
+                    'description': 'Оплата парковочного абонемента',
+                    "backLink": "",
+                    "failureBackLink": "",
+                    "postLink": "https://%s/api/v1/payments/test/" % settings.BASE_DOMAIN,
+                    "failurePostLink": "https://%s/api/v1/payments/test/" % settings.BASE_DOMAIN,
+                    "language": "rus",
+                    "paymentType": "cardId",
+                    "cardId": {
+                        "id": ""
+                    },
+                    "email": email,
+                    "phone": phone
+                }
+            else:
+                return dict(
+                    Email=email,
+                    Phone=phone,
+                    Taxation="usn_income",
+                    Items=[{
+                        "Name": "Оплата парковочного абонемента",
+                        "Price": str(int(self.sum * 100)),
+                        "Quantity": 1.00,
+                        "Amount": str(int(self.sum * 100)),
+                        "Tax": "none",
+                        "Ean13": ""
+                    }]
+                )
+
+        if self.parking_card_session or self.client_uuid:
+            email = self.parking_card_session.account.email if self.parking_card_session.account else None
+            phone = self.parking_card_session.account.phone \
+                if self.parking_card_session.account else self.parking_card_session.parking_card.phone
+
+            if self.acquiring == 'homebank':
+                return {
+                    'invoiceID': str(self.id).zfill(9),
+                    'amount': str(int(self.sum * 100)),
+                    "terminal": settings.HOMEBANK_TERMINAL_ID,
+                    'currency': 'KZT',
+                    'description': "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
+                    "backLink": "",
+                    "failureBackLink": "",
+                    "postLink": "https://%s/api/v1/payments/test/" % settings.BASE_DOMAIN,
+                    "failurePostLink": "https://%s/api/v1/payments/test/" % settings.BASE_DOMAIN,
+                    "language": "rus",
+                    "paymentType": "cardId",
+                    "cardId": {
+                        "id": ""
+                    },
+                    "email": email,
+                    "phone": phone
+                }
+            else:
+                return dict(
+                    Email=email,
+                    Phone=phone,
+                    Taxation="usn_income",
+                    Items=[{
+                        "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
+                        "Price": str(int(self.sum * 100)),
+                        "Quantity": 1.00,
+                        "Amount": str(int(self.sum * 100)),
+                        "Tax": "none",
+                        "Ean13": ""
+                    }]
+                )
+
+        # Init payment receipt
+        if self.session is None:
+            if self.acquiring == 'homebank':
+                return {
+                    'invoiceID': str(self.id).zfill(9),
+                    'amount': 100,
+                    "terminal": settings.HOMEBANK_TERMINAL_ID,
+                    'currency': 'KZT',
+                    'description': "Привязка карты",
+                    "backLink": "",
+                    "failureBackLink": "",
+                    "postLink": "https://%s/api/v1/payments/test/" % settings.BASE_DOMAIN,
+                    "failurePostLink": "https://%s/api/v1/payments/test/" % settings.BASE_DOMAIN,
+                    "language": "rus",
+                    "paymentType": "cardId",
+                    "cardId": {
+                        "id": ""
+                    },
+                    "phone": self.account.phone
+                }
+            else:
+                return dict(
+                    Email=None,  # not send to email
+                    Phone=self.account.phone,
+                    Taxation="usn_income",
+                    Items=[{
+                        "Name": "Привязка карты",
+                        "Price": 100,
+                        "Quantity": 1.00,
+                        "Amount": 100,
+                        "Tax": "none",
+                        "Ean13": ""
+                    }]
+                )
+
+        # session payment receipt
+        if self.acquiring == 'homebank':
+            return {
+                'invoiceID': str(self.id).zfill(9),
+                'amount': str(int(self.sum * 100)),
+                "terminal": settings.HOMEBANK_TERMINAL_ID,
+                'currency': 'KZT',
+                'description': "Оплата парковки # %s" % self.session.id,
+                "backLink": "",
+                "failureBackLink": "",
+                "postLink": "https://%s/api/v1/payments/test/" % settings.BASE_DOMAIN,
+                "failurePostLink": "https://%s/api/v1/payments/test/" % settings.BASE_DOMAIN,
+                "language": "rus",
+                "paymentType": "cardId",
+                "cardId": {
+                    "id": ""
+                },
+                "email": str(self.session.client.email) if self.session.client.email else None,
+                "phone": str(self.session.client.phone)
+            }
+        else:
             return dict(
-                Email=email,
-                Phone=phone,
+                Email=str(self.session.client.email) if self.session.client.email else None,
+                Phone=str(self.session.client.phone),
                 Taxation="usn_income",
                 Items=[{
-                    "Name": "Оплата парковочного абонемента",
+                    "Name": "Оплата парковки # %s" % self.session.id,
                     "Price": str(int(self.sum * 100)),
                     "Quantity": 1.00,
                     "Amount": str(int(self.sum * 100)),
@@ -203,56 +353,6 @@ class Order(models.Model):
                     "Ean13": ""
                 }]
             )
-
-        if self.parking_card_session or self.client_uuid:
-            email = self.parking_card_session.account.email if self.parking_card_session.account else None
-            phone = self.parking_card_session.account.phone \
-                if self.parking_card_session.account else self.parking_card_session.parking_card.phone
-
-            return dict(
-                Email=email,
-                Phone=phone,
-                Taxation="usn_income",
-                Items=[{
-                    "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
-                    "Price": str(int(self.sum*100)),
-                    "Quantity": 1.00,
-                    "Amount": str(int(self.sum*100)),
-                    "Tax": "none",
-                    "Ean13": ""
-                }]
-            )
-
-        # Init payment receipt
-        if self.session is None:
-            return dict(
-                Email=None, # not send to email
-                Phone=self.account.phone,
-                Taxation="usn_income",
-                Items=[{
-                    "Name": "Привязка карты",
-                    "Price": 100,
-                    "Quantity": 1.00,
-                    "Amount": 100,
-                    "Tax": "none",
-                    "Ean13": ""
-                }]
-            )
-
-        # session payment receipt
-        return dict(
-            Email=str(self.session.client.email) if self.session.client.email else None,
-            Phone=str(self.session.client.phone),
-            Taxation="usn_income",
-            Items=[{
-                "Name": "Оплата парковки # %s" % self.session.id,
-                "Price": str(int(self.sum*100)),
-                "Quantity": 1.00,
-                "Amount": str(int(self.sum*100)),
-                "Tax": "none",
-                "Ean13": ""
-            }]
-        )
 
     def is_refunded(self):
         return self.refunded_sum == self.sum
@@ -270,7 +370,56 @@ class Order(models.Model):
         else:
             return TinkoffAPI(with_terminal=self.terminal.name)
 
+    def instant_pay(self):
+
+        receipt_data = self.generate_receipt_data()
+        get_logger().info("instant payment start: ")
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "instant payment start", receipt_data)
+
+        new_payment = HomeBankPayment.objects.create(
+            order=self,
+            receipt_data=receipt_data)
+
+        account = None
+
+        if self.session:
+            account = self.session.client
+        elif self.parking_card_session:
+            account = self.parking_card_session.account
+        else:
+            account = self.subscription.account
+
+        if account is None:
+            get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
+            return
+
+        default_account_credit_card = CreditCard.objects.filter(
+            account=account, is_default=True).first()
+
+        if not default_account_credit_card:
+            get_logger().warn("Payment was broken. Account should has bind card")
+            return
+
+        receipt_data['cardId']['id'] = default_account_credit_card.card_char_id
+        result = HomeBankAPI().pay(data=receipt_data)
+
+        if not result:
+            return None
+
+        error_code = result.get('code', False)
+
+        if not error_code:
+            payment_id = int(result["id"])
+
+            new_payment.payment_id = payment_id
+            new_payment.status = 'paid'
+            new_payment.save()
+
     def create_non_recurrent_payment(self):
+        if self.acquiring == 'homebank':
+            get_logger().info("Cancel non recurrent payment for homebank")
+            return None
+
         receipt_data = self.generate_receipt_data()
         init_payment = TinkoffPayment.objects.create(
             order=self,
@@ -341,49 +490,52 @@ class Order(models.Model):
         return None
 
     def create_payment(self):
-        receipt_data = self.generate_receipt_data()
-        new_payment = TinkoffPayment.objects.create(
-            order=self,
-            receipt_data=receipt_data)
+        if self.acquiring == 'homebank':
+            self.instant_pay()
+        else:
+            receipt_data = self.generate_receipt_data()
+            new_payment = TinkoffPayment.objects.create(
+                order=self,
+                receipt_data=receipt_data)
 
-        request_data = new_payment.build_transaction_data(self.get_payment_amount())
-        result = self.get_tinkoff_api().sync_call(
-            TinkoffAPI.INIT, request_data
-        )
-        get_logger().info("Init payment response: ")
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make init session payment", request_data)
+            request_data = new_payment.build_transaction_data(self.get_payment_amount())
+            result = self.get_tinkoff_api().sync_call(
+                TinkoffAPI.INIT, request_data
+            )
+            get_logger().info("Init payment response: ")
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make init session payment", request_data)
 
-        # Tink-off gateway not responded
-        if not result:
-            return None
+            # Tink-off gateway not responded
+            if not result:
+                return None
 
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response session payment", result)
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response session payment", result)
 
-        # Payment success
-        if result.get("Success", False):
-            payment_id = int(result["PaymentId"])
+            # Payment success
+            if result.get("Success", False):
+                payment_id = int(result["PaymentId"])
 
-            raw_status = result["Status"]
-            status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
-                else PAYMENT_STATUS_REJECTED
-            get_logger().info("Init status: "+ raw_status)
-            new_payment.payment_id = payment_id
-            new_payment.status = status
-            new_payment.save()
+                raw_status = result["Status"]
+                status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
+                    else PAYMENT_STATUS_REJECTED
+                get_logger().info("Init status: " + raw_status)
+                new_payment.payment_id = payment_id
+                new_payment.status = status
+                new_payment.save()
 
-            # Credit card bind
-            self.charge_payment(new_payment)
+                # Credit card bind
+                self.charge_payment(new_payment)
 
-        # Payment exception
-        elif int(result.get("ErrorCode", -1)) > 0:
-            error_code = int(result["ErrorCode"])
-            error_message = result.get("Message", "")
-            error_details = result.get("Details", "")
+            # Payment exception
+            elif int(result.get("ErrorCode", -1)) > 0:
+                error_code = int(result["ErrorCode"])
+                error_message = result.get("Message", "")
+                error_details = result.get("Details", "")
 
-            new_payment.error_code = error_code
-            new_payment.error_message = error_message
-            new_payment.error_description = error_details
-            new_payment.save()
+                new_payment.error_code = error_code
+                new_payment.error_message = error_message
+                new_payment.error_description = error_details
+                new_payment.save()
 
     def charge_payment(self, payment):
         get_logger().info("Make charge: ")
@@ -401,7 +553,7 @@ class Order(models.Model):
             return
 
         default_account_credit_card = CreditCard.objects.filter(
-                account=account, is_default=True).first()
+            account=account, is_default=True).first()
 
         if not default_account_credit_card:
             get_logger().warn("Payment was broken. Account should has bind card")
@@ -548,7 +700,7 @@ class TinkoffPayment(models.Model):
 
     def build_charge_request_data(self, payment_id, rebill_id):
         data = {
-            "PaymentId":str(payment_id),
+            "PaymentId": str(payment_id),
             "RebillId": str(rebill_id),
         }
         return data
@@ -562,7 +714,7 @@ class TinkoffPayment(models.Model):
 
     def build_cancel_request_data(self, refund_amount=None):
         data = {
-            "PaymentId":str(self.payment_id)
+            "PaymentId": str(self.payment_id)
         }
         if refund_amount:
             data["Amount"] = str(refund_amount)
@@ -604,7 +756,6 @@ class TinkoffSession(models.Model):
 
 
 class InvoiceWithdraw(models.Model):
-
     URL_UPDATE_TOKEN = "https://openapi.tinkoff.ru/sso/secure/token"
     URL_WITHDRAW = "https://openapi.tinkoff.ru/sme/api/v1/partner/company/%s/payment"
 
@@ -694,7 +845,7 @@ class InvoiceWithdraw(models.Model):
         try:
             body = {
                 "documentNumber": str(self.id),
-                "date": None, # right now
+                "date": None,  # right now
                 "amount": self.amount,
                 "recipientName": self.recipientName,
                 "inn": self.inn,
@@ -729,3 +880,37 @@ class InvoiceWithdraw(models.Model):
         except Exception as e:
             print(str(e))
             return False, str(e)
+
+
+class HomeBankPayment(models.Model):
+    payment_id = models.CharField(max_length=60, unique=True, blank=True, null=True)
+    status = models.CharField(max_length=60, blank=True, default='init')
+    order = models.ForeignKey(Order, null=True, blank=True, on_delete=models.CASCADE)
+    reason_code = models.SmallIntegerField(default=-1)
+    receipt_data = models.TextField(null=True, blank=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = 'HomeBank Payment'
+        verbose_name_plural = 'HomeBank Payments'
+
+    def cancel_payment(self):
+        logging.info("Cancel payment response: ")
+
+        result = HomeBankAPI().cancel_payment(self.payment_id)
+
+        logging.info(str(result))
+
+        if not result.get("code", False):
+            self.status = 'cancel'
+            self.save()
+            order = self.order
+            order.refund_request = False
+            order.refunded_sum = order.refunded_sum + Decimal(float(order.get_payment_amount()) / 100)
+            order.paid = False
+            order.authorized = False
+            order.parking_card_session.notify_refund(order.get_payment_amount(), order)
+            order.save()

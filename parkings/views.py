@@ -773,7 +773,8 @@ class CloseSessionRequest(APIView):
                 if sum_to_pay:
                     new_order = Order.objects.create(
                         session=active_session,
-                        sum=sum_to_pay)
+                        sum=sum_to_pay,
+                        acquiring=active_session.parking.acquiring)
                     new_order.try_pay()
 
                     payments = TinkoffPayment.objects.filter(order=new_order)
