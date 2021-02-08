@@ -873,10 +873,16 @@ class UpdateTokenView(APIView):
 
 class AccountSubscriptionListView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
+        not_active = request.GET.get("not_active", False)
+        active_state = True
+        
+        if (not_active):
+            active_state = False
+
         subscription_qs = RpsSubscription.objects.filter(
             #started_at__lt = timezone.now(),
             #expired_at__gte = timezone.now(),
-            active=True,
+            active=active_state,
             account=request.account
         ).select_related('parking')
 
