@@ -25,7 +25,8 @@ from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, SubscriptionsPayValidator
-from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED
+from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED, \
+    HomeBankPayment
 from rps_vendor.models import RpsSubscription, RpsParking
 from vendors.models import Vendor, VendorNotification, VENDOR_NOTIFICATION_TYPE_SESSION_CREATED, \
     VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED
@@ -567,10 +568,18 @@ class CompleteParkingSessionView(SignedRequestAPIView):
             session_orders = session.get_session_orders()
 
             for order in session_orders:
-                payments = TinkoffPayment.objects.filter(order=order)
-                for payment in payments:
-                    if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
-                        order.confirm_payment(payment)
+                if (order.acquiring == 'homebank'):
+                    payments = HomeBankPayment.objects.filter(order=order)
+                    for payment in payments:
+                        if payment.status == 'init':
+                            order.try_pay(payment)
+                            break
+                else:
+                    payments = TinkoffPayment.objects.filter(order=order)
+                    for payment in payments:
+                        if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                            order.confirm_payment(payment)
+                            break
             # end payment
 
             session.debt = debt
@@ -751,11 +760,27 @@ class CloseSessionRequest(APIView):
                 for order in session_orders:
                     if sum_to_pay >= order.sum:
                         # pay
-                        payments = TinkoffPayment.objects.filter(order=order)
-                        for payment in payments:
-                            if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
-                                order.confirm_payment(payment)
-                        sum_to_pay = sum_to_pay - order.sum
+                        if (order.acquiring == 'homebank'):
+                            payments = HomeBankPayment.objects.filter(order=order)
+                            for payment in payments:
+                                if payment.status == 'init':
+                                    result = order.try_pay(payment)
+                                    if not result:
+                                        messages.add_message(
+                                            request,
+                                            messages.ERROR,
+                                            'Ошибка оплаты'
+                                        )
+                                    break
+
+                            sum_to_pay = sum_to_pay - order.sum
+                        else:
+                            payments = TinkoffPayment.objects.filter(order=order)
+                            for payment in payments:
+                                if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                                    order.confirm_payment(payment)
+                                    break
+                            sum_to_pay = sum_to_pay - order.sum
                     else:
                         # refund
 
@@ -769,7 +794,6 @@ class CloseSessionRequest(APIView):
                 if target_refund_sum:
                     active_session.try_refund = True
                     active_session.target_refund_sum = True
-
                 if sum_to_pay:
                     new_order = Order.objects.create(
                         session=active_session,
@@ -777,11 +801,27 @@ class CloseSessionRequest(APIView):
                         acquiring=active_session.parking.acquiring)
                     new_order.try_pay()
 
-                    payments = TinkoffPayment.objects.filter(order=new_order)
-                    for payment in payments:
-                        if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
-                            new_order.confirm_payment(payment)
-                    print(sum_to_pay)
+                    if (order.acquiring == 'homebank'):
+                        payments = HomeBankPayment.objects.filter(order=order)
+                        for payment in payments:
+                            if payment.status == 'init':
+                                result = order.try_pay(payment)
+                                if not result:
+                                    messages.add_message(
+                                        request,
+                                        messages.ERROR,
+                                        'Ошибка оплаты'
+                                    )
+                                break
+
+
+                    else:
+                        payments = TinkoffPayment.objects.filter(order=new_order)
+                        for payment in payments:
+                            if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                                new_order.confirm_payment(payment)
+                                break
+                        print(sum_to_pay)
 
                 messages.add_message(
                     request,

@@ -11,7 +11,8 @@ from accounts.views import (
     PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
     ZendeskUserJWTChatView, UpdateTokenView, AccountSubscriptionListView, AccountSubscriptionSettingsView,
-    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView, WriteUsersLogsView)
+    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView, WriteUsersLogsView,
+    AddCardTestView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -34,6 +35,7 @@ urlpatterns = [
     url(r'^me/$', AccountView.as_view()),
     url(r'^avatar/set/$', SetAvatarView.as_view()),
     url(r'^card/add/$', AddCardView.as_view()),
+    url(r'^card/add-test/$', AddCardTestView.as_view()),
     url(r'^card/delete/$', DeleteCardView.as_view()),
     url(r'^card/default/$', SetDefaultCardView.as_view()),
     url(r'^deactivate/$', DeactivateAccountView.as_view()),

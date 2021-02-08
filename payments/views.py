@@ -463,6 +463,7 @@ class HomeBankCallbackView(APIView):
         amount = int(request.data.get("amount", 0))
         pan = request.data.get("cardMask", "-")
 
+        get_logger().info("home bank log 1")
 
         # Get order with dependencies
         order = Order.retrieve_order_with_fk(order_id, fk=["account", "session",
@@ -477,18 +478,20 @@ class HomeBankCallbackView(APIView):
             order.paid = True
             order.save()
             self.close_parking_session_if_needed(order)
+            get_logger().info("home bank log 2")
 
         elif self.is_account_credit_card_payment(order):
             card_id = request.data["cardId"]
             stored_card = CreditCard.objects.filter(
                 card_char_id=card_id, account=order.account).first()
-
+            get_logger().info("home bank log 3")
             # Create new card and return first pay
             if not stored_card:
                 credit_card = CreditCard(
                     card_char_id=card_id,
                     pan=pan,
                     account=order.account,
+                    acquiring='homebank'
                 )
 
                 if not CreditCard.objects.filter(account=order.account).exists():
@@ -497,14 +500,19 @@ class HomeBankCallbackView(APIView):
                 credit_card.save()
 
                 order.authorized = True
+                order.paid = True
+                payment = HomeBankPayment.objects.get(order=order)
+                payment.status = 'paid'
                 order.save()
                 start_cancel_request.delay(order.id, acquiring='homebank')
+                get_logger().info("home bank log 4")
 
         elif self.is_non_account_pay(order):
             get_logger().warn("is_parking_card_pay")
             order.authorized = True
             order.paid = True
             order.save()
+            get_logger().info("home bank log 5")
 
         elif self.is_parking_card_pay(order):
             get_logger().warn("is_parking_card_pay")
@@ -512,19 +520,18 @@ class HomeBankCallbackView(APIView):
             order.paid = True
             order.save()
             self.notify_confirm_rps(order)
+            get_logger().info("home bank log 6")
 
         elif self.is_subscription_pay(order):
             order.authorized = True
             order.paid = True
             order.save()
-
             subs = order.subscription
             subs.authorize()
-            make_buy_subscription_request.delay(order.subscription.id, acquiring='homebank')
-
             subs.activate()
             subs.save()
-
+            make_buy_subscription_request.delay(order.subscription.id, acquiring='homebank')
+            get_logger().info("home bank log 7")
 
         else:
             get_logger().warn("Unknown successefull operation")
@@ -587,8 +594,7 @@ class HomeBankCallbackView(APIView):
 
 class TestView(APIView):
     def get(self, request):
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make card non recurrent payment", 12)
-        return HttpResponse({}, status=200)
+        return HttpResponse({"test": "test"}, status=200)
 
     def post(self, request):
         get_logger().info('catch bank request')
@@ -620,3 +626,11 @@ class HomebankAcquiringPageView(APIView):
             'description': receipt_data['description'],
             'domain': settings.BASE_DOMAIN
         })
+
+class HomebankAcquiringResultPageSuccessView(APIView):
+    def get(self, request):
+        return render(request, 'acquiring/success-page.html')
+
+class HomebankAcquiringResultPageErrorView(APIView):
+    def get(self, request):
+        return render(request, 'acquiring/error-page.html')

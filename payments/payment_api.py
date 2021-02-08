@@ -129,7 +129,7 @@ class HomeBankAPI():
 
     token = None
 
-    def get_token(self, params, scope="webapi"):
+    def get_token(self, params={}, scope="webapi"):
         get_logger().info("Get HomeBank token")
         payload = {
             "grant_type": "client_credentials",
@@ -137,6 +137,7 @@ class HomeBankAPI():
             "client_id": settings.HOMEBANK_CLIENT_ID,
             "client_secret": settings.HOMEBANK_CLIENT_SECRET,
         }
+        payload.update(params)
         r = self.get_response(self.TOKEN_URL, payload)
 
         if r['access_token']:
@@ -155,43 +156,48 @@ class HomeBankAPI():
 
     def pay(self, data):
         params = {
-            'invoiceID': data['invoiceID'],
+            'invoiceID': data['invoiceId'],
             'amount': data['amount'],
-            "terminal": data['terminal'],
+            "terminal": data['terminalId'],
             'currency': 'KZT',
             'postLink': '',
             'failurePostLink': '',
-            'description': data['description']
         }
+        get_logger().info("HomeBank make payment")
 
-        token = self.get_token(params, 'payment')
+        token = self.get_token(params=params, scope='payment')
         if not token:
             get_logger().error("No token for request")
             return None
 
-        return self.get_response(self.PAY_URL, data)
+        get_logger().info("HomeBank make payment 2")
+
+        get_logger().info(data)
+        get_logger().info(params)
+
+
+        return self.get_response(self.PAYMENT_URL, data)
 
 
     def get_response(self, url, payload):
         connect_timeout = 5
-
+        headers = {}
         json_data = payload
 
-        headers = {}
+        if 'paymentType' in payload:
+            json_data = json.dumps(payload)
+            headers['Content-Type'] =  'application/json'
 
         if self.token:
-            headers['Authorization'] = 'Bearer ' + self.token
-            print(self.token)
+            headers['Authorization'] = 'bearer ' + self.token
+
 
         # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to HomeBank", json_data)
-        log_data = json_data.copy()
-        log_data.pop('cryptogram', None)
+        log_data = payload.copy()
+
         get_logger().info('HomeBank payload: ' + json.dumps(log_data))
 
-        if 'cryptogram' in json_data:
-            json_data = json.dumps(json_data)
-            print(json_data)
-            print('Bearer ' + self.token)
+
 
         try:
             r = requests.post(url, data=json_data, headers=headers,

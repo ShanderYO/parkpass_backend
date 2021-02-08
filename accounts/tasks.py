@@ -123,13 +123,22 @@ def force_pay(parking_session_id):
         else:
             not_paid_orders = Order.objects.filter(session=active_session, authorized=True, paid=False)
             for order in not_paid_orders:
-                payments = TinkoffPayment.objects.filter(order=order)
-                for payment in payments:
-                    if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
-                        order.confirm_payment(payment)
-                        return
-                if payments.exists():
-                    order.confirm_payment(payments[0])
+                if (order.acquiring == 'homebank'):
+                    payments = HomeBankPayment.objects.filter(order=order)
+                    for payment in payments:
+                        if payment.status == 'init':
+                            order.try_pay(payment)
+                            return
+                    if payments.exists():
+                        order.confirm_payment(payments[0])
+                else:
+                    payments = TinkoffPayment.objects.filter(order=order)
+                    for payment in payments:
+                        if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                            order.confirm_payment(payment)
+                            return
+                    if payments.exists():
+                        order.confirm_payment(payments[0])
 
     except ObjectDoesNotExist:
         pass

@@ -516,10 +516,51 @@ class AddCardView(LoginRequiredAPIView):
         last_active_session = ParkingSession.get_active_session(request.account)
         acquiring = 'tinkoff'
 
-        if last_active_session:
-            acquiring = last_active_session.parking.acquiring
+        geo = request.POST.get("geo", False)
+
+        if request.account.phone[1:4] in ["981", "931", "701", "702", "705", "777", "712", "713", "717", "718", "721", "725", "726", "727", "700", "701", "702", "707", "700"]:
+            acquiring = 'homebank'
 
         result_dict = CreditCard.bind_request(request.account, acquiring=acquiring)
+        # If error request
+        if not result_dict:
+            e = PaymentException(
+                PaymentException.BAD_PAYMENT_GATEWAY,
+                "Payment gateway temporary not available"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        # If exception occurs
+        if result_dict.get("exception", None):
+            exception = result_dict["exception"]
+            error_code = int(exception.get("error_code", 0))
+            error_message = exception.get("error_message", "")
+            error_details = exception.get("error_details", "")
+
+            get_logger().warning("Init exception: " + str(error_code) +
+                                 " : " + error_message + " : " + error_details)
+
+            exception_adapter = TinkoffExceptionAdapter(error_code)
+            e = exception_adapter.get_api_exeption()
+            return JsonResponse(e.to_dict(), status=400)
+
+        # Success result
+        return JsonResponse({
+            "payment_url": result_dict["payment_url"]
+        }, status=200)
+
+class AddCardTestView(APIView):
+    def post(self, request):
+
+        return JsonResponse({
+            "payment_url": 'good 111'
+        }, status=200)
+
+        account = Account.objects.get(id=15)
+
+        acquiring = 'homebank'
+
+        result_dict = CreditCard.bind_request(account, acquiring=acquiring)
         # If error request
         if not result_dict:
             e = PaymentException(
