@@ -1,5 +1,4 @@
 import datetime
-import json
 from decimal import Decimal
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -433,10 +432,3 @@ class TinkoffCallbackView(APIView):
                 order.save()
             else:
                 get_logger().warning('Refund undefined status')
-
-class TestView(APIView):
-    def post(self, request):
-        get_logger().info('catch bank request')
-        get_logger().info(request.data)
-
-        return HttpResponse({}, status=200)
