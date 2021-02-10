@@ -758,17 +758,17 @@ class CloseSessionRequest(APIView):
                         sum_to_pay = sum_to_pay - order.sum
                     else:
                         # refund
-
-                        order.refunded_sum = order.sum - sum_to_pay
                         target_refund_sum = target_refund_sum + order.refunded_sum
                         order.refund_request = False
                         order.save()
                         print(sum_to_pay)
                         sum_to_pay = 0
+                        get_logger().info('refund sum 1 %s' % target_refund_sum)
 
                 if target_refund_sum:
                     active_session.try_refund = True
-                    active_session.target_refund_sum = True
+                    active_session.target_refund_sum = target_refund_sum
+                    get_logger().info('refund sum 2 %s' % target_refund_sum)
 
                 if sum_to_pay:
                     new_order = Order.objects.create(

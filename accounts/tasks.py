@@ -184,7 +184,7 @@ def _init_refund(parking_session):
 
     remaining_sum = parking_session.target_refund_sum - parking_session.current_refund_sum
 
-    orders = Order.objects.filter(session=parking_session, paid=True, refund_request=False)
+    orders = Order.objects.filter(session=parking_session, authorized=True, refund_request=False)
     for order in orders:
         if order.is_refunded():
             continue
@@ -192,16 +192,19 @@ def _init_refund(parking_session):
         remaining_sum = remaining_sum - refund
         payment = TinkoffPayment.objects.get(order=order, status=PAYMENT_STATUS_AUTHORIZED)
         request_data = payment.build_cancel_request_data(int(refund*100))
+        logging.info("cancel payment")
         result = TinkoffAPI().sync_call(
             TinkoffAPI.CANCEL, request_data
         )
         logging.info(result)
 
         if result.get("Status") == u'REFUNDED':
+            order.refund_request = True
             order.refunded_sum = float(result.get("OriginalAmount",0))/100
             logging.info('REFUNDED: %s' % order.refunded_sum)
             order.save()
         elif result.get("Status") == u'PARTIAL_REFUNDED':
+            order.refund_request = True
             order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
             logging.info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
             order.save()
