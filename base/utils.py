@@ -362,15 +362,16 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None,
 
 
 def elastic_log(index, message, data):
+
     body_dict = {
         "time": str(timezone.now()),
-        "message":message,
+        "message": message,
         "data": data
     }
     try:
         es_client.index(
             index=index,
-            body=json.dumps(body_dict)
+            body=json.dumps(body_dict),
         )
     except Exception as e:
         get_logger(BASE_LOGGER_NAME).warning(str(e))

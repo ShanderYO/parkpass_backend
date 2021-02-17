@@ -354,7 +354,7 @@ ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
 REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
 
-ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", 'http://185.158.155.26:9200')
+ELASTICSEARCH_URL = 'http://185.158.155.26:9200' if os.environ.get("PROD","0") == "1" else "http://elasticsearch:9200"
 ELASTICSEARCH_CONNECTION_KWARGS = {
     "http_auth":(os.environ.get("ELASTICSEARCH_USER", "elastic"),os.environ.get("ELASTICSEARCH_PASSWORD", "parkpass-elastic2020")),
 }

@@ -17,6 +17,11 @@ from payments.payment_api import TinkoffAPI
 
 from payments.tasks import start_cancel_request, make_buy_subscription_request
 
+class Test(APIView):
+    def get(self, request):
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Test", 'some test data')
+        return HttpResponse("OK", status=200)
+
 
 class TinkoffCallbackView(APIView):
     # TODO validate token or place to Validator
