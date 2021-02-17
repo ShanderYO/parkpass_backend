@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 
+from base.utils import get_logger
 from parkings.models import ParkingSession
 from parkpass_backend.celery import app
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED, \
@@ -176,14 +177,14 @@ def generate_orders_and_pay():
 
                 current_account_debt = session.debt - ordered_sum
                 order = Order(
-                    sum=current_account_debt, session=session, acquiring=session.parking.acquiring
+                    sum=current_account_debt, session=session
                 )
                 order.save()
             else:
                 current_account_debt = session.debt - ordered_sum
                 if current_account_debt >= session.parking.max_client_debt:
                     order = Order(
-                        sum=session.parking.max_client_debt, session=session, acquiring=session.parking.acquiring
+                        sum=session.parking.max_client_debt, session=session
                     )
                     order.save()
             if order:
@@ -199,12 +200,16 @@ def _init_refund(parking_session):
     # Save for stop update again
     parking_session.try_refund=False
     parking_session.save()
+    get_logger().info("_init_refund 2")
 
     remaining_sum = parking_session.target_refund_sum - parking_session.current_refund_sum
 
-    orders = Order.objects.filter(session=parking_session, paid=True, refund_request=False)
+    orders = Order.objects.filter(session=parking_session, authorized=True, refund_request=False)
+    get_logger().info("_init_refund 3")
+
     for order in orders:
         if order.is_refunded():
+            get_logger().info("_init_refund 3.5")
             continue
         refund = min(remaining_sum, order.sum)
         remaining_sum = remaining_sum - refund
@@ -218,21 +223,37 @@ def _init_refund(parking_session):
                 TinkoffAPI.CANCEL, request_data
             )
             logging.info(result)
+        payment = TinkoffPayment.objects.filter(order=order, status=PAYMENT_STATUS_AUTHORIZED)[0]
+        request_data = payment.build_cancel_request_data(int(refund*100))
+        get_logger().info("_init_refund 4")
+        get_logger().info(remaining_sum)
 
-            if result.get("Status") == u'REFUNDED':
-                order.refunded_sum = float(result.get("OriginalAmount",0))/100
-                logging.info('REFUNDED: %s' % order.refunded_sum)
-                order.save()
-            elif result.get("Status") == u'PARTIAL_REFUNDED':
-                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
-                logging.info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
-                order.save()
-            else:
-                logging.warning('Refund undefined status')
+        get_logger().info("_init_refund 4")
+
+        get_logger().info("cancel payment")
+        result = TinkoffAPI().sync_call(
+            TinkoffAPI.CANCEL, request_data
+        )
+        logging.info(result)
+
+        if result.get("Status") == u'REFUNDED':
+            order.refund_request = True
+            order.refunded_sum = float(result.get("OriginalAmount",0))/100
+            logging.info('REFUNDED: %s' % order.refunded_sum)
+            order.save()
+        elif result.get("Status") == u'PARTIAL_REFUNDED':
+            order.refund_request = True
+            order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
+            logging.info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
+            order.save()
+        else:
+            logging.warning('Refund undefined status')
 
     current_refunded_sum = Decimal(0)
     for order in orders:
         current_refunded_sum = current_refunded_sum + order.refunded_sum
+    get_logger().info("_init_refund 6")
+    get_logger().info(current_refunded_sum)
 
     parking_session.current_refund_sum = current_refunded_sum
     parking_session.try_refund = False
