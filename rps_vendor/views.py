@@ -201,7 +201,7 @@ class InitPayDebtMixin:
             card_session.save()
 
             order = Order.objects.create(
-                sum=Decimal(card_session.debt),
+                sum=Decimal(489792),
                 parking_card_session=card_session,
                 terminal=Terminal.objects.get(name="pcard"),
                 acquiring=Parking.objects.get(id=card_session.parking_id).acquiring

@@ -151,7 +151,7 @@ class CreditCard(models.Model):
 
 class Order(models.Model):
     id = models.AutoField(primary_key=True)
-    sum = models.DecimalField(max_digits=8, decimal_places=2)
+    sum = models.DecimalField(max_digits=16, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
     authorized = models.BooleanField(default=False)
     paid = models.BooleanField(default=False)
