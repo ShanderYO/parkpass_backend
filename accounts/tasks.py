@@ -177,14 +177,16 @@ def generate_orders_and_pay():
 
                 current_account_debt = session.debt - ordered_sum
                 order = Order(
-                    sum=current_account_debt, session=session
+                    sum=current_account_debt, session=session,
+                    acquiring=session.parking.acquiring
                 )
                 order.save()
             else:
                 current_account_debt = session.debt - ordered_sum
                 if current_account_debt >= session.parking.max_client_debt:
                     order = Order(
-                        sum=session.parking.max_client_debt, session=session
+                        sum=session.parking.max_client_debt, session=session,
+                        acquiring=session.parking.acquiring
                     )
                     order.save()
             if order:

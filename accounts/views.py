@@ -518,7 +518,7 @@ class AddCardView(LoginRequiredAPIView):
 
         geo = request.POST.get("geo", False)
 
-        if request.account.phone[1:4] in ["981", "931", "701", "702", "705", "777", "712", "713", "717", "718", "721", "725", "726", "727", "700", "701", "702", "707", "700"]:
+        if request.account.phone[1:4] in ["981", "700", "701", "702", "703", "704", "705", "706", "707", "708", "709", "747", "750", "751", "760", "761", "762", "763", "764", "771", "775", "776", "777", "778"]:
             acquiring = 'homebank'
 
         result_dict = CreditCard.bind_request(request.account, acquiring=acquiring)
