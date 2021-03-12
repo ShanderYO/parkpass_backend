@@ -35,7 +35,7 @@
     var createPaymentObject = function() {
       var paymentObject = {
         invoiceId: invoiceId,
-        backLink: "https://{{domain}}/api/v1/payments/result-success/",
+        backLink: "{{ back_link }}",
         failureBackLink: "https://{{domain}}/api/v1/payments/result-error/",
         postLink: "https://{{domain}}/api/v1/payments/homebank-callback/",
         failurePostLink: "https://{{domain}}/api/v1/payments/homebank-callback/",
@@ -52,10 +52,6 @@
 
 
     halyk.pay(createPaymentObject());
-
-    // halyk.showPaymentWidget(createPaymentObject(access_token, 1, 100), function () {
-    //
-    // });
 
   })
 </script>

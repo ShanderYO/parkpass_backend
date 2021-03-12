@@ -70,7 +70,8 @@ ACQUIRING_LIST = (
         ('homebank', "Homebank"),
     )
 
-BASE_DOMAIN = 'sandbox.parkpass.ru'
+BASE_DOMAIN = 'sandbox.parkpass.ru' if os.environ.get("PROD","0") == "1" else 'parkpass.ru'
+PARKPASS_PAY_APP_LINK = 'https://testpay.parkpass.ru' if os.environ.get("PROD","0") == "1" else 'https://pay.parkpass.ru'
 
 # Application definition
 #TINKOFF_API_REFRESH_TOKEN = 't.MQCiorv_cccpkAw5u5kknrpNd54WbunlOx4iy6cCEH69BbwSDQQWql2nnTuHxY_VpuHtrPW8dHUojjwOl3uc5A'

@@ -606,6 +606,7 @@ class TestView(APIView):
 class HomebankAcquiringPageView(APIView):
     def get(self, request):
         order_id = request.GET.get('order_id', None)
+        back_link = request.GET.get('back_link', "https://%s/api/v1/payments/result-success/" % settings.BASE_DOMAIN)
         try:
             order = Order.objects.get(id=order_id)
             payment = HomeBankPayment.objects.get(order=order)
@@ -624,7 +625,8 @@ class HomebankAcquiringPageView(APIView):
             'terminal': settings.HOMEBANK_TERMINAL_ID,
             'amount': order.get_payment_amount(),
             'description': receipt_data['description'],
-            'domain': settings.BASE_DOMAIN
+            'domain': settings.BASE_DOMAIN,
+            'back_link': back_link
         })
 
 class HomebankAcquiringResultPageSuccessView(APIView):

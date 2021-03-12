@@ -379,7 +379,7 @@ class Order(models.Model):
     def instant_pay(self, payment=None):
 
         receipt_data = self.generate_receipt_data()
-        get_logger().info("1111instant payment start111111sss1212: ")
+        get_logger().info("instant payment start:")
         get_logger().info('pay homebank receipt_data')
         get_logger().info(json.dumps(receipt_data))
 
@@ -444,7 +444,12 @@ class Order(models.Model):
     def create_non_recurrent_payment(self):
         if self.acquiring == 'homebank':
             get_logger().info("Cancel non recurrent payment for homebank")
-            return None
+            return {
+                "payment_url": "https://%s/api/v1/payments/homebank?order_id=%s&back_link=%s" % (
+                    settings.BASE_DOMAIN,
+                    self.id,
+                    settings.PARKPASS_PAY_APP_LINK + '/#/success')
+            }
 
         receipt_data = self.generate_receipt_data()
         init_payment = TinkoffPayment.objects.create(
