@@ -45,6 +45,27 @@ class FiskalNotification(models.Model):
         ordering = ["-receipt_datetime"]
 
 
+class HomeBankFiskalNotification(models.Model):
+    check_number = models.BigIntegerField()
+    shift_number = models.IntegerField()
+    sum = models.IntegerField()
+    date_time_string = models.CharField(max_length=50)
+    address = models.CharField(max_length=100)
+    ofd_name = models.CharField(max_length=100)
+    identity_number = models.IntegerField()
+    registration_number = models.CharField(max_length=100)
+    unique_number = models.CharField(max_length=100)
+    ticket_url = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return u"Homebank fiscal notification: %s (%s)" \
+               % (self.check_number, self.shift_number)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class CreditCard(models.Model):
     id = models.AutoField(primary_key=True)
     card_id = models.IntegerField(default=1, blank=True)
@@ -162,6 +183,8 @@ class Order(models.Model):
     refunded_sum = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     fiscal_notification = models.ForeignKey(FiskalNotification,
                                             null=True, blank=True, on_delete=models.CASCADE)
+    homebank_fiscal_notification = models.ForeignKey(HomeBankFiskalNotification,
+                                            null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     # for init payment order
@@ -216,7 +239,7 @@ class Order(models.Model):
                     "amount": int(self.sum),
                     "terminalId": settings.HOMEBANK_TERMINAL_ID,
                     "currency": "KZT",
-                    "description": 'Оплата парковочного абонемента',
+                    "description": "Оплата парковочного абонемента",
                     "backLink": "",
                     "failureBackLink": "",
                     "postLink": "https://%s/api/v1/payments/homebank-callback/" % settings.BASE_DOMAIN,
@@ -359,7 +382,6 @@ class Order(models.Model):
     def try_pay(self, payment=None):
         get_logger().info("Try make payment #%s", self.id)
         if self.acquiring == 'homebank':
-            get_logger().info("check check check")
             return self.instant_pay(payment)
         else:
             self.create_payment()
@@ -380,7 +402,6 @@ class Order(models.Model):
 
         receipt_data = self.generate_receipt_data()
         get_logger().info("instant payment start:")
-        get_logger().info('pay homebank receipt_data')
         get_logger().info(json.dumps(receipt_data))
 
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "instant payment start", receipt_data)
@@ -389,10 +410,8 @@ class Order(models.Model):
             payment = HomeBankPayment.objects.create(
                 order=self,
                 receipt_data=receipt_data)
-            get_logger().info('pay homebank receipt_data 2')
 
         account = None
-        get_logger().info('pay homebank receipt_data 3')
 
         if self.session:
             account = self.session.client
@@ -405,7 +424,6 @@ class Order(models.Model):
             get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
             return
 
-        get_logger().info('pay homebank receipt_data 4')
 
         default_account_credit_card = CreditCard.objects.filter(
             account=account, acquiring='homebank').first()
@@ -414,20 +432,17 @@ class Order(models.Model):
             get_logger().warn("Payment was broken. Account should has bind card")
             return
 
-        get_logger().info('pay homebank receipt_data 5')
 
         receipt_data['cardId']['id'] = default_account_credit_card.card_char_id
 
         result = HomeBankAPI().pay(data=receipt_data)
 
-        get_logger().info('pay homebank receipt_data 6')
 
         if not result:
             return None
 
         error_code = result.get('code', False)
 
-        get_logger().info('pay homebank receipt_data 7')
 
         if not error_code:
             payment_id = result["id"]
@@ -435,20 +450,22 @@ class Order(models.Model):
             payment.status = 'paid'
             payment.save()
 
-
-
-            get_logger().info('pay homebank receipt_data 8')
-
         return result
 
     def create_non_recurrent_payment(self):
         if self.acquiring == 'homebank':
-            get_logger().info("Cancel non recurrent payment for homebank")
+            get_logger().info("recurrent payment for homebank")
+            receipt_data = self.generate_receipt_data()
+            HomeBankPayment.objects.create(
+                order=self,
+                receipt_data=json.dumps(receipt_data)
+            )
             return {
-                "payment_url": "https://%s/api/v1/payments/homebank?order_id=%s&back_link=%s" % (
+                "payment_url": "https://%s/api/v1/payments/homebank?order_id=%s&back_link=%s&phone=%s" % (
                     settings.BASE_DOMAIN,
                     self.id,
-                    settings.PARKPASS_PAY_APP_LINK + '/#/success')
+                    settings.PARKPASS_PAY_APP_LINK + '?success=1',
+                    self.parking_card_session.parking_card.phone)
             }
 
         receipt_data = self.generate_receipt_data()
@@ -614,8 +631,14 @@ class Order(models.Model):
         )
 
         fiscal = None
-        if self.fiscal_notification:
-            fiscal = serializer(self.fiscal_notification)
+        if self.acquiring == 'homebank':
+            if self.homebank_fiscal_notification:
+                fiscal = serializer(self.homebank_fiscal_notification)
+        else:
+            if self.fiscal_notification:
+                fiscal = serializer(self.fiscal_notification)
+
+
 
         return dict(
             order=order,
@@ -638,7 +661,11 @@ class Order(models.Model):
             "order": self,
             "email": email
         }
-        msg_html = render_to_string('emails/receipt.html', render_data)
+        if self.acquiring == 'homebank':
+            msg_html = render_to_string('emails/homebank-receipt.html', render_data)
+        else:
+            msg_html = render_to_string('emails/receipt.html', render_data)
+
         send_mail('Электронная копия чека', "", EMAIL_HOST_USER,
                   ['%s' % str(email)], html_message=msg_html)
 
@@ -945,4 +972,3 @@ class HomeBankPayment(models.Model):
             order.parking_card_session.notify_refund(order.get_payment_amount(), order)
             order.save()
             get_logger().info("home bank log 11")
-

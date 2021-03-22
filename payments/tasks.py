@@ -35,14 +35,12 @@ def start_cancel_request(order_id, acquiring='tinkoff'):
         payments = HomeBankPayment.objects.filter(order__id=order_id)
 
         logging.info("start cancel payment for %s" % acquiring)
-        get_logger().info("home bank log 8")
 
         if not payments.exists():
             logging.info("Payments were not found: ")
             return None
         payment = payments[0]
         payment.cancel_payment()
-        get_logger().info("home bank log 9")
 
 
 @app.task()

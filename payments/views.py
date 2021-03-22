@@ -15,11 +15,11 @@ from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
-    PAYMENT_STATUS_PREPARED_AUTHORIZED, HomeBankPayment
-from payments.payment_api import TinkoffAPI
+    PAYMENT_STATUS_PREPARED_AUTHORIZED, HomeBankPayment, HomeBankFiskalNotification
+from payments.payment_api import TinkoffAPI, HomeBankOdfAPI
 
 from payments.tasks import start_cancel_request, make_buy_subscription_request
-
+import requests
 
 class TinkoffCallbackView(APIView):
     # TODO validate token or place to Validator
@@ -468,6 +468,10 @@ class HomeBankCallbackView(APIView):
         # Get order with dependencies
         order = Order.retrieve_order_with_fk(order_id, fk=["account", "session",
                                                           "parking_card_session", "subscription"])
+
+        payment = HomeBankPayment.objects.get(order=order)
+
+
         if not order:
             get_logger().warn("Order with id %s does not exist" % order_id)
             return HttpResponse("OK", status=200)
@@ -501,9 +505,12 @@ class HomeBankCallbackView(APIView):
 
                 order.authorized = True
                 order.paid = True
-                payment = HomeBankPayment.objects.get(order=order)
-                payment.status = 'paid'
                 order.save()
+
+                payment.payment_id = payment_id
+                payment.status = 'paid'
+                payment.save()
+
                 start_cancel_request.delay(order.id, acquiring='homebank')
                 get_logger().info("home bank log 4")
 
@@ -512,6 +519,7 @@ class HomeBankCallbackView(APIView):
             order.authorized = True
             order.paid = True
             order.save()
+
             get_logger().info("home bank log 5")
 
         elif self.is_parking_card_pay(order):
@@ -519,7 +527,13 @@ class HomeBankCallbackView(APIView):
             order.authorized = True
             order.paid = True
             order.save()
+            self.notify_authorize_rps(order)
             self.notify_confirm_rps(order)
+
+            payment.payment_id = payment_id
+            payment.status = 'paid'
+            payment.save()
+
             get_logger().info("home bank log 6")
 
         elif self.is_subscription_pay(order):
@@ -535,6 +549,13 @@ class HomeBankCallbackView(APIView):
 
         else:
             get_logger().warn("Unknown successefull operation")
+            order.save()
+
+        fiskal_data = HomeBankOdfAPI().create_check(order, payment)
+
+        if fiskal_data:
+            fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
+            order.homebank_fiscal_notification = fiskal
             order.save()
 
         return HttpResponse("OK", status=200)
@@ -592,9 +613,20 @@ class HomeBankCallbackView(APIView):
             order.paid_notified_at = timezone.now()
             order.save()
 
+    def notify_authorize_rps(self, order):
+        get_logger().info("notify_authorize_rps")
+        order.parking_card_session.notify_authorize(order)
+
 class TestView(APIView):
     def get(self, request):
-        return HttpResponse({"test": "test"}, status=200)
+        payment = HomeBankPayment.objects.get(id=229)
+        receipt_data = json.loads(payment.receipt_data)
+        order = Order.objects.get(id=7230)
+        json.dumps({
+            "s":  order.sum
+        })
+        # req_string = HomeBankOdfAPI().create_check()
+        return HttpResponse(order.sum, status=200)
 
     def post(self, request):
         get_logger().info('catch bank request')
@@ -602,10 +634,14 @@ class TestView(APIView):
 
         return HttpResponse({}, status=200)
 
+    def create_check(self, data):
+        return HomeBankOdfAPI.create_check()
+
 
 class HomebankAcquiringPageView(APIView):
     def get(self, request):
         order_id = request.GET.get('order_id', None)
+        phone = request.GET.get('phone', '')
         back_link = request.GET.get('back_link', "https://%s/api/v1/payments/result-success/" % settings.BASE_DOMAIN)
         try:
             order = Order.objects.get(id=order_id)
@@ -614,6 +650,8 @@ class HomebankAcquiringPageView(APIView):
         except ObjectDoesNotExist as e:
             get_logger().warn(e)
             raise Http404("Order or payment does not exist")
+
+        get_logger().info(payment.receipt_data)
 
         receipt_data = json.loads(payment.receipt_data)
 
@@ -626,7 +664,9 @@ class HomebankAcquiringPageView(APIView):
             'amount': order.get_payment_amount(),
             'description': receipt_data['description'],
             'domain': settings.BASE_DOMAIN,
-            'back_link': back_link
+            'back_link': back_link,
+            'phone': phone
+
         })
 
 class HomebankAcquiringResultPageSuccessView(APIView):

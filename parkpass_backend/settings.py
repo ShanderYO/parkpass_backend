@@ -61,17 +61,20 @@ TINKOFF_DEFAULT_TERMINAL_PASSWORD = "dybcdp86npi8s9fv"
 TINKOFF_TERMINAL_KEY = TINKOFF_DEFAULT_TERMINAL_KEY
 TINKOFF_TERMINAL_PASSWORD = TINKOFF_DEFAULT_TERMINAL_PASSWORD
 
-HOMEBANK_CLIENT_ID = 'test'
-HOMEBANK_CLIENT_SECRET = 'yF587AV9Ms94qN2QShFzVR3vFnWkhjbAK3sG'
-HOMEBANK_TERMINAL_ID = '67e34d63-102f-4bd1-898e-370781d0074d'
+HOMEBANK_CLIENT_ID = 'KAZ PARKING'
+HOMEBANK_CLIENT_SECRET = 'FTKdlF27!eoUrPl9'
+HOMEBANK_TERMINAL_ID = 'a0628573-498f-4a5c-8690-2a7160ab1f15'
+HOMEBANK_ODF_LOGIN = 'takekps@mail.ru'
+HOMEBANK_ODF_PASSWORD = 'Aa123456'
+HOMEBANK_ODF_KASSA_ID = 'SWK00373313'
 
 ACQUIRING_LIST = (
         ('tinkoff', "Tinkoff"),
         ('homebank', "Homebank"),
     )
 
-BASE_DOMAIN = 'sandbox.parkpass.ru' if os.environ.get("PROD","0") == "1" else 'parkpass.ru'
-PARKPASS_PAY_APP_LINK = 'https://testpay.parkpass.ru' if os.environ.get("PROD","0") == "1" else 'https://pay.parkpass.ru'
+BASE_DOMAIN = 'parkpass.ru' if os.environ.get("PROD","0") == "1" else 'sandbox.parkpass.ru'
+PARKPASS_PAY_APP_LINK = 'https://pay.parkpass.ru' if os.environ.get("PROD","0") == "1" else 'https://testpay.parkpass.ru'
 
 # Application definition
 #TINKOFF_API_REFRESH_TOKEN = 't.MQCiorv_cccpkAw5u5kknrpNd54WbunlOx4iy6cCEH69BbwSDQQWql2nnTuHxY_VpuHtrPW8dHUojjwOl3uc5A'
