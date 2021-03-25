@@ -58,9 +58,9 @@ class TinkoffCallbackView(APIView):
 
         # Check if PAYMENT REFUNDED
         if self.status == PAYMENT_STATUS_REFUNDED or self.status == PAYMENT_STATUS_PARTIAL_REFUNDED:
-            self.refunded_order(
-                order_id, amount,
-                self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
+            # self.refunded_order(
+            #     order_id, amount,
+            #     self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
             return HttpResponse("OK", status=200)
 
         if self.status == PAYMENT_STATUS_REVERSED:
@@ -289,8 +289,8 @@ class TinkoffCallbackView(APIView):
 
         order = self.retrieve_order(order_id)
         if order:
-            order.refund_request = False
-            order.refunded_sum = order.refunded_sum + Decimal(float(refunded_amount)/100)
+            order.refund_request = True
+            order.refunded_sum = Decimal(float(refunded_amount)/100)
             order.save()
 
     def reverse_order(self, order_id, amount):
@@ -312,7 +312,7 @@ class TinkoffCallbackView(APIView):
 
         order = self.retrieve_order(order_id)
         if order:
-            order.refunded_sum = order.refunded_sum + Decimal(float(amount) / 100)
+            order.refunded_sum = Decimal(float(amount) / 100)
             order.save()
 
     def retrieve_order(self, order_id):
@@ -569,8 +569,8 @@ class HomeBankCallbackView(APIView):
     def refunded_order(self, order_id, refunded_amount):
         order = self.retrieve_order(order_id)
         if order:
-            order.refund_request = False
-            order.refunded_sum = order.refunded_sum + Decimal(float(refunded_amount)/100)
+            order.refund_request = True
+            order.refunded_sum = Decimal(float(refunded_amount)/100)
             order.save()
 
     def retrieve_order(self, order_id):
@@ -623,10 +623,10 @@ class TestView(APIView):
         receipt_data = json.loads(payment.receipt_data)
         order = Order.objects.get(id=7230)
         json.dumps({
-            "s":  order.sum
+            "s":  'order.test()'
         })
         # req_string = HomeBankOdfAPI().create_check()
-        return HttpResponse(order.sum, status=200)
+        return HttpResponse('test', status=200)
 
     def post(self, request):
         get_logger().info('catch bank request')
@@ -636,7 +636,6 @@ class TestView(APIView):
 
     def create_check(self, data):
         return HomeBankOdfAPI.create_check()
-
 
 class HomebankAcquiringPageView(APIView):
     def get(self, request):

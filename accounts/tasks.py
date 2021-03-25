@@ -6,11 +6,12 @@ from django.utils import timezone
 
 from base.utils import get_logger
 from parkings.models import ParkingSession
+from parkpass_backend import settings
 from parkpass_backend.celery import app
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED, \
     HomeBankPayment
 from payments.payment_api import TinkoffAPI
-
+import requests
 
 @app.task()
 def generate_current_debt_order(parking_session_id):
@@ -86,6 +87,21 @@ def generate_current_debt_order(parking_session_id):
     except ObjectDoesNotExist:
         pass
 
+def count_refund_orders_for_session(parking_session):
+    orders = Order.objects.filter(session=parking_session, refund_request=True)
+    current_refunded_sum = Decimal(0)
+
+    for order in orders:
+        get_logger().info('order id for refund %s sum %s' % (order.id, order.refunded_sum))
+        current_refunded_sum = current_refunded_sum + order.refunded_sum
+
+    get_logger().info(current_refunded_sum)
+
+    parking_session.current_refund_sum = current_refunded_sum
+    parking_session.try_refund = False
+    parking_session.save()
+
+    get_logger().info('current_refunded_sum: %s' % current_refunded_sum )
 
 def confirm_all_orders_if_needed(parking_session):
     logging.info("check begin confirmation..")
@@ -204,54 +220,49 @@ def _init_refund(parking_session):
 
     remaining_sum = parking_session.target_refund_sum - parking_session.current_refund_sum
 
-    orders = Order.objects.filter(session=parking_session, authorized=True, refund_request=False)
+    orders = Order.objects.filter(session=parking_session, authorized=True, need_refund=True, refund_request=False)
+
+    get_logger().info("_init_refund %s " % remaining_sum)
 
     for order in orders:
         if order.is_refunded():
+            get_logger().info("if order.is_refunded continue")
             continue
         refund = min(remaining_sum, order.sum)
         remaining_sum = remaining_sum - refund
+
+        get_logger().info("refund %s " % refund)
+
         if (order.acquiring == 'homebank'):
-            payment = HomeBankPayment.objects.get(order=order)
-            payment.cancel_payment()
+            get_logger().info("cancel homebank payment")
+            if refund:
+                payment = HomeBankPayment.objects.get(order=order)
+                payment.cancel_payment()
         else:
+            get_logger().info("cancel tinkoff payment")
             payment = TinkoffPayment.objects.get(order=order, status=PAYMENT_STATUS_AUTHORIZED)
             request_data = payment.build_cancel_request_data(int(refund*100))
             result = TinkoffAPI().sync_call(
                 TinkoffAPI.CANCEL, request_data
             )
-            logging.info(result)
-        payment = TinkoffPayment.objects.filter(order=order, status=PAYMENT_STATUS_AUTHORIZED)[0]
-        request_data = payment.build_cancel_request_data(int(refund*100))
-        get_logger().info(remaining_sum)
+            get_logger().info(result)
 
-        get_logger().info("cancel payment")
-        result = TinkoffAPI().sync_call(
-            TinkoffAPI.CANCEL, request_data
-        )
-        logging.info(result)
+            if result.get("Status") == u'REFUNDED' or result.get("Status") == u'REVERSED':
+                order.refund_request = True
+                order.refunded_sum = float(result.get("OriginalAmount",0))/100
+                get_logger().info('REFUNDED: %s' % order.refunded_sum)
+                order.save()
+            elif result.get("Status") == u'PARTIAL_REFUNDED':
+                order.refund_request = True
+                order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
+                get_logger().info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
+                order.save()
+            else:
+                get_logger().warning('Refund undefined status')
 
-        if result.get("Status") == u'REFUNDED':
-            order.refund_request = True
-            order.refunded_sum = float(result.get("OriginalAmount",0))/100
-            logging.info('REFUNDED: %s' % order.refunded_sum)
-            order.save()
-        elif result.get("Status") == u'PARTIAL_REFUNDED':
-            order.refund_request = True
-            order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100 - float(result.get("NewAmount", 0)) / 100
-            logging.info('PARTIAL_REFUNDED: %s' % order.refunded_sum)
-            order.save()
-        else:
-            logging.warning('Refund undefined status')
+    get_logger().info("remaining_sum %s " % remaining_sum)
 
-    current_refunded_sum = Decimal(0)
-    for order in orders:
-        current_refunded_sum = current_refunded_sum + order.refunded_sum
-    get_logger().info(current_refunded_sum)
-
-    parking_session.current_refund_sum = current_refunded_sum
-    parking_session.try_refund = False
-    parking_session.save()
+    count_refund_orders_for_session(parking_session)
 
 
 @app.task()

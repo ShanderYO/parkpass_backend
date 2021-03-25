@@ -240,6 +240,7 @@ class ParkingSession(models.Model):
     try_refund = models.BooleanField(default=False)
     target_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     current_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    canceled_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
 
     extra_data = models.TextField(null=True, blank=True)
     vendor_id = models.IntegerField(default=0)
@@ -247,7 +248,7 @@ class ParkingSession(models.Model):
     is_send_warning_non_closed_message = models.BooleanField(default=False)
     created_at = models.DateField(auto_now_add=True)
 
-    manual_pay = models.BooleanField(default=False)
+    manual_close = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-id"]

@@ -391,6 +391,25 @@ class GetReceiptView(LoginRequiredAPIView):
                 "Parking session with id %s does not exist" % id)
             return JsonResponse(e.to_dict(), status=400)
 
+class GetReceiptCheckUrlView(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        id = int(request.data["id"])
+        try:
+            parking_session = ParkingSession.objects.get(id=id)
+            orders = Order.objects.filter(session=parking_session, paid=True)
+
+            response = {"result": []}
+            for order in orders:
+                response["result"].append(order.get_order_with_fiscal_check_url_dict())
+            return JsonResponse(response, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking session with id %s does not exist" % id)
+            return JsonResponse(e.to_dict(), status=400)
 
 class SendReceiptToEmailView(LoginRequiredAPIView):
     validator_class = IdValidator

@@ -754,7 +754,8 @@ class CloseSessionRequest(APIView):
             try:
                 active_session = ParkingSession.objects.get(id=request.GET['session_id'])
                 session_orders = active_session.get_session_orders()
-                sum_to_pay = Decimal(request.GET['sum'])
+                debt_sum = Decimal(request.GET['sum'])
+                sum_to_pay = debt_sum
                 target_refund_sum = 0
 
                 for order in session_orders:
@@ -771,6 +772,7 @@ class CloseSessionRequest(APIView):
                                             messages.ERROR,
                                             'Ошибка оплаты'
                                         )
+                                        raise ValueError('homebank payment error')
                                     break
 
                             sum_to_pay = sum_to_pay - order.sum
@@ -784,10 +786,11 @@ class CloseSessionRequest(APIView):
                     else:
                         # refund
                         target_refund_sum = target_refund_sum + order.sum
-                        order.refund_request = False
+
+                        order.need_refund = True
                         order.save()
                         print(sum_to_pay)
-                        sum_to_pay = 0
+                        # sum_to_pay = 0
                         get_logger().info('refund sum 1 %s' % target_refund_sum)
 
                 if target_refund_sum:
@@ -802,17 +805,18 @@ class CloseSessionRequest(APIView):
                         acquiring=active_session.parking.acquiring)
                     new_order.try_pay()
 
-                    if (order.acquiring == 'homebank'):
-                        payments = HomeBankPayment.objects.filter(order=order)
+                    if (new_order.acquiring == 'homebank'):
+                        payments = HomeBankPayment.objects.filter(order=new_order)
                         for payment in payments:
                             if payment.status == 'init':
-                                result = order.try_pay(payment)
+                                result = new_order.try_pay(payment)
                                 if not result:
                                     messages.add_message(
                                         request,
                                         messages.ERROR,
                                         'Ошибка оплаты'
                                     )
+                                    raise ValueError('homebank payment error')
                                 break
 
 
@@ -829,9 +833,17 @@ class CloseSessionRequest(APIView):
                     messages.SUCCESS,
                     'Сессия успешно закрыта'
                 )
+
+                old_debt = active_session.debt
+                canceled_sum = old_debt - debt_sum
+                if canceled_sum >= 0:
+                    active_session.canceled_sum = canceled_sum
+
                 active_session.state = ParkingSession.STATE_CLOSED
-                active_session.manual_pay = True
+                active_session.manual_close = True
+                active_session.debt = debt_sum
                 active_session.save()
+
             except Exception as e:
                 trace_back = traceback.format_exc()
                 message = str(e) + " " + str(trace_back)

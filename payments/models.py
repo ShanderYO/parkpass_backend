@@ -207,6 +207,8 @@ class Order(models.Model):
 
     acquiring = models.CharField(max_length=20, choices=ACQUIRING_LIST, default='tinkoff')
 
+    need_refund = models.BooleanField(default=False)
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = 'Order'
@@ -645,6 +647,26 @@ class Order(models.Model):
             fiscal=fiscal
         )
 
+    def get_order_with_fiscal_check_url_dict(self):
+        order = dict(
+            id=self.id,
+            sum=float(self.sum)
+        )
+
+        url = None
+        if self.acquiring == 'homebank':
+            if self.homebank_fiscal_notification:
+                url = self.homebank_fiscal_notification.ticket_url
+        else:
+            if self.fiscal_notification:
+                url = self.fiscal_notification.url
+
+        return dict(
+            order=order,
+            url=url
+        )
+
+
     def confirm_payment(self, payment):
         get_logger().info("Make confirm order: %s" % self.id)
         request_data = payment.build_confirm_request_data(self.get_payment_amount())
@@ -965,10 +987,8 @@ class HomeBankPayment(models.Model):
             self.status = 'cancel'
             self.save()
             order = self.order
-            order.refund_request = False
-            order.refunded_sum = order.refunded_sum + Decimal(float(order.get_payment_amount()))
-            order.paid = False
-            order.authorized = False
+            order.refund_request = True
+            order.refunded_sum = Decimal(float(order.get_payment_amount()))
             order.parking_card_session.notify_refund(order.get_payment_amount(), order)
             order.save()
             get_logger().info("home bank log 11")
