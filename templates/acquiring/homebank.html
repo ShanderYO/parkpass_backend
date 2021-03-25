@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Homebank acquiring</title>
+</head>
+<body>
+<script src="https://epay.homebank.kz/payform/payment-api.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+<script>
+  var client_id = "{{client_id}}"
+  var client_secret = "{{ client_secret }}"
+  var access_token = false
+
+
+  var formData = new FormData();
+  var invoiceId = "{{invoice_id}}"
+
+  formData.append('grant_type', 'client_credentials')
+  formData.append('scope', 'payment')
+  formData.append('client_id', client_id)
+  formData.append('client_secret', client_secret)
+  formData.append('invoiceID', invoiceId)
+  formData.append('amount', "{{ amount }}")
+  formData.append('terminal', "{{ terminal }}")
+  formData.append('currency', 'KZT')
+  formData.append('postLink', '')
+  formData.append('failurePostLink', '')
+
+
+  axios.post('https://epay-oauth.homebank.kz/oauth2/token', formData)
+  .then(res => {
+    access_token = res.data
+
+    var createPaymentObject = function() {
+      var paymentObject = {
+        invoiceId: invoiceId,
+        backLink: "{{ back_link }}",
+        failureBackLink: "https://{{domain}}/api/v1/payments/result-error/",
+        postLink: "https://{{domain}}/api/v1/payments/homebank-callback/",
+        failurePostLink: "https://{{domain}}/api/v1/payments/homebank-callback/",
+        language: "RU",
+        description: "{{description}}",
+        terminal: "{{ terminal }}",
+        amount: {{amount}},
+        currency: "KZT",
+        cardSave: "true",
+        phone: "{{phone}}"
+      };
+      paymentObject.auth = access_token;
+      return paymentObject;
+    };
+
+
+    halyk.pay(createPaymentObject());
+
+  })
+</script>
+</body>
+</html>

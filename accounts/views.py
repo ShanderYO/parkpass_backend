@@ -391,6 +391,25 @@ class GetReceiptView(LoginRequiredAPIView):
                 "Parking session with id %s does not exist" % id)
             return JsonResponse(e.to_dict(), status=400)
 
+class GetReceiptCheckUrlView(LoginRequiredAPIView):
+    validator_class = IdValidator
+
+    def post(self, request):
+        id = int(request.data["id"])
+        try:
+            parking_session = ParkingSession.objects.get(id=id)
+            orders = Order.objects.filter(session=parking_session, paid=True)
+
+            response = {"result": []}
+            for order in orders:
+                response["result"].append(order.get_order_with_fiscal_check_url_dict())
+            return JsonResponse(response, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                "Parking session with id %s does not exist" % id)
+            return JsonResponse(e.to_dict(), status=400)
 
 class SendReceiptToEmailView(LoginRequiredAPIView):
     validator_class = IdValidator
@@ -513,8 +532,54 @@ class ForcePayView(LoginRequiredAPIView):
 
 class AddCardView(LoginRequiredAPIView):
     def post(self, request):
-        result_dict = CreditCard.bind_request(request.account)
+        last_active_session = ParkingSession.get_active_session(request.account)
+        acquiring = 'tinkoff'
 
+        geo = request.POST.get("geo", False)
+
+        if request.account.phone[1:4] in ["700", "701", "702", "703", "704", "705", "706", "707", "708", "709", "747", "750", "751", "760", "761", "762", "763", "764", "771", "775", "776", "777", "778"]:
+            acquiring = 'homebank'
+
+        result_dict = CreditCard.bind_request(request.account, acquiring=acquiring)
+        # If error request
+        if not result_dict:
+            e = PaymentException(
+                PaymentException.BAD_PAYMENT_GATEWAY,
+                "Payment gateway temporary not available"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        # If exception occurs
+        if result_dict.get("exception", None):
+            exception = result_dict["exception"]
+            error_code = int(exception.get("error_code", 0))
+            error_message = exception.get("error_message", "")
+            error_details = exception.get("error_details", "")
+
+            get_logger().warning("Init exception: " + str(error_code) +
+                                 " : " + error_message + " : " + error_details)
+
+            exception_adapter = TinkoffExceptionAdapter(error_code)
+            e = exception_adapter.get_api_exeption()
+            return JsonResponse(e.to_dict(), status=400)
+
+        # Success result
+        return JsonResponse({
+            "payment_url": result_dict["payment_url"]
+        }, status=200)
+
+class AddCardTestView(APIView):
+    def post(self, request):
+
+        return JsonResponse({
+            "payment_url": 'good 111'
+        }, status=200)
+
+        account = Account.objects.get(id=15)
+
+        acquiring = 'homebank'
+
+        result_dict = CreditCard.bind_request(account, acquiring=acquiring)
         # If error request
         if not result_dict:
             e = PaymentException(
@@ -767,7 +832,8 @@ class CompleteParkingSession(LoginRequiredAPIView):
                 if sum_to_pay:
                     new_order = Order.objects.create(
                         session=parking_session,
-                        sum=sum_to_pay)
+                        sum=sum_to_pay,
+                        acquiring=parking_session.parking.acquiring)
                     new_order.try_pay()
             # end holding
 
@@ -826,10 +892,16 @@ class UpdateTokenView(APIView):
 
 class AccountSubscriptionListView(LoginRequiredAPIView):
     def get(self, request, *args, **kwargs):
+        not_active = request.GET.get("not_active", False)
+        active_state = True
+        
+        if (not_active):
+            active_state = False
+
         subscription_qs = RpsSubscription.objects.filter(
             #started_at__lt = timezone.now(),
             #expired_at__gte = timezone.now(),
-            active=True,
+            active=active_state,
             account=request.account
         ).select_related('parking')
 

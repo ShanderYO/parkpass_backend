@@ -1,6 +1,8 @@
 import collections
 import hashlib
 import json
+import os
+from base64 import b64encode, b64decode
 
 import requests
 from django.core.exceptions import ObjectDoesNotExist
@@ -117,6 +119,283 @@ class TinkoffAPI():
         except requests.exceptions.HTTPError as e:
             elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
                         "Tinkoff invoke error", str(e))
+            get_logger().info("requests.exceptions.HTTPError")
+            get_logger().info(e)
+            return None
+
+
+class HomeBankAPI():
+    TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
+    PAYMENT_URL = "https://epay-oauth.homebank.kz/payments/cards/auth"
+
+    token = None
+
+    def get_token(self, params={}, scope="webapi"):
+        get_logger().info("Get HomeBank token")
+        payload = {
+            "grant_type": "client_credentials",
+            "scope": scope,
+            "client_id": settings.HOMEBANK_CLIENT_ID,
+            "client_secret": settings.HOMEBANK_CLIENT_SECRET,
+        }
+        payload.update(params)
+        r = self.get_response(self.TOKEN_URL, payload)
+
+        if r['access_token']:
+            self.token = r['access_token']
+            return True
+
+        return None
+
+    def cancel_payment(self, payment_id):
+        token = self.get_token()
+        if not token:
+            get_logger().error("No token for request")
+            return None
+
+        return self.get_response('https://epay-oauth.homebank.kz/operation/%s/cancel' % payment_id, {})
+
+    def pay(self, data):
+        params = {
+            'invoiceID': data['invoiceId'],
+            'amount': data['amount'],
+            "terminal": data['terminalId'],
+            'currency': 'KZT',
+            'postLink': '',
+            'failurePostLink': '',
+        }
+        get_logger().info("HomeBank make payment")
+
+        token = self.get_token(params=params, scope='payment')
+        if not token:
+            get_logger().error("No token for request")
+            return None
+
+
+        get_logger().info(data)
+        get_logger().info(params)
+
+
+        return self.get_response(self.PAYMENT_URL, data)
+
+
+    def get_response(self, url, payload):
+        connect_timeout = 5
+        headers = {}
+        json_data = payload
+
+        if 'paymentType' in payload:
+            json_data = json.dumps(payload)
+            headers['Content-Type'] =  'application/json'
+
+        if self.token:
+            headers['Authorization'] = 'bearer ' + self.token
+
+
+        # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to HomeBank", json_data)
+        log_data = payload.copy()
+
+        get_logger().info('HomeBank payload: ' + json.dumps(log_data))
+
+
+        try:
+            r = requests.post(url, data=json_data, headers=headers,
+                              timeout=(connect_timeout, 5.0))
+            try:
+                get_logger().info("Init status code %s" % r.status_code)
+                # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                #             "HomeBank response status %s" % str(r.status_code),
+                #             r.content)
+                if r.status_code != 200:
+                    get_logger().info("%s", r.content)
+                result = r.json()
+                return result
+
+            except Exception as e:
+                # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                #             "HomeBank invoke error", str(e))
+                get_logger().info(e)
+                return None
+
+        except requests.exceptions.MissingSchema as e:
+            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+            #             "HomeBank invoke error", str(e))
+            get_logger().info("Missing schema for request error")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.ConnectionError as e:
+            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+            #             "HomeBank invoke error", str(e))
+            get_logger().info("requests.exceptions.ConnectionError")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.ReadTimeout as e:
+            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+            #             "HomeBank invoke error", str(e))
+            get_logger().info("Waited too long between bytes error")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.HTTPError as e:
+            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+            #             "HomeBank invoke error", str(e))
+            get_logger().info("requests.exceptions.HTTPError")
+            get_logger().info(e)
+            return None
+
+class HomeBankOdfAPI():
+    TOKEN_URL = "https://kkm.webkassa.kz/api/Authorize"
+    GET_SHIFTS_URL = "https://kkm.webkassa.kz/api/Cashbox/ShiftHistory"
+    CREATE_CHECK = "https://kkm.webkassa.kz/api/Check"
+
+    token = None
+    shift = None
+
+    def get_token(self):
+        get_logger().info("Get HomeBank ODF token")
+        payload = {
+            "Login": settings.HOMEBANK_ODF_LOGIN,
+            "Password": settings.HOMEBANK_ODF_PASSWORD,
+        }
+        r = self.get_response(self.TOKEN_URL, payload)
+
+        if r and r['Data'] and r['Data']['Token']:
+            self.token = r['Data']['Token']
+            return True
+
+        return None
+
+
+    def get_shifts(self):
+
+        get_logger().info("Get HomeBank ODF shifts")
+
+        payload = {
+            "Token": self.token,
+            "CashboxUniqueNumber": settings.HOMEBANK_ODF_KASSA_ID,
+            "Skip": 0,
+            "Take": 50
+        }
+        get_logger().info("HomeBank get shifts request")
+
+        r = self.get_response(self.GET_SHIFTS_URL, payload)
+
+        if r and r['Data'] and r['Data']['Shifts']:
+            self.shift = r['Data']['Shifts'][0]['ShiftNumber']
+            return True
+
+        return None
+
+
+    def create_check(self, order, payment):
+
+        get_logger().info("HomeBank ODF creating check")
+
+        if not self.get_token():
+            get_logger().error("No token for request")
+            return None
+
+        if not payment:
+            get_logger().info("HomeBank ODF Error: no payment")
+            return None
+
+        # if not self.get_shifts():
+        #     get_logger().error("No shift for request")
+        #     return None
+
+        receipt_data = json.loads(payment.receipt_data)
+
+        payload = {
+            "Token": self.token,
+            "CashboxUniqueNumber": settings.HOMEBANK_ODF_KASSA_ID,
+            "OperationType": 2,
+            "Positions": [
+                {
+                    "Count": 1,
+                    "Price": int(order.sum),
+                    "Taxpercent": 0,
+                    "Tax": 0,
+                    "TaxType": 0,
+                    "PositionName": receipt_data['description'],
+                    "UnitCode": 5114
+                }
+            ],
+            "Payments": [
+                {
+                    "Sum": int(order.sum),
+                    "PaymentType": 1
+                }
+            ],
+            "Change": 0,
+            "RoundType": 2,
+            "ExternalCheckNumber": receipt_data['invoiceId'],
+            # "CustomerEmail": "lokkomokko1@gmail.com"
+        }
+
+        check = self.get_response(self.CREATE_CHECK, payload)
+
+        if not check:
+            get_logger().info("Homebank ODF broke")
+            return None
+
+        return {
+            "check_number": check["Data"]["CheckNumber"],
+            "shift_number": check["Data"]["ShiftNumber"],
+            "sum": order.sum,
+            "date_time_string": check["Data"]["DateTime"],
+            "address": check["Data"]["Cashbox"]["Address"],
+            "ofd_name": check["Data"]["Cashbox"]["Ofd"]["Name"],
+            "identity_number": check["Data"]["Cashbox"]["IdentityNumber"],
+            "registration_number": check["Data"]["Cashbox"]["RegistrationNumber"],
+            "unique_number": check["Data"]["Cashbox"]["UniqueNumber"],
+            "ticket_url": check["Data"]["TicketUrl"],
+        }
+
+
+
+
+    def get_response(self, url, payload):
+        connect_timeout = 5
+        headers = {}
+        json_data = payload
+
+        # get_logger().info('HomeBank ODF payload: ' + json.dumps(json_data))
+
+        try:
+            r = requests.post(url, json=json_data, headers=headers,
+                              timeout=(connect_timeout, 5.0))
+            try:
+                get_logger().info("Init odf status code %s" % r.status_code)
+                if r.status_code != 200:
+                    get_logger().info("%s", r.content)
+                result = r.json()
+                if "Errors" in result:
+                    get_logger().info("requests for homebank odf catch error: " + json.dumps(result))
+                    return None
+                return result
+
+            except Exception as e:
+                get_logger().info(e)
+                return None
+
+        except requests.exceptions.MissingSchema as e:
+            get_logger().info("Missing schema for request error")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.ConnectionError as e:
+            get_logger().info("requests.exceptions.ConnectionError")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.ReadTimeout as e:
+            get_logger().info("Waited too long between bytes error")
+            get_logger().info(e)
+            return None
+
+        except requests.exceptions.HTTPError as e:
             get_logger().info("requests.exceptions.HTTPError")
             get_logger().info(e)
             return None

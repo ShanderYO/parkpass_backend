@@ -3,8 +3,8 @@ from django.contrib import admin
 # Register your models here.
 from payments.models import (
     CreditCard, TinkoffPayment, Order,
-    FiskalNotification, InvoiceWithdraw
-)
+    FiskalNotification, InvoiceWithdraw,
+    HomeBankPayment, HomeBankFiskalNotification)
 
 @admin.register(CreditCard)
 class CreditCardAdmin(admin.ModelAdmin):
@@ -33,6 +33,15 @@ class TinkoffPaymentAdmin(admin.ModelAdmin):
     list_display = ('payment_id', 'status', 'order',
                     'error_code', 'created_at',)
 
+
+@admin.register(HomeBankPayment)
+class HomeBankPaymentAdmin(admin.ModelAdmin):
+    list_display = ('payment_id', 'status', 'order',
+                    'reason_code', 'created_at',)
+
+@admin.register(HomeBankFiskalNotification)
+class HomeBankFiskalNotificationAdmin(admin.ModelAdmin):
+    pass
 
 @admin.register(FiskalNotification)
 class FiskalNotificationAdmin(admin.ModelAdmin):

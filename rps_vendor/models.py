@@ -429,7 +429,8 @@ class RpsSubscription(models.Model):
     def create_order_and_pay(self):
         order = Order.objects.create(
             sum=Decimal(self.sum),
-            subscription=self
+            subscription=self,
+            acquiring=self.parking.acquiring
         )
         self.state = STATE_INITED
         self.save()

@@ -16,7 +16,8 @@ from jwtauth.utils import datetime_to_timestamp
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
-from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED
+from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED, \
+    HomeBankPayment
 from payments.payment_api import TinkoffAPI
 from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR, \
     RpsSubscription, STATE_CONFIRMED
@@ -149,6 +150,7 @@ class AccountInitPayment(LoginRequiredAPIView):
             order = Order.objects.create(
                 sum=Decimal(card_session.debt),
                 parking_card_session=card_session,
+                acquiring=Parking.objects.get(id=card_session.parking_id).acquiring
             )
             card_session.state = STATE_INITED
             card_session.save()
@@ -201,7 +203,8 @@ class InitPayDebtMixin:
             order = Order.objects.create(
                 sum=Decimal(card_session.debt),
                 parking_card_session=card_session,
-                terminal=Terminal.objects.get(name="pcard")
+                terminal=Terminal.objects.get(name="pcard"),
+                acquiring=Parking.objects.get(id=card_session.parking_id).acquiring
             )
             result = order.create_non_recurrent_payment()
             response_dict = dict(
@@ -367,23 +370,37 @@ class SubscriptionCallbackView(SignedRequestAPIView):
                 account=rps_subscription.account
             ).exclude(id=rps_subscription.id).update(expired_at=timezone.now())
 
-            for payment in payments:
-                if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
-                    order.confirm_payment(payment)
-                    break
+            if (rps_subscription.parking.acquiring == 'homebank'):
+                payments = HomeBankPayment.objects.filter(order=order)
+                for payment in payments:
+                    if payment.status == 'init':
+                        order.try_pay(payment)
+                        break
+            else:
+                for payment in payments:
+                    if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                        order.confirm_payment(payment)
+                        break
         else:
             error_message = request.data.get("message", "")
             rps_subscription.reset(error_message=error_message)
-
-            for payment in payments:
-                if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
-                    request_data = payment.build_cancel_request_data()
-                    result = TinkoffAPI().sync_call(
-                        TinkoffAPI.CANCEL, request_data
-                    )
-                    get_logger().info("Cancel subscription payment response: ")
-                    get_logger().info(str(result))
-                    break
+            if (rps_subscription.parking.acquiring == 'homebank'):
+                payments = HomeBankPayment.objects.filter(order=order)
+                for payment in payments:
+                    if payment.status == 'paid':
+                        payment.cancel_payment()
+                        get_logger().info("Cancel subscription payment response: ")
+                        break
+            else:
+                for payment in payments:
+                    if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                        request_data = payment.build_cancel_request_data()
+                        result = TinkoffAPI().sync_call(
+                            TinkoffAPI.CANCEL, request_data
+                        )
+                        get_logger().info("Cancel subscription payment response: ")
+                        get_logger().info(str(result))
+                        break
 
         return JsonResponse({"status":"OK"}, status=200)
 

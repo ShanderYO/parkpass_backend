@@ -8,7 +8,7 @@ from django.db.models import signals
 from accounts.models import Account
 from base.utils import get_logger
 from base.validators import comma_separated_emails
-from parkpass_backend.settings import ALLOWED_HOSTS
+from parkpass_backend.settings import ALLOWED_HOSTS, ACQUIRING_LIST
 from payments.models import Order
 from vendors.models import Vendor
 
@@ -36,7 +36,13 @@ class Parking(models.Model):
         (PENDING, "Pending"),
         (CONNECTED, "Connected")
     )
-	
+
+    CURRENCY_LIST = (
+        ('RUB', "RUB"),
+        ('KZT', "KZT"),
+        ('USD', "USD")
+    )
+
     name = models.CharField(max_length=63, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     address = models.CharField(max_length=63, null=True, blank=True)
@@ -56,6 +62,8 @@ class Parking(models.Model):
     software_updated_at = models.DateField(blank=True, null=True)
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
     tariff = models.CharField(max_length=2000, default='{}', verbose_name="Tariff object JSON")
+    currency = models.CharField(max_length=10, choices=CURRENCY_LIST, default='RUB')
+    acquiring = models.CharField(max_length=20, choices=ACQUIRING_LIST, default='tinkoff')
 
     rps_parking_card_available = models.BooleanField(default=False)
     rps_subscriptions_available = models.BooleanField(default=False)
@@ -232,6 +240,7 @@ class ParkingSession(models.Model):
     try_refund = models.BooleanField(default=False)
     target_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     current_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    canceled_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
 
     extra_data = models.TextField(null=True, blank=True)
     vendor_id = models.IntegerField(default=0)
@@ -239,7 +248,7 @@ class ParkingSession(models.Model):
     is_send_warning_non_closed_message = models.BooleanField(default=False)
     created_at = models.DateField(auto_now_add=True)
 
-    manual_pay = models.BooleanField(default=False)
+    manual_close = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-id"]

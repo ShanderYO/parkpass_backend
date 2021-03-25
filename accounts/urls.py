@@ -11,7 +11,8 @@ from accounts.views import (
     PasswordRestoreView, SetAvatarView, PasswordChangeView, DeactivateAccountView,
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
     ZendeskUserJWTChatView, UpdateTokenView, AccountSubscriptionListView, AccountSubscriptionSettingsView,
-    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView, WriteUsersLogsView)
+    ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView, WriteUsersLogsView,
+    AddCardTestView, GetReceiptCheckUrlView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -34,6 +35,7 @@ urlpatterns = [
     url(r'^me/$', AccountView.as_view()),
     url(r'^avatar/set/$', SetAvatarView.as_view()),
     url(r'^card/add/$', AddCardView.as_view()),
+    url(r'^card/add-test/$', AddCardTestView.as_view()),
     url(r'^card/delete/$', DeleteCardView.as_view()),
     url(r'^card/default/$', SetDefaultCardView.as_view()),
     url(r'^deactivate/$', DeactivateAccountView.as_view()),
@@ -46,6 +48,7 @@ urlpatterns = [
     url(r'^session/stop/$', ForceStopParkingSession.as_view()),
     url(r'^session/resume/$', ResumeParkingSession.as_view()),
     url(r'^session/receipt/get/$', GetReceiptView.as_view()),
+    url(r'^session/receipt/get-check-url/$', GetReceiptCheckUrlView.as_view()),
     url(r'^session/receipt/send/$', SendReceiptToEmailView.as_view()),
 
     url(r'^session/list/$', AccountParkingListView.as_view()),
