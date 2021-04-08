@@ -28,6 +28,8 @@ class TinkoffAPI():
     CONFIRM = "https://securepay.tinkoff.ru/v2/Confirm"
     CHARGE = "https://securepay.tinkoff.ru/v2/Charge"
     CANCEL = "https://securepay.tinkoff.ru/v2/Cancel"
+    OFD_AUTH_URL = "https://org.1-ofd.ru/api/user/login"
+    OFD_GET_CHECK_URL = "https://org.1-ofd.ru/api/ticket/"
 
     def __init__(self, with_terminal=None):
         try:
@@ -53,6 +55,23 @@ class TinkoffAPI():
         body["Token"] = self.get_token(ordered_data)
 
         return self.get_response(method, body)
+
+    def get_check_url (self, ecr_reg_number, fn_number, fiscal_document_number):
+        get_logger().info('get tinkoff check url %s %s %s' % (ecr_reg_number, fn_number, fiscal_document_number))
+
+        auth = requests.post(self.OFD_AUTH_URL, data=json.dumps({
+            "login": settings.TINKOFF_ODF_LOGIN,
+            "password": settings.TINKOFF_ODF_PASSWORD
+        }), headers={'Content-Type': 'application/json'})
+
+        transaction_id = '%s_%s_%s' % (ecr_reg_number, fn_number, fiscal_document_number)
+        r = requests.get(self.OFD_GET_CHECK_URL + transaction_id, cookies=auth.cookies)
+
+        if r.status_code == 200:
+            result = r.json()
+            return result
+        return None
+
 
     def get_token(self, params):
         concat_str = ""
@@ -125,8 +144,18 @@ class TinkoffAPI():
 
 
 class HomeBankAPI():
-    TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
-    PAYMENT_URL = "https://epay-oauth.homebank.kz/payments/cards/auth"
+
+    TOKEN_URL = "https://testoauth.homebank.kz/epay2/oauth2/token"
+    AUTHORIZED_URL = "https://testepay.homebank.kz/api/payments/cards/auth"
+    CONFIRMED_URL = "https://testepay.homebank.kz/api/operation/%s/charge"
+    CANCEL_URL = "https://testepay.homebank.kz/api/operation/%s/cancel"
+
+    #
+    # TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
+    # AUTHORIZED_URL = "https://epay-oauth.homebank.kz/payments/cards/auth"
+    # CONFIRMED_URL = "https://epay-oauth.homebank.kz/operation/%s/charge"
+    # CANCEL_URL = "https://epay-oauth.homebank.kz/operation/%s/cancel"
+
 
     token = None
 
@@ -148,14 +177,23 @@ class HomeBankAPI():
         return None
 
     def cancel_payment(self, payment_id):
+        get_logger().info("cancel payment")
+
         token = self.get_token()
         if not token:
             get_logger().error("No token for request")
             return None
 
-        return self.get_response('https://epay-oauth.homebank.kz/operation/%s/cancel' % payment_id, {})
+        headers = {'Authorization': 'bearer ' + self.token}
+        r = requests.post(self.CANCEL_URL % payment_id, headers=headers)
+        if r.status_code == 200:
+            get_logger().info("cancel success")
+            return True
 
-    def pay(self, data):
+        return None
+
+
+    def authorize(self, data):
         params = {
             'invoiceID': data['invoiceId'],
             'amount': data['amount'],
@@ -172,25 +210,37 @@ class HomeBankAPI():
             return None
 
 
-        get_logger().info(data)
         get_logger().info(params)
 
+        return self.get_response(self.AUTHORIZED_URL, data)
 
-        return self.get_response(self.PAYMENT_URL, data)
+    def confirm(self, id):
+        get_logger().info("HomeBank confirm payment")
 
+        token = self.get_token()
+        if not token:
+            get_logger().error("No token for request")
+            return None
 
-    def get_response(self, url, payload):
+        headers = {'Authorization': 'bearer ' + self.token}
+        r = requests.post(self.CONFIRMED_URL % id, headers=headers)
+        if r.status_code == 200:
+            get_logger().info("confirm success")
+            return True
+
+        return None
+
+    def get_response(self, url, payload={}):
         connect_timeout = 5
         headers = {}
         json_data = payload
 
         if 'paymentType' in payload:
             json_data = json.dumps(payload)
-            headers['Content-Type'] =  'application/json'
+            headers['Content-Type'] = 'application/json'
 
         if self.token:
             headers['Authorization'] = 'bearer ' + self.token
-
 
         # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to HomeBank", json_data)
         log_data = payload.copy()

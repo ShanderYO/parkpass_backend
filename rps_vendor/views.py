@@ -17,7 +17,7 @@ from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED, \
-    HomeBankPayment
+    HomeBankPayment, PAYMENT_STATUS_CONFIRMED
 from payments.payment_api import TinkoffAPI
 from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR, \
     RpsSubscription, STATE_CONFIRMED
@@ -373,8 +373,8 @@ class SubscriptionCallbackView(SignedRequestAPIView):
             if (rps_subscription.parking.acquiring == 'homebank'):
                 payments = HomeBankPayment.objects.filter(order=order)
                 for payment in payments:
-                    if payment.status == 'init':
-                        order.try_pay(payment)
+                    if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                        order.confirm_payment_homebank(payment)
                         break
             else:
                 for payment in payments:
@@ -387,7 +387,7 @@ class SubscriptionCallbackView(SignedRequestAPIView):
             if (rps_subscription.parking.acquiring == 'homebank'):
                 payments = HomeBankPayment.objects.filter(order=order)
                 for payment in payments:
-                    if payment.status == 'paid':
+                    if payment.status == PAYMENT_STATUS_CONFIRMED:
                         payment.cancel_payment()
                         get_logger().info("Cancel subscription payment response: ")
                         break

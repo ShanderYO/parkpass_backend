@@ -6,7 +6,7 @@ from base.utils import get_logger
 from parkpass_backend.celery import app
 from payments.payment_api import TinkoffAPI, HomeBankAPI
 from payments.models import TinkoffPayment, Order, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED, \
-    HomeBankPayment
+    HomeBankPayment, PAYMENT_STATUS_CONFIRMED
 from rps_vendor.models import RpsSubscription
 
 
@@ -78,12 +78,12 @@ def make_buy_subscription_request(subscription_id, acquiring='tinkoff'):
             if subscription.request_buy():
                 pass
                 for payment in payments:
-                    if payment.status == 'init':
-                        order.try_pay(payment)
+                    if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                        order.confirm_payment_homebank(payment)
                         return
             else:
                 for payment in payments:
-                    if payment.status == 'paid':
+                    if payment.status == PAYMENT_STATUS_CONFIRMED:
                         logging.info("Cancel payment response: ")
                         payment.cancel_payment()
                         return

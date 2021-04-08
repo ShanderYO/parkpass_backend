@@ -571,8 +571,8 @@ class CompleteParkingSessionView(SignedRequestAPIView):
                 if (order.acquiring == 'homebank'):
                     payments = HomeBankPayment.objects.filter(order=order)
                     for payment in payments:
-                        if payment.status == 'init':
-                            order.try_pay(payment)
+                        if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                            order.confirm_payment_homebank(payment)
                             break
                 else:
                     payments = TinkoffPayment.objects.filter(order=order)
@@ -764,15 +764,8 @@ class CloseSessionRequest(APIView):
                         if (order.acquiring == 'homebank'):
                             payments = HomeBankPayment.objects.filter(order=order)
                             for payment in payments:
-                                if payment.status == 'init':
-                                    result = order.try_pay(payment)
-                                    if not result:
-                                        messages.add_message(
-                                            request,
-                                            messages.ERROR,
-                                            'Ошибка оплаты'
-                                        )
-                                        raise ValueError('homebank payment error')
+                                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                                    order.confirm_payment_homebank(payment)
                                     break
 
                             sum_to_pay = sum_to_pay - order.sum
@@ -804,22 +797,21 @@ class CloseSessionRequest(APIView):
                         sum=sum_to_pay,
                         acquiring=active_session.parking.acquiring)
                     new_order.try_pay()
+                    get_logger().info('manual close 0')
 
                     if (new_order.acquiring == 'homebank'):
+                        get_logger().info('manual close 1')
                         payments = HomeBankPayment.objects.filter(order=new_order)
                         for payment in payments:
-                            if payment.status == 'init':
-                                result = new_order.try_pay(payment)
-                                if not result:
-                                    messages.add_message(
-                                        request,
-                                        messages.ERROR,
-                                        'Ошибка оплаты'
-                                    )
-                                    raise ValueError('homebank payment error')
+                            get_logger().info('manual close 2 - %s %s' % (payment.status, payment.payment_id))
+                            get_logger().info(payment.status == PAYMENT_STATUS_AUTHORIZED)
+                            get_logger().info(type(payment.status))
+                            get_logger().info(type(PAYMENT_STATUS_AUTHORIZED))
+
+                            if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                                get_logger().info('manual close 3')
+                                new_order.confirm_payment_homebank(payment)
                                 break
-
-
                     else:
                         payments = TinkoffPayment.objects.filter(order=new_order)
                         for payment in payments:
