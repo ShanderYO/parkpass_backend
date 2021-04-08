@@ -21,9 +21,10 @@ from payments.payment_api import TinkoffAPI, HomeBankOdfAPI
 from payments.tasks import start_cancel_request, make_buy_subscription_request
 import requests
 
+
 class TinkoffCallbackView(APIView):
     # TODO validate token or place to Validator
-    #validator_class = TinkoffCallbackValidator
+    # validator_class = TinkoffCallbackValidator
     current_terminal = None
 
     is_successful = False
@@ -77,7 +78,7 @@ class TinkoffCallbackView(APIView):
 
         # Get order with dependencies
         order = Order.retrieve_order_with_fk(order_id, fk=["account", "session",
-                                                          "parking_card_session", "subscription"])
+                                                           "parking_card_session", "subscription"])
         if not order:
             get_logger().warn("Order with id %s does not exist" % order_id)
             return HttpResponse("OK", status=200)
@@ -89,7 +90,7 @@ class TinkoffCallbackView(APIView):
             if self.status == PAYMENT_STATUS_AUTHORIZED:
                 order.authorized = True
                 order.save()
-                self.confirm_all_orders_if_needed(order) # Optimize it
+                self.confirm_all_orders_if_needed(order)  # Optimize it
 
             elif self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
@@ -146,7 +147,7 @@ class TinkoffCallbackView(APIView):
             if self.status == PAYMENT_STATUS_AUTHORIZED:
                 order.authorized = True
                 order.save()
-                self.notify_authorize_rps(order) # TODO make async
+                self.notify_authorize_rps(order)  # TODO make async
 
             elif self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
@@ -184,7 +185,6 @@ class TinkoffCallbackView(APIView):
 
         return HttpResponse("OK", status=200)
 
-
     def log_data(self, data):
         get_logger().info("Callback payments invoke:")
         get_logger().info(data)
@@ -206,7 +206,6 @@ class TinkoffCallbackView(APIView):
         }
         """
 
-
     def parse_status(self, raw_status):
         status = -1
         if raw_status == "AUTHORIZED":
@@ -224,7 +223,6 @@ class TinkoffCallbackView(APIView):
         elif raw_status == "RECEIPT":
             status = PAYMENT_STATUS_RECEIPT
         return status
-
 
     def create_fiskal(self, data):
         """{u'OrderId': u'636', u'Status': u'RECEIPT',
@@ -266,9 +264,16 @@ class TinkoffCallbackView(APIView):
             card_pan=order.paid_card_pan,
             receipt=str(data.get("Receipt", "[]"))
         )
+
+        check_url_request = TinkoffAPI().get_check_url(fiskal.ecr_reg_number, fiskal.fn_number,
+                                                       fiskal.fiscal_document_number)
+
+        if (check_url_request):
+            fiskal.url = "https://consumer.1-ofd.ru/v1?%s" % check_url_request['ticket']['qrCode']
+            fiskal.save()
+
         order.fiscal_notification = fiskal
         order.save()
-
 
     def refunded_order(self, order_id, refunded_amount, is_partial):
         """
@@ -290,7 +295,7 @@ class TinkoffCallbackView(APIView):
         order = self.retrieve_order(order_id)
         if order:
             order.refund_request = True
-            order.refunded_sum = Decimal(float(refunded_amount)/100)
+            order.refunded_sum = Decimal(float(refunded_amount) / 100)
             order.save()
 
     def reverse_order(self, order_id, amount):
@@ -332,7 +337,6 @@ class TinkoffCallbackView(APIView):
             payment.save()
         except ObjectDoesNotExist as e:
             get_logger().warn("TinkoffPayment does not exist id=%s" % payment_id)
-
 
     def is_session_pay(self, order):
         return order.session != None
@@ -385,7 +389,6 @@ class TinkoffCallbackView(APIView):
         else:
             get_logger().info("Wait closing session")
 
-
     def close_parking_session_if_needed(self, order):
         non_paid_orders = Order.objects.filter(
             session=order.session,
@@ -436,6 +439,7 @@ class TinkoffCallbackView(APIView):
             else:
                 get_logger().warning('Refund undefined status')
 
+
 class HomeBankCallbackView(APIView):
     current_terminal = None
 
@@ -456,121 +460,138 @@ class HomeBankCallbackView(APIView):
             get_logger().error("Fail to pay, reasonCode - %s" % request.data["reasonCode"])
             return HttpResponse(status=400)
 
-
         # Read general params
         order_id = int(request.data["invoiceId"])
         payment_id = request.data["id"]
         amount = int(request.data.get("amount", 0))
         pan = request.data.get("cardMask", "-")
+        card_id = request.data.get("cardId", '-')
 
         get_logger().info("home bank log 1")
 
         # Get order with dependencies
         order = Order.retrieve_order_with_fk(order_id, fk=["account", "session",
-                                                          "parking_card_session", "subscription"])
-
-        payment = HomeBankPayment.objects.get(order=order)
-
+                                                           "parking_card_session", "subscription"])
 
         if not order:
             get_logger().warn("Order with id %s does not exist" % order_id)
             return HttpResponse("OK", status=200)
 
+        self.payment_set(order, PAYMENT_STATUS_AUTHORIZED, params={
+            payment_id: payment_id,
+            pan: pan,
+            card_id: card_id
+        })
+
+        # fiskal_data = HomeBankOdfAPI().create_check(order, payment)
+        #
+        # if fiskal_data:
+        #     fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
+        #     order.homebank_fiscal_notification = fiskal
+        #     order.save()
+
+        return HttpResponse("OK", status=200)
+
+    def log_data(self, data):
+        get_logger().info("Callback payments invoke:")
+        get_logger().info(data)
+
+    def payment_set(self, order, status, params):
         # AUTHORIZE or CONFIRMED
+        payment = HomeBankPayment.objects.get(order=order)
+
         if self.is_session_pay(order):
-            order.authorized = True
-            order.paid = True
-            order.save()
-            self.close_parking_session_if_needed(order)
+            if status == PAYMENT_STATUS_AUTHORIZED:
+                order.authorized = True
+                order.save()
+                self.confirm_all_orders_if_needed(order)  # Optimize it
+
+            elif status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
+                order.save()
+                self.close_parking_session_if_needed(order)
+
             get_logger().info("home bank log 2")
 
         elif self.is_account_credit_card_payment(order):
-            card_id = request.data["cardId"]
-            stored_card = CreditCard.objects.filter(
-                card_char_id=card_id, account=order.account).first()
-            get_logger().info("home bank log 3")
-            # Create new card and return first pay
-            if not stored_card:
-                credit_card = CreditCard(
-                    card_char_id=card_id,
-                    pan=pan,
-                    account=order.account,
-                    acquiring='homebank'
-                )
+            if params:
+                stored_card = CreditCard.objects.filter(
+                    card_char_id=params.card_id, account=order.account).first()
+                get_logger().info("home bank log 3")
 
-                if not CreditCard.objects.filter(account=order.account).exists():
-                    credit_card.is_default = True
+                # Create new card and return first pay
+                if not stored_card:
+                    credit_card = CreditCard(
+                        card_char_id=params.card_id,
+                        pan=params.pan,
+                        account=order.account,
+                        acquiring='homebank'
+                    )
 
-                credit_card.save()
+                    if not CreditCard.objects.filter(account=order.account).exists():
+                        credit_card.is_default = True
 
+                    credit_card.save()
+
+                    if status == PAYMENT_STATUS_AUTHORIZED:
+                        order.authorized = True
+                        order.save()
+                        payment.payment_id = params.payment_id
+                        payment.save()
+                        start_cancel_request.delay(order.id, acquiring='homebank')
+
+                    get_logger().info("home bank log 4")
+
+        elif self.is_non_account_pay(order):
+            get_logger().warn("is_non_account_pay")
+            if status == PAYMENT_STATUS_AUTHORIZED:
                 order.authorized = True
+                order.save()
+                self.confirm_order(order)
+            elif status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
                 order.save()
 
-                payment.payment_id = payment_id
-                payment.status = 'paid'
-                payment.save()
-
-                start_cancel_request.delay(order.id, acquiring='homebank')
-                get_logger().info("home bank log 4")
-
-        elif self.is_non_account_pay(order):
-            get_logger().warn("is_parking_card_pay")
-            order.authorized = True
-            order.paid = True
-            order.save()
-
-            get_logger().info("home bank log 5")
-
         elif self.is_parking_card_pay(order):
             get_logger().warn("is_parking_card_pay")
-            order.authorized = True
-            order.paid = True
-            order.save()
-            self.notify_authorize_rps(order)
-            self.notify_confirm_rps(order)
+            if status == PAYMENT_STATUS_AUTHORIZED:
+                order.authorized = True
+                order.save()
+                self.notify_authorize_rps(order)  # TODO make async
 
-            payment.payment_id = payment_id
-            payment.status = 'paid'
-            payment.save()
-
-            get_logger().info("home bank log 6")
+            elif status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
+                order.save()
+                self.notify_confirm_rps(order)  # TODO make async
 
         elif self.is_subscription_pay(order):
-            order.authorized = True
-            order.paid = True
-            order.save()
-            subs = order.subscription
-            subs.authorize()
-            subs.activate()
-            subs.save()
-            make_buy_subscription_request.delay(order.subscription.id, acquiring='homebank')
+            if status == PAYMENT_STATUS_AUTHORIZED:
+                order.authorized = True
+                order.save()
+
+                subs = order.subscription
+                subs.authorize()
+                make_buy_subscription_request.delay(order.subscription.id, acquiring='homebank')
+
+
+            elif status == PAYMENT_STATUS_CONFIRMED:
+                order.paid = True
+                order.save()
+                subs = order.subscription
+                subs.activate()
+                subs.save()
+
             get_logger().info("home bank log 7")
 
         else:
             get_logger().warn("Unknown successefull operation")
             order.save()
 
-        fiskal_data = HomeBankOdfAPI().create_check(order, payment)
-
-        if fiskal_data:
-            fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
-            order.homebank_fiscal_notification = fiskal
-            order.save()
-
-        return HttpResponse("OK", status=200)
-
-
-    def log_data(self, data):
-        get_logger().info("Callback payments invoke:")
-        get_logger().info(data)
-
-
     def refunded_order(self, order_id, refunded_amount):
         order = self.retrieve_order(order_id)
         if order:
             order.refund_request = True
-            order.refunded_sum = Decimal(float(refunded_amount)/100)
+            order.refunded_sum = Decimal(float(refunded_amount) / 100)
             order.save()
 
     def retrieve_order(self, order_id):
@@ -608,6 +629,39 @@ class HomeBankCallbackView(APIView):
                 parking_session.state = ParkingSession.STATE_CLOSED
                 parking_session.save()
 
+    def confirm_order(self, order):
+        payments = HomeBankPayment.objects.filter(order=order)
+        if payments.exists():
+            order.confirm_payment_homebank(payments[0])
+        else:
+            get_logger().info("No one payment for order")
+
+    def confirm_all_orders_if_needed(self, order):
+        parking_session = order.session
+        get_logger().info("check begin confirmation..")
+        non_authorized_orders = Order.objects.filter(
+            session=parking_session,
+            authorized=False
+        )
+
+        if not non_authorized_orders.exists() and parking_session.is_completed_by_vendor():
+            # Start confirmation
+            session_orders = Order.objects.filter(
+                session=parking_session,
+            )
+            for session_order in session_orders:
+                if session_order.authorized and not session_order.paid:
+                    try:
+                        get_logger().info(str(session_order))
+                        get_logger().info(str(PAYMENT_STATUS_AUTHORIZED))
+                        payment = HomeBankPayment.objects.get(order=session_order,
+                                                             status__in=[PAYMENT_STATUS_AUTHORIZED])
+                        session_order.confirm_payment_homebank(payment)
+                    except ObjectDoesNotExist as e:
+                        get_logger().info(e)
+        else:
+            get_logger().info("Wait closing session")
+
     def notify_confirm_rps(self, order):
         if order.parking_card_session.notify_confirm(order):
             order.paid_notified_at = timezone.now()
@@ -615,7 +669,16 @@ class HomeBankCallbackView(APIView):
 
     def notify_authorize_rps(self, order):
         get_logger().info("notify_authorize_rps")
-        order.parking_card_session.notify_authorize(order)
+        if order.parking_card_session.notify_authorize(order):
+            self.confirm_order(order)
+        else:
+            self.refund(order)
+
+    def refund(self, order):
+        payments = HomeBankPayment.objects.filter(order=order)
+        if payments.exists():
+            payment = payments[0]
+            payment.cancel_payment()
 
 class TestView(APIView):
     def get(self, request):
@@ -623,8 +686,10 @@ class TestView(APIView):
         receipt_data = json.loads(payment.receipt_data)
         order = Order.objects.get(id=7230)
         json.dumps({
-            "s":  'order.test()'
+            "s": 'order.test()'
         })
+
+        TinkoffAPI().get_check_url("0001785103056432", 9287440300256165, 4498)
         # req_string = HomeBankOdfAPI().create_check()
         return HttpResponse('test', status=200)
 
@@ -634,8 +699,6 @@ class TestView(APIView):
 
         return HttpResponse({}, status=200)
 
-    def create_check(self, data):
-        return HomeBankOdfAPI.create_check()
 
 class HomebankAcquiringPageView(APIView):
     def get(self, request):
@@ -668,9 +731,11 @@ class HomebankAcquiringPageView(APIView):
 
         })
 
+
 class HomebankAcquiringResultPageSuccessView(APIView):
     def get(self, request):
         return render(request, 'acquiring/success-page.html')
+
 
 class HomebankAcquiringResultPageErrorView(APIView):
     def get(self, request):

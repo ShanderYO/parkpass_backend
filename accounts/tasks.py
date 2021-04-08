@@ -118,11 +118,15 @@ def confirm_all_orders_if_needed(parking_session):
         for session_order in session_orders:
             if session_order.authorized and not session_order.paid:
                 try:
-                    payment = TinkoffPayment.objects.get(
-                        order=session_order,
-                        status__in=[PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED],
-                        error_code=-1)
-                    session_order.confirm_payment(payment)
+                    if session_order.acquiring == 'homebank':
+                        payment = HomeBankPayment.objects.get(order=session_order, status=PAYMENT_STATUS_AUTHORIZED)
+                        session_order.confirm_payment_homebank(payment)
+                    else:
+                        payment = TinkoffPayment.objects.get(
+                            order=session_order,
+                            status__in=[PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED],
+                            error_code=-1)
+                        session_order.confirm_payment(payment)
                 except ObjectDoesNotExist as e:
                     logging.warning(e)
     else:
@@ -143,8 +147,8 @@ def force_pay(parking_session_id):
                 if (order.acquiring == 'homebank'):
                     payments = HomeBankPayment.objects.filter(order=order)
                     for payment in payments:
-                        if payment.status == 'init':
-                            order.try_pay(payment)
+                        if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                            order.confirm_payment_homebank(payment)
                             return
 
                 else:
@@ -273,6 +277,9 @@ def confirm_once_per_3_day():
 
     if authorized_more_that_3_days_orders.exists():
         for order in authorized_more_that_3_days_orders:
-            payments = TinkoffPayment.objects.filter(order=order)
+            if order.acquiring == 'homebank':
+                payments = HomeBankPayment.objects.filter(order=order)
+            else:
+                payments = TinkoffPayment.objects.filter(order=order)
             if payments.exists():
                 order.confirm_payment(payments[0])

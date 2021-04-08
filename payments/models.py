@@ -12,6 +12,7 @@ from django.db import models
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+import payments
 from dss.Serializer import serializer
 
 from accounts.models import Account
@@ -20,7 +21,6 @@ from base.utils import get_logger, elastic_log
 from parkpass_backend import settings
 from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN, ES_APP_PAYMENTS_LOGS_INDEX_NAME, ACQUIRING_LIST
 from payments.payment_api import TinkoffAPI, HomeBankAPI
-
 
 class FiskalNotification(models.Model):
     fiscal_number = models.IntegerField()
@@ -381,10 +381,10 @@ class Order(models.Model):
     def is_refunded(self):
         return self.refunded_sum == self.sum
 
-    def try_pay(self, payment=None):
+    def try_pay(self):
         get_logger().info("Try make payment #%s", self.id)
         if self.acquiring == 'homebank':
-            return self.instant_pay(payment)
+            return self.create_payment_homebank()
         else:
             self.create_payment()
 
@@ -399,60 +399,6 @@ class Order(models.Model):
             return TinkoffAPI()
         else:
             return TinkoffAPI(with_terminal=self.terminal.name)
-
-    def instant_pay(self, payment=None):
-
-        receipt_data = self.generate_receipt_data()
-        get_logger().info("instant payment start:")
-        get_logger().info(json.dumps(receipt_data))
-
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "instant payment start", receipt_data)
-
-        if not payment:
-            payment = HomeBankPayment.objects.create(
-                order=self,
-                receipt_data=receipt_data)
-
-        account = None
-
-        if self.session:
-            account = self.session.client
-        elif self.parking_card_session:
-            account = self.parking_card_session.account
-        else:
-            account = self.subscription.account
-
-        if account is None:
-            get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
-            return
-
-
-        default_account_credit_card = CreditCard.objects.filter(
-            account=account, acquiring='homebank').first()
-
-        if not default_account_credit_card:
-            get_logger().warn("Payment was broken. Account should has bind card")
-            return
-
-
-        receipt_data['cardId']['id'] = default_account_credit_card.card_char_id
-
-        result = HomeBankAPI().pay(data=receipt_data)
-
-
-        if not result:
-            return None
-
-        error_code = result.get('code', False)
-
-
-        if not error_code:
-            payment_id = result["id"]
-            payment.payment_id = payment_id
-            payment.status = 'paid'
-            payment.save()
-
-        return result
 
     def create_non_recurrent_payment(self):
         if self.acquiring == 'homebank':
@@ -584,6 +530,59 @@ class Order(models.Model):
             new_payment.error_description = error_details
             new_payment.save()
 
+    def create_payment_homebank(self):
+
+        receipt_data = self.generate_receipt_data()
+        get_logger().info("instant payment start:")
+        get_logger().info(json.dumps(receipt_data))
+
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "instant payment start", receipt_data)
+
+        new_payment = HomeBankPayment.objects.create(
+            order=self,
+            receipt_data=receipt_data)
+
+        account = None
+
+        if self.session:
+            account = self.session.client
+        elif self.parking_card_session:
+            account = self.parking_card_session.account
+        else:
+            account = self.subscription.account
+
+        if account is None:
+            get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
+            return
+
+
+        default_account_credit_card = CreditCard.objects.filter(
+            account=account, acquiring='homebank').first()
+
+        if not default_account_credit_card:
+            get_logger().warn("Payment was broken. Account should has bind card")
+            return
+
+
+        receipt_data['cardId']['id'] = default_account_credit_card.card_char_id
+
+        result = HomeBankAPI().authorize(data=receipt_data)
+
+
+        if not result:
+            return None
+
+        error_code = result.get('code', False)
+
+
+        if not error_code:
+            payment_id = result["id"]
+            new_payment.payment_id = payment_id
+            new_payment.status = PAYMENT_STATUS_AUTHORIZED
+            new_payment.save()
+
+        return result
+
     def charge_payment(self, payment):
         get_logger().info("Make charge: ")
         account = None
@@ -676,6 +675,35 @@ class Order(models.Model):
             TinkoffAPI.CONFIRM, request_data
         )
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response confirm session payment", result)
+
+    def confirm_payment_homebank(self, payment):
+        get_logger().info("Make charge: ")
+        account = None
+
+        if self.session:
+            account = self.session.client
+        elif self.parking_card_session:
+            account = self.parking_card_session.account
+        else:
+            account = self.subscription.account
+
+        if account is None:
+            get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
+            return
+
+        default_account_credit_card = CreditCard.objects.filter(
+            account=account, acquiring='homebank').first()
+
+        if not default_account_credit_card:
+            get_logger().warn("Payment was broken. Account should has bind card")
+            return
+
+        result = HomeBankAPI().confirm(payment.payment_id)
+
+        if result:
+            payments.views.HomeBankCallbackView().payment_set(self, PAYMENT_STATUS_CONFIRMED, None)
+            payment.status = PAYMENT_STATUS_CONFIRMED
+            payment.save()
 
     def send_receipt_to_email(self):
         email = self.session.client.email
@@ -961,7 +989,7 @@ class InvoiceWithdraw(models.Model):
 
 class HomeBankPayment(models.Model):
     payment_id = models.CharField(max_length=60, unique=True, blank=True, null=True)
-    status = models.CharField(max_length=60, blank=True, default='init')
+    status = models.SmallIntegerField(default=PAYMENT_STATUS_UNKNOWN)
     order = models.ForeignKey(Order, null=True, blank=True, on_delete=models.CASCADE)
     reason_code = models.SmallIntegerField(default=-1)
     receipt_data = models.TextField(null=True, blank=True)
@@ -979,16 +1007,19 @@ class HomeBankPayment(models.Model):
 
         result = HomeBankAPI().cancel_payment(self.payment_id)
 
-        logging.info(str(result))
-
         get_logger().info("home bank log 10")
 
-        if not result.get("code", False):
-            self.status = 'cancel'
+        if result:
+            get_logger().info("home bank log 11")
+            self.status = PAYMENT_STATUS_CANCEL
             self.save()
+
+
             order = self.order
+            get_logger().info(order)
+            get_logger().info(order.id)
+            get_logger().info(Decimal(float(order.get_payment_amount())))
+
             order.refund_request = True
             order.refunded_sum = Decimal(float(order.get_payment_amount()))
-            order.parking_card_session.notify_refund(order.get_payment_amount(), order)
             order.save()
-            get_logger().info("home bank log 11")
