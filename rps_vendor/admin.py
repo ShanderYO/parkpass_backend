@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from rps_vendor.models import (
-    RpsParking, ParkingCard, RpsParkingCardSession, RpsSubscription
+    RpsParking, ParkingCard, RpsParkingCardSession, RpsSubscription, Developer
 )
 
 
@@ -42,3 +42,12 @@ class RpsSubscriptionAdmin(admin.ModelAdmin):
 
     readonly_fields = ('name', 'description', 'data',
                        'idts', 'id_transition', 'duration',)
+
+
+@admin.register(Developer)
+class RpsSubscriptionAdmin(admin.ModelAdmin):
+    search_fields = ('name', 'email', 'is_blocked',)
+
+    list_display = ('name', 'email', 'is_blocked',)
+
+    readonly_fields = ('api_key', 'developer_id',)

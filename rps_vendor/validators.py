@@ -315,6 +315,49 @@ class ParkingCardSessionBodyValidator(BaseValidator):
 
         return True
 
+class DeveloperCardSessionBodyValidator(BaseValidator):
+    def is_valid(self):
+        get_logger().info("DeveloperCardSessionBodyValidator: " + str(self.request.data))
+        parking_card_id = self.request.data.get("parking_card_id", None)
+        parking_id = self.request.data.get("parking_id", None)
+        duration = self.request.data.get("duration", None)
+        debt = self.request.data.get("debt", None)
+        card_session_id = self.request.data.get("card_session_id", None)
+
+        if not parking_card_id:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'parking_card_id' is required"
+            return False
+
+        if not parking_id:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'parking_id' is required"
+            return False
+
+        if not duration:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'duration' is required"
+            return False
+
+        if not debt:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'debt' is required"
+            return False
+
+        if not card_session_id:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Key 'card_session' is required"
+            return False
+
+        try:
+            validate_id(card_session_id, "card_session")
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e)
+            return False
+
+        return True
+
 
 class CreateOrGetAccountBodyValidator(BaseValidator):
     def is_valid(self):

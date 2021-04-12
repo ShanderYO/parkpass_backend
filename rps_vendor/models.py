@@ -1,4 +1,6 @@
+import secrets
 import time
+import uuid
 from decimal import Decimal
 import hashlib
 import json
@@ -14,6 +16,8 @@ from django.db import models
 
 # Create your models here.
 from django.utils import timezone
+from django.utils.crypto import get_random_string
+
 from dss.Serializer import serializer
 
 from accounts.models import Account
@@ -89,6 +93,36 @@ class RpsParking(models.Model):
             source_hostname = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
 
         resp["source_hostname"] = source_hostname
+        return resp
+
+    def get_parking_card_debt_for_developers(self, parking_card):
+        debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
+        get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
+
+        # if Card
+        if debt is None:
+            return None
+
+        card_session, _ = RpsParkingCardSession.objects.get_or_create(
+            parking_card=parking_card,
+            parking_id=self.parking.id,
+            state=STATE_CREATED,
+            defaults={
+                "debt": debt,
+                "duration": duration
+            }
+        )
+
+        if debt >= 0:
+            card_session.debt = debt
+            card_session.duration = duration
+            card_session.save()
+
+        resp = serializer(card_session, exclude_attr=("account_id", "created_at", "id", "state", "client_uuid", "from_datetime", "leave_at"))
+        resp["entered_at"] = enter_ts
+        resp["card_session_id"] = card_session.id
+
+
         return resp
 
     def _make_http_for_parking_card_debt(self, parking_card):
@@ -460,3 +494,12 @@ class RpsSubscription(models.Model):
         if r.status_code == 200 and r.json().get("Status") == 200:
             return True
         return False
+
+
+class Developer(models.Model):
+    name = models.CharField(max_length=256)
+    email = models.EmailField(null=True, blank=True)
+    phone = models.CharField(max_length=15, null=True, blank=True)
+    api_key = models.CharField(max_length=256, default=secrets.token_hex(24), unique=True)
+    developer_id = models.CharField(max_length=128, default=str(uuid.uuid1()), unique=True)
+    is_blocked = models.BooleanField(default=False)

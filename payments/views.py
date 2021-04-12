@@ -6,9 +6,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse, Http404
 from django.shortcuts import render
 from django.utils import timezone
+from django.utils.decorators import decorator_from_middleware
 
 from base.utils import get_logger, elastic_log
 from base.views import APIView
+from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from parkings.models import ParkingSession
 from parkpass_backend import settings
 from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME
@@ -680,24 +682,27 @@ class HomeBankCallbackView(APIView):
             payment = payments[0]
             payment.cancel_payment()
 
+
 class TestView(APIView):
+
     def get(self, request):
-        payment = HomeBankPayment.objects.get(id=229)
-        receipt_data = json.loads(payment.receipt_data)
-        order = Order.objects.get(id=7230)
-        json.dumps({
-            "s": 'order.test()'
-        })
+        # payment = HomeBankPayment.objects.get(id=229)
+        # receipt_data = json.loads(payment.receipt_data)
+        # order = Order.objects.get(id=7230)
+        # json.dumps({
+        #     "s": 'order.test()'
+        # })
 
-        TinkoffAPI().get_check_url("0001785103056432", 9287440300256165, 4498)
+        # TinkoffAPI().get_check_url("0001785103056432", 9287440300256165, 4498)
         # req_string = HomeBankOdfAPI().create_check()
-        return HttpResponse('test', status=200)
+        return HttpResponse('test1', status=200)
 
+    @decorator_from_middleware(ApiTokenMiddleware)
     def post(self, request):
-        get_logger().info('catch bank request')
-        get_logger().info(request.data)
+        # get_logger().info('catch bank request')
+        # get_logger().info(request.data)
 
-        return HttpResponse({}, status=200)
+        return HttpResponse('Запрос прошел, ты молодец', status=200)
 
 
 class HomebankAcquiringPageView(APIView):

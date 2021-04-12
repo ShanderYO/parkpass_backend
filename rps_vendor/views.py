@@ -6,6 +6,7 @@ from dateutil import parser
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.decorators import decorator_from_middleware
 
 from accounts.models import Account
 from base.exceptions import ValidationException
@@ -13,6 +14,7 @@ from base.models import Terminal
 from base.utils import get_logger, clear_phone, datetime_from_unix_timestamp_tz
 from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
 from jwtauth.utils import datetime_to_timestamp
+from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
@@ -25,7 +27,7 @@ from rps_vendor.tasks import rps_process_updated_sessions
 from rps_vendor.validators import RpsCreateParkingSessionValidator, RpsUpdateParkingSessionValidator, \
     RpsCancelParkingSessionValidator, RpsCompleteParkingSessionValidator, RpsUpdateListParkingSessionValidator, \
     ParkingCardRequestBodyValidator, ParkingCardSessionBodyValidator, CreateOrGetAccountBodyValidator, \
-    SubscriptionUpdateBodyValidator
+    SubscriptionUpdateBodyValidator, DeveloperCardSessionBodyValidator
 
 
 class RpsCreateParkingSessionView(SignedRequestAPIView):
@@ -33,7 +35,7 @@ class RpsCreateParkingSessionView(SignedRequestAPIView):
 
     def post(self, request, *args, **kwargs):
         if request.method == 'POST':
-            request.data["session_id"] = str(request.data["client_id"])+"&"+str(request.data["started_at"])
+            request.data["session_id"] = str(request.data["client_id"]) + "&" + str(request.data["started_at"])
             return CreateParkingSessionView().post(request, *args, **kwargs)
 
 
@@ -119,6 +121,45 @@ class GetParkingCardDebtMixin:
 
 
 class GetParkingCardDebt(GetParkingCardDebtMixin, APIView):
+    pass
+
+
+class GetDeveloperParkingCardDebtMixin:
+    validator_class = ParkingCardRequestBodyValidator
+
+    @decorator_from_middleware(ApiTokenMiddleware)
+    def post(self, request, *args, **kwargs):
+        card_id = request.data["card_id"]
+        parking_id = request.data["parking_id"]
+
+        parking_card, _ = ParkingCard.objects.get_or_create(
+            card_id=card_id
+        )
+        try:
+            rps_parking = RpsParking.objects.select_related(
+                'parking').get(parking__id=parking_id)
+
+            if not rps_parking.parking.rps_parking_card_available:
+                raise ObjectDoesNotExist()
+
+            response_dict = rps_parking.get_parking_card_debt_for_developers(parking_card)
+            if response_dict:
+                return JsonResponse(response_dict, status=200)
+            else:
+                e = ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "Card with number %s does not exist" % card_id)
+                return JsonResponse(e.to_dict(), status=400)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                code=ValidationException.ACTION_UNAVAILABLE,
+                message="Parking does not found or parking card is unavailable"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+
+class GetDeveloperParkingCardDebt(GetDeveloperParkingCardDebtMixin, APIView):
     pass
 
 
@@ -229,6 +270,68 @@ class InitPayDebt(InitPayDebtMixin, APIView):
     pass
 
 
+class ConfirmPayDeveloperDebt(APIView):
+    validator_class = DeveloperCardSessionBodyValidator
+
+    def post(self, request, *args, **kwargs):
+        card_session_id = int(request.data["card_session_id"])
+        parking_card_id = int(request.data["parking_card_id"])
+        parking_id = int(request.data["parking_id"])
+        duration = int(request.data["duration"])
+        debt = int(request.data["debt"])
+        get_logger().info("ConfirmPayDeveloperDebt card_session_id %s" % card_session_id)
+        try:
+            card_session = RpsParkingCardSession.objects.get(
+                id=card_session_id,
+                parking_card_id=parking_card_id,
+                parking_id=parking_id,
+                duration=duration,
+                debt=debt,
+            )
+
+            if card_session.state not in [STATE_CREATED, STATE_ERROR]:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Parking card session is already paid"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if card_session.debt == 0:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Debt is 0. Nothing to pay"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            new_client_uuid = uuid.uuid4()
+            card_session.client_uuid = new_client_uuid
+            card_session.save()
+
+            order = Order.objects.create(
+                sum=Decimal(card_session.debt),
+                parking_card_session=card_session,
+                terminal=Terminal.objects.get(name="pcard"),
+                acquiring=Parking.objects.get(id=card_session.parking_id).acquiring,
+                authorized=True,
+                paid=True
+            )
+            get_logger().info("ConfirmPayDeveloperDebt notify_authorize")
+
+            status = 'error'
+            if order.parking_card_session.notify_authorize(order):
+                status = 'success'
+                order.parking_card_session.notify_confirm(order)
+
+            return JsonResponse({"status": status}, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                message="Parking card session does not exist"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+
 class GetCardSessionStatusMixin:
     validator_class = ParkingCardSessionBodyValidator
 
@@ -252,7 +355,7 @@ class GetCardSessionStatusMixin:
             response_dict = {
                 "order_id": last_order.id,
                 "sum": last_order.sum,
-                "refunded_sum":last_order.refunded_sum,
+                "refunded_sum": last_order.refunded_sum,
                 "authorized": last_order.authorized,
                 "paid": last_order.paid,
                 "leave_at": datetime_to_timestamp(card_session.leave_at) if card_session.leave_at else None,
@@ -402,7 +505,7 @@ class SubscriptionCallbackView(SignedRequestAPIView):
                         get_logger().info(str(result))
                         break
 
-        return JsonResponse({"status":"OK"}, status=200)
+        return JsonResponse({"status": "OK"}, status=200)
 
 
 class SubscriptionUpdateView(SignedRequestAPIView):
