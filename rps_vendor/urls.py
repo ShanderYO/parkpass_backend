@@ -5,7 +5,7 @@ from rps_vendor.views import RpsCreateParkingSessionView, RpsCancelParkingSessio
     RpsCompleteParkingSessionView, RpsParkingSessionListUpdateView, MockingGetParkingCardDebt, MockingOrderAuthorized, \
     MockingOrderConfirm, MockingOrderRefund, GetParkingCardDebt, InitPayDebt, AccountInitPayment, GetCardSessionStatus, \
     SubscriptionCallbackView, RpsCreateOrGetAccount, SubscriptionUpdateView, GetDeveloperParkingCardDebt, \
-    ConfirmPayDeveloperDebt
+    ConfirmPayDeveloperDebt, CheckTimestamp
 
 urlpatterns = [
     url(r'^rps/session/create/$', RpsCreateParkingSessionView.as_view()),
@@ -31,6 +31,7 @@ urlpatterns = [
 
     url(r'^developer/cards/debt/$', GetDeveloperParkingCardDebt.as_view()),
     url(r'^developer/cards/confirm/$', ConfirmPayDeveloperDebt.as_view()),
+    url(r'^developer/checktimestamp/$', CheckTimestamp.as_view()),
 ]
 
 urlpatterns += staticfiles_urlpatterns()

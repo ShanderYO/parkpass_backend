@@ -26,14 +26,14 @@ class ApiTokenMiddleware(MiddlewareMixin):
     def process_request(self, request):
 
         unix_timestamp = request.request.data.get("time", False)
-        developer_id = request.request.data.get("developerId", False)
+        developer_id = request.request.data.get("developer_id", False)
         hash = request.request.data.get("hash", False)
 
         if not unix_timestamp or not developer_id or not hash:
             return JsonResponse({"status": "error", "message": "Required params empty"}, status=400)
 
-        # if int(time.time()) - int(unix_timestamp) > 30:
-        #     return JsonResponse({"status": "error", "message": "Time for query expired"}, status=400)
+        if int(time.time()) - int(unix_timestamp) > 30:
+            return JsonResponse({"status": "error", "message": "Time for query expired"}, status=400)
 
         try:
             developer = Developer.objects.get(developer_id=developer_id)

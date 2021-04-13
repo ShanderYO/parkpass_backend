@@ -264,8 +264,7 @@ class Order(models.Model):
                         "Price": str(int(self.sum * 100)),
                         "Quantity": 1.00,
                         "Amount": str(int(self.sum * 100)),
-                        "Tax": "none",
-                        "Ean13": ""
+                        "Tax": "none"
                     }]
                 )
 
@@ -303,8 +302,7 @@ class Order(models.Model):
                         "Price": str(int(self.sum * 100)),
                         "Quantity": 1.00,
                         "Amount": str(int(self.sum * 100)),
-                        "Tax": "none",
-                        "Ean13": ""
+                        "Tax": "none"
                     }]
                 )
 
@@ -338,8 +336,7 @@ class Order(models.Model):
                         "Price": 100,
                         "Quantity": 1.00,
                         "Amount": 100,
-                        "Tax": "none",
-                        "Ean13": ""
+                        "Tax": "none"
                     }]
                 )
 
@@ -373,8 +370,7 @@ class Order(models.Model):
                     "Price": str(int(self.sum * 100)),
                     "Quantity": 1.00,
                     "Amount": str(int(self.sum * 100)),
-                    "Tax": "none",
-                    "Ean13": ""
+                    "Tax": "none"
                 }]
             )
 

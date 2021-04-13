@@ -1,10 +1,11 @@
 import datetime
+import time
 import uuid
 from decimal import Decimal
 
 from dateutil import parser
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.utils.decorators import decorator_from_middleware
 
@@ -383,6 +384,9 @@ class GetCardSessionStatusMixin:
 class GetCardSessionStatus(GetCardSessionStatusMixin, APIView):
     pass
 
+class CheckTimestamp(APIView):
+    def get(self, request, *args, **kwargs):
+        return HttpResponse(int(time.time()), status=200)
 
 class MockingGetParkingCardDebt(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):
