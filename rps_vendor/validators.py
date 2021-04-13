@@ -320,7 +320,7 @@ class DeveloperCardSessionBodyValidator(BaseValidator):
         get_logger().info("DeveloperCardSessionBodyValidator: " + str(self.request.data))
         parking_card_id = self.request.data.get("parking_card_id", None)
         parking_id = self.request.data.get("parking_id", None)
-        duration = self.request.data.get("duration", None)
+        # duration = self.request.data.get("duration", None)
         debt = self.request.data.get("debt", None)
         card_session_id = self.request.data.get("card_session_id", None)
 
@@ -334,10 +334,10 @@ class DeveloperCardSessionBodyValidator(BaseValidator):
             self.message = "Key 'parking_id' is required"
             return False
 
-        if not duration:
-            self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Key 'duration' is required"
-            return False
+        # if not duration:
+        #     self.code = ValidationException.VALIDATION_ERROR
+        #     self.message = "Key 'duration' is required"
+        #     return False
 
         if not debt:
             self.code = ValidationException.VALIDATION_ERROR

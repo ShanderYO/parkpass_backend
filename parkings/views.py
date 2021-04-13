@@ -846,3 +846,4 @@ class CloseSessionRequest(APIView):
                 )
 
             return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
+

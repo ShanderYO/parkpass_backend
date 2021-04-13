@@ -1,40 +1,41 @@
 {% extends "admin/change_form.html" %}
+{% load util %}
 {% load i18n admin_urls %}
 {% block object-tools-items %}
     <li>
         <a href="{% url opts|admin_urlname:'history' original.pk|admin_urlquote %}"
            class="historylink">{% trans "History" %}</a>
     </li>
-    {% if original.state %}
+    {% if original|isDeveloperPage %}
         <li>
-            <a href="#form" class="historylink popup-with-form">Закрыть сессию</a>
+            <a href="#form" class="historylink popup-with-form">Сбросить API Key</a>
         </li>
     {% endif %}
 
-   <script
+
+<script
   src="https://code.jquery.com/jquery-2.2.4.min.js"
   integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
   crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/magnific-popup@1.1.0/dist/jquery.magnific-popup.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/magnific-popup@1.1.0/dist/jquery.magnific-popup.min.js" async></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/magnific-popup@1.1.0/dist/magnific-popup.css">
 
     <!-- form itself -->
-    <form id="form" class="mfp-hide white-popup-block" action="/api/v1/parking/close-session/">
-        <h1>Закрыть сессию</h1>
+    <form id="form" class="mfp-hide white-popup-block" method="get" action="/api/v1/parking/developer/reset-token/">
+        <h1>Вы действительно хотите сбросить API Key ?</h1>
         <fieldset style="border:0;">
-            <p>Захолдировано средств: {{ original.get_session_orders_holding_sum }} <br>
-                Сумма сессии - {{ original.debt }}
-            </p>
             <br><br>
-            <label for="name">Сумма</label>
-            <input type="hidden" name="session_id" value="{{ original.pk }}">
-            <input id="name" name="sum" type="number" value="{{ original.debt }}" required>
-            <input type="submit" value="Закрыть" class="default" name="_save">
+                <input type="hidden" name="id" value="{{ original.pk }}">
+                <input type="button" value="Отменить" class="default" id="close">
+                <input type="submit" value="Да" class="default" >
         </fieldset>
     </form>
 
     <script>
         $(document).ready(function () {
+            $('#close').on( "click", function() {
+              $.magnificPopup.close();
+            });
             $('.popup-with-form').magnificPopup({
                 type: 'inline',
                 preloader: false,
@@ -63,4 +64,5 @@
             box-sizing: border-box;
         }
     </style>
+
 {% endblock %}

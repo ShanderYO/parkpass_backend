@@ -1,11 +1,13 @@
 import datetime
+import secrets
 import time
 import uuid
 from decimal import Decimal
 
 from dateutil import parser
+from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 from django.utils.decorators import decorator_from_middleware
 
@@ -23,7 +25,8 @@ from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PA
     HomeBankPayment, PAYMENT_STATUS_CONFIRMED
 from payments.payment_api import TinkoffAPI
 from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR, \
-    RpsSubscription, STATE_CONFIRMED
+    RpsSubscription, STATE_CONFIRMED, Developer, DevelopersLog, DEVELOPER_LOG_GET_DEBT, DEVELOPER_STATUS_SUCCESS, \
+    DEVELOPER_LOG_CONFIRM
 from rps_vendor.tasks import rps_process_updated_sessions
 from rps_vendor.validators import RpsCreateParkingSessionValidator, RpsUpdateParkingSessionValidator, \
     RpsCancelParkingSessionValidator, RpsCompleteParkingSessionValidator, RpsUpdateListParkingSessionValidator, \
@@ -130,12 +133,23 @@ class GetDeveloperParkingCardDebtMixin:
 
     @decorator_from_middleware(ApiTokenMiddleware)
     def post(self, request, *args, **kwargs):
+
         card_id = request.data["card_id"]
         parking_id = request.data["parking_id"]
+        developer_id = request.data.get("developer_id")
 
         parking_card, _ = ParkingCard.objects.get_or_create(
             card_id=card_id
         )
+
+        get_logger().info("GetDeveloperParkingCardDebtMixin card_id %s" % card_id)
+
+        developer_log = DevelopersLog.objects.create(
+            parking_card_id=card_id,
+            developer=Developer.objects.get(developer_id=developer_id),
+            type = DEVELOPER_LOG_GET_DEBT,
+        )
+
         try:
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(parking__id=parking_id)
@@ -145,6 +159,10 @@ class GetDeveloperParkingCardDebtMixin:
 
             response_dict = rps_parking.get_parking_card_debt_for_developers(parking_card)
             if response_dict:
+                developer_log.parking = rps_parking
+                developer_log.debt = response_dict["debt"]
+                developer_log.status = DEVELOPER_STATUS_SUCCESS
+                developer_log.save()
                 return JsonResponse(response_dict, status=200)
             else:
                 e = ValidationException(
@@ -274,19 +292,42 @@ class InitPayDebt(InitPayDebtMixin, APIView):
 class ConfirmPayDeveloperDebt(APIView):
     validator_class = DeveloperCardSessionBodyValidator
 
+    @decorator_from_middleware(ApiTokenMiddleware)
     def post(self, request, *args, **kwargs):
         card_session_id = int(request.data["card_session_id"])
         parking_card_id = int(request.data["parking_card_id"])
         parking_id = int(request.data["parking_id"])
-        duration = int(request.data["duration"])
         debt = int(request.data["debt"])
+        developer_id = request.data.get("developer_id")
+
         get_logger().info("ConfirmPayDeveloperDebt card_session_id %s" % card_session_id)
+
+        try:
+            rps_parking = RpsParking.objects.select_related(
+                'parking').get(parking__id=parking_id)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                code=ValidationException.ACTION_UNAVAILABLE,
+                message="Parking does not found"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+
+        developer_log = DevelopersLog.objects.create(
+            parking_card_id=parking_card_id,
+            parking=rps_parking,
+            developer=Developer.objects.get(developer_id=developer_id),
+            type=DEVELOPER_LOG_CONFIRM,
+            debt=debt
+        )
+
         try:
             card_session = RpsParkingCardSession.objects.get(
                 id=card_session_id,
                 parking_card_id=parking_card_id,
                 parking_id=parking_id,
-                duration=duration,
+                # duration=duration,
                 debt=debt,
             )
 
@@ -321,6 +362,8 @@ class ConfirmPayDeveloperDebt(APIView):
             status = 'error'
             if order.parking_card_session.notify_authorize(order):
                 status = 'success'
+                developer_log.status = DEVELOPER_STATUS_SUCCESS
+                developer_log.save()
                 order.parking_card_session.notify_confirm(order)
 
             return JsonResponse({"status": status}, status=200)
@@ -387,6 +430,22 @@ class GetCardSessionStatus(GetCardSessionStatusMixin, APIView):
 class CheckTimestamp(APIView):
     def get(self, request, *args, **kwargs):
         return HttpResponse(int(time.time()), status=200)
+
+class ResetDeveloperToken(APIView):
+    def get(self, request, *args, **kwargs):
+        if request.user.is_superuser:
+            try:
+                developer = Developer.objects.get(id=request.GET.get('id'))
+            except ObjectDoesNotExist:
+                return HttpResponse('Разработчик не найден', status=400)
+            messages.add_message(
+                request,
+                messages.SUCCESS,
+                'Api key изменен'
+            )
+            developer.api_key = secrets.token_hex(24)
+            developer.save()
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
 
 class MockingGetParkingCardDebt(SignedRequestAPIView):
     def post(self, request, *args, **kwargs):

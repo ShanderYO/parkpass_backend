@@ -5,7 +5,7 @@ from rps_vendor.views import RpsCreateParkingSessionView, RpsCancelParkingSessio
     RpsCompleteParkingSessionView, RpsParkingSessionListUpdateView, MockingGetParkingCardDebt, MockingOrderAuthorized, \
     MockingOrderConfirm, MockingOrderRefund, GetParkingCardDebt, InitPayDebt, AccountInitPayment, GetCardSessionStatus, \
     SubscriptionCallbackView, RpsCreateOrGetAccount, SubscriptionUpdateView, GetDeveloperParkingCardDebt, \
-    ConfirmPayDeveloperDebt, CheckTimestamp
+    ConfirmPayDeveloperDebt, CheckTimestamp, ResetDeveloperToken
 
 urlpatterns = [
     url(r'^rps/session/create/$', RpsCreateParkingSessionView.as_view()),
@@ -31,7 +31,24 @@ urlpatterns = [
 
     url(r'^developer/cards/debt/$', GetDeveloperParkingCardDebt.as_view()),
     url(r'^developer/cards/confirm/$', ConfirmPayDeveloperDebt.as_view()),
+
     url(r'^developer/checktimestamp/$', CheckTimestamp.as_view()),
+    url(r'^developer/reset-token/$', ResetDeveloperToken.as_view()),
+
+    # remote vendors
+    url(r'^remote/session/create/$', RpsCreateParkingSessionView.as_view()),
+    url(r'^remote/session/cancel/$', RpsCancelParkingSessionView.as_view()),
+    url(r'^remote/session/update/$', RpsUpdateParkingSessionView.as_view()),
+    url(r'^remote/session/complete/$', RpsCompleteParkingSessionView.as_view()),
+    url(r'^remote/session/list/update/$', RpsParkingSessionListUpdateView.as_view()),
+
+    url(r'^remote/cards/debt/$', GetParkingCardDebt.as_view()),
+    url(r'^remote/cards/account/payment/init/$', AccountInitPayment.as_view()),
+    url(r'^remote/cards/guest/payment/init/$', InitPayDebt.as_view()),
+    url(r'^remote/cards/payment/status/$', GetCardSessionStatus.as_view()),
+
+    url(r'^remote/subscription/callback/$', SubscriptionCallbackView.as_view()),
+    url(r'^remote/subscription/update/$', SubscriptionUpdateView.as_view()),
 ]
 
 urlpatterns += staticfiles_urlpatterns()

@@ -46,7 +46,7 @@ class ApiTokenMiddleware(MiddlewareMixin):
         if developer.is_blocked:
             return JsonResponse({"status": "error", "message": "Developer KEY blocked"}, status=400)
 
-        hash_to_compare = md5((unix_timestamp + developer.developer_id + developer.api_key).encode("utf-8")).hexdigest()
+        hash_to_compare = md5((str(unix_timestamp) + str(developer.developer_id) + developer.api_key).encode("utf-8")).hexdigest()
 
         if hash_to_compare != hash:
             return JsonResponse({"status": "error", "message": "Wrong access token"}, status=400)

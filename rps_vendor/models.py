@@ -64,7 +64,7 @@ class RpsParking(models.Model):
 
     def get_parking_card_debt(self, parking_card):
         debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
-        get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
+        get_logger("Returns: debt=%s, duration=%s" % (debt, duration,))
 
         # if Card
         if debt is None:
@@ -97,7 +97,7 @@ class RpsParking(models.Model):
 
     def get_parking_card_debt_for_developers(self, parking_card):
         debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
-        get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
+        get_logger("Returns: debt=%s, duration=%s" % (debt, duration,))
 
         # if Card
         if debt is None:
@@ -118,10 +118,10 @@ class RpsParking(models.Model):
             card_session.duration = duration
             card_session.save()
 
-        resp = serializer(card_session, exclude_attr=("account_id", "created_at", "id", "state", "client_uuid", "from_datetime", "leave_at"))
+        resp = serializer(card_session, exclude_attr=(
+        "account_id", "created_at", "id", "state", "client_uuid", "from_datetime", "leave_at"))
         resp["entered_at"] = enter_ts
         resp["card_session_id"] = card_session.id
-
 
         return resp
 
@@ -310,7 +310,7 @@ class RpsParkingCardSession(models.Model):
         try:
             get_logger().info("Try to make_http_ok")
             r = requests.post(url, data=payload, headers=headers,
-                              timeout=(connect_timeout, 30.0)) # TODO make
+                              timeout=(connect_timeout, 30.0))  # TODO make
             try:
                 self.last_response_code = r.status_code
                 get_logger().info("GET RESPONSE FORM RPS %s" % r.status_code)
@@ -353,6 +353,7 @@ SUBSCRIPTION_PAYMENT_STATUSES = (
     (STATE_CONFIRMED, "Confirmed pay"),
     (STATE_ERROR, "Error"),
 )
+
 
 class RpsSubscription(models.Model):
     name = models.CharField(max_length=1024)
@@ -407,11 +408,11 @@ class RpsSubscription(models.Model):
         get_logger().info(r.content)
 
         if r.status_code == 200:
-            response_dict = {"result":[], "next": None}
+            response_dict = {"result": [], "next": None}
             for item in r.json().get("Data", []):
                 idts = item["Id"]
                 name = item["Name"]
-                description  = item.get("TsDescription")
+                description = item.get("TsDescription")
                 for perechod in item.get("Perechods", []):
                     resp_item = {
                         "name": name,
@@ -503,3 +504,25 @@ class Developer(models.Model):
     api_key = models.CharField(max_length=256, default=secrets.token_hex(24), unique=True)
     developer_id = models.CharField(max_length=128, default=str(uuid.uuid1()), unique=True)
     is_blocked = models.BooleanField(default=False)
+
+    def __str__(self):
+        return "%s" % (self.name)
+
+
+DEVELOPER_LOG_GET_DEBT = 0
+DEVELOPER_LOG_CONFIRM = 1
+DEVELOPER_STATUS_ERROR = 0
+DEVELOPER_STATUS_SUCCESS = 1
+DEVELOPER_LOG_TYPES = [(DEVELOPER_LOG_GET_DEBT, 'Получение задолженности'),
+                       (DEVELOPER_LOG_CONFIRM, 'Оплата задолженности')]
+DEVELOPER_STATUS_TYPES = [(DEVELOPER_STATUS_ERROR, 'Error'), (DEVELOPER_STATUS_SUCCESS, 'Success')]
+
+
+class DevelopersLog(models.Model):
+    parking = models.ForeignKey(to=RpsParking, on_delete=models.CASCADE, blank=True, null=True)
+    parking_card_id = models.BigIntegerField()
+    developer = models.ForeignKey(to=Developer, on_delete=models.CASCADE)
+    type = models.IntegerField(choices=DEVELOPER_LOG_TYPES)
+    debt = models.IntegerField(null=True, blank=True)
+    status = models.IntegerField(choices=DEVELOPER_STATUS_TYPES, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
