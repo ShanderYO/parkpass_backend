@@ -498,7 +498,7 @@ class HomeBankCallbackView(APIView):
 
     def payment_set(self, order, status, params):
         # AUTHORIZE or CONFIRMED
-        payment = HomeBankPayment.objects.get(order=order)
+        payment = HomeBankPayment.objects.filter(order=order)[0]
 
         if self.is_session_pay(order):
             if status == PAYMENT_STATUS_AUTHORIZED:
@@ -654,8 +654,8 @@ class HomeBankCallbackView(APIView):
                     try:
                         get_logger().info(str(session_order))
                         get_logger().info(str(PAYMENT_STATUS_AUTHORIZED))
-                        payment = HomeBankPayment.objects.get(order=session_order,
-                                                             status__in=[PAYMENT_STATUS_AUTHORIZED])
+                        payment = HomeBankPayment.objects.filter(order=session_order,
+                                                             status__in=[PAYMENT_STATUS_AUTHORIZED])[0]
                         session_order.confirm_payment_homebank(payment)
                     except ObjectDoesNotExist as e:
                         get_logger().info(e)
@@ -707,7 +707,7 @@ class HomebankAcquiringPageView(APIView):
         back_link = request.GET.get('back_link', "https://%s/api/v1/payments/result-success/" % settings.BASE_DOMAIN)
         try:
             order = Order.objects.get(id=order_id)
-            payment = HomeBankPayment.objects.get(order=order)
+            payment = HomeBankPayment.objects.filter(order=order)[0]
 
         except ObjectDoesNotExist as e:
             get_logger().warn(e)
