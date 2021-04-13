@@ -145,16 +145,16 @@ class TinkoffAPI():
 
 class HomeBankAPI():
 
-    TOKEN_URL = "https://testoauth.homebank.kz/epay2/oauth2/token"
-    AUTHORIZED_URL = "https://testepay.homebank.kz/api/payments/cards/auth"
-    CONFIRMED_URL = "https://testepay.homebank.kz/api/operation/%s/charge"
-    CANCEL_URL = "https://testepay.homebank.kz/api/operation/%s/cancel"
+    # TOKEN_URL = "https://testoauth.homebank.kz/epay2/oauth2/token"
+    # AUTHORIZED_URL = "https://testepay.homebank.kz/api/payments/cards/auth"
+    # CONFIRMED_URL = "https://testepay.homebank.kz/api/operation/%s/charge"
+    # CANCEL_URL = "https://testepay.homebank.kz/api/operation/%s/cancel"
 
-    #
-    # TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
-    # AUTHORIZED_URL = "https://epay-oauth.homebank.kz/payments/cards/auth"
-    # CONFIRMED_URL = "https://epay-oauth.homebank.kz/operation/%s/charge"
-    # CANCEL_URL = "https://epay-oauth.homebank.kz/operation/%s/cancel"
+
+    TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
+    AUTHORIZED_URL = "https://epay-oauth.homebank.kz/payments/cards/auth"
+    CONFIRMED_URL = "https://epay-oauth.homebank.kz/operation/%s/charge"
+    CANCEL_URL = "https://epay-oauth.homebank.kz/operation/%s/cancel"
 
 
     token = None
