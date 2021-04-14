@@ -311,7 +311,7 @@ class Order(models.Model):
             if self.acquiring == 'homebank':
                 return {
                     "invoiceId": str(self.id).zfill(9),
-                    "amount": 1,
+                    "amount": 10,
                     "terminalId": settings.HOMEBANK_TERMINAL_ID,
                     "currency": "KZT",
                     "description": "Привязка карты",
