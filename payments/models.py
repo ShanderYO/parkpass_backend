@@ -99,7 +99,7 @@ class CreditCard(models.Model):
     @classmethod
     def bind_request(cls, account, acquiring):
         if acquiring == 'homebank':
-            init_order = Order.objects.create(sum=1, account=account, acquiring='homebank')
+            init_order = Order.objects.create(sum=10, account=account, acquiring='homebank')
             receipt_data = init_order.generate_receipt_data()
             init_payment = HomeBankPayment.objects.create(order=init_order, receipt_data=json.dumps(receipt_data))
             get_logger().info("bind homebank card request:")
