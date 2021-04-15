@@ -477,10 +477,10 @@ class HomeBankCallbackView(APIView):
             get_logger().warn("Order with id %s does not exist" % order_id)
             return HttpResponse("OK", status=200)
 
-        self.payment_set(order, PAYMENT_STATUS_AUTHORIZED, params={
-            payment_id: payment_id,
-            pan: pan,
-            card_id: card_id
+        self.payment_set(order=order, status=PAYMENT_STATUS_AUTHORIZED, params={
+            'payment_id': payment_id,
+            'pan': pan,
+            'card_id': card_id
         })
 
         # fiskal_data = HomeBankOdfAPI().create_check(order, payment)
@@ -516,14 +516,14 @@ class HomeBankCallbackView(APIView):
         elif self.is_account_credit_card_payment(order):
             if params:
                 stored_card = CreditCard.objects.filter(
-                    card_char_id=params.card_id, account=order.account).first()
+                    card_char_id=params['card_id'], account=order.account).first()
                 get_logger().info("home bank log 3")
 
                 # Create new card and return first pay
                 if not stored_card:
                     credit_card = CreditCard(
-                        card_char_id=params.card_id,
-                        pan=params.pan,
+                        card_char_id=params['card_id'],
+                        pan=params['pan'],
                         account=order.account,
                         acquiring='homebank'
                     )
@@ -536,7 +536,7 @@ class HomeBankCallbackView(APIView):
                     if status == PAYMENT_STATUS_AUTHORIZED:
                         order.authorized = True
                         order.save()
-                        payment.payment_id = params.payment_id
+                        payment.payment_id = params['payment_id']
                         payment.save()
                         start_cancel_request.delay(order.id, acquiring='homebank')
 
