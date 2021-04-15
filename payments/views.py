@@ -479,18 +479,13 @@ class HomeBankCallbackView(APIView):
             get_logger().warn("Order with id %s does not exist" % order_id)
             return HttpResponse("OK", status=200)
 
-        self.payment_set(order, PAYMENT_STATUS_AUTHORIZED, params={
-            payment_id: payment_id,
-            pan: pan,
-            card_id: card_id
-        })
+        payment = HomeBankPayment.objects.filter(order=order)[0]
 
-        # fiskal_data = HomeBankOdfAPI().create_check(order, payment)
-        #
-        # if fiskal_data:
-        #     fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
-        #     order.homebank_fiscal_notification = fiskal
-        #     order.save()
+        self.payment_set(order=order, payment=payment, status=PAYMENT_STATUS_AUTHORIZED, params={
+            'payment_id': payment_id,
+            'pan': pan,
+            'card_id': card_id
+        })
 
         return HttpResponse("OK", status=200)
 
@@ -498,9 +493,8 @@ class HomeBankCallbackView(APIView):
         get_logger().info("Callback payments invoke:")
         get_logger().info(data)
 
-    def payment_set(self, order, status, params):
+    def payment_set(self, order, payment, status, params):
         # AUTHORIZE or CONFIRMED
-        payment = HomeBankPayment.objects.get(order=order)
 
         if self.is_session_pay(order):
             if status == PAYMENT_STATUS_AUTHORIZED:
@@ -513,19 +507,27 @@ class HomeBankCallbackView(APIView):
                 order.save()
                 self.close_parking_session_if_needed(order)
 
+                get_logger().info("PAYMENT_STATUS_CONFIRMED")
+                fiskal_data = HomeBankOdfAPI().create_check(order, payment)
+
+                if fiskal_data:
+                    fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
+                    order.homebank_fiscal_notification = fiskal
+                    order.save()
+
             get_logger().info("home bank log 2")
 
         elif self.is_account_credit_card_payment(order):
             if params:
                 stored_card = CreditCard.objects.filter(
-                    card_char_id=params.card_id, account=order.account).first()
+                    card_char_id=params['card_id'], account=order.account).first()
                 get_logger().info("home bank log 3")
 
                 # Create new card and return first pay
                 if not stored_card:
                     credit_card = CreditCard(
-                        card_char_id=params.card_id,
-                        pan=params.pan,
+                        card_char_id=params['card_id'],
+                        pan=params['pan'],
                         account=order.account,
                         acquiring='homebank'
                     )
@@ -538,7 +540,7 @@ class HomeBankCallbackView(APIView):
                     if status == PAYMENT_STATUS_AUTHORIZED:
                         order.authorized = True
                         order.save()
-                        payment.payment_id = params.payment_id
+                        payment.payment_id = params['payment_id']
                         payment.save()
                         start_cancel_request.delay(order.id, acquiring='homebank')
 
@@ -656,8 +658,8 @@ class HomeBankCallbackView(APIView):
                     try:
                         get_logger().info(str(session_order))
                         get_logger().info(str(PAYMENT_STATUS_AUTHORIZED))
-                        payment = HomeBankPayment.objects.get(order=session_order,
-                                                             status__in=[PAYMENT_STATUS_AUTHORIZED])
+                        payment = HomeBankPayment.objects.filter(order=session_order,
+                                                             status__in=[PAYMENT_STATUS_AUTHORIZED])[0]
                         session_order.confirm_payment_homebank(payment)
                     except ObjectDoesNotExist as e:
                         get_logger().info(e)
@@ -712,7 +714,7 @@ class HomebankAcquiringPageView(APIView):
         back_link = request.GET.get('back_link', "https://%s/api/v1/payments/result-success/" % settings.BASE_DOMAIN)
         try:
             order = Order.objects.get(id=order_id)
-            payment = HomeBankPayment.objects.get(order=order)
+            payment = HomeBankPayment.objects.filter(order=order)[0]
 
         except ObjectDoesNotExist as e:
             get_logger().warn(e)

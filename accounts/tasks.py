@@ -58,7 +58,7 @@ def generate_current_debt_order(parking_session_id):
             logging.info("Try reverse order #%s", last_order.id)
 
             if (last_order.acquiring ==  'homebank'):
-                payment = HomeBankPayment.objects.get(order=last_order)
+                payment = HomeBankPayment.objects.filter(order=last_order)[0]
                 payment.cancel_payment()
 
             else:
@@ -119,7 +119,7 @@ def confirm_all_orders_if_needed(parking_session):
             if session_order.authorized and not session_order.paid:
                 try:
                     if session_order.acquiring == 'homebank':
-                        payment = HomeBankPayment.objects.get(order=session_order, status=PAYMENT_STATUS_AUTHORIZED)
+                        payment = HomeBankPayment.objects.filter(order=session_order, status=PAYMENT_STATUS_AUTHORIZED)[0]
                         session_order.confirm_payment_homebank(payment)
                     else:
                         payment = TinkoffPayment.objects.get(
@@ -240,7 +240,7 @@ def _init_refund(parking_session):
         if (order.acquiring == 'homebank'):
             get_logger().info("cancel homebank payment")
             if refund:
-                payment = HomeBankPayment.objects.get(order=order)
+                payment = HomeBankPayment.objects.filter(order=order)[0]
                 payment.cancel_payment()
         else:
             get_logger().info("cancel tinkoff payment")

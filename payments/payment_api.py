@@ -1,3 +1,4 @@
+import ast
 import collections
 import hashlib
 import json
@@ -145,16 +146,16 @@ class TinkoffAPI():
 
 class HomeBankAPI():
 
-    TOKEN_URL = "https://testoauth.homebank.kz/epay2/oauth2/token"
-    AUTHORIZED_URL = "https://testepay.homebank.kz/api/payments/cards/auth"
-    CONFIRMED_URL = "https://testepay.homebank.kz/api/operation/%s/charge"
-    CANCEL_URL = "https://testepay.homebank.kz/api/operation/%s/cancel"
+    # TOKEN_URL = "https://testoauth.homebank.kz/epay2/oauth2/token"
+    # AUTHORIZED_URL = "https://testepay.homebank.kz/api/payments/cards/auth"
+    # CONFIRMED_URL = "https://testepay.homebank.kz/api/operation/%s/charge"
+    # CANCEL_URL = "https://testepay.homebank.kz/api/operation/%s/cancel"
 
-    #
-    # TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
-    # AUTHORIZED_URL = "https://epay-oauth.homebank.kz/payments/cards/auth"
-    # CONFIRMED_URL = "https://epay-oauth.homebank.kz/operation/%s/charge"
-    # CANCEL_URL = "https://epay-oauth.homebank.kz/operation/%s/cancel"
+
+    TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
+    AUTHORIZED_URL = "https://epay-api.homebank.kz/payments/cards/auth"
+    CONFIRMED_URL = "https://epay-api.homebank.kz/operation/%s/charge"
+    CANCEL_URL = "https://epay-api.homebank.kz/operation/%s/cancel"
 
 
     token = None
@@ -355,7 +356,7 @@ class HomeBankOdfAPI():
         #     get_logger().error("No shift for request")
         #     return None
 
-        receipt_data = json.loads(payment.receipt_data)
+        receipt_data = ast.literal_eval(payment.receipt_data)
 
         payload = {
             "Token": self.token,

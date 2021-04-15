@@ -99,7 +99,7 @@ class CreditCard(models.Model):
     @classmethod
     def bind_request(cls, account, acquiring):
         if acquiring == 'homebank':
-            init_order = Order.objects.create(sum=1, account=account, acquiring='homebank')
+            init_order = Order.objects.create(sum=10, account=account, acquiring='homebank')
             receipt_data = init_order.generate_receipt_data()
             init_payment = HomeBankPayment.objects.create(order=init_order, receipt_data=json.dumps(receipt_data))
             get_logger().info("bind homebank card request:")
@@ -311,7 +311,7 @@ class Order(models.Model):
             if self.acquiring == 'homebank':
                 return {
                     "invoiceId": str(self.id).zfill(9),
-                    "amount": 1,
+                    "amount": 10,
                     "terminalId": settings.HOMEBANK_TERMINAL_ID,
                     "currency": "KZT",
                     "description": "Привязка карты",
@@ -697,7 +697,7 @@ class Order(models.Model):
         result = HomeBankAPI().confirm(payment.payment_id)
 
         if result:
-            payments.views.HomeBankCallbackView().payment_set(self, PAYMENT_STATUS_CONFIRMED, None)
+            payments.views.HomeBankCallbackView().payment_set(self, payment, PAYMENT_STATUS_CONFIRMED, None)
             payment.status = PAYMENT_STATUS_CONFIRMED
             payment.save()
 
