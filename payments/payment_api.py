@@ -152,9 +152,9 @@ class HomeBankAPI():
 
 
     TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
-    AUTHORIZED_URL = "https://epay-oauth.homebank.kz/payments/cards/auth"
-    CONFIRMED_URL = "https://epay-oauth.homebank.kz/operation/%s/charge"
-    CANCEL_URL = "https://epay-oauth.homebank.kz/operation/%s/cancel"
+    AUTHORIZED_URL = "https://epay-api.homebank.kz/payments/cards/auth"
+    CONFIRMED_URL = "https://epay-api.homebank.kz/operation/%s/charge"
+    CANCEL_URL = "https://epay-api.homebank.kz/operation/%s/cancel"
 
 
     token = None
