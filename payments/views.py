@@ -477,18 +477,13 @@ class HomeBankCallbackView(APIView):
             get_logger().warn("Order with id %s does not exist" % order_id)
             return HttpResponse("OK", status=200)
 
-        self.payment_set(order=order, status=PAYMENT_STATUS_AUTHORIZED, params={
+        payment = HomeBankPayment.objects.filter(order=order)[0]
+
+        self.payment_set(order=order, payment=payment, status=PAYMENT_STATUS_AUTHORIZED, params={
             'payment_id': payment_id,
             'pan': pan,
             'card_id': card_id
         })
-
-        # fiskal_data = HomeBankOdfAPI().create_check(order, payment)
-        #
-        # if fiskal_data:
-        #     fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
-        #     order.homebank_fiscal_notification = fiskal
-        #     order.save()
 
         return HttpResponse("OK", status=200)
 
@@ -496,9 +491,8 @@ class HomeBankCallbackView(APIView):
         get_logger().info("Callback payments invoke:")
         get_logger().info(data)
 
-    def payment_set(self, order, status, params):
+    def payment_set(self, order, payment, status, params):
         # AUTHORIZE or CONFIRMED
-        payment = HomeBankPayment.objects.filter(order=order)[0]
 
         if self.is_session_pay(order):
             if status == PAYMENT_STATUS_AUTHORIZED:
@@ -510,6 +504,14 @@ class HomeBankCallbackView(APIView):
                 order.paid = True
                 order.save()
                 self.close_parking_session_if_needed(order)
+
+                get_logger().info("PAYMENT_STATUS_CONFIRMED")
+                fiskal_data = HomeBankOdfAPI().create_check(order, payment)
+
+                if fiskal_data:
+                    fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
+                    order.homebank_fiscal_notification = fiskal
+                    order.save()
 
             get_logger().info("home bank log 2")
 

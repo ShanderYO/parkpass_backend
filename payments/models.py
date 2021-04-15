@@ -697,7 +697,7 @@ class Order(models.Model):
         result = HomeBankAPI().confirm(payment.payment_id)
 
         if result:
-            payments.views.HomeBankCallbackView().payment_set(self, PAYMENT_STATUS_CONFIRMED, None)
+            payments.views.HomeBankCallbackView().payment_set(self, payment, PAYMENT_STATUS_CONFIRMED, None)
             payment.status = PAYMENT_STATUS_CONFIRMED
             payment.save()
 
