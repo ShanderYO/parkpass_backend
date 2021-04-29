@@ -21,12 +21,12 @@ class ParkingManager(models.Manager):
             enabled=True
         )
 
+
 DEFAULT_PARKING_TIMEZONE = 'Europe/Moscow'
 ALL_TIMEZONES = sorted((item, item) for item in pytz.all_timezones)
 
 
 class Parking(models.Model):
-
     DISCONNECTED = 0
     PENDING = 1
     CONNECTED = 2
@@ -148,7 +148,6 @@ class TopParkingWish(models.Model):
 
 
 class ParkingSession(models.Model):
-
     # States mask
     STARTED_BY_CLIENT_MASK = 1 << 0  # 1
     STARTED_BY_VENDOR_MASK = 1 << 1  # 2
@@ -160,27 +159,27 @@ class ParkingSession(models.Model):
     STATE_CLOSED = 0
     STATE_STARTED_BY_CLIENT = 1
     STATE_STARTED_BY_VENDOR = 2
-    STATE_STARTED = 3 # (STARTED_BY_CLIENT_MASK + STARTED_BY_VENDOR_MASK)
+    STATE_STARTED = 3  # (STARTED_BY_CLIENT_MASK + STARTED_BY_VENDOR_MASK)
 
-    STATE_COMPLETED_BY_CLIENT = 6 # (STATE_STARTED_BY_VENDOR + COMPLETED_BY_CLIENT_MASK)
-    STATE_COMPLETED_BY_CLIENT_FULLY = 7 # (STATE_STARTED + COMPLETED_BY_CLIENT_MASK)
+    STATE_COMPLETED_BY_CLIENT = 6  # (STATE_STARTED_BY_VENDOR + COMPLETED_BY_CLIENT_MASK)
+    STATE_COMPLETED_BY_CLIENT_FULLY = 7  # (STATE_STARTED + COMPLETED_BY_CLIENT_MASK)
 
-    STATE_COMPLETED_BY_VENDOR = 10 # (STATE_STARTED_BY_VENDOR + COMPLETED_BY_VENDOR_MASK)
-    STATE_COMPLETED_BY_VENDOR_FULLY = 11 # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK)
+    STATE_COMPLETED_BY_VENDOR = 10  # (STATE_STARTED_BY_VENDOR + COMPLETED_BY_VENDOR_MASK)
+    STATE_COMPLETED_BY_VENDOR_FULLY = 11  # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK)
 
-    STATE_COMPLETED = 14 # (STARTED_BY_VENDOR_MASK + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
+    STATE_COMPLETED = 14  # (STARTED_BY_VENDOR_MASK + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
     STATE_COMPLETED_FULLY = 15  # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
 
     STATE_VERIFICATION_REQUIRED = 21
 
     SESSION_STATES = [
         STATE_CANCELED,
-        STATE_STARTED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_STARTED, # Stage 1
-        STATE_COMPLETED_BY_CLIENT, STATE_COMPLETED_BY_CLIENT_FULLY, # Stage 2
-        STATE_COMPLETED_BY_VENDOR, STATE_COMPLETED_BY_VENDOR_FULLY, # Stage 2
-        STATE_COMPLETED, STATE_COMPLETED_FULLY, # Stage 3
-        STATE_CLOSED, # Stage 4
-        STATE_VERIFICATION_REQUIRED # Stage 5
+        STATE_STARTED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_STARTED,  # Stage 1
+        STATE_COMPLETED_BY_CLIENT, STATE_COMPLETED_BY_CLIENT_FULLY,  # Stage 2
+        STATE_COMPLETED_BY_VENDOR, STATE_COMPLETED_BY_VENDOR_FULLY,  # Stage 2
+        STATE_COMPLETED, STATE_COMPLETED_FULLY,  # Stage 3
+        STATE_CLOSED,  # Stage 4
+        STATE_VERIFICATION_REQUIRED  # Stage 5
     ]
 
     ACTUAL_COMPLETED_STATES = [
@@ -260,7 +259,7 @@ class ParkingSession(models.Model):
         return "%s [%s] session %s" % (self.parking.id, self.client.id, self.session_id)
 
     def save(self, *args, **kwargs):
-        #if self.try_refund:
+        # if self.try_refund:
         #    self.start_refund_process()
         #    self.try_refund = False
         self.duration = self.get_calculated_duration()
@@ -284,15 +283,13 @@ class ParkingSession(models.Model):
         except ObjectDoesNotExist:
             return None
 
-    def get_session_orders (self):
-        return Order.objects.filter(
-        session=self.pk,
-    )
+    def get_session_orders(self):
+        return Order.objects.filter(session=self.pk, )
 
     def get_session_orders_holding_sum(self):
         sum = 0
         for order in self.get_session_orders():
-            if order.authorized and not order.paid:
+            if order.authorized:
                 sum = sum + order.sum
         return sum
 
@@ -304,7 +301,6 @@ class ParkingSession(models.Model):
         hours = self.duration // 3600
         mins = (self.duration - hours * 3600 - secs) // 60
         return "%02d:%02d:%02d" % (hours, mins, secs)
-
 
     def resolve_client_status(self):
         if self.state < 0:
@@ -412,6 +408,8 @@ def create_test_parking(sender, instance, created, **kwargs):
 
 
 signals.post_save.connect(receiver=create_test_parking, sender=Vendor)  # Test parking creation, when vendor
+
+
 # is being created
 
 
@@ -425,5 +423,3 @@ class ProblemParkingSessionNotifierSettings(models.Model):
 
     class Meta:
         db_table = 'problem_parking_session_notifier_settings'
-
-

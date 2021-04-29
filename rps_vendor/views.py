@@ -109,6 +109,8 @@ class GetParkingCardDebtMixin:
             if response_dict:
                 response_dict["parking_name"] = rps_parking.parking.name
                 response_dict["parking_address"] = rps_parking.parking.address
+                response_dict["currency"] = rps_parking.parking.currency
+
                 return JsonResponse(response_dict, status=200)
             else:
                 e = ValidationException(

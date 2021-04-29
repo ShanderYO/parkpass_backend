@@ -171,6 +171,7 @@ class CreditCard(models.Model):
 
 
 class Order(models.Model):
+
     id = models.AutoField(primary_key=True)
     sum = models.DecimalField(max_digits=16, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
@@ -207,7 +208,7 @@ class Order(models.Model):
 
     acquiring = models.CharField(max_length=20, choices=ACQUIRING_LIST, default='tinkoff')
 
-    need_refund = models.BooleanField(default=False)
+    canceled = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]
@@ -673,7 +674,7 @@ class Order(models.Model):
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response confirm session payment", result)
 
     def confirm_payment_homebank(self, payment):
-        get_logger().info("Make charge: ")
+        get_logger().info("Make confirm homebank order: %s" % self.id)
         account = None
 
         if self.session:

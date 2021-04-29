@@ -564,23 +564,49 @@ class CompleteParkingSessionView(SignedRequestAPIView):
 
             utc_completed_at = session.parking.get_utc_parking_datetime(completed_at)
 
-            # payment
-            session_orders = session.get_session_orders()
+            # # payment
+            # session_orders = session.get_session_orders()
+            #
+            # for order in session_orders:
+            #     if (order.acquiring == 'homebank'):
+            #         payments = HomeBankPayment.objects.filter(order=order)
+            #         for payment in payments:
+            #             if payment.status == PAYMENT_STATUS_AUTHORIZED:
+            #                 order.confirm_payment_homebank(payment)
+            #                 break
+            #     else:
+            #         payments = TinkoffPayment.objects.filter(order=order)
+            #         for payment in payments:
+            #             if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+            #                 order.confirm_payment(payment)
+            #                 break
+            # # end payment
 
-            for order in session_orders:
-                if (order.acquiring == 'homebank'):
-                    payments = HomeBankPayment.objects.filter(order=order)
-                    for payment in payments:
-                        if payment.status == PAYMENT_STATUS_AUTHORIZED:
-                            order.confirm_payment_homebank(payment)
-                            break
-                else:
-                    payments = TinkoffPayment.objects.filter(order=order)
-                    for payment in payments:
-                        if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
-                            order.confirm_payment(payment)
-                            break
-            # end payment
+            # holding
+            get_logger().info("CompleteParkingSessionView holding debt if need")
+            sum_to_hold = debt - session.get_session_orders_holding_sum()
+
+            get_logger().info("get_session_orders_holding_sum - %s" % session.get_session_orders_holding_sum())
+            get_logger().info("sum_to_hold - %s" % sum_to_hold)
+
+            if sum_to_hold > 0:
+                session_orders_with_no_holding = Order.objects.filter(session=session.pk, authorized=False)
+
+                for order in session_orders_with_no_holding:
+                    order.try_pay()
+                    sum_to_hold = sum_to_hold - order.sum
+                    get_logger().info("CompleteParkingSessionView try_pay, sum_to_hold - %s" % sum_to_hold)
+
+                if sum_to_hold > 0:
+                    get_logger().info("CompleteParkingSessionView create new order sum_to_hold - %s" % sum_to_hold)
+
+                    new_order = Order.objects.create(
+                        session=session,
+                        sum=sum_to_hold,
+                        acquiring=session.parking.acquiring)
+                    new_order.try_pay()
+            # end holding
+
 
             session.debt = debt
             session.completed_at = utc_completed_at
@@ -780,7 +806,7 @@ class CloseSessionRequest(APIView):
                         # refund
                         target_refund_sum = target_refund_sum + order.sum
 
-                        order.need_refund = True
+                        order.canceled = True
                         order.save()
                         print(sum_to_pay)
                         # sum_to_pay = 0

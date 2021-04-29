@@ -224,7 +224,7 @@ def _init_refund(parking_session):
 
     remaining_sum = parking_session.target_refund_sum - parking_session.current_refund_sum
 
-    orders = Order.objects.filter(session=parking_session, authorized=True, need_refund=True, refund_request=False)
+    orders = Order.objects.filter(session=parking_session, authorized=True, canceled=True, refund_request=False)
 
     get_logger().info("_init_refund %s " % remaining_sum)
 
