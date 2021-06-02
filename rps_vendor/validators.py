@@ -350,7 +350,7 @@ class DeveloperCardSessionBodyValidator(BaseValidator):
             return False
 
         try:
-            validate_id(card_session_id, "card_session")
+            validate_id(card_session_id, "card_session_id")
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e)

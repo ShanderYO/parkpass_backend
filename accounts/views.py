@@ -6,6 +6,7 @@ from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
+from django.shortcuts import render
 from django.utils import timezone
 from django.views import View
 from django_elasticsearch.client import es_client
@@ -496,13 +497,15 @@ class EmailConfirmationView(View):
                         account.create_password_and_send()
                         account.save()
                         confirmation.delete()
-                        return JsonResponse({"message": "Email is activated successfully"})
+                        return render(request, 'client_pages/email_activated.html')
+                        # return JsonResponse({"message": "Email is activated successfully"})
                     else:
                         account.email = confirmation.email
                         account.email_confirmation = None
                         account.save()
                         confirmation.delete()
-                        return JsonResponse({"message": "Email is activated successfully"})
+                        return render(request, 'client_pages/email_activated.html')
+                        # return JsonResponse({"message": "Email is activated successfully"})
 
                 except ObjectDoesNotExist:
                     return JsonResponse({"error": "Email was changes successfully"}, status=200)
@@ -537,7 +540,7 @@ class AddCardView(LoginRequiredAPIView):
 
         geo = request.POST.get("geo", False)
 
-        if request.account.phone[1:6] == "98181" or request.account.phone[1:4] in ["700", "701", "702", "703", "704", "705", "706", "707", "708", "709", "747", "750", "751", "760", "761", "762", "763", "764", "771", "775", "776", "777", "778"]:
+        if request.account.phone[1:6] == "WWW98181" or request.account.phone[1:4] in ["700", "701", "702", "703", "704", "705", "706", "707", "708", "709", "747", "750", "751", "760", "761", "762", "763", "764", "771", "775", "776", "777", "778"]:
             acquiring = 'homebank'
 
         result_dict = CreditCard.bind_request(request.account, acquiring=acquiring)
@@ -569,17 +572,17 @@ class AddCardView(LoginRequiredAPIView):
         }, status=200)
 
 class AddCardTestView(APIView):
-    def post(self, request):
+    def get(self, request):
 
-        return JsonResponse({
-            "payment_url": 'good 111'
-        }, status=200)
+        # return JsonResponse({
+        #     "payment_url": 'good 111'
+        # }, status=200)
 
         account = Account.objects.get(id=15)
 
-        acquiring = 'homebank'
+        # acquiring = 'homebank'
 
-        result_dict = CreditCard.bind_request(account, acquiring=acquiring)
+        result_dict = CreditCard.bind_request(account, acquiring='tinkoff')
         # If error request
         if not result_dict:
             e = PaymentException(
@@ -1033,11 +1036,11 @@ class WriteUsersLogsView(APIView):
             _id = item.pop("id")
             item["user_id"] = user_id
 
-            es_client.index(
-                index=ES_APP_BLUETOOTH_LOGS_INDEX_NAME,
-                id=_id,
-                body=item
-            )
+            # es_client.index(
+            #     index=ES_APP_BLUETOOTH_LOGS_INDEX_NAME,
+            #     id=_id,
+            #     body=item
+            # )
 
         get_logger().info("Write user logs " + str(user_id))
         get_logger().info(str(logs))

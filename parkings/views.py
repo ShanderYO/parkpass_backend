@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import base64
+import decimal
 import traceback
 from datetime import timedelta
 from decimal import Decimal
@@ -584,7 +585,7 @@ class CompleteParkingSessionView(SignedRequestAPIView):
 
             # holding
             get_logger().info("CompleteParkingSessionView holding debt if need")
-            sum_to_hold = debt - session.get_session_orders_holding_sum()
+            sum_to_hold = decimal.Decimal(debt) - session.get_session_orders_holding_sum()
 
             get_logger().info("get_session_orders_holding_sum - %s" % session.get_session_orders_holding_sum())
             get_logger().info("sum_to_hold - %s" % sum_to_hold)

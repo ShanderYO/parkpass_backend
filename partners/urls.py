@@ -3,7 +3,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from partners.views import (
     GetPartnerParkingView, GetPartnerAvailableParkingsView,
-    GetPartnerCardSessionStatus, InitPartnerPayDebt, GetPartnerParkingCardDebt
+    GetPartnerCardSessionStatus, InitPartnerPayDebt, GetPartnerParkingCardDebt, InitPartnerWebPayDebt
 )
 
 urlpatterns = [
@@ -12,6 +12,7 @@ urlpatterns = [
 
     url(r'^cards/debt/$', GetPartnerParkingCardDebt.as_view()),
     url(r'^cards/guest/payment/init/$', InitPartnerPayDebt.as_view()),
+    url(r'^cards/guest/payment/webpay-init/$', InitPartnerWebPayDebt.as_view()),
     url(r'^cards/payment/status/$', GetPartnerCardSessionStatus.as_view()),
 ]
 

@@ -5,8 +5,8 @@
     <title>Homebank acquiring</title>
 </head>
 <body>
-{#<script src="https://test-epay.homebank.kz/payform/payment-api.js"></script>#}
-<script src="https://epay.homebank.kz/payform/payment-api.js"></script>
+<script src="https://test-epay.homebank.kz/payform/payment-api.js"></script>
+{#<script src="https://epay.homebank.kz/payform/payment-api.js"></script>#}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
 <script>
   var client_id = "{{client_id}}"
@@ -29,8 +29,8 @@
   formData.append('failurePostLink', '')
 
 
-   {#axios.post('https://testoauth.homebank.kz/epay2/oauth2/token', formData)#}
-  axios.post('https://epay-oauth.homebank.kz/oauth2/token', formData)
+   axios.post('https://testoauth.homebank.kz/epay2/oauth2/token', formData)
+  {#axios.post('https://epay-oauth.homebank.kz/oauth2/token', formData)#}
   .then(res => {
     access_token = res.data
 
@@ -47,7 +47,7 @@
         amount: {{amount}},
         currency: "KZT",
         cardSave: "true",
-        phone: "{{phone}}"
+        email: "{{email}}"
       };
       paymentObject.auth = access_token;
       return paymentObject;

@@ -16,6 +16,7 @@ from base.exceptions import ValidationException
 from base.models import Terminal
 from base.utils import get_logger, clear_phone, datetime_from_unix_timestamp_tz
 from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
+from dss.Serializer import serializer
 from jwtauth.utils import datetime_to_timestamp
 from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from parkings.models import Parking
@@ -233,7 +234,8 @@ class InitPayDebtMixin:
 
     def post(self, request, *args, **kwargs):
         card_session = int(request.data["card_session"])
-        phone = request.data.get("phone", "-")
+        # phone = request.data.get("phone", "-")
+        email = request.data.get("email", "")
 
         try:
             card_session = RpsParkingCardSession.objects.get(
@@ -241,7 +243,7 @@ class InitPayDebtMixin:
             )
 
             # Update client phone
-            card_session.parking_card.phone = str(phone)
+            # card_session.parking_card.phone = str(phone)
             card_session.parking_card.save()
 
             if card_session.state not in [STATE_CREATED, STATE_ERROR]:
@@ -265,10 +267,9 @@ class InitPayDebtMixin:
             order = Order.objects.create(
                 sum=Decimal(card_session.debt),
                 parking_card_session=card_session,
-                terminal=Terminal.objects.get(name="pcard"),
                 acquiring=Parking.objects.get(id=card_session.parking_id).acquiring
             )
-            result = order.create_non_recurrent_payment()
+            result = order.create_non_recurrent_payment(email)
             response_dict = dict(
                 client_uuid=str(new_client_uuid)
             )
@@ -286,10 +287,61 @@ class InitPayDebtMixin:
             )
             return JsonResponse(e.to_dict(), status=400)
 
+class InitWebPayDebtMixin:
+    validator_class = ParkingCardSessionBodyValidator
+
+    def post(self, request, *args, **kwargs):
+        card_session = int(request.data["card_session"])
+        email = request.data.get("email", "")
+
+        try:
+            card_session = RpsParkingCardSession.objects.get(
+                id=card_session
+            )
+
+            # Update client phone
+            # card_session.parking_card.phone = str(phone)
+            card_session.parking_card.save()
+
+            if card_session.state not in [STATE_CREATED, STATE_ERROR]:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Parking card session is already paid"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if card_session.debt == 0:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Debt is 0. Nothing to pay"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            new_client_uuid = uuid.uuid4()
+            card_session.client_uuid = new_client_uuid
+            card_session.save()
+
+            order = Order.objects.create(
+                sum=Decimal(card_session.debt),
+                parking_card_session=card_session,
+                acquiring=Parking.objects.get(id=card_session.parking_id).acquiring
+            )
+            payment = order.create_non_recurrent_payment(email, True)
+
+            return JsonResponse({"payment": serializer(payment), "order": serializer(order)}, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                message="Parking card session does not exist"
+            )
+            return JsonResponse(e.to_dict(), status=400)
 
 class InitPayDebt(InitPayDebtMixin, APIView):
     pass
 
+class InitWebPayDebt(InitWebPayDebtMixin, APIView):
+    pass
 
 class ConfirmPayDeveloperDebt(APIView):
     validator_class = DeveloperCardSessionBodyValidator
@@ -354,7 +406,6 @@ class ConfirmPayDeveloperDebt(APIView):
             order = Order.objects.create(
                 sum=Decimal(card_session.debt),
                 parking_card_session=card_session,
-                terminal=Terminal.objects.get(name="pcard"),
                 acquiring=Parking.objects.get(id=card_session.parking_id).acquiring,
                 authorized=True,
                 paid=True

@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 from decimal import Decimal
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -508,12 +509,15 @@ class HomeBankCallbackView(APIView):
                 self.close_parking_session_if_needed(order)
 
                 get_logger().info("PAYMENT_STATUS_CONFIRMED")
-                fiskal_data = HomeBankOdfAPI().create_check(order, payment)
 
-                if fiskal_data:
-                    fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
-                    order.homebank_fiscal_notification = fiskal
-                    order.save()
+                if os.environ.get("PROD","0") == "1":
+
+                    fiskal_data = HomeBankOdfAPI().create_check(order, payment)
+
+                    if fiskal_data:
+                        fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
+                        order.homebank_fiscal_notification = fiskal
+                        order.save()
 
             get_logger().info("home bank log 2")
 
@@ -704,13 +708,13 @@ class TestView(APIView):
         # get_logger().info('catch bank request')
         # get_logger().info(request.data)
 
-        return HttpResponse('Запрос прошел, ты молодец', status=200)
+        return HttpResponse({}, status=200)
 
 
 class HomebankAcquiringPageView(APIView):
     def get(self, request):
         order_id = request.GET.get('order_id', None)
-        phone = request.GET.get('phone', '')
+        email = request.GET.get('email', '')
         back_link = request.GET.get('back_link', "https://%s/api/v1/payments/result-success/" % settings.BASE_DOMAIN)
         try:
             order = Order.objects.get(id=order_id)
@@ -734,7 +738,7 @@ class HomebankAcquiringPageView(APIView):
             'description': receipt_data['description'],
             'domain': settings.BASE_DOMAIN,
             'back_link': back_link,
-            'phone': phone
+            'email': email
 
         })
 
@@ -747,3 +751,9 @@ class HomebankAcquiringResultPageSuccessView(APIView):
 class HomebankAcquiringResultPageErrorView(APIView):
     def get(self, request):
         return render(request, 'acquiring/error-page.html')
+
+
+class SendAppleVerifiFile(APIView):
+    def get(self, request):
+        content = open("apple-app-site-association.uu").read()
+        return HttpResponse(content, content_type='text/plain')

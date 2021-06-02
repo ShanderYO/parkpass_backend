@@ -363,7 +363,7 @@ class RpsSubscription(models.Model):
     unlimited = models.BooleanField(default=False, null=True, blank=True)
     started_at = models.DateTimeField()
     expired_at = models.DateTimeField()
-    duration = models.IntegerField()
+    duration = models.IntegerField(default=0)
     parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     prolongation = models.BooleanField(default=True)

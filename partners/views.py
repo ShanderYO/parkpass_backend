@@ -1,6 +1,6 @@
 from base.views import PartnerRequestAPIView
 from parkings.views import GetParkingViewMixin, GetParkingViewListMixin
-from rps_vendor.views import GetParkingCardDebtMixin, InitPayDebt, GetCardSessionStatusMixin
+from rps_vendor.views import GetParkingCardDebtMixin, InitPayDebt, GetCardSessionStatusMixin, InitWebPayDebt
 
 
 class GetPartnerParkingView(GetParkingViewMixin, PartnerRequestAPIView):
@@ -29,6 +29,8 @@ class GetPartnerParkingCardDebt(GetParkingCardDebtMixin, PartnerRequestAPIView):
 class InitPartnerPayDebt(InitPayDebt, PartnerRequestAPIView):
     pass
 
+class InitPartnerWebPayDebt(InitWebPayDebt, PartnerRequestAPIView):
+    pass
 
 class GetPartnerCardSessionStatus(GetCardSessionStatusMixin, PartnerRequestAPIView):
     pass

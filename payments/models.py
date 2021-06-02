@@ -397,7 +397,7 @@ class Order(models.Model):
         else:
             return TinkoffAPI(with_terminal=self.terminal.name)
 
-    def create_non_recurrent_payment(self):
+    def create_non_recurrent_payment(self, email, only_for_payment_object_return=False):
         if self.acquiring == 'homebank':
             get_logger().info("recurrent payment for homebank")
             receipt_data = self.generate_receipt_data()
@@ -405,25 +405,37 @@ class Order(models.Model):
                 order=self,
                 receipt_data=json.dumps(receipt_data)
             )
-            return {
-                "payment_url": "https://%s/api/v1/payments/homebank?order_id=%s&back_link=%s&phone=%s" % (
-                    settings.BASE_DOMAIN,
-                    self.id,
-                    settings.PARKPASS_PAY_APP_LINK + '?success=1',
-                    self.parking_card_session.parking_card.phone)
-            }
+            if only_for_payment_object_return:
+                return HomeBankPayment
+            else:
+                return {
+                    "payment_url": "https://%s/api/v1/payments/homebank?order_id=%s&back_link=%s&email=%s" % (
+                        settings.BASE_DOMAIN,
+                        self.id,
+                        settings.PARKPASS_PAY_APP_LINK + '?success=1',
+                        email)
+                }
 
         receipt_data = self.generate_receipt_data()
+        receipt_data["Email"] = email
+
         init_payment = TinkoffPayment.objects.create(
             order=self,
             receipt_data=receipt_data
         )
+
+        if only_for_payment_object_return:
+            get_logger().info("only_for_payment_object_return")
+
+            return init_payment
+
         customer_key = str(self.client_uuid) if self.client_uuid \
             else self.parking_card_session.client_uuid
 
         request_data = init_payment.build_non_recurrent_request_data(
             self.get_payment_amount(),
-            customer_key)
+            customer_key,
+        )
 
         get_logger().info("Init non recurrent request")
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make card non recurrent payment", request_data)
@@ -437,6 +449,9 @@ class Order(models.Model):
             return None
 
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response card non recurrent payment", result)
+        get_logger().info("Response card non recurrent payment")
+        get_logger().info(result)
+
         # Payment success
         if result.get("Success", False):
             order_id = int(result["OrderId"])
@@ -492,7 +507,9 @@ class Order(models.Model):
         result = self.get_tinkoff_api().sync_call(
             TinkoffAPI.INIT, request_data
         )
-        get_logger().info("Init payment response: ")
+        get_logger().info("Make init session payment")
+        get_logger().info(request_data)
+
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make init session payment", request_data)
 
         # Tink-off gateway not responded
@@ -500,6 +517,9 @@ class Order(models.Model):
             return None
 
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response session payment", result)
+
+        get_logger().info("Response session payment")
+        get_logger().info(result)
 
         # Payment success
         if result.get("Success", False):
@@ -605,6 +625,7 @@ class Order(models.Model):
         request_data = payment.build_charge_request_data(
             payment.payment_id, default_account_credit_card.rebill_id
         )
+        get_logger().info("Make charge session payment")
         get_logger().info(request_data)
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make charge session payment", request_data)
 
@@ -615,6 +636,9 @@ class Order(models.Model):
             TinkoffAPI.CHARGE, request_data
         )
         elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response charge session payment", result)
+        get_logger().info("Response charge session payment")
+        get_logger().info(result)
+
         if result[u'Status'] == u'AUTHORIZED':
             payment.status = PAYMENT_STATUS_AUTHORIZED \
                 if payment.status != PAYMENT_STATUS_CONFIRMED else PAYMENT_STATUS_CONFIRMED
