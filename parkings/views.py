@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 import base64
+import datetime
 import decimal
 import traceback
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 
+import xlwt
 from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views import View
 from dss.Serializer import serializer
 
@@ -27,8 +30,8 @@ from parkings.validators import validate_longitude, validate_latitude, CreatePar
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, SubscriptionsPayValidator
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED, \
-    HomeBankPayment
-from rps_vendor.models import RpsSubscription, RpsParking
+    HomeBankPayment, PAYMENT_STATUSES
+from rps_vendor.models import RpsSubscription, RpsParking, RpsParkingCardSession
 from vendors.models import Vendor, VendorNotification, VENDOR_NOTIFICATION_TYPE_SESSION_CREATED, \
     VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED
 
@@ -170,7 +173,7 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
             for session in ps:
                 order_sum += session.debt
                 avg_time += (
-                            session.completed_at - session.started_at).total_seconds()  # При переезде на новую версию Django: реализовать с помощью https://stackoverflow.com/questions/3131107/annotate-a-queryset-with-the-average-date-difference-django
+                        session.completed_at - session.started_at).total_seconds()  # При переезде на новую версию Django: реализовать с помощью https://stackoverflow.com/questions/3131107/annotate-a-queryset-with-the-average-date-difference-django
             try:
                 avg_time = avg_time / sessions_count
             except ZeroDivisionError:
@@ -294,8 +297,9 @@ class GetAvailableParkingsView(APIView):
         else:
             parkings_list = serializer(Parking.objects.filter(approved=True),
                                        include_attr=('id', 'name', 'description', 'address',
-                                                     'latitude', 'longitude', 'free_places','max_permitted_time', 'currency', 'acquiring'))
-            return JsonResponse({"result":parkings_list}, status=200)
+                                                     'latitude', 'longitude', 'free_places', 'max_permitted_time',
+                                                     'currency', 'acquiring'))
+            return JsonResponse({"result": parkings_list}, status=200)
 
 
 class TestSignedRequestView(SignedRequestAPIView):
@@ -608,7 +612,6 @@ class CompleteParkingSessionView(SignedRequestAPIView):
                     new_order.try_pay()
             # end holding
 
-
             session.debt = debt
             session.completed_at = utc_completed_at
             session.add_vendor_complete_mark()
@@ -874,3 +877,342 @@ class CloseSessionRequest(APIView):
 
             return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
 
+
+def exportParkingDataToExcel(request):
+    if request.user.is_superuser:
+        try:
+
+            wb = xlwt.Workbook(encoding='utf-8')
+            ws = wb.add_sheet('List')
+
+            parking_id = request.GET.get('parking_id')
+            date_from = request.GET.get('date_from')
+            date_to = request.GET.get('date_to')
+            type = request.GET.get('type')
+
+            response = HttpResponse(content_type='application/ms-excel')
+            response[
+                'Content-Disposition'] = 'attachment; filename="'+type+'_report_' + parking_id + '_date_' + date_from + '_' + date_to + '.xls"'
+
+            # Sheet header, first row
+            row_num = 0
+
+            font_style = xlwt.XFStyle()
+            font_style.font.bold = True
+
+            if type == 'sessions':
+
+                rows_list = list(ParkingSession.objects.filter(
+                    parking_id=parking_id,
+                    created_at__gte=date_from,
+                    created_at__lte=date_to,
+                ).values_list(
+                    'id', 'session_id', 'client_id', 'started_at', 'completed_at',
+                    'duration', 'debt', 'canceled_sum', 'current_refund_sum', 'state', 'manual_close'
+                ))
+                rows = []
+                additional_fields_array = []
+                for row in rows_list:
+                    rows.append(row[:10])
+                    additional_fields_array.append(row[10:])
+
+                row_num_2 = 0
+                for row in rows:
+                    orders = list(Order.objects.filter(session_id=row[0]).values_list('id'))
+                    additional_fields = ()
+                    if orders:
+                        orders_ids = []
+                        for order in orders:
+                            orders_ids.append(order[0])
+
+                        payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id'))
+
+                        ids = ''
+                        i = 0
+                        for order in orders:
+                            if (i < 4):
+                                ids = ids + str(order[0]) + '; '
+                            else:
+                                ids += '...'
+                                break
+                            i += 1
+
+                        additional_fields = additional_fields + (ids,)
+
+                        if payments:
+                            ids2 = ''
+                            i = 0
+                            for payment in payments:
+
+                                if (i < 4):
+                                    ids2 = ids2 + str(payment[0]) + '; '
+                                else:
+                                    ids2 += '...'
+                                    break
+                                i += 1
+
+                            additional_fields = additional_fields + (ids2,)
+                        else:
+                            additional_fields = additional_fields + ('',)
+                    else:
+                        additional_fields = additional_fields + ('',) + ('',)
+
+                    rows[row_num_2] = row + additional_fields
+
+                    row_num_2 += 1
+
+                columns = [
+                    'ID', '№Сессии', 'ID клиента', 'Начало', 'Конец',
+                    'Продолжительность', 'Стоимость', 'Оплачено', 'Рефанд',
+                    'Статус', 'ID ордера', 'ID Тинькоф Пеймента',
+                ]
+
+                for col_num in range(len(columns)):
+                    ws.write(row_num, col_num, columns[col_num], font_style)
+
+                # Sheet body, remaining rows
+                font_style = xlwt.XFStyle()
+                for row in rows:
+                    row_num += 1
+
+                    for col_num in range(len(row)):
+                        if row[col_num]:
+                            val = str(row[col_num])
+                        else:
+                            val = ""
+
+                        if col_num == 3 or col_num == 4:
+                            if row[col_num]:
+                                val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%H:%M:%S")
+
+
+                        if col_num == 7:
+                            sum = row[6] - row[7]
+                            if sum < 0:
+                                sum = 0
+
+                            val = str(sum)
+
+                        if col_num == 9:
+                            val = str(
+                                next((x for x in ParkingSession.STATE_CHOICES
+                                      if x[0] == int(row[col_num])), ['', '-'])[1]) \
+                                if not additional_fields_array[row_num - 1][0] else 'Закрыта вручную'
+
+                        cwidth = ws.col(col_num).width
+                        if (len(val) * 300) > cwidth:
+                            ws.col(col_num).width = (len(
+                                val) * 300)
+
+                        ws.write(row_num, col_num, val, font_style)
+
+
+            elif type == 'subscription':
+                rows_list = list(RpsSubscription.objects.filter(
+                    parking_id=parking_id,
+                    started_at__gte=date_from,
+                    started_at__lte=date_to,
+                ).values_list(
+                    'id', 'name', 'account_id', 'started_at', 'expired_at',
+                    'duration', 'sum'
+                ))
+                rows = []
+                additional_fields_array = []
+                for row in rows_list:
+                    rows.append(row[:9])
+                    additional_fields_array.append(row[9:])
+
+                columns = [
+                    'ID', 'Название', 'ID клиента', 'Начало', 'Конец',
+                    'Продолжительность', 'Сумма', 'ID ордера', 'ID Тинькоф Пеймента', 'Статус оплаты'
+                ]
+
+                for col_num in range(len(columns)):
+                    ws.write(row_num, col_num, columns[col_num], font_style)
+
+                row_num_2 = 0
+                for row in rows:
+                    orders = list(Order.objects.filter(subscription_id=row[0]).values_list('id'))
+                    additional_fields = ()
+                    if orders:
+                        orders_ids = []
+                        for order in orders:
+                            orders_ids.append(order[0])
+
+                        payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'status'))
+
+                        ids = ''
+                        i = 0
+                        for order in orders:
+                            if (i < 4):
+                                ids = ids + str(order[0]) + '; '
+                            else:
+                                ids += '...'
+                                break
+                            i += 1
+
+                        additional_fields = additional_fields + (ids,)
+
+                        if payments:
+                            ids2 = ''
+                            status = payments[0][1]
+                            i = 0
+                            for payment in payments:
+
+                                if (i < 4):
+                                    ids2 = ids2 + str(payment[0]) + '; '
+                                else:
+                                    ids2 += '...'
+                                    break
+                                i += 1
+
+                            additional_fields = additional_fields + (ids2,) + (status,)
+                        else:
+                            additional_fields = additional_fields + ('',) + ('',)
+                    else:
+                        additional_fields = additional_fields + ('',) + ('',) + ('',)
+
+                    rows[row_num_2] = row + additional_fields
+
+                    row_num_2 += 1
+
+                # Sheet body, remaining rows
+                font_style = xlwt.XFStyle()
+                for row in rows:
+                    row_num += 1
+
+                    for col_num in range(len(row)):
+
+                        if row[col_num]:
+                            val = str(row[col_num])
+                        else:
+                            val = ""
+
+                        if col_num == 3 or col_num == 4:
+                            if row[col_num]:
+                                val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%H:%M:%S")
+
+                        if col_num == 9:
+                            if val:
+                                val = str(
+                                    next((x for x in PAYMENT_STATUSES
+                                          if x[0] == int(6)), ['', '-'])[1])
+
+                        cwidth = ws.col(col_num).width
+                        if (len(val) * 300) > cwidth:
+                            ws.col(col_num).width = (len(
+                                val) * 300)
+
+                        ws.write(row_num, col_num, val, font_style)
+
+
+            elif type == 'card':
+                rows_list = list(RpsParkingCardSession.objects.filter(
+                    parking_id=parking_id,
+                    created_at__gte=date_from,
+                    created_at__lte=date_to,
+                ).values_list(
+                    'id', 'debt', 'account_id', 'created_at', 'from_datetime',
+                    'leave_at', 'duration', 'parking_card__card_id'
+                ))
+                rows = []
+                additional_fields_array = []
+                for row in rows_list:
+                    rows.append(row[:9])
+                    additional_fields_array.append(row[9:])
+
+                columns = [
+                    'ID', 'Задолженность', 'ID клиента', 'Дата создания', 'Время заезда',
+                    'Время выезда', 'Продолжительность', 'Парковочная карта', 'ID ордера', 'ID Тинькоф Пеймента',
+                ]
+
+                for col_num in range(len(columns)):
+                    ws.write(row_num, col_num, columns[col_num], font_style)
+
+                row_num_2 = 0
+                for row in rows:
+                    orders = list(Order.objects.filter(parking_card_session_id=row[0]).values_list('id'))
+                    additional_fields = ()
+                    if orders:
+                        orders_ids = []
+                        for order in orders:
+                            orders_ids.append(order[0])
+
+                        payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'status'))
+
+                        ids = ''
+                        i = 0
+                        for order in orders:
+                            if (i < 4):
+                                ids = ids + str(order[0]) + '; '
+                            else:
+                                ids += '...'
+                                break
+                            i += 1
+
+                        additional_fields = additional_fields + (ids,)
+
+                        if payments:
+                            ids2 = ''
+                            status = payments[0][1]
+                            i = 0
+                            for payment in payments:
+
+                                if (i < 4):
+                                    ids2 = ids2 + str(payment[0]) + '; '
+                                else:
+                                    ids2 += '...'
+                                    break
+                                i += 1
+
+                            additional_fields = additional_fields + (ids2,) + (status,)
+                        else:
+                            additional_fields = additional_fields + ('',) + ('',)
+                    else:
+                        additional_fields = additional_fields + ('',) + ('',) + ('',)
+
+                    rows[row_num_2] = row + additional_fields
+
+                    row_num_2 += 1
+
+                # Sheet body, remaining rows
+                font_style = xlwt.XFStyle()
+                for row in rows:
+                    row_num += 1
+
+                    for col_num in range(len(row)):
+                        if row[col_num]:
+                            val = str(row[col_num])
+                        else:
+                            val = ""
+
+                        if col_num == 3 or col_num == 4 or col_num == 5:
+                            if row[col_num]:
+                                val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%H:%M:%S")
+
+                        if col_num == 10:
+                            if val:
+                                val = str(
+                                    next((x for x in PAYMENT_STATUSES
+                                          if x[0] == int(6)), ['', '-'])[1])
+
+                        cwidth = ws.col(col_num).width
+                        if (len(val) * 300) > cwidth:
+                            ws.col(col_num).width = (len(
+                                val) * 300)
+
+                        ws.write(row_num, col_num, val, font_style)
+
+            wb.save(response)
+
+            return response
+
+        except Exception as e:
+            trace_back = traceback.format_exc()
+            message = str(e) + " " + str(trace_back)
+            messages.add_message(
+                request,
+                messages.ERROR,
+                message
+            )
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER'))

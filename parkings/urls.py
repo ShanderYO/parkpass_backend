@@ -27,6 +27,7 @@ urlpatterns = [
 
     url(r'^close-session/$', CloseSessionRequest.as_view()),
 
+    url(r'^export/xls/$', exportParkingDataToExcel),
 ]
 
 urlpatterns += staticfiles_urlpatterns()
