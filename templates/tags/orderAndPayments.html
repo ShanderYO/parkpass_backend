@@ -1,0 +1,26 @@
+{% if orders %}
+    <h3>Orders</h3>
+    <ul>
+        {% for order in orders %}
+            <li><a target="_blank" href="/api/admin/payments/order/{{ order.0 }}/change/">{{ order.0 }}</a> </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+{% if payments %}
+    <h3>Tinkoff payments</h3>
+    <ul>
+        {% for payment in payments %}
+            <li><a target="_blank" href="/api/admin/payments/tinkoffpayment/{{ payment.0 }}/change/">{{ payment.0 }}</a> </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+{% if homebank_payments %}
+    <h3>Homebank payments</h3>
+    <ul>
+        {% for payment in homebank_payments %}
+            <li><a target="_blank" href="/api/admin/payments/homebankpayment/{{ payment.0 }}/change/">{{ payment.0 }}</a> </li>
+        {% endfor %}
+    </ul>
+{% endif %}

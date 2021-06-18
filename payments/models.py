@@ -348,7 +348,7 @@ class Order(models.Model):
                 "amount": int(self.sum),
                 "terminalId": settings.HOMEBANK_TERMINAL_ID,
                 "currency": "KZT",
-                "description": "Оплата парковки # %s" % self.session.id,
+                "description": "Оплата услуг парковки %s" % self.session.parking.name,
                 "backLink": "",
                 "failureBackLink": "",
                 "postLink": "https://%s/api/v1/payments/homebank-callback/" % settings.BASE_DOMAIN,
@@ -367,7 +367,7 @@ class Order(models.Model):
                 Phone=str(self.session.client.phone),
                 Taxation="usn_income",
                 Items=[{
-                    "Name": "Оплата парковки # %s" % self.session.id,
+                    "Name": "Оплата услуг парковки %s" % self.session.parking.name,
                     "Price": str(int(self.sum * 100)),
                     "Quantity": 1.00,
                     "Amount": str(int(self.sum * 100)),

@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from parkings.models import Parking
 from rps_vendor.models import (
     RpsParking, ParkingCard, RpsParkingCardSession, RpsSubscription, Developer, DevelopersLog
 )
@@ -27,9 +28,12 @@ class RpsParkingCardSessionAdmin(admin.ModelAdmin):
 
     list_filter = ('created_at', 'parking_id',)
 
-    list_display = ('parking_card', 'client_uuid', 'account', 'debt', 'state',)
+    list_display = ('parking_card', 'client_uuid', 'account', 'debt', 'state', 'get_parking')
 
     readonly_fields = ('parking_id', 'client_uuid', 'created_at',)
+
+    def get_parking(self, obj):
+        return Parking.objects.get(id=obj.parking_id)
 
 
 @admin.register(RpsSubscription)

@@ -66,3 +66,13 @@
     </style>
 
 {% endblock %}
+
+
+{% block inline_field_sets %}
+    {% if original|isRpsSubscriptionPage %}
+        {% show_subscription_order_and_payments original %}
+    {% endif %}
+        {% if original|isRpsParkingCardSessionPage %}
+        {% show_card_order_and_payments original %}
+    {% endif %}
+{% endblock %}

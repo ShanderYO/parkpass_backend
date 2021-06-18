@@ -6,7 +6,7 @@ from .models import Account, AccountSession
 
 @admin.register(Account)
 class AccountAdmin(AccountAdmin):
-    search_fields = ('id', 'phone', 'last_name',)
+    search_fields = ('id', 'phone', 'last_name', 'email')
 
     list_display = ('id', 'first_name', 'last_name',
                     'phone', 'email')

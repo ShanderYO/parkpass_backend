@@ -14,6 +14,7 @@ from django.db import IntegrityError
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.utils.encoding import escape_uri_path
 from django.views import View
 from dss.Serializer import serializer
 
@@ -889,10 +890,14 @@ def exportParkingDataToExcel(request):
             date_from = request.GET.get('date_from')
             date_to = request.GET.get('date_to')
             type = request.GET.get('type')
+            object_name = request.GET.get('object_name')
+            report_name = request.GET.get('report_name')
 
+            file_name = "attachment; filename=" + escape_uri_path("%s_%s_%s___%s.xls" % (object_name, report_name, date_from, date_to))
+            print(file_name)
             response = HttpResponse(content_type='application/ms-excel')
             response[
-                'Content-Disposition'] = 'attachment; filename="'+type+'_report_' + parking_id + '_date_' + date_from + '_' + date_to + '.xls"'
+                'Content-Disposition'] = file_name
 
             # Sheet header, first row
             row_num = 0
@@ -1023,8 +1028,8 @@ def exportParkingDataToExcel(request):
                     additional_fields_array.append(row[9:])
 
                 columns = [
-                    'ID', 'Название', 'ID клиента', 'Начало', 'Конец',
-                    'Продолжительность', 'Сумма', 'ID ордера', 'ID Тинькоф Пеймента', 'Статус оплаты'
+                    'ID', 'Название', 'ID клиента', 'Дата начала', 'Дата окончания абонемента',
+                    'Продолжительность', 'Сумма', 'ID ордера', 'ID Тинькоф Пеймента', 'Статус оплаты', 'Дата оплаты абонемента'
                 ]
 
                 for col_num in range(len(columns)):
@@ -1039,7 +1044,7 @@ def exportParkingDataToExcel(request):
                         for order in orders:
                             orders_ids.append(order[0])
 
-                        payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'status'))
+                        payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'status', 'created_at'))
 
                         ids = ''
                         i = 0
@@ -1055,7 +1060,11 @@ def exportParkingDataToExcel(request):
 
                         if payments:
                             ids2 = ''
+                            pay_date = ''
                             status = payments[0][1]
+                            if status != -1:
+                                pay_date = payments[0][2]
+
                             i = 0
                             for payment in payments:
 
@@ -1066,11 +1075,11 @@ def exportParkingDataToExcel(request):
                                     break
                                 i += 1
 
-                            additional_fields = additional_fields + (ids2,) + (status,)
+                            additional_fields = additional_fields + (ids2,) + (status,) + (pay_date, )
                         else:
-                            additional_fields = additional_fields + ('',) + ('',)
+                            additional_fields = additional_fields + ('',) + ('',) + ('',)
                     else:
-                        additional_fields = additional_fields + ('',) + ('',) + ('',)
+                        additional_fields = additional_fields + ('',) + ('',) + ('',) + ('',)
 
                     rows[row_num_2] = row + additional_fields
 
@@ -1091,12 +1100,20 @@ def exportParkingDataToExcel(request):
                         if col_num == 3 or col_num == 4:
                             if row[col_num]:
                                 val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%H:%M:%S")
-
+                        if col_num == 5:
+                            if val:
+                                m, s = divmod(int(val), 60)
+                                h, m = divmod(m, 60)
+                                val = str(f'{h:d}:{m:02d}')
                         if col_num == 9:
                             if val:
                                 val = str(
                                     next((x for x in PAYMENT_STATUSES
                                           if x[0] == int(6)), ['', '-'])[1])
+
+                        if col_num == 10:
+                            if row[col_num]:
+                                val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
 
                         cwidth = ws.col(col_num).width
                         if (len(val) * 300) > cwidth:

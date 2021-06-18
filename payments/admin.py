@@ -19,7 +19,7 @@ class CreditCardAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    search_fields = ('session',)
+    search_fields = ('session__session_id', 'id',)
 
     list_display = ('id', 'session', 'sum',
                     'authorized', 'paid',)

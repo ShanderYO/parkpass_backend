@@ -12,6 +12,8 @@
     <div class="button xml-export-btn">Сформировать отчет</div>
     <div class="xml-export">
         <form class="xml-export__inner" action="/api/v1/parking/export/xls">
+            <input type="hidden" name="object_name" value="">
+            <input type="hidden" name="report_name" value="Сессии">
             <div class="xml-export__close">
                 <svg viewBox="0 0 329.26933 329" xmlns="http://www.w3.org/2000/svg">
                     <path d="m194.800781 164.769531 128.210938-128.214843c8.34375-8.339844 8.34375-21.824219 0-30.164063-8.339844-8.339844-21.824219-8.339844-30.164063 0l-128.214844 128.214844-128.210937-128.214844c-8.34375-8.339844-21.824219-8.339844-30.164063 0-8.34375 8.339844-8.34375 21.824219 0 30.164063l128.210938 128.214843-128.210938 128.214844c-8.34375 8.339844-8.34375 21.824219 0 30.164063 4.15625 4.160156 9.621094 6.25 15.082032 6.25 5.460937 0 10.921875-2.089844 15.082031-6.25l128.210937-128.214844 128.214844 128.214844c4.160156 4.160156 9.621094 6.25 15.082032 6.25 5.460937 0 10.921874-2.089844 15.082031-6.25 8.34375-8.339844 8.34375-21.824219 0-30.164063zm0 0"/>
@@ -19,7 +21,7 @@
             </div>
             <div class="xml-export__field">
                 <p>Парковка:</p>
-                <select class="xml-export__input" id="parkingSelect" name="parking_id" required>
+                <select class="xml-export__input" id="parking_select" name="parking_id" required>
                     <option value="" disabled selected>Выбрать</option>
                 </select>
             </div>
@@ -40,11 +42,11 @@
             </div>
             <div class="xml-export__field">
                 <p>Тип отчёта:</p>
-                <select class="xml-export__input" name="type" required>
+                <select id="report_name_select" class="xml-export__input" name="type" required>
                     <option value="" disabled>Выбрать</option>
                     <option value="sessions" selected>Сессии</option>
-                    <option value="subscription">Покупки абонементов</option>
-                    <option value="card">Оплата парковочной карты</option>
+                    <option value="subscription">Абонементы</option>
+                    <option value="card">Парковочной карты</option>
                 </select>
             </div>
             <input class=" xml-export__submit" type="submit" value="Загрузить" name="Загрузить">
@@ -125,14 +127,20 @@
             margin-left: auto;
         }
     </style>
-    <script  src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 
     <script>
         $.get('/api/v1/parking/all/', function (data) {
             data.result.forEach(function (i) {
-                console.log(i)
-            $('#parkingSelect').append('<option value="'+i.id+'">'+i.name+'</option>')
+                $('#parking_select').append('<option value="' + i.id + '">' + i.name + '</option>')
             })
+        })
+        $('#parking_select').change(function () {
+            $('[name="object_name"]').val($(this).find('option:selected').text())
+        })
+        $('#report_name_select').change(function () {
+            console.log($(this).find('option:selected').text())
+            $('[name="report_name"]').val($(this).find('option:selected').text())
         })
         $('.xml-export-btn').click(function () {
             $('.xml-export').addClass('xml-export--open')
