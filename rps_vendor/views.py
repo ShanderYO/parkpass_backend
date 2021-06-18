@@ -277,6 +277,7 @@ class InitPayDebtMixin:
                 card_session.state = STATE_INITED
                 card_session.save()
                 response_dict["payment_url"] = result["payment_url"]
+                response_dict["order_id"] = order.id
 
             return JsonResponse(response_dict, status=200)
 
