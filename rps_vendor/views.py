@@ -271,13 +271,13 @@ class InitPayDebtMixin:
             )
             result = order.create_non_recurrent_payment(email)
             response_dict = dict(
-                client_uuid=str(new_client_uuid)
+                client_uuid=str(new_client_uuid),
+                order_id=str(order.id)
             )
             if result:
                 card_session.state = STATE_INITED
                 card_session.save()
                 response_dict["payment_url"] = result["payment_url"]
-                response_dict["order_id"] = order.id
 
             return JsonResponse(response_dict, status=200)
 

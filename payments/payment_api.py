@@ -242,7 +242,7 @@ class HomeBankAPI():
         if self.token:
             headers['Authorization'] = 'bearer ' + self.token
 
-        # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to HomeBank", json_data)
+        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to HomeBank", json_data)
         log_data = payload.copy()
 
         get_logger().info('HomeBank payload: ' + json.dumps(log_data))
@@ -253,44 +253,44 @@ class HomeBankAPI():
                               timeout=(connect_timeout, 5.0))
             try:
                 get_logger().info("Init status code %s" % r.status_code)
-                # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                #             "HomeBank response status %s" % str(r.status_code),
-                #             r.content)
+                elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                            "HomeBank response status %s" % str(r.status_code),
+                            r.content)
                 if r.status_code != 200:
                     get_logger().info("%s", r.content)
                 result = r.json()
                 return result
 
             except Exception as e:
-                # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                #             "HomeBank invoke error", str(e))
+                elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                            "HomeBank invoke error", str(e))
                 get_logger().info(e)
                 return None
 
         except requests.exceptions.MissingSchema as e:
-            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-            #             "HomeBank invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "HomeBank invoke error", str(e))
             get_logger().info("Missing schema for request error")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ConnectionError as e:
-            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-            #             "HomeBank invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "HomeBank invoke error", str(e))
             get_logger().info("requests.exceptions.ConnectionError")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ReadTimeout as e:
-            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-            #             "HomeBank invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "HomeBank invoke error", str(e))
             get_logger().info("Waited too long between bytes error")
             get_logger().info(e)
             return None
 
         except requests.exceptions.HTTPError as e:
-            # elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-            #             "HomeBank invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                        "HomeBank invoke error", str(e))
             get_logger().info("requests.exceptions.HTTPError")
             get_logger().info(e)
             return None

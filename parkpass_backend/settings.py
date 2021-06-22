@@ -242,6 +242,7 @@ USE_TZ = True
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_HOST_USER = 'noreply@parkpass.ru'
+EMAILS_HOST_ALERT = ['lokkomokko1@gmail.com', 'support@parkpass.ru']
 EMAIL_HOST_PASSWORD = 'noreplyParol'
 EMAIL_USE_TLS = True
 

@@ -14,7 +14,8 @@ from base.views import APIView
 from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from parkings.models import ParkingSession
 from parkpass_backend import settings
-from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME
+from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME, EMAIL_HOST_USER, REQUESTS_LOGGER_NAME, \
+    EMAILS_HOST_ALERT
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
@@ -688,6 +689,13 @@ class HomeBankCallbackView(APIView):
             payment = payments[0]
             payment.cancel_payment()
 
+def some_function_2(s):
+    print(3323)
+    int(s)
+
+def some_function():
+    some_function_2('asdad')
+    print(123123)
 
 class TestView(APIView):
 
@@ -701,7 +709,23 @@ class TestView(APIView):
 
         # TinkoffAPI().get_check_url("0001785103056432", 9287440300256165, 4498)
         # req_string = HomeBankOdfAPI().create_check()
-        return HttpResponse('test1', status=200)
+        from django.core.mail import send_mail
+        # send_mail('Подтвердите e-mail', "привет", EMAIL_HOST_USER,
+        #           ['lokkomokko1@gmail.com'])
+        # logger = get_logger(REQUESTS_LOGGER_NAME)
+        # try:
+        #     some_function()
+        # except Exception as e:
+        #     import traceback
+        #     trace_back = traceback.format_exc()
+        #     message = str(e) + " " + str(trace_back)
+        #     send_mail('Ошибка на сайте', message, EMAIL_HOST_USER,
+        #               [EMAIL_HOST_ALERT])
+        #     logger.error(message)
+
+
+
+        return HttpResponse('test21', status=200)
 
     @decorator_from_middleware(ApiTokenMiddleware)
     def post(self, request):

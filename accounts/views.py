@@ -1036,14 +1036,14 @@ class WriteUsersLogsView(APIView):
             _id = item.pop("id")
             item["user_id"] = user_id
 
-            # es_client.index(
-            #     index=ES_APP_BLUETOOTH_LOGS_INDEX_NAME,
-            #     id=_id,
-            #     body=item
-            # )
+            es_client.index(
+                index=ES_APP_BLUETOOTH_LOGS_INDEX_NAME,
+                id=_id,
+                body=item
+            )
 
         get_logger().info("Write user logs " + str(user_id))
-        get_logger().info(str(logs))
+        # get_logger().info(str(logs))
         get_logger().info("End user logs " + str(user_id))
 
         return JsonResponse({}, status=200)

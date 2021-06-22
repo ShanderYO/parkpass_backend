@@ -24,7 +24,7 @@ class ParkingCardAdmin(admin.ModelAdmin):
 
 @admin.register(RpsParkingCardSession)
 class RpsParkingCardSessionAdmin(admin.ModelAdmin):
-    search_fields = ('account', 'client_uuid',)
+    search_fields = ('parking_card__card_id',)
 
     list_filter = ('created_at', 'parking_id',)
 

@@ -19,8 +19,10 @@ from accounts.models import Account
 from base.models import Terminal
 from base.utils import get_logger, elastic_log
 from parkpass_backend import settings
-from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN, ES_APP_PAYMENTS_LOGS_INDEX_NAME, ACQUIRING_LIST
+from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN, ES_APP_PAYMENTS_LOGS_INDEX_NAME, ACQUIRING_LIST, \
+    REQUESTS_LOGGER_NAME, EMAILS_HOST_ALERT
 from payments.payment_api import TinkoffAPI, HomeBankAPI
+logger = get_logger(REQUESTS_LOGGER_NAME)
 
 class FiskalNotification(models.Model):
     fiscal_number = models.IntegerField()
@@ -380,10 +382,19 @@ class Order(models.Model):
 
     def try_pay(self):
         get_logger().info("Try make payment #%s", self.id)
-        if self.acquiring == 'homebank':
-            return self.create_payment_homebank()
-        else:
-            self.create_payment()
+
+        try:
+            if self.acquiring == 'homebank':
+                return self.create_payment_homebank()
+            else:
+                self.create_payment()
+        except Exception as e:
+            import traceback
+            trace_back = traceback.format_exc()
+            message = str(e) + " " + str(trace_back)
+            send_mail('Ошибка на сайте. try_pay', message, EMAIL_HOST_USER,
+                      EMAILS_HOST_ALERT)
+            logger.error(message)
 
     def get_payment_amount(self):
         if self.acquiring == 'homebank':
@@ -498,54 +509,64 @@ class Order(models.Model):
         return None
 
     def create_payment(self):
-        receipt_data = self.generate_receipt_data()
-        new_payment = TinkoffPayment.objects.create(
-            order=self,
-            receipt_data=receipt_data)
 
-        request_data = new_payment.build_transaction_data(self.get_payment_amount())
-        result = self.get_tinkoff_api().sync_call(
-            TinkoffAPI.INIT, request_data
-        )
-        get_logger().info("Make init session payment")
-        get_logger().info(request_data)
+        try:
+            receipt_data = self.generate_receipt_data()
+            new_payment = TinkoffPayment.objects.create(
+                order=self,
+                receipt_data=receipt_data)
 
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make init session payment", request_data)
+            request_data = new_payment.build_transaction_data(self.get_payment_amount())
+            result = self.get_tinkoff_api().sync_call(
+                TinkoffAPI.INIT, request_data
+            )
+            get_logger().info("Make init session payment")
+            get_logger().info(request_data)
 
-        # Tink-off gateway not responded
-        if not result:
-            return None
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make init session payment", request_data)
 
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response session payment", result)
+            # Tink-off gateway not responded
+            if not result:
+                return None
 
-        get_logger().info("Response session payment")
-        get_logger().info(result)
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response session payment", result)
 
-        # Payment success
-        if result.get("Success", False):
-            payment_id = int(result["PaymentId"])
+            get_logger().info("Response session payment")
+            get_logger().info(result)
 
-            raw_status = result["Status"]
-            status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
-                else PAYMENT_STATUS_REJECTED
-            get_logger().info("Init status: " + raw_status)
-            new_payment.payment_id = payment_id
-            new_payment.status = status
-            new_payment.save()
+            # Payment success
+            if result.get("Success", False):
+                payment_id = int(result["PaymentId"])
 
-            # Credit card bind
-            self.charge_payment(new_payment)
+                raw_status = result["Status"]
+                status = PAYMENT_STATUS_NEW if raw_status == u'NEW' \
+                    else PAYMENT_STATUS_REJECTED
+                get_logger().info("Init status: " + raw_status)
+                new_payment.payment_id = payment_id
+                new_payment.status = status
+                new_payment.save()
 
-        # Payment exception
-        elif int(result.get("ErrorCode", -1)) > 0:
-            error_code = int(result["ErrorCode"])
-            error_message = result.get("Message", "")
-            error_details = result.get("Details", "")
+                # Credit card bind
+                self.charge_payment(new_payment)
 
-            new_payment.error_code = error_code
-            new_payment.error_message = error_message
-            new_payment.error_description = error_details
-            new_payment.save()
+            # Payment exception
+            elif int(result.get("ErrorCode", -1)) > 0:
+                error_code = int(result["ErrorCode"])
+                error_message = result.get("Message", "")
+                error_details = result.get("Details", "")
+
+                new_payment.error_code = error_code
+                new_payment.error_message = error_message
+                new_payment.error_description = error_details
+                new_payment.save()
+        except Exception as e:
+            import traceback
+            trace_back = traceback.format_exc()
+            message = str(e) + " " + str(trace_back)
+            send_mail('Ошибка на сайте. create_payment', message, EMAIL_HOST_USER,
+                      EMAILS_HOST_ALERT)
+            logger.error(message)
+
 
     def create_payment_homebank(self):
 
@@ -688,43 +709,61 @@ class Order(models.Model):
 
 
     def confirm_payment(self, payment):
-        get_logger().info("Make confirm order: %s" % self.id)
-        request_data = payment.build_confirm_request_data(self.get_payment_amount())
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make confirm session payment", request_data)
+        try:
+            get_logger().info("Make confirm order: %s" % self.id)
+            request_data = payment.build_confirm_request_data(self.get_payment_amount())
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make confirm session payment", request_data)
 
-        result = self.get_tinkoff_api().sync_call(
-            TinkoffAPI.CONFIRM, request_data
-        )
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response confirm session payment", result)
+            result = self.get_tinkoff_api().sync_call(
+                TinkoffAPI.CONFIRM, request_data
+            )
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response confirm session payment", result)
+        except Exception as e:
+            import traceback
+            trace_back = traceback.format_exc()
+            message = str(e) + " " + str(trace_back)
+            send_mail('Ошибка на сайте. confirm_payment', message, EMAIL_HOST_USER,
+                      EMAILS_HOST_ALERT)
+            logger.error(message)
+
 
     def confirm_payment_homebank(self, payment):
-        get_logger().info("Make confirm homebank order: %s" % self.id)
-        account = None
+        try:
+            get_logger().info("Make confirm homebank order: %s" % self.id)
+            account = None
 
-        if self.session:
-            account = self.session.client
-        elif self.parking_card_session:
-            account = self.parking_card_session.account
-        else:
-            account = self.subscription.account
+            if self.session:
+                account = self.session.client
+            elif self.parking_card_session:
+                account = self.parking_card_session.account
+            else:
+                account = self.subscription.account
 
-        if account is None:
-            get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
-            return
+            if account is None:
+                get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
+                return
 
-        default_account_credit_card = CreditCard.objects.filter(
-            account=account, acquiring='homebank').first()
+            default_account_credit_card = CreditCard.objects.filter(
+                account=account, acquiring='homebank').first()
 
-        if not default_account_credit_card:
-            get_logger().warn("Payment was broken. Account should has bind card")
-            return
+            if not default_account_credit_card:
+                get_logger().warn("Payment was broken. Account should has bind card")
+                return
 
-        result = HomeBankAPI().confirm(payment.payment_id)
+            result = HomeBankAPI().confirm(payment.payment_id)
 
-        if result:
-            payments.views.HomeBankCallbackView().payment_set(self, payment, PAYMENT_STATUS_CONFIRMED, None)
-            payment.status = PAYMENT_STATUS_CONFIRMED
-            payment.save()
+            if result:
+                payments.views.HomeBankCallbackView().payment_set(self, payment, PAYMENT_STATUS_CONFIRMED, None)
+                payment.status = PAYMENT_STATUS_CONFIRMED
+                payment.save()
+        except Exception as e:
+            import traceback
+            trace_back = traceback.format_exc()
+            message = str(e) + " " + str(trace_back)
+            send_mail('Ошибка на сайте. confirm_payment_homebank', message, EMAIL_HOST_USER,
+                      EMAILS_HOST_ALERT)
+            logger.error(message)
+
 
     def send_receipt_to_email(self):
         email = self.session.client.email
