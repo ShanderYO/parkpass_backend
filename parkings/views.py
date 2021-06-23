@@ -1109,7 +1109,7 @@ def exportParkingDataToExcel(request):
                             if val:
                                 val = str(
                                     next((x for x in PAYMENT_STATUSES
-                                          if x[0] == int(6)), ['', '-'])[1])
+                                          if x[0] == int(val)), ['', '-'])[1])
 
                         if col_num == 10:
                             if row[col_num]:
