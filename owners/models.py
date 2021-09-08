@@ -1,6 +1,8 @@
 import time
 
 import datetime
+
+from django.dispatch import receiver
 from jose import jwt
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -44,6 +46,23 @@ class Owner(BaseAccount):
         self.save()
         self.send_recovery_password_owner_mail(raw_password)
 
+    def save(self, *args, **kwargs):
+        if not self.id and Owner.objects.filter(email=self.email).exists():
+            try:
+                1 / 0
+            except ZeroDivisionError as e:
+                raise Exception('Owner with this email exists') from e
+        else:
+            super(Owner, self).save(*args, **kwargs)
+
+# @receiver(models.signals.post_save, sender=Owner)
+# def execute_after_save(sender, instance, created, *args, **kwargs):
+#     if created:
+#         if instance.email:
+#             raw_password = instance.generate_random_password()
+#             instance.set_password(raw_password)
+#             instance.save()
+#             instance.send_owner_password_mail(raw_password)
 
 class OwnerSession(BaseAccountSession):
     owner = models.OneToOneField(Owner, on_delete=models.CASCADE)

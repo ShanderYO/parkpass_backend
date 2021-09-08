@@ -1,0 +1,8 @@
+{% if credit_cards %}
+    <h3>Credit cards</h3>
+    <ul>
+        {% for item in credit_cards %}
+            <li><a target="_blank" href="/api/admin/payments/creditcard/{{ item.0 }}/change/">{{ item.0 }}</a> </li>
+        {% endfor %}
+    </ul>
+{% endif %}

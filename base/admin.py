@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from .models import Terminal, EmailConfirmation
+from .models import Terminal, EmailConfirmation, Country
 
 
 @admin.register(Terminal)
@@ -13,6 +13,9 @@ class TerminalAdmin(admin.ModelAdmin):
 class EmailConfirmationAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(Country)
+class CountryAdmin(admin.ModelAdmin):
+    pass
 
 class AccountAdmin(admin.ModelAdmin):
     actions = ['make_hashed_password']

@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls.static import static
 
-
+from base.views import GetAppUrlView
 from parkpass_backend import settings
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
@@ -38,6 +38,8 @@ urlpatterns = [
     path('api/v1/parking/', include("rps_vendor.urls")),
     path('api/v1/vendor/', include("vendors.urls")),
     path('api/v1/auth/', include("jwtauth.urls")),
+    path('app/', GetAppUrlView.as_view())
+
               ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) \
     + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

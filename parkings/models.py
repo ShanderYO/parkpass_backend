@@ -225,6 +225,8 @@ class ParkingSession(models.Model):
     parking = models.ForeignKey(Parking, on_delete=models.CASCADE)
 
     debt = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    paid = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
     state = models.IntegerField(choices=STATE_CHOICES)
     client_state = models.IntegerField(choices=CLIENT_STATES, editable=False, default=CLIENT_STATE_ACTIVE)
 
@@ -246,6 +248,7 @@ class ParkingSession(models.Model):
 
     is_send_warning_non_closed_message = models.BooleanField(default=False)
     created_at = models.DateField(auto_now_add=True)
+
 
     manual_close = models.BooleanField(default=False)
 

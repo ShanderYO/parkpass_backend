@@ -26,14 +26,16 @@ DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 
 ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1"]
 
-CORS_ORIGIN_WHITELIST = [
-    "https://pay.parkpass.ru",
-    "http://pay.parkpass.ru",
-    "https://testpay.parkpass.ru",
-    "http://testpay.parkpass.ru",
-    "http://localhost:8080",
-    "http://127.0.0.1:8000"
-]
+# CORS_ORIGIN_WHITELIST = [
+#     "https://pay.parkpass.ru",
+#     "http://pay.parkpass.ru",
+#     # "https://testpay.parkpass.ru",
+#     # "http://testpay.parkpass.ru",
+#     # "http://localhost:8080",
+#     "http://127.0.0.1:8000"
+# ]
+
+CORS_ORIGIN_ALLOW_ALL=True
 
 SMS_GATEWAY_ENABLED = int(os.environ.get("SMS_GATEWAY_ENABLE", 1)) == 1
 
@@ -49,8 +51,8 @@ SMS_GATEWAYS = [{
     "provider": "sms_gateway.providers.SMSProviderBeeline",
     "sender_name": "PARKPASS",
     "credentials": {
-        "user": 1659361,
-        "password": 9661673802
+        "user": 961301,
+        "password": "Am3d*vpZ"
     },
     "is_default": True
 }]
@@ -386,3 +388,7 @@ ELASTICSEARCH_CONNECTION_KWARGS = {
 
 ES_APP_BLUETOOTH_LOGS_INDEX_NAME = "app-bluetooth-logs" if os.environ.get("PROD","0") == "1" else "sandbox-app-bluetooth-logs"
 ES_APP_PAYMENTS_LOGS_INDEX_NAME = "payments-logs" if os.environ.get("PROD","0") == "1" else "sandbox-payments-logs"
+ES_APP_ENTER_APP_LOGS_INDEX_NAME = "enter-app-logs" if os.environ.get("PROD","0") == "1" else "sandbox-enter-app-logs"
+ES_APP_SESSION_PAY_LOGS_INDEX_NAME = "session-pay-logs" if os.environ.get("PROD","0") == "1" else "sandbox-session-pay-logs"
+ES_APP_CARD_PAY_LOGS_INDEX_NAME = "card-pay-logs" if os.environ.get("PROD","0") == "1" else "sandbox-card-pay-logs"
+ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME = "subscription-pay-logs" if os.environ.get("PROD","0") == "1" else "sandbox-subscription-pay-logs"

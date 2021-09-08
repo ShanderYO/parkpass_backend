@@ -12,7 +12,7 @@ from accounts.views import (
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
     ZendeskUserJWTChatView, UpdateTokenView, AccountSubscriptionListView, AccountSubscriptionSettingsView,
     ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView, WriteUsersLogsView,
-    AddCardTestView, GetReceiptCheckUrlView)
+    AddCardTestView, GetReceiptCheckUrlView, AccountParkingAllHistoryView)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -52,6 +52,7 @@ urlpatterns = [
     url(r'^session/receipt/send/$', SendReceiptToEmailView.as_view()),
 
     url(r'^session/list/$', AccountParkingListView.as_view()),
+    url(r'^session/history/$', AccountParkingAllHistoryView.as_view()),
     url(r'^session/debt/$', DebtParkingSessionView.as_view()),
     url(r'^session/pay/$', ForcePayView.as_view()),
 

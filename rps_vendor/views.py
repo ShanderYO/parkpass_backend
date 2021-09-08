@@ -14,7 +14,7 @@ from django.utils.decorators import decorator_from_middleware
 from accounts.models import Account
 from base.exceptions import ValidationException
 from base.models import Terminal
-from base.utils import get_logger, clear_phone, datetime_from_unix_timestamp_tz
+from base.utils import get_logger, clear_phone, datetime_from_unix_timestamp_tz, elastic_log
 from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
 from dss.Serializer import serializer
 from jwtauth.utils import datetime_to_timestamp
@@ -22,6 +22,7 @@ from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
+from parkpass_backend.settings import ES_APP_CARD_PAY_LOGS_INDEX_NAME
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED, \
     HomeBankPayment, PAYMENT_STATUS_CONFIRMED
 from payments.payment_api import TinkoffAPI
@@ -92,6 +93,7 @@ class RpsParkingSessionListUpdateView(SignedRequestAPIView):
 class GetParkingCardDebtMixin:
     validator_class = ParkingCardRequestBodyValidator
 
+    # @decorator_from_middleware(AllowCorsMiddleware)
     def post(self, request, *args, **kwargs):
         card_id = request.data["card_id"]
         parking_id = request.data["parking_id"]
@@ -111,6 +113,12 @@ class GetParkingCardDebtMixin:
                 response_dict["parking_name"] = rps_parking.parking.name
                 response_dict["parking_address"] = rps_parking.parking.address
                 response_dict["currency"] = rps_parking.parking.currency
+
+                elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Get parking card debt", {
+                    'response_dict': response_dict,
+                    'card_id': card_id,
+                    'parking_id': parking_id,
+                })
 
                 return JsonResponse(response_dict, status=200)
             else:
@@ -219,6 +227,13 @@ class AccountInitPayment(LoginRequiredAPIView):
             card_session.save()
 
             order.try_pay()
+
+            elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Account pay", {
+                'order': serializer(order),
+                'card_session': serializer(card_session),
+                'account': serializer(request.account, exclude_attr=("created_at", "sms_code", "password"))
+            })
+
             return JsonResponse({}, status=200)
 
         except ObjectDoesNotExist:
@@ -279,6 +294,14 @@ class InitPayDebtMixin:
                 card_session.state = STATE_INITED
                 card_session.save()
                 response_dict["payment_url"] = result["payment_url"]
+
+
+            elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Guest pay", {
+                'order': serializer(order),
+                'card_session': serializer(card_session),
+                'email': email,
+                'result': result
+            })
 
             return JsonResponse(response_dict, status=200)
 

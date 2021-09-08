@@ -9,6 +9,7 @@ from datetime import timedelta
 from hashlib import md5
 from io import BytesIO
 
+from django.core.validators import FileExtensionValidator
 from jose import jwt
 
 from PIL import Image
@@ -103,12 +104,15 @@ class BaseAccount(models.Model):
     last_name = models.CharField(max_length=63, null=True, blank=True)
     phone = models.CharField(max_length=15)
     sms_code = models.CharField(max_length=6, null=True, blank=True)
+    sms_verified = models.BooleanField(default=False)
     email = models.EmailField(null=True, blank=True)
     password = models.CharField(max_length=255, default="stub")
     email_confirmation = models.ForeignKey(EmailConfirmation, null=True,
                                            blank=True, on_delete=models.CASCADE)
     avatar = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateField(auto_now_add=True)
+    country = models.ForeignKey(to='base.Country',
+                                null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
         ordering = ["-id"]
@@ -194,6 +198,19 @@ class BaseAccount(models.Model):
                                 render_data)
         send_mail('Восстановление пароля', "", EMAIL_HOST_USER,
                   [str(self.email)], html_message=msg_html)
+    #
+    # def send_owner_password_mail(self, raw_password):
+    #     if not self.email:
+    #         return
+    #
+    #     render_data = {
+    #         "email": self.email,
+    #         "password": raw_password,
+    #     }
+    #     msg_html = render_to_string('emails/owner_created_send_password.html',
+    #                             render_data)
+    #     send_mail('Активация аккаунта', "", EMAIL_HOST_USER,
+    #               [str(self.email)], html_message=msg_html)
 
     def send_password_mail(self, raw_password):
         if not self.email:
@@ -246,8 +263,11 @@ class BaseAccount(models.Model):
 
     def get_or_create_jwt_for_zendesk(self, secret):
         timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
+        name = self.get_represent_name()
+        if not name:
+            name = 'ParkPass Клиент ' + str(self.id)
         payload = {
-            'name': self.get_represent_name(),
+            'name': name,
             'email': self.email,
             'external_id': "user_%s" % self.id,
             'iat': timestamp,
@@ -344,3 +364,18 @@ class BaseAccountIssue(models.Model):
         send_mail('Новое обращение в поддержу', "", EMAIL_HOST_USER,
                   ['%s' % str(email)], html_message=msg_html)
 
+
+class Country(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    slug = models.CharField(max_length=255)
+    code = models.SmallIntegerField()
+    flag_picture = models.FileField(validators=[FileExtensionValidator(['png', 'jpg', 'svg'])])
+    created_at = models.DateTimeField(auto_now_add=True, editable=True)
+
+    class Meta:
+        verbose_name = "country"
+        verbose_name_plural = "countries"
+
+    def __str__(self):
+        return '%s + %s' % (self.name, self.code)

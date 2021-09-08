@@ -6,6 +6,7 @@ import json
 # Django import
 from django.core.exceptions import ObjectDoesNotExist, ValidationError, FieldDoesNotExist
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
@@ -21,7 +22,7 @@ from parkpass_backend.settings import REQUESTS_LOGGER_NAME, PAGINATION_OBJECTS_P
 from partners.models import Partner
 
 from vendors.models import Vendor
-from .models import NotifyIssue
+from .models import NotifyIssue, Country
 
 _lookups = ('exact', 'iexact', 'contains', 'icontains', 'in', 'gt', 'lt', 'gte', 'lte', 'eq', 'ne'
                                                                                               'startswith',
@@ -493,3 +494,12 @@ class ObjectView(object):
         self.on_delete(request, obj)
         obj.delete()
         return JsonResponse({}, status=200)
+
+class GetAppUrlView(APIView):
+    def get(self, request):
+        return render(request, 'client_pages/check-mobile-for-app.html')
+
+class GetCountriesView(APIView):
+    def get(self, request):
+        countries = serializer(Country.objects.all(), exclude_attr=('created_at',))
+        return JsonResponse({"result": countries}, status=200)

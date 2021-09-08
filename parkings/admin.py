@@ -35,7 +35,7 @@ class ParkingSessionAdmin(admin.ModelAdmin):
 
     exclude_fields = ('created_at',)
 
-    readonly_fields = ('started_at', 'duration', 'extra_data', 'is_send_warning_non_closed_message')
+    readonly_fields = ('started_at', 'duration', 'extra_data', 'is_send_warning_non_closed_message', 'paid')
 
     def duration(self, obj):
         return "%d:%02d" % (obj.duration // 60, obj.duration % 60)

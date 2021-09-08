@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Parkpass App</title>
+</head>
+<body>
+<script>
+    var iOS = !window.MSStream && /iPad|iPhone|iPod/.test(navigator.userAgent)
+    var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+    if (iOS || isSafari) {
+        window.location.href = 'https://itunes.apple.com/ru/app/parkpass/id1397876828?mt=8'
+    } else {
+        window.location.href = 'https://play.google.com/store/apps/details?id=com.parkpass.app'
+    }
+</script>
+</body>
+</html>

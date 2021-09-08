@@ -31,7 +31,7 @@ class SMSProviderUnisender(SMSBaseProvider):
 
 
 class SMSProviderBeeline(SMSBaseProvider):
-    SEND_SMS_URL = "https://beeline.amega-inform.ru/sms_send/"
+    SEND_SMS_URL = "https://a2p-sms-https.beeline.ru/proto/http/"
 
     def __init__(self, conf):
         super(SMSProviderBeeline, self).__init__()
@@ -48,6 +48,18 @@ class SMSProviderBeeline(SMSBaseProvider):
             "message": self.message,
             "target": "+%s" % self.phone
         }
+
+        # удалить после смены смс сервера
+        requests.post(
+            'https://beeline.amega-inform.ru/sms_send/', data={
+                "user": 1659361,
+                "pass": 9661673802,
+                "action": "post_sms",
+                "message": self.message,
+                "target": "+%s" % self.phone
+            }, timeout=(connect_timeout, 10.0))
+        # удалить после смены смс сервера
+
         return requests.post(
             SMSProviderBeeline.SEND_SMS_URL, data=payload, timeout=(connect_timeout, 10.0))
 

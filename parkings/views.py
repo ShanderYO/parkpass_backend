@@ -14,6 +14,7 @@ from django.db import IntegrityError
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.utils.decorators import decorator_from_middleware
 from django.utils.encoding import escape_uri_path
 from django.views import View
 from dss.Serializer import serializer
@@ -22,17 +23,20 @@ from accounts.models import Account
 from accounts.tasks import generate_current_debt_order
 from base.exceptions import PermissionException
 from base.exceptions import ValidationException
-from base.utils import datetime_from_unix_timestamp_tz, parse_int, get_logger
+from base.utils import datetime_from_unix_timestamp_tz, parse_int, get_logger, elastic_log
 from base.views import generic_login_required_view, SignedRequestAPIView, APIView
+from middlewares.AllowCorsMiddleware import AllowCorsMiddleware
 from owners.models import Owner, OwnerApplication
 from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, SubscriptionsPayValidator
+from parkpass_backend.settings import ES_APP_SESSION_PAY_LOGS_INDEX_NAME, ES_APP_CARD_PAY_LOGS_INDEX_NAME, \
+    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED, \
     HomeBankPayment, PAYMENT_STATUSES
-from rps_vendor.models import RpsSubscription, RpsParking, RpsParkingCardSession
+from rps_vendor.models import RpsSubscription, RpsParking, RpsParkingCardSession, CARD_SESSION_STATES
 from vendors.models import Vendor, VendorNotification, VENDOR_NOTIFICATION_TYPE_SESSION_CREATED, \
     VENDOR_NOTIFICATION_TYPE_SESSION_COMPLETED
 
@@ -288,6 +292,7 @@ class GetParkingViewList(GetParkingViewListMixin, LoginRequiredAPIView):
 
 
 class GetAvailableParkingsView(APIView):
+    @decorator_from_middleware(AllowCorsMiddleware)
     def get(self, request):
         last_parking_id = parse_int(request.GET.get('last_parking_id', 0))
         if last_parking_id is None:
@@ -299,7 +304,7 @@ class GetAvailableParkingsView(APIView):
             parkings_list = serializer(Parking.objects.filter(approved=True),
                                        include_attr=('id', 'name', 'description', 'address',
                                                      'latitude', 'longitude', 'free_places', 'max_permitted_time',
-                                                     'currency', 'acquiring'))
+                                                     'currency', 'acquiring', 'rps_parking_card_available'))
             return JsonResponse({"result": parkings_list}, status=200)
 
 
@@ -426,6 +431,14 @@ class CreateParkingSessionView(SignedRequestAPIView):
                 type=VENDOR_NOTIFICATION_TYPE_SESSION_CREATED)
         except Exception as e:
             get_logger().info(str(e))
+
+        elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Start session by vendor", {
+            'parking_session': serializer(session),
+            'parking_id': parking_id,
+            'started_at': started_at,
+            'account': serializer(session.account, exclude_attr=("created_at", "sms_code", "password")),
+            'vendor_id': vendor_id
+        })
 
         return JsonResponse({}, status=200)
 
@@ -633,6 +646,14 @@ class CompleteParkingSessionView(SignedRequestAPIView):
         except Exception as e:
             get_logger().info(str(e))
 
+        elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Complete session by vendor", {
+            'parking_session': serializer(session),
+            'account': serializer(session.client, exclude_attr=("created_at", "sms_code", "password")),
+            'debt': debt,
+            'completed_at': completed_at,
+            'parking_id': parking_id
+        })
+
         return JsonResponse({}, status=200)
 
 
@@ -750,6 +771,11 @@ class SubscriptionsPayView(LoginRequiredAPIView):
                 idts=idts, id_transition=id_transition
             )
             subscription.create_order_and_pay()
+
+            elastic_log(ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME, "Subscription pay from mobile", {
+                'subscription': serializer(subscription),
+            })
+
             return JsonResponse({"subscription_id": subscription.id}, status=200)
 
         except ObjectDoesNotExist:
@@ -1130,7 +1156,7 @@ def exportParkingDataToExcel(request):
                     created_at__lte=date_to,
                 ).values_list(
                     'id', 'debt', 'account_id', 'created_at', 'from_datetime',
-                    'leave_at', 'duration', 'parking_card__card_id'
+                    'leave_at', 'duration', 'parking_card__card_id', 'state'
                 ))
                 rows = []
                 additional_fields_array = []
@@ -1140,7 +1166,7 @@ def exportParkingDataToExcel(request):
 
                 columns = [
                     'ID', 'Задолженность', 'ID клиента', 'Дата создания', 'Время заезда',
-                    'Время выезда', 'Продолжительность', 'Парковочная карта', 'ID ордера', 'ID Тинькоф Пеймента',
+                    'Время выезда', 'Продолжительность', 'Парковочная карта', 'Статус сессии', 'ID ордера', 'ID Тинькоф Пеймента', 'Статус оплаты',
                 ]
 
                 for col_num in range(len(columns)):
@@ -1207,11 +1233,17 @@ def exportParkingDataToExcel(request):
                             if row[col_num]:
                                 val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%H:%M:%S")
 
-                        if col_num == 10:
+                        if col_num == 8:
+                            if val:
+                                val = str(
+                                    next((x for x in CARD_SESSION_STATES
+                                          if x[0] == int(val)), ['', '-'])[1])
+
+                        if col_num == 11:
                             if val:
                                 val = str(
                                     next((x for x in PAYMENT_STATUSES
-                                          if x[0] == int(6)), ['', '-'])[1])
+                                          if x[0] == int(val)), ['', '-'])[1])
 
                         cwidth = ws.col(col_num).width
                         if (len(val) * 300) > cwidth:

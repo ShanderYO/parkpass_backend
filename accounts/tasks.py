@@ -133,24 +133,50 @@ def confirm_all_orders_if_needed(parking_session):
         logging.info("Wait vendor completing session")
 
 
-@app.task()
 def force_pay(parking_session_id):
+    get_logger().info('force_pay_start')
     try:
         active_session = ParkingSession.objects.get(id=parking_session_id)
         not_authorized_orders = Order.objects.filter(session=active_session, authorized=False)
+        not_paid_orders = Order.objects.filter(session=active_session, authorized=True, paid=False)
+
         if not_authorized_orders.exists():
+            get_logger().info('not_authorized_orders.exists()')
             for order in not_authorized_orders:
+                get_logger().info('order.try_pay()')
                 order.try_pay()
-        else:
-            not_paid_orders = Order.objects.filter(session=active_session, authorized=True, paid=False)
+        elif not_paid_orders.exists():
+            get_logger().info('not_paid_orders')
+            get_logger().info(not_paid_orders)
+
             for order in not_paid_orders:
                 if (order.acquiring == 'homebank'):
                     payments = HomeBankPayment.objects.filter(order=order)
+                    paid = False
+                    get_logger().info(payments)
+
                     for payment in payments:
                         if payment.status == PAYMENT_STATUS_AUTHORIZED:
                             order.confirm_payment_homebank(payment)
+                            paid = True
                             return
 
+                    if not paid:
+                        order.try_pay()
+                        get_logger().info('not paid')
+                        if (order.acquiring == 'homebank'):
+                            get_logger().info('force pay 1')
+                            payments = HomeBankPayment.objects.filter(order=order)
+                            for payment in payments:
+                                get_logger().info('force pay 2 - %s %s' % (payment.status, payment.payment_id))
+                                get_logger().info(payment.status == PAYMENT_STATUS_AUTHORIZED)
+                                get_logger().info(type(payment.status))
+                                get_logger().info(type(PAYMENT_STATUS_AUTHORIZED))
+
+                                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                                    get_logger().info('force pay 3')
+                                    order.confirm_payment_homebank(payment)
+                                    break
                 else:
                     payments = TinkoffPayment.objects.filter(order=order)
                     for payment in payments:
@@ -159,6 +185,59 @@ def force_pay(parking_session_id):
                             return
                     if payments.exists():
                         order.confirm_payment(payments[0])
+                    else:
+                        order.try_pay()
+                        get_logger().info('payments not exists()')
+                        if (order.acquiring == 'homebank'):
+                            get_logger().info('payments not exists | force pay close 1')
+                            payments = HomeBankPayment.objects.filter(order=order)
+                            for payment in payments:
+                                get_logger().info('payments not exists | force pay close 2 - %s %s' % (payment.status, payment.payment_id))
+                                get_logger().info(payment.status == PAYMENT_STATUS_AUTHORIZED)
+                                get_logger().info(type(payment.status))
+                                get_logger().info(type(PAYMENT_STATUS_AUTHORIZED))
+
+                                if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                                    get_logger().info('payments not exists | force pay close 3')
+                                    order.confirm_payment_homebank(payment)
+                                    break
+                        else:
+                            payments = TinkoffPayment.objects.filter(order=order)
+                            for payment in payments:
+                                if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                                    order.confirm_payment(payment)
+                                    break
+
+
+        else:
+            sum_to_pay = active_session.debt
+            new_order = Order.objects.create(
+                session=active_session,
+                sum=sum_to_pay,
+                acquiring=active_session.parking.acquiring)
+            new_order.try_pay()
+            get_logger().info('force pay close 0')
+
+            if (new_order.acquiring == 'homebank'):
+                get_logger().info('force pay close 1')
+                payments = HomeBankPayment.objects.filter(order=new_order)
+                for payment in payments:
+                    get_logger().info('force pay close 2 - %s %s' % (payment.status, payment.payment_id))
+                    get_logger().info(payment.status == PAYMENT_STATUS_AUTHORIZED)
+                    get_logger().info(type(payment.status))
+                    get_logger().info(type(PAYMENT_STATUS_AUTHORIZED))
+
+                    if payment.status == PAYMENT_STATUS_AUTHORIZED:
+                        get_logger().info('force pay close 3')
+                        new_order.confirm_payment_homebank(payment)
+                        break
+            else:
+                payments = TinkoffPayment.objects.filter(order=new_order)
+                for payment in payments:
+                    if payment.status in [PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED]:
+                        new_order.confirm_payment(payment)
+                        break
+                print(sum_to_pay)
 
     except ObjectDoesNotExist:
         pass

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-import datetime
 import json
 import logging
 import re
 import time
+import datetime
 
 import pytz
 from django.core.exceptions import ObjectDoesNotExist, FieldError
@@ -362,16 +362,17 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None,
 
 
 def elastic_log(index, message, data):
+    from datetime import datetime
 
     body_dict = {
-        "time": str(timezone.now()),
+        "timestamp": datetime.now(),
         "message": message,
         "data": data
     }
     try:
         es_client.index(
             index=index,
-            body=json.dumps(body_dict),
+            body=body_dict,
         )
     except Exception as e:
         get_logger(BASE_LOGGER_NAME).warning(str(e))

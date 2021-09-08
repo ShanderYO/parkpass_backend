@@ -9,13 +9,16 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.utils.decorators import decorator_from_middleware
 
+from accounts.sms_gateway import sms_sender
 from base.utils import get_logger, elastic_log
 from base.views import APIView
+from dss.Serializer import serializer
 from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from parkings.models import ParkingSession
 from parkpass_backend import settings
 from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME, EMAIL_HOST_USER, REQUESTS_LOGGER_NAME, \
-    EMAILS_HOST_ALERT
+    EMAILS_HOST_ALERT, ES_APP_SESSION_PAY_LOGS_INDEX_NAME, ES_APP_CARD_PAY_LOGS_INDEX_NAME, \
+    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
@@ -98,8 +101,16 @@ class TinkoffCallbackView(APIView):
 
             elif self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
+                order.session.paid += order.sum
+                order.session.save()
                 order.save()
                 self.close_parking_session_if_needed(order)
+
+            elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Payment callback for session", {
+                'parking_session': serializer(order.session),
+                'request_data': request.data,
+                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+            })
 
         elif self.is_account_credit_card_payment(order):
             rebill_id = int(request.data["RebillId"])
@@ -146,6 +157,10 @@ class TinkoffCallbackView(APIView):
                 order.paid = True
                 order.save()
 
+            elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Payment callback for card", {
+                'request_data': request.data,
+                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+            })
         elif self.is_parking_card_pay(order):
             get_logger().warn("is_parking_card_pay")
             if self.status == PAYMENT_STATUS_AUTHORIZED:
@@ -162,6 +177,11 @@ class TinkoffCallbackView(APIView):
                 order.paid = False
                 order.authorized = False
                 self.notify_refund_rps(order)  # TODO make async
+
+            elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Payment callback for card", {
+                'request_data': request.data,
+                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+            })
 
         elif self.is_subscription_pay(order):
             if self.status == PAYMENT_STATUS_AUTHORIZED:
@@ -182,6 +202,16 @@ class TinkoffCallbackView(APIView):
             else:
                 subs = order.subscription
                 subs.reset(error_message="Payment error")
+
+            elastic_log(ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME, "Payment callback for subscription", {
+                'request_data': request.data,
+                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+                'subs': serializer(subs,
+                                     include_attr=('id', 'name', 'description', 'sum', 'data', 'started_at',
+                                                   'expired_at', 'duration', 'prolongation', 'unlimited',
+                                                   'state', 'active', 'error_message',))
+            })
+
 
         else:
             get_logger().warn("Unknown successefull operation")
@@ -404,6 +434,11 @@ class TinkoffCallbackView(APIView):
                 get_logger().info("Close session... id=%s" % parking_session.id)
                 parking_session.state = ParkingSession.STATE_CLOSED
                 parking_session.save()
+
+                elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Close session after payment", {
+                    'parking_session': serializer(parking_session),
+                    'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+                })
 
     def confirm_order(self, order):
         payments = TinkoffPayment.objects.filter(order=order, error_code=-1)
@@ -689,17 +724,14 @@ class HomeBankCallbackView(APIView):
             payment = payments[0]
             payment.cancel_payment()
 
-def some_function_2(s):
-    print(3323)
-    int(s)
-
-def some_function():
-    some_function_2('asdad')
-    print(123123)
-
 class TestView(APIView):
 
     def get(self, request):
+        # from accounts.tasks import generate_current_debt_order, force_pay
+        # parking_session_id = 2954
+        # force_pay(parking_session_id)
+
+
         # payment = HomeBankPayment.objects.get(id=229)
         # receipt_data = json.loads(payment.receipt_data)
         # order = Order.objects.get(id=7230)
@@ -723,9 +755,18 @@ class TestView(APIView):
         #               [EMAIL_HOST_ALERT])
         #     logger.error(message)
 
+        # from parkpass_backend.celery import app
 
+        # remove pending tasks
+        # app.control.purge()
+        # elastic_log('my-test-logs',
+        #             "Категория 1",
+        #             {'mymessage': '123123123 teee', 'field2': '22'})
 
-        return HttpResponse('test21', status=200)
+        sms_sender.send_message('+79995352652',
+                                u"2 те 2 2")
+
+        return HttpResponse('test21 all is good', status=200)
 
     @decorator_from_middleware(ApiTokenMiddleware)
     def post(self, request):
@@ -775,9 +816,3 @@ class HomebankAcquiringResultPageSuccessView(APIView):
 class HomebankAcquiringResultPageErrorView(APIView):
     def get(self, request):
         return render(request, 'acquiring/error-page.html')
-
-
-class SendAppleVerifiFile(APIView):
-    def get(self, request):
-        content = open("apple-app-site-association.uu").read()
-        return HttpResponse(content, content_type='text/plain')

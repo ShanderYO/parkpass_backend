@@ -21,7 +21,8 @@ from django.utils.crypto import get_random_string
 from dss.Serializer import serializer
 
 from accounts.models import Account
-from base.utils import get_logger
+from base.utils import get_logger, elastic_log
+from parkpass_backend.settings import ES_APP_CARD_PAY_LOGS_INDEX_NAME
 from payments.models import Order
 
 
@@ -242,6 +243,11 @@ class RpsParkingCardSession(models.Model):
         mins = (self.duration - hours * 3600 - secs) / 60
         return "%02d:%02d:%02d" % (hours, mins, secs)
 
+
+    def get_parking (self):
+        from parkings.models import Parking
+        return Parking.objects.get(id=self.parking_id)
+
     def notify_authorize(self, order):
         self.state = STATE_AUTHORIZED
         self.save()
@@ -277,6 +283,13 @@ class RpsParkingCardSession(models.Model):
                 order.parking_card_session.save()
             else:
                 get_logger().info("Get `leave_at` is None from RPS")
+
+            elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
+                'rps_request_data': leave_at,
+                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+                'payload': payload
+            })
+
             return True
 
         except ObjectDoesNotExist:

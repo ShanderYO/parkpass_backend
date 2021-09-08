@@ -5,6 +5,7 @@ from django.http import JsonResponse
 # Create your views here.
 from django.utils import timezone
 
+from base.models import Country
 from dss.Serializer import serializer
 
 from accounts.models import Account
@@ -23,6 +24,8 @@ class PhoneLoginView(APIView):
 
     def post(self, request):
         phone = clear_phone(request.data["phone"])
+        country_id = request.data.get("country_id", None)
+
         success_status = 200
 
         if Account.objects.filter(phone=phone).exists():
@@ -31,6 +34,11 @@ class PhoneLoginView(APIView):
             account = Account(phone=phone)
             success_status = 201
 
+        if country_id:
+            country = Country.objects.get(id=country_id)
+            if country:
+                account.country = country
+        account.sms_verified = False
         account.create_sms_code(stub=(phone == "77891234560"))
         account.save()
 
@@ -65,6 +73,9 @@ class ConfirmPhoneLoginView(APIView):
                 # Prolong session
                 session.expires_at = None
                 session.save()
+
+            user.sms_verified = True
+            user.save()
 
             response_dict = serializer(session, include_attr=("refresh_token", 'expires_at',))
             response_dict["access_token"] = session.update_access_token(group=Groups.BASIC)

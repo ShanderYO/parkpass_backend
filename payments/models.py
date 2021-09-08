@@ -377,6 +377,19 @@ class Order(models.Model):
                 }]
             )
 
+    def get_payment_description(self):
+        if self.subscription:
+           return 'Оплата абонемента, %s' % self.subscription.parking.name
+
+        if self.parking_card_session or self.client_uuid:
+            parking = self.parking_card_session.get_parking()
+            return 'Оплата паркочной карты, %s' % parking.name
+
+        if self.session is None:
+            return 'Привязка карты'
+
+        return "Оплата парковочной сессии, %s" % self.session.parking.name
+
     def is_refunded(self):
         return self.refunded_sum == self.sum
 
@@ -834,7 +847,7 @@ class TinkoffPayment(models.Model):
         data = {
             "Amount": str(amount),
             "OrderId": str(self.order.id),
-            "Description": "Платеж #%s" % str(self.order.id),
+            "Description": self.order.get_payment_description(),
             "CustomerKey": str(customer_key)
         }
         if self.receipt_data:
@@ -857,7 +870,7 @@ class TinkoffPayment(models.Model):
         data = {
             "Amount": str(amount),
             "OrderId": str(self.order.id),
-            "Description": "Платеж #%s" % str(self.order.id)
+            "Description": self.order.get_payment_description()
         }
         if self.receipt_data:
             data["Receipt"] = self.receipt_data

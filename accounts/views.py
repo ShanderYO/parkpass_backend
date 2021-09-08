@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import base64
+from datetime import datetime
 from decimal import Decimal
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -21,16 +22,17 @@ from accounts.validators import LoginParamValidator, ConfirmLoginParamValidator,
     EmailAndPasswordValidator, ExternalLoginValidator, UsersLogValidator
 from base.exceptions import AuthException, ValidationException, PermissionException, PaymentException
 from base.models import EmailConfirmation
-from base.utils import clear_phone
+from base.utils import clear_phone, elastic_log
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView, ObjectView, SignedRequestAPIView
 from owners.models import OwnerIssue, Owner
 from parkings.models import ParkingSession, Parking
 from parkpass_backend.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET, \
-    ES_APP_BLUETOOTH_LOGS_INDEX_NAME
+    ES_APP_BLUETOOTH_LOGS_INDEX_NAME, ES_APP_ENTER_APP_LOGS_INDEX_NAME, \
+    ES_APP_SESSION_PAY_LOGS_INDEX_NAME
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
-from rps_vendor.models import RpsSubscription
+from rps_vendor.models import RpsSubscription, RpsParkingCardSession
 
 from accounts.sms_gateway import sms_sender
 
@@ -169,6 +171,7 @@ class LoginView(APIView):
             success_status = 201
 
         account.create_sms_code(stub=(phone == "77891234560"))
+        account.sms_verified = False
         account.save()
 
         # Send sms
@@ -190,6 +193,8 @@ class ConfirmLoginView(APIView):
         sms_code = request.data["sms_code"]
         try:
             account = Account.objects.get(sms_code=sms_code)
+            account.sms_verified = True
+            account.save()
             account.login()
             session = account.get_session()
             return JsonResponse(serializer(session, exclude_attr=("created_at",)))
@@ -280,6 +285,8 @@ class AccountView(LoginRequiredAPIView):
         else:
             account_dict["avatar"] = request.get_host() + DEFAULT_AVATAR_URL
 
+        elastic_log(ES_APP_ENTER_APP_LOGS_INDEX_NAME, "Online", account_dict)
+
         return JsonResponse(account_dict, status=200)
 
     def post(self, request):
@@ -358,6 +365,142 @@ class AccountParkingListView(LoginRequiredAPIView):
             response["next"] = str(data[self.max_paginate_length - 1]["id"])
         return JsonResponse(response)
 
+class AccountParkingAllHistoryView(LoginRequiredAPIView):
+# class AccountParkingAllHistoryView(APIView):
+    max_paginate_length = 10
+    max_select_time_interval = 366 * 24 * 60 * 60 # 1 year
+
+    def get(self, request, *args, **kwargs):
+        from_date = parse_int(request.GET.get("from_date", None))
+        to_date = parse_int(request.GET.get("to_date", None))
+        client_id = request.account.id
+        # client_id = 100000000000000003
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) > self.max_select_time_interval:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Max time interval exceeded. Max value %s, accepted %s" % (self.max_select_time_interval,
+                                                                               (to_date-from_date))
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        parking_result_query = ParkingSession.objects.filter(
+            Q(client_id=client_id, state__lte=0) | Q(client_id=client_id, is_suspended=True))\
+            .select_related("parking")
+
+        subscription_qs = RpsSubscription.objects.filter(
+            account_id=client_id
+        ).select_related('parking')
+
+
+        parkingcard_session_result_query = RpsParkingCardSession.objects.filter(
+            account_id=client_id
+        )
+
+
+        if from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+
+            parking_result_query = parking_result_query.filter(
+                created_at__gt=from_date_datetime, created_at__lt=to_date_datetime).order_by("-id")
+            subscription_qs.filter(
+                started_at__gt=from_date_datetime, started_at__lt=to_date_datetime).order_by("-id")
+            parkingcard_session_result_query.filter(
+                created_at__gt=from_date_datetime, created_at__lt=to_date_datetime).order_by("-id")
+
+        # object_list = result_query[:self.max_paginate_length]
+        # object_list = parking_result_query
+
+        parking_data = serializer(parking_result_query, foreign=False, exclude_attr=("session_id", "extra_data", "client_id",
+                                                                    "parking_id", "created_at"))
+
+        for index, obj in enumerate(parking_result_query):
+            parking_dict = {
+                "id": obj.parking.id,
+                "name": obj.parking.name,
+                "address": obj.parking.address
+            }
+            parking_data[index]["parking"] = parking_dict
+            parking_data[index]["item_type"] = 'session'
+            parking_data[index]["date_for_order"] = obj.created_at
+
+            order = Order.objects.filter(session_id=obj.id, paid=True).select_related(
+                'fiscal_notification').first()
+            if order:
+                parking_data[index]["payment_time"] = order.created_at
+                parking_data[index]["fiskal"] = serializer(
+                    order.fiscal_notification, include_attr=('id', 'url'))
+            else:
+                parking_data[index]["payment_time"] = None
+                parking_data[index]["fiskal"] = None
+
+
+
+        serialized_subs = serializer(subscription_qs,
+                                     include_attr=('id', 'name', 'description', 'sum', 'data', 'started_at',
+                                                   'expired_at', 'duration', 'prolongation', 'unlimited',
+                                                   'state', 'active', 'error_message',))
+        for index, sub in enumerate(subscription_qs):
+            serialized_subs[index]["parking"] = serializer(
+                sub.parking, include_attr=('id', 'name', 'description', 'address'))
+            serialized_subs[index]["item_type"] = 'subscription'
+            serialized_subs[index]["date_for_order"] = sub.started_at
+            order = Order.objects.filter(subscription_id=sub.id, paid=True).select_related('fiscal_notification').first()
+            if order:
+                serialized_subs[index]["payment_time"] = order.created_at
+                serialized_subs[index]["fiskal"] = serializer(
+                    order.fiscal_notification, include_attr=('id', 'url'))
+            else:
+                serialized_subs[index]["payment_time"] = None
+                serialized_subs[index]["fiskal"] = None
+
+        parkingcard_session_data = serializer(parkingcard_session_result_query)
+
+        for index, obj in enumerate(parkingcard_session_result_query):
+            parkingcard_session_data[index]["item_type"] = 'parking_card_session'
+            parkingcard_session_data[index]["date_for_order"] = obj.created_at
+
+            parkingcard_session_data[index]["parking"] = serializer(
+                Parking.objects.get(id=obj.parking_id), include_attr=('id', 'name', 'description', 'address'))
+
+            order = Order.objects.filter(parking_card_session_id=obj.id, paid=True).select_related(
+                'fiscal_notification').first()
+            if order:
+                parkingcard_session_data[index]["payment_time"] = order.created_at
+                parkingcard_session_data[index]["fiskal"] = serializer(
+                    order.fiscal_notification, include_attr=('id', 'url'))
+            else:
+                parkingcard_session_data[index]["payment_time"] = None
+                parkingcard_session_data[index]["fiskal"] = None
+
+        array = parking_data + serialized_subs + parkingcard_session_data
+
+        array = sorted(
+            array,
+            key=lambda x: x['date_for_order'].strftime('%s'), reverse=True
+        )
+
+        response = {
+            "result": array
+        }
+
+        return JsonResponse(response)
 
 class DebtParkingSessionView(LoginRequiredAPIView):
     def get(self, request):
@@ -367,6 +510,12 @@ class DebtParkingSessionView(LoginRequiredAPIView):
             orders = Order.objects.filter(session=current_parking_session)
             orders_dict = serializer(orders, foreign=False, include_attr=("id", "sum", "authorized", "paid"))
             debt_dict["orders"] = orders_dict
+
+            elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Get debt", {
+                'debt_dict': serializer(debt_dict),
+                'account': serializer(request.account, exclude_attr=("created_at", "sms_code", "password"))
+            })
+
             return JsonResponse(debt_dict, status=200)
         else:
             return JsonResponse({}, status=200)
@@ -518,12 +667,13 @@ class ForcePayView(LoginRequiredAPIView):
     validator_class = IdValidator
 
     def post(self, request):
-        id = int(request.data["id"])
+        parking_session_id = int(request.data["id"])
         try:
-            ParkingSession.objects.get(id=id)
+            parking_session = ParkingSession.objects.get(id=parking_session_id)
             # Create payment order and pay
-            force_pay.delay(id)
-
+            if parking_session_id:
+                get_logger().info("try force_pay.delay id - %s" % parking_session_id)
+                force_pay(parking_session_id)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -539,9 +689,12 @@ class AddCardView(LoginRequiredAPIView):
         acquiring = 'tinkoff'
 
         geo = request.POST.get("geo", False)
-
-        if request.account.phone[1:6] == "WWW98181" or request.account.phone[1:4] in ["700", "701", "702", "703", "704", "705", "706", "707", "708", "709", "747", "750", "751", "760", "761", "762", "763", "764", "771", "775", "776", "777", "778"]:
-            acquiring = 'homebank'
+        if request.account.country:
+            if request.account.country.slug == 'kz':
+                acquiring = 'homebank'
+        else:
+            if request.account.phone[1:6] == "WWW98181" or request.account.phone[1:4] in ["700", "701", "702", "703", "704", "705", "706", "707", "708", "709", "747", "750", "751", "760", "761", "762", "763", "764", "771", "775", "776", "777", "778"]:
+                acquiring = 'homebank'
 
         result_dict = CreditCard.bind_request(request.account, acquiring=acquiring)
         # If error request
@@ -731,6 +884,14 @@ class StartParkingSession(LoginRequiredAPIView):
                 started_at=utc_started_at
             )
             parking_session.save()
+
+            elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Start session", {
+                'parking_session': serializer(parking_session),
+                'parking_id': parking_id,
+                'started_at': started_at,
+                'account': serializer(request.account, exclude_attr=("created_at", "sms_code", "password"))
+            })
+
             return JsonResponse({"id": parking_session.id}, status=200)
 
 
@@ -840,6 +1001,14 @@ class CompleteParkingSession(LoginRequiredAPIView):
                     new_order.try_pay()
             # end holding
 
+            elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Complete session", {
+                'parking_session': serializer(parking_session),
+                'account': serializer(request.account, exclude_attr=("created_at", "sms_code", "password")),
+                'sum_to_pay': sum_to_pay,
+                'completed_at': completed_at,
+                'parking_id': parking_id
+            })
+
             parking_session.save()
 
         except ObjectDoesNotExist:
@@ -878,6 +1047,10 @@ class ZendeskUserJWTMobileView(View):
 
         if account:
             jwt_token = account.get_or_create_jwt_for_zendesk(ZENDESK_MOBILE_SECRET)
+
+            get_logger().info("ZendeskUserJWTMobileView JWT SEND")
+            get_logger().info(jwt_token)
+
             return JsonResponse({"jwt": jwt_token})
         else:
             return HttpResponse("User is not found", status=400)
@@ -1032,15 +1205,20 @@ class WriteUsersLogsView(APIView):
         user_id = int(request.data["user_id"])
         logs = request.data["logs"]
 
-        for item in logs:
-            _id = item.pop("id")
-            item["user_id"] = user_id
-
-            es_client.index(
-                index=ES_APP_BLUETOOTH_LOGS_INDEX_NAME,
-                id=_id,
-                body=item
-            )
+        elastic_log(ES_APP_BLUETOOTH_LOGS_INDEX_NAME, "Mobile app logs", {
+           'logs': logs,
+           'user_id': user_id
+        })
+        #
+        # for item in logs:
+        #     _id = item.pop("id")
+        #     item["user_id"] = user_id
+        #
+        #     es_client.index(
+        #         index=ES_APP_BLUETOOTH_LOGS_INDEX_NAME,
+        #         id=_id,
+        #         body=item
+        #     )
 
         get_logger().info("Write user logs " + str(user_id))
         # get_logger().info(str(logs))
