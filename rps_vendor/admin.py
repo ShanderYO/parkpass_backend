@@ -38,7 +38,7 @@ class RpsParkingCardSessionAdmin(admin.ModelAdmin):
 
 @admin.register(RpsSubscription)
 class RpsSubscriptionAdmin(admin.ModelAdmin):
-    search_fields = ('name', 'parking', 'account',)
+    search_fields = ('name', 'account__id',)
 
     list_filter = ('started_at', 'expired_at', 'parking',)
 
