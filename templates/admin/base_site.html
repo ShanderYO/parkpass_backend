@@ -9,12 +9,14 @@
 
 {% block nav-global %}
 
-    <div class="button xml-export-btn">Сформировать отчет</div>
-    <div class="xml-export">
+    <div class="button header-btn" id="xml-export-btn">Сформировать отчет</div>
+{#    <div class="button header-btn" id="push-dialog-btn">Пуш рассылка</div>#}
+
+    <div class="popup-dialog" id="xml-export">
         <form class="xml-export__inner" action="/api/v1/parking/export/xls">
             <input type="hidden" name="object_name" value="">
             <input type="hidden" name="report_name" value="Сессии">
-            <div class="xml-export__close">
+            <div class="popup-dialog__close">
                 <svg viewBox="0 0 329.26933 329" xmlns="http://www.w3.org/2000/svg">
                     <path d="m194.800781 164.769531 128.210938-128.214843c8.34375-8.339844 8.34375-21.824219 0-30.164063-8.339844-8.339844-21.824219-8.339844-30.164063 0l-128.214844 128.214844-128.210937-128.214844c-8.34375-8.339844-21.824219-8.339844-30.164063 0-8.34375 8.339844-8.34375 21.824219 0 30.164063l128.210938 128.214843-128.210938 128.214844c-8.34375 8.339844-8.34375 21.824219 0 30.164063 4.15625 4.160156 9.621094 6.25 15.082032 6.25 5.460937 0 10.921875-2.089844 15.082031-6.25l128.210937-128.214844 128.214844 128.214844c4.160156 4.160156 9.621094 6.25 15.082032 6.25 5.460937 0 10.921874-2.089844 15.082031-6.25 8.34375-8.339844 8.34375-21.824219 0-30.164063zm0 0"/>
                 </svg>
@@ -49,19 +51,38 @@
                     <option value="card">Парковочной карты</option>
                 </select>
             </div>
-            <input class=" xml-export__submit" type="submit" value="Загрузить" name="Загрузить">
+            <input class="popup-dialog__submit" type="submit" value="Загрузить" name="Загрузить">
         </form>
     </div>
 
+    <div class="popup-dialog" id="push-dialog">
+        <form class="xml-export__inner" action="/api/v1/parking/push-notifications">
+            <div class="popup-dialog__close">
+                <svg viewBox="0 0 329.26933 329" xmlns="http://www.w3.org/2000/svg">
+                    <path d="m194.800781 164.769531 128.210938-128.214843c8.34375-8.339844 8.34375-21.824219 0-30.164063-8.339844-8.339844-21.824219-8.339844-30.164063 0l-128.214844 128.214844-128.210937-128.214844c-8.34375-8.339844-21.824219-8.339844-30.164063 0-8.34375 8.339844-8.34375 21.824219 0 30.164063l128.210938 128.214843-128.210938 128.214844c-8.34375 8.339844-8.34375 21.824219 0 30.164063 4.15625 4.160156 9.621094 6.25 15.082032 6.25 5.460937 0 10.921875-2.089844 15.082031-6.25l128.210937-128.214844 128.214844 128.214844c4.160156 4.160156 9.621094 6.25 15.082032 6.25 5.460937 0 10.921874-2.089844 15.082031-6.25 8.34375-8.339844 8.34375-21.824219 0-30.164063zm0 0"/>
+                </svg>
+            </div>
+            <div class="xml-export__field">
+                <p>Заголовок:</p>
+                <input type="text" name="title">
+            </div>
+            <div class="xml-export__field">
+                <p>Текст:</p>
+                <textarea name="text" id="" cols="30" rows="10"></textarea>
+            </div>
+            
+            <input class="popup-dialog__submit" type="submit" value="Отправить" name="Отправить">
+        </form>
+    </div>
 
     <style>
-        .xml-export-btn {
+        .header-btn {
             display: inline-block;
             line-height: 8px;
             transform: translateY(1px);
         }
 
-        .xml-export {
+        .popup-dialog {
             position: fixed;
             left: 0;
             right: 0;
@@ -78,7 +99,7 @@
             transition: .3s;
         }
 
-        .xml-export--open {
+        .popup-dialog--open {
             opacity: 1;
             pointer-events: all;
         }
@@ -110,19 +131,23 @@
         .xml-export__dates-item {
             margin-right: 10px;
         }
+        .xml-export__field textarea {
+            width: -webkit-fill-available;
+            resize: none;
+        }
 
-        .xml-export__close {
+        .popup-dialog__close {
             position: absolute;
             right: 20px;
             top: 10px;
             cursor: pointer;
         }
 
-        .xml-export__close svg {
+        .popup-dialog__close svg {
             width: 15px;
         }
 
-        .xml-export__submit {
+        .popup-dialog__submit {
             margin-top: auto;
             margin-left: auto;
         }
@@ -142,11 +167,14 @@
             console.log($(this).find('option:selected').text())
             $('[name="report_name"]').val($(this).find('option:selected').text())
         })
-        $('.xml-export-btn').click(function () {
-            $('.xml-export').addClass('xml-export--open')
+        $('#xml-export-btn').click(function () {
+            $('#xml-export').addClass('popup-dialog--open')
         })
-        $('.xml-export__close').click(function () {
-            $('.xml-export').removeClass('xml-export--open')
+        $('#push-dialog-btn').click(function () {
+            $('#push-dialog').addClass('popup-dialog--open')
+        })
+        $('.popup-dialog__close').click(function () {
+            $('.popup-dialog').removeClass('popup-dialog--open')
         })
     </script>
 {% endblock %}

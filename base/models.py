@@ -113,6 +113,7 @@ class BaseAccount(models.Model):
     created_at = models.DateField(auto_now_add=True)
     country = models.ForeignKey(to='base.Country',
                                 null=True, blank=True, on_delete=models.SET_NULL)
+    email_fiskal_notification_enabled = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["-id"]

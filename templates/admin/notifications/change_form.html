@@ -1,0 +1,57 @@
+{% extends "admin/change_form.html" %}
+{% load util %}
+{% load i18n admin_urls %}
+{% block object-tools-items %}
+    <li>
+        <a href="{% url opts|admin_urlname:'history' original.pk|admin_urlquote %}"
+           class="historylink">{% trans "History" %}</a>
+    </li>
+    {% if original|isMailingPage and not original.sended_at %}
+        <li>
+            <a href="#" id="start-mailing" data-id="{{ original.pk }}" class="historylink popup-with-form">Запустить рассылку</a>
+        </li>
+    {% endif %}
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <script>
+        $('#start-mailing').click(e => {
+
+            e.preventDefault()
+            e.stopPropagation()
+
+            var title = $('#id_title').val()
+            var text = $('#id_text').val()
+            var id = $('#start-mailing').attr('data-id')
+
+            if (!title || !text) {
+                alert('Заполните поля')
+                return
+            }
+            $('body').addClass('loading')
+
+            $.get('/api/v1/parking/push-notifications/', { title, text, id })
+              .done(function() {
+                alert("Готово");
+                location.reload();
+              })
+              .fail(function() {
+                alert("error");
+              })
+              .always(function() {
+                  $('body').removeClass('loading')
+              });
+
+            alert('Рассылка запущена, пожалуйста подождите')
+
+
+        })
+    </script>
+
+    <style>
+        .loading * {
+            cursor: wait !important;
+        }
+    </style>
+
+{% endblock %}

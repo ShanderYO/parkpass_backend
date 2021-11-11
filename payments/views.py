@@ -18,14 +18,14 @@ from parkings.models import ParkingSession
 from parkpass_backend import settings
 from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME, EMAIL_HOST_USER, REQUESTS_LOGGER_NAME, \
     EMAILS_HOST_ALERT, ES_APP_SESSION_PAY_LOGS_INDEX_NAME, ES_APP_CARD_PAY_LOGS_INDEX_NAME, \
-    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME
+    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME, BASE_DOMAIN
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
     PAYMENT_STATUS_PREPARED_AUTHORIZED, HomeBankPayment, HomeBankFiskalNotification
 from payments.payment_api import TinkoffAPI, HomeBankOdfAPI
 
-from payments.tasks import start_cancel_request, make_buy_subscription_request
+from payments.tasks import start_cancel_request, make_buy_subscription_request, create_screenshot
 import requests
 
 
@@ -305,6 +305,10 @@ class TinkoffCallbackView(APIView):
         if (check_url_request):
             fiskal.url = "https://consumer.1-ofd.ru/v1?%s" % check_url_request['ticket']['qrCode']
             fiskal.save()
+            account = order.get_account()
+            if account and account.email_fiskal_notification_enabled and account.email:
+                create_screenshot.delay(fiskal.url, str(account.id) + str(order.id), account.email)
+                pass
 
         order.fiscal_notification = fiskal
         order.save()
@@ -763,8 +767,27 @@ class TestView(APIView):
         #             "Категория 1",
         #             {'mymessage': '123123123 teee', 'field2': '22'})
 
-        sms_sender.send_message('+79995352652',
-                                u"2 те 2 2")
+        # sms_sender.send_message('+79995352652',
+        #                         u"2 те 2 2")
+        # from firebase_admin.messaging import Message, Notification
+        # Message(
+        #     notification=Notification(title="title", body="text", image="url"),
+        #     topic="Optional topic parameter: Whatever you want",
+        # )
+        # from notifications.models import AccountDevice
+        # qs = AccountDevice.objects.filter(account_id=100000000000001132)
+        # for account_device in qs:
+        #     print('lalala')
+        #     account_device.send_message(title='Здарова друга', body='Привет')
+        import asyncio
+        # from utils.screenshot import create_screenshot
+        # create_screenshot('https://consumer.1-ofd.ru/ticket?t=20211008T1607&s=200.00&fn=9287440300256165&i=7080&fp=1774076369&n=1', 'ыыыы')
+        # from payments.tasks import  create_screenshot
+        # create_screenshot.delay('https://consumer.1-ofd.ru/ticket?t=20211008T1607&s=200.00&fn=9287440300256165&i=7080&fp=1774076369&n=1', 'ыыыы')
+        from django.template.loader import render_to_string
+        msg_html = render_to_string('emails/fiskal_notification.html', {'link': 'http://adasd.asd', 'image': 'https://%s/api/media/fiskal/ыыыы.png' % BASE_DOMAIN})
+        send_mail('Чек об операции. ParkPass', "", EMAIL_HOST_USER,
+                  ['lokkomokko1@gmail.com'], html_message=msg_html)
 
         return HttpResponse('test21 all is good', status=200)
 

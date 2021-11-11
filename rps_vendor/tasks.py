@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import traceback
@@ -7,7 +8,9 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from django.utils import timezone
 
+from accounts.models import Account
 from base.utils import get_logger
+from notifications.models import AccountDevice
 from parkings.models import ParkingSession, Parking
 from parkpass_backend.celery import app
 from rps_vendor.models import RpsParking, RpsSubscription
@@ -124,3 +127,40 @@ def prolong_subscription_sheduler():
     )
     for subscription in active_subscription:
         subscription.check_prolong_payment()
+
+
+@app.task()
+def send_push_notifications_about_subscription():
+    get_logger().info("send_push_notifications_about_subscription")
+    date_to_separate_old_subscriptions = datetime.datetime.strptime('20-10-2021', "%d-%m-%Y")
+    date_to_detect_soon_expired_subs = datetime.datetime.today() - datetime.timedelta(days=7)
+    soon_expired_subscriptions = RpsSubscription.objects.filter(
+        active=True,
+        expired_at__lt=timezone.now(),
+        expired_at__gt=date_to_detect_soon_expired_subs,
+        started_at__gt=date_to_separate_old_subscriptions,
+        push_notified_about_soon_expired=False,
+        push_notified_about_expired=False
+    )
+    for subscription in soon_expired_subscriptions:
+        if subscription.account:
+            device_for_push_notification = AccountDevice.objects.first(account=subscription.account, active=True)
+            if device_for_push_notification:
+                device_for_push_notification.send_message(title='Оповещение ParkPass', body='Ваш абонемент %s заканчивается через 7 дней' % subscription.name)
+        subscription.push_notified_about_soon_expired = True
+        subscription.save()
+
+    expired_subscriptions = RpsSubscription.objects.filter(
+        active=True,
+        expired_at__gt=datetime.datetime.now(),
+        started_at__gt=date_to_separate_old_subscriptions,
+        push_notified_about_expired=False
+    )
+
+    for subscription in expired_subscriptions:
+        if subscription.account:
+            device_for_push_notification = AccountDevice.objects.first(account=subscription.account, active=True)
+            if device_for_push_notification:
+                device_for_push_notification.send_message(title='Оповещение ParkPass', body='Ваш абонемент %s закончился' % subscription.name)
+        subscription.push_notified_about_expired = True
+        subscription.save()

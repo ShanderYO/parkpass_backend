@@ -26,6 +26,7 @@ from base.exceptions import ValidationException
 from base.utils import datetime_from_unix_timestamp_tz, parse_int, get_logger, elastic_log
 from base.views import generic_login_required_view, SignedRequestAPIView, APIView
 from middlewares.AllowCorsMiddleware import AllowCorsMiddleware
+from notifications.models import AccountDevice
 from owners.models import Owner, OwnerApplication
 from parkings.models import Parking, ParkingSession, ComplainSession, Wish
 from parkings.tasks import process_updated_sessions
@@ -282,7 +283,7 @@ class GetParkingViewListMixin:
         response_dict = dict()
         response_dict["result"] = serializer(
             parking_list, include_attr=("id", "name", "latitude",
-                                        "longitude", "free_places", "approved",)
+                                        "longitude", "free_places", "approved", 'address')
         )
         return JsonResponse(response_dict, status=200)
 
@@ -431,6 +432,11 @@ class CreateParkingSessionView(SignedRequestAPIView):
                 type=VENDOR_NOTIFICATION_TYPE_SESSION_CREATED)
         except Exception as e:
             get_logger().info(str(e))
+
+            # Событие въезда
+        device_for_push_notification = AccountDevice.objects.first(account=request.account, active=True)
+        if device_for_push_notification:
+            device_for_push_notification.send_message(title='Оповещение ParkPass', body='Въезд')
 
         elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Start session by vendor", {
             'parking_session': serializer(session),

@@ -4,6 +4,7 @@ import time
 import uuid
 from decimal import Decimal
 
+import requests
 from dateutil import parser
 from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist
@@ -19,6 +20,7 @@ from base.views import SignedRequestAPIView, APIView, LoginRequiredAPIView
 from dss.Serializer import serializer
 from jwtauth.utils import datetime_to_timestamp
 from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
+from notifications.models import AccountDevice, Mailing
 from parkings.models import Parking
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
@@ -776,3 +778,40 @@ class RpsCreateOrGetAccount(SignedRequestAPIView):
             "is_new_user": is_new_user,
             "data": subscription_data
         })
+
+
+def send_push_notifications(request):
+    if request.user.is_superuser:
+
+        title = request.GET.get('title', None)
+        text = request.GET.get('text', None)
+        id = request.GET.get('id', None)
+        mailing = Mailing.objects.get(id=id)
+
+        if title and text and mailing:
+            qs = AccountDevice.objects.filter(active=True)
+            for account_device in qs:
+                account_device.send_message(title=title, body=text)
+
+            mailing.sended_at = timezone.now()
+            mailing.save()
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
+
+
+    return HttpResponse("Fail", status=400)
+
+def check_remote_network(request):
+    if request.user.is_superuser:
+
+        url = request.GET.get('url', None)
+
+        r = requests.get(url, timeout=(2, 5.0))
+        try:
+            result = r.json()
+            return JsonResponse(result, status=200)
+
+        except Exception as e:
+            return HttpResponse(str(e) + url, status=400)
+
+
+    return HttpResponse("Fail", status=400)

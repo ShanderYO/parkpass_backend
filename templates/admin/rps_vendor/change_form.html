@@ -11,6 +11,11 @@
             <a href="#form" class="historylink popup-with-form">Сбросить API Key</a>
         </li>
     {% endif %}
+    {% if original|isRpsParking %}
+        <li>
+            <a href="#" id="check-network" class="historylink">Проверка соединения</a>
+        </li>
+    {% endif %}
 
 
 <script
@@ -53,6 +58,18 @@
                     }
                 }
             });
+            $('#check-network').click(function (e) {
+                e.preventDefault()
+                e.stopPropagation()
+                var url = $('#id_request_update_url').val().replace('/ppcalc', '')
+                $.get('/api/v1/parking/check-remote-network/', {url: url + '/systemtime'})
+                .done(function(res) {
+                    alert(JSON.stringify(res))
+                  })
+                  .fail(function() {
+                    alert('Соединение отсутствует')
+                  })
+            })
         });
     </script>
     <style>

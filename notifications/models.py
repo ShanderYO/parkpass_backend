@@ -15,3 +15,13 @@ class AccountDevice(FCMDevice):
     class Meta:
         verbose_name = 'Device'
         verbose_name_plural = 'Devices'
+
+
+class Mailing(models.Model):
+    title = models.CharField(max_length=360)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    sended_at = models.DateTimeField(null=True, blank=True)
+    user_type = models.CharField(max_length=10, choices=(
+        ('all', "all"),
+    ), default='all')

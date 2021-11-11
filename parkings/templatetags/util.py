@@ -3,15 +3,20 @@ import base64
 from django import template
 
 from accounts.models import Account
+from notifications.models import Mailing
 from parkings.models import ParkingSession, Parking
 from payments.models import TinkoffPayment, Order, HomeBankPayment, CreditCard
-from rps_vendor.models import Developer, RpsSubscription, RpsParkingCardSession
+from rps_vendor.models import Developer, RpsSubscription, RpsParkingCardSession, RpsParking
 from django.utils.html import escape
 register = template.Library()
 
 @register.filter
 def isDeveloperPage(original):
     return isinstance(original, Developer)
+
+@register.filter
+def isRpsParking(original):
+    return isinstance(original, RpsParking)
 
 @register.filter
 def isParkingSessionPage(original):
@@ -33,6 +38,9 @@ def isRpsParkingCardSessionPage(original):
 def isAccountPage(original):
     return isinstance(original, Account)
 
+@register.filter
+def isMailingPage(original):
+    return isinstance(original, Mailing)
 
 @register.inclusion_tag('tags/orderAndPayments.html')
 def show_session_order_and_payments(original):

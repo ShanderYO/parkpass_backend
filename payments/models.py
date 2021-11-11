@@ -18,11 +18,14 @@ from dss.Serializer import serializer
 from accounts.models import Account
 from base.models import Terminal
 from base.utils import get_logger, elastic_log
+from notifications.models import AccountDevice
 from parkpass_backend import settings
 from parkpass_backend.settings import EMAIL_HOST_USER, PARKPASS_INN, ES_APP_PAYMENTS_LOGS_INDEX_NAME, ACQUIRING_LIST, \
     REQUESTS_LOGGER_NAME, EMAILS_HOST_ALERT
 from payments.payment_api import TinkoffAPI, HomeBankAPI
+
 logger = get_logger(REQUESTS_LOGGER_NAME)
+
 
 class FiskalNotification(models.Model):
     fiscal_number = models.IntegerField()
@@ -173,7 +176,6 @@ class CreditCard(models.Model):
 
 
 class Order(models.Model):
-
     id = models.AutoField(primary_key=True)
     sum = models.DecimalField(max_digits=16, decimal_places=2)
     payment_attempts = models.PositiveSmallIntegerField(default=1)
@@ -187,7 +189,7 @@ class Order(models.Model):
     fiscal_notification = models.ForeignKey(FiskalNotification,
                                             null=True, blank=True, on_delete=models.CASCADE)
     homebank_fiscal_notification = models.ForeignKey(HomeBankFiskalNotification,
-                                            null=True, blank=True, on_delete=models.CASCADE)
+                                                     null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     # for init payment order
@@ -379,7 +381,7 @@ class Order(models.Model):
 
     def get_payment_description(self):
         if self.subscription:
-           return 'Оплата абонемента, %s' % self.subscription.parking.name
+            return 'Оплата абонемента, %s' % self.subscription.parking.name
 
         if self.parking_card_session or self.client_uuid:
             parking = self.parking_card_session.get_parking()
@@ -559,6 +561,14 @@ class Order(models.Model):
                 new_payment.status = status
                 new_payment.save()
 
+                # Событие холдирования
+                if (self.account):
+                    device_for_push_notification = AccountDevice.objects.first(account=self.account, active=True)
+                    if device_for_push_notification:
+                        device_for_push_notification.send_message(title='Оповещение ParkPass',
+                                                                  body='Холдирование средств: %s руб.' % int(
+                                                                      self.sum * 100))
+
                 # Credit card bind
                 self.charge_payment(new_payment)
 
@@ -579,7 +589,6 @@ class Order(models.Model):
             send_mail('Ошибка на сайте. create_payment', message, EMAIL_HOST_USER,
                       EMAILS_HOST_ALERT)
             logger.error(message)
-
 
     def create_payment_homebank(self):
 
@@ -606,7 +615,6 @@ class Order(models.Model):
             get_logger().warn("Payment was broken. You try pay throw credit card unknown account")
             return
 
-
         default_account_credit_card = CreditCard.objects.filter(
             account=account, acquiring='homebank').first()
 
@@ -614,17 +622,14 @@ class Order(models.Model):
             get_logger().warn("Payment was broken. Account should has bind card")
             return
 
-
         receipt_data['cardId']['id'] = default_account_credit_card.card_char_id
 
         result = HomeBankAPI().authorize(data=receipt_data)
-
 
         if not result:
             return None
 
         error_code = result.get('code', False)
-
 
         if not error_code:
             payment_id = result["id"]
@@ -694,8 +699,6 @@ class Order(models.Model):
             if self.fiscal_notification:
                 fiscal = serializer(self.fiscal_notification)
 
-
-
         return dict(
             order=order,
             fiscal=fiscal
@@ -720,7 +723,6 @@ class Order(models.Model):
             url=url
         )
 
-
     def confirm_payment(self, payment):
         try:
             get_logger().info("Make confirm order: %s" % self.id)
@@ -738,7 +740,6 @@ class Order(models.Model):
             send_mail('Ошибка на сайте. confirm_payment', message, EMAIL_HOST_USER,
                       EMAILS_HOST_ALERT)
             logger.error(message)
-
 
     def confirm_payment_homebank(self, payment):
         try:
@@ -777,7 +778,6 @@ class Order(models.Model):
                       EMAILS_HOST_ALERT)
             logger.error(message)
 
-
     def send_receipt_to_email(self):
         email = self.session.client.email
         render_data = {
@@ -791,6 +791,17 @@ class Order(models.Model):
 
         send_mail('Электронная копия чека', "", EMAIL_HOST_USER,
                   ['%s' % str(email)], html_message=msg_html)
+
+    def get_account(self):
+        account = None
+        if self.session:
+            account = self.session.client
+        elif self.parking_card_session:
+            account = self.parking_card_session.account
+        else:
+            account = self.subscription.account
+
+        return account
 
 
 PAYMENT_STATUS_UNKNOWN = -1
@@ -1086,7 +1097,6 @@ class HomeBankPayment(models.Model):
             get_logger().info("home bank log 11")
             self.status = PAYMENT_STATUS_CANCEL
             self.save()
-
 
             order = self.order
             get_logger().info(order)

@@ -25,6 +25,7 @@ from base.models import EmailConfirmation
 from base.utils import clear_phone, elastic_log
 from base.utils import get_logger, parse_int, datetime_from_unix_timestamp_tz
 from base.views import APIView, LoginRequiredAPIView, ObjectView, SignedRequestAPIView
+from notifications.models import AccountDevice
 from owners.models import OwnerIssue, Owner
 from parkings.models import ParkingSession, Parking
 from parkpass_backend.settings import DEFAULT_AVATAR_URL, ZENDESK_MOBILE_SECRET, ZENDESK_CHAT_SECRET, \
@@ -296,6 +297,12 @@ class AccountView(LoginRequiredAPIView):
         last_name = request.data.get("last_name")
         if last_name:
             request.account.last_name = last_name
+        email_fiskal_notification_enabled = request.data.get("email_fiskal_notification_enabled")
+        if email_fiskal_notification_enabled:
+            if str(email_fiskal_notification_enabled) == '1':
+                request.account.email_fiskal_notification_enabled = True
+            elif str(email_fiskal_notification_enabled) == '0':
+                request.account.email_fiskal_notification_enabled = False
         request.account.save()
 
         return JsonResponse({}, status=200)
@@ -885,6 +892,11 @@ class StartParkingSession(LoginRequiredAPIView):
             )
             parking_session.save()
 
+            # Событие въезда
+            device_for_push_notification = AccountDevice.objects.first(account=request.account, active=True)
+            if device_for_push_notification:
+                device_for_push_notification.send_message(title='Оповещение ParkPass', body='Въезд')
+
             elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Start session", {
                 'parking_session': serializer(parking_session),
                 'parking_id': parking_id,
@@ -1225,4 +1237,5 @@ class WriteUsersLogsView(APIView):
         get_logger().info("End user logs " + str(user_id))
 
         return JsonResponse({}, status=200)
+
 

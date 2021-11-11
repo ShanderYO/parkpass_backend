@@ -1,12 +1,20 @@
-FROM python:3.6.9-buster
+FROM python:3.9
 
 # update pip
-RUN python3.6 -m pip install pip --upgrade
-RUN python3.6 -m pip install wheel
+RUN python3.9 -m pip install pip --upgrade
+RUN python3.9 -m pip install wheel
 
 # Install Pillow ubuntu dependencies
 RUN apt-get install -y zlib1g-dev \
     libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev
+
+# install manually all the missing libraries
+RUN apt-get update -y
+RUN apt-get install -y gconf-service libasound2 libatk1.0-0 libcairo2 libcups2 libfontconfig libgdk-pixbuf2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libxss1 fonts-liberation libnss3 lsb-release xdg-utils
+
+# install chrome
+RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+RUN dpkg -i google-chrome-stable_current_amd64.deb; apt-get -fy install
 
 # Install OpenSSL for python
 # RUN apt-get install -y python-openssl
@@ -85,3 +93,5 @@ VOLUME /var/log
 
 # Set up volume for static
 VOLUME /app/media
+
+#COPY /TelegramPaymentBot/bot.conf /etc/systemd/system

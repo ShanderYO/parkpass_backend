@@ -17,7 +17,8 @@ from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
 from jwtauth.models import Session, TokenTypes, Groups
 from parkings.models import Parking, ParkingSession
-from rps_vendor.models import RpsSubscription, STATE_CONFIRMED
+from payments.models import Order, TinkoffPayment
+from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES
 from vendors.models import Vendor
 from .models import OwnerApplication, Owner
 from .models import Owner as Account
@@ -470,6 +471,277 @@ class SubscriptionsViewForExcel(LoginRequiredAPIView):
                             value = 'Да'
                         else:
                             value = 'Нет'
+                    ws.write(row_num, col_num, value, format)
+
+        wb.save(response)
+
+        return response
+
+class CardSessionsView(LoginRequiredAPIView):
+    def get(self, request, **kwargs):
+
+        page = parse_int(request.GET.get('page', 0))
+        period = request.GET.get('period', None)
+
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        if period and period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        td = None
+
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        elif period == "month":
+            td = timedelta(days=30)
+        else:
+            pass
+
+        # parkings = Parking.objects.filter(owner_id=2)
+        parkings = Parking.objects.filter(owner_id=request.owner)
+
+
+        qs = RpsParkingCardSession.objects.filter(
+            parking_id__in=parkings,
+            state=STATE_CONFIRMED,
+        ).select_related('account').select_related('parking_card')
+
+        orders = Order.objects.filter(parking_card_session_id__in=qs).values_list('id', 'parking_card_session_id', 'created_at')
+        # payments = TinkoffPayment.objects.filter(order_id__in=orders).values_list('created_at')
+        # print(orders)
+        if td:
+            to_date_datetime = get_today_end_datetime()
+            from_date_datetime = to_date_datetime - td
+            qs = qs.filter(
+                created_at__gte=from_date_datetime,
+                created_at__lte=to_date_datetime,
+            )
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            q1 = Q(
+                created_at__gte=from_date_datetime,
+                created_at__lte=to_date_datetime
+            )
+
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    created_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
+
+        else:
+            pass
+
+        result_list = []
+        if page != 0:
+            qs = qs.filter(id__lt=page).order_by('-id')[:10]
+        else:
+            qs = qs.filter().order_by('-id')[:10]
+
+
+        for card_session in qs:
+            card_session_dict = serializer(card_session, datetime_format='timestamp_notimezone',
+                                      include_attr=('id', 'parking_card_id', 'account_id', 'duration', 'debt'))
+
+            secs = card_session.duration % 60
+            mins = (card_session.duration % 3600) // 60
+            hours = (card_session.duration % 86400) // 3600
+            days = (card_session.duration % 2592000) // 86400
+            months = card_session.duration // 2592000
+            duration = "%sм. %sд. %sч. %sм." % (months, days, hours, mins)
+
+            card_session_dict['duration'] = duration
+            if card_session.account_id:
+                card_session_dict['account_id'] = str(card_session.account_id)
+
+            card_session_dict['paid_date'] = ''
+            for order in orders:
+                if order[1] == card_session_dict['id']:
+                    card_session_dict['paid_date'] = order[2]
+
+            card_session_dict['parking_name'] = ''
+            for parking in parkings:
+                if parking.id == card_session.parking_id:
+                    card_session_dict['parking'] = {'name': parking.name, 'id': parking.id}
+
+            result_list.append(card_session_dict)
+
+        response_dict = {
+            "result": result_list,
+            "next": result_list[len(result_list) - 1]["id"] if len(result_list) > 0 else None
+        }
+
+        return JsonResponse(response_dict)
+
+
+class CardSessionsViewForExcel(LoginRequiredAPIView):
+    def get(self, request, **kwargs):
+
+        period = request.GET.get('period', None)
+
+        from_date = parse_timestamp_utc(request.GET.get("from_date", None))
+        to_date = parse_timestamp_utc(request.GET.get("to_date", None))
+
+        if from_date or to_date:
+            if from_date is None or to_date is None:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "from_date and to_date unix-timestamps are required"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if (to_date - from_date) <= 0:
+                e = ValidationException(
+                    ValidationException.VALIDATION_ERROR,
+                    "Key 'to_date' must be more than 'from_date' key"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+        if period and period not in ('day', 'week', 'month'):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "`period` must be in (`day`, `week`, `month`)"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        td = None
+
+        if period == 'day':
+            td = timedelta(days=1)
+        elif period == 'week':
+            td = timedelta(days=7)
+        elif period == "month":
+            td = timedelta(days=30)
+        else:
+            pass
+
+        parkings = Parking.objects.filter(owner=request.owner)
+        # parkings = Parking.objects.filter(owner=2)
+
+        qs = RpsParkingCardSession.objects.filter(
+            parking_id__in=parkings,
+            state=STATE_CONFIRMED,
+        ).select_related('account').select_related('parking_card')
+
+        orders = Order.objects.filter(parking_card_session_id__in=qs).values_list('id', 'parking_card_session_id',
+                                                                                  'created_at')
+
+        if td:
+            to_date_datetime = get_today_end_datetime()
+            from_date_datetime = to_date_datetime - td
+            qs = qs.filter(
+                created_at__gte=from_date_datetime,
+                created_at__lte=to_date_datetime,
+            )
+
+        elif from_date and to_date:
+            from_date_datetime = datetime_from_unix_timestamp_tz(from_date)
+            to_date_datetime = datetime_from_unix_timestamp_tz(to_date)
+            q1 = Q(
+                created_at__gte=from_date_datetime,
+                created_at__lte=to_date_datetime
+            )
+
+            now = timezone.now()
+            if from_date_datetime < now < to_date_datetime:
+                q2 = Q(
+                    created_at__gt=from_date_datetime
+                )
+                qs = qs.filter(q1 | q2)
+            else:
+                qs = qs.filter(q1)
+
+        else:
+            pass
+
+        qs = qs.filter().order_by('-id')
+
+        response = HttpResponse(content_type='application/ms-excel')
+        response['Content-Disposition'] = 'attachment; filename="file.xls"'
+
+        wb = xlwt.Workbook(encoding='utf-8')
+        ws = wb.add_sheet('Сессии парковочных карт')
+
+        # Sheet header, first row
+        row_num = 0
+
+        font_style = xlwt.XFStyle()
+        font_style.font.bold = True
+
+        columns = ['ID', 'ID карты', 'ID клиента', 'Продолжительность', 'Сумма оплаты', 'Дата и время оплаты', 'Название парковки']
+
+        for col_num in range(len(columns)):
+            ws.write(row_num, col_num, columns[col_num], font_style)
+
+        # Sheet body, remaining rows
+        font_style = xlwt.XFStyle()
+        rows = qs.values_list('id', 'parking_card_id', 'account_id', 'duration', 'debt', 'leave_at', 'parking_id')
+        if rows:
+            for row in rows:
+                row_num += 1
+                for col_num in range(len(row)):
+                    format = font_style
+                    date_format = xlwt.XFStyle()
+                    value = str(row[col_num])
+                    # if col_num == 3:
+                    #     value = "%d:%02d" % (int(row[3]) // 60, int(row[3]) % 60)
+                    #     format = date_format
+
+                    if col_num == 3:
+                        if row[3] <= 0:
+                            value = 0
+                        else:
+                            secs = row[3] % 60
+                            mins = (row[3] % 3600) // 60
+                            hours = (row[3] % 86400) // 3600
+                            days = (row[3] % 2592000) // 86400
+                            months = row[3] // 2592000
+                            value = "%sм. %sд. %sч. %sм." % (months, days, hours, mins)
+
+                    if col_num == 5:
+                        value = ''
+                        for order in orders:
+                            if order[1] == row[0]:
+                                value = order[2]
+                                date_format.num_format_str = 'dd-mm-yyyy h:mm'
+                                value = value.strftime("%d-%m-%Y %H:%M")
+                                value = datetime.datetime.strptime(value, "%d-%m-%Y %H:%M")
+                                format = date_format
+
+                    if col_num == 6:
+                        value = ''
+                        for parking in parkings:
+                            if parking.id == row[col_num]:
+                                value = parking.name
+
+
                     ws.write(row_num, col_num, value, format)
 
         wb.save(response)

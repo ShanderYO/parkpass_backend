@@ -1,9 +1,12 @@
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 
 from base.utils import get_logger
 from parkpass_backend.celery import app
+from parkpass_backend.settings import BASE_DIR, EMAIL_HOST_USER, BASE_DOMAIN
 from payments.payment_api import TinkoffAPI, HomeBankAPI
 from payments.models import TinkoffPayment, Order, PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_PREPARED_AUTHORIZED, \
     HomeBankPayment, PAYMENT_STATUS_CONFIRMED
@@ -90,3 +93,50 @@ def make_buy_subscription_request(subscription_id, acquiring='tinkoff'):
 
     except ObjectDoesNotExist:
         get_logger().warn("Subscription does not found")
+
+
+def send_screenshot(url, name, email):
+    msg_html = render_to_string('emails/fiskal_notification.html', {'link': url,
+                                                                    'image': 'https://%s/api/media/fiskal/%s.png' % (
+                                                                    BASE_DOMAIN, name)})
+    send_mail('Чек об операции. ParkPass', "", EMAIL_HOST_USER,
+              [str(email)], html_message=msg_html)
+
+@app.task()
+def create_screenshot(url, name, email):
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.common.by import By
+        from webdriver_manager.chrome import ChromeDriverManager
+        import os
+
+        DRIVER = ChromeDriverManager().install()
+
+        directory = "/app/media/fiskal"
+
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.headless = True
+
+        driver = webdriver.Chrome(DRIVER, options=options)
+
+        driver.get(url)
+
+        S = lambda X: driver.execute_script('return document.body.parentNode.scroll' + X)
+        driver.set_window_size(S('Width'), S('Height'))
+        driver.find_element(By.CLASS_NAME, 'ticket-wrapper .transaction__ticket').screenshot(
+            directory + '/' + name + '.png')
+        print(directory + '/' + name + '.png')
+        driver.quit()
+        send_screenshot(url, name, email)
+
+    except Exception as e:
+        print("Ошибка сохранения скриншота '%s'" % str(e))
+        get_logger().error("Ошибка сохранения скриншота '%s'" % str(e))
+        send_screenshot(url, name, email)
+        # raise e

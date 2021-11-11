@@ -31,6 +31,9 @@ urlpatterns = [
                   url(r'^subscriptions/$', SubscriptionsView.as_view()),
                   url(r'^subscriptions-excel/$', SubscriptionsViewForExcel.as_view()),
 
+                  url(r'^card-sessions/$', CardSessionsView.as_view()),
+                  url(r'^card-sessions-excel/$', CardSessionsViewForExcel.as_view()),
+
                   url(r'^connect/$', ConnectParkingView.as_view()),
                   url(r'^vendors/$', VendorsView.as_view()),
                   url(r'^vendors/(?P<id>\d+)/$', VendorsView.as_view()),

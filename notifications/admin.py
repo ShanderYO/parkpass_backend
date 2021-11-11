@@ -4,7 +4,7 @@ from django.contrib import admin
 from django import forms
 
 # Register your models here.
-from notifications.models import AccountDevice
+from notifications.models import AccountDevice, Mailing
 from notifications.tasks import send_broadcast_message
 
 
@@ -64,3 +64,13 @@ class AccountDeviceAdmin(admin.ModelAdmin):
     readonly_fields = ('type',)
 
     exclude_fields = ('user', 'name',)
+
+
+@admin.register(Mailing)
+class MailingAdmin(admin.ModelAdmin):
+
+    search_fields = ('title',)
+
+    list_display = ('title', 'user_type', 'sended_at',)
+
+    readonly_fields = ('sended_at',)

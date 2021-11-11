@@ -387,6 +387,9 @@ class RpsSubscription(models.Model):
 
     active = models.BooleanField(default=False)
 
+    push_notified_about_expired = models.BooleanField(default=False, null=True, blank=True)
+    push_notified_about_soon_expired = models.BooleanField(default=False, null=True, blank=True)
+
     state = models.PositiveSmallIntegerField(
         choices=SUBSCRIPTION_PAYMENT_STATUSES, default=STATE_CREATED)
 
