@@ -70,6 +70,13 @@ class Parking(models.Model):
     tariff_file_name = models.TextField(null=True, blank=True)
     tariff_file_content = models.TextField(null=True, blank=True)
 
+    commission_client = models.BooleanField(default=False, verbose_name="Комиссию оплачивает клиент")
+    commission_client_value = models.IntegerField(default=0, verbose_name="Размер комиссии в процентах")
+
+    hide_parking_coordinates = models.BooleanField(default=False, verbose_name="Скрыть парковку с карты")
+
+    picture = models.ImageField(upload_to='object_images', null=True, blank=True)
+
     tz_name = models.CharField(
         choices=ALL_TIMEZONES,
         max_length=64,
@@ -376,6 +383,12 @@ class ParkingSession(models.Model):
             self.STATE_COMPLETED_BY_CLIENT,
             self.STATE_COMPLETED_BY_CLIENT_FULLY
         ]
+
+    def get_debt(self):
+        debt = self.debt
+        if self.parking and self.parking.commission_client and self.parking.commission_client_value:
+            debt = (self.parking.commission_client_value * self.debt / 100) + self.debt
+        return debt
 
 
 class ComplainSession(models.Model):

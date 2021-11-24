@@ -1,5 +1,5 @@
 from base.utils import get_logger
-from parkpass.celery import app
+from parkpass_backend.celery import app
 
 from vendors.models import VendorNotification
 

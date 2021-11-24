@@ -893,7 +893,7 @@ class StartParkingSession(LoginRequiredAPIView):
             parking_session.save()
 
             # Событие въезда
-            device_for_push_notification = AccountDevice.objects.first(account=request.account, active=True)
+            device_for_push_notification = AccountDevice.objects.filter(account=request.account, active=True)[0]
             if device_for_push_notification:
                 device_for_push_notification.send_message(title='Оповещение ParkPass', body='Въезд')
 

@@ -280,7 +280,7 @@ class VendorNotification(models.Model):
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
-                "debt": self.parking_session.debt,
+                "debt": self.parking_session.get_debt(),
                 "parking_id": self.parking_session.parking.id,
                 "completed_at": completed_at
             }
@@ -297,7 +297,7 @@ class VendorNotification(models.Model):
             data = {
                 "client_id": self.parking_session.client.id,
                 "session_id": self.parking_session.session_id,
-                "debt": self.parking_session.debt,
+                "debt": self.parking_session.get_debt(),
                 "parking_id": self.parking_session.parking.id,
                 "paid_at": paid_at
             }

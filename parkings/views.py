@@ -177,7 +177,7 @@ class AllParkingsStatisticsView(LoginRequiredAPIView):
             order_sum = 0
             avg_time = 0
             for session in ps:
-                order_sum += session.debt
+                order_sum += session.get_debt()
                 avg_time += (
                         session.completed_at - session.started_at).total_seconds()  # При переезде на новую версию Django: реализовать с помощью https://stackoverflow.com/questions/3131107/annotate-a-queryset-with-the-average-date-difference-django
             try:
@@ -209,7 +209,7 @@ class GetParkingViewMixin:
             )
             return JsonResponse(e.to_dict(), status=400)
         result_dict = serializer(parking, exclude_attr=("vendor_id", "company_id", "max_client_debt",
-                                                        "tariff", "tariff_file_name", "tariff_file_content"))
+                                                        "tariff", "tariff_file_name", "tariff_file_content", 'picture'))
         return JsonResponse(result_dict, status=200)
 
 
@@ -305,7 +305,13 @@ class GetAvailableParkingsView(APIView):
             parkings_list = serializer(Parking.objects.filter(approved=True),
                                        include_attr=('id', 'name', 'description', 'address',
                                                      'latitude', 'longitude', 'free_places', 'max_permitted_time',
-                                                     'currency', 'acquiring', 'rps_parking_card_available'))
+                                                     'currency', 'acquiring', 'rps_parking_card_available', 'hide_parking_coordinates'))
+            for parking in parkings_list:
+                if parking['hide_parking_coordinates']:
+                    parking['latitude'] = 0
+                    parking['longitude'] = 0
+                del parking['hide_parking_coordinates']
+
             return JsonResponse({"result": parkings_list}, status=200)
 
 
@@ -434,7 +440,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
             get_logger().info(str(e))
 
             # Событие въезда
-        device_for_push_notification = AccountDevice.objects.first(account=request.account, active=True)
+        device_for_push_notification = AccountDevice.objects.filter(account=account, active=True)[0]
         if device_for_push_notification:
             device_for_push_notification.send_message(title='Оповещение ParkPass', body='Въезд')
 
@@ -442,7 +448,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
             'parking_session': serializer(session),
             'parking_id': parking_id,
             'started_at': started_at,
-            'account': serializer(session.account, exclude_attr=("created_at", "sms_code", "password")),
+            'account': serializer(account, exclude_attr=("created_at", "sms_code", "password")),
             'vendor_id': vendor_id
         })
 
@@ -889,7 +895,7 @@ class CloseSessionRequest(APIView):
                     'Сессия успешно закрыта'
                 )
 
-                old_debt = active_session.debt
+                old_debt = active_session.get_debt()
                 canceled_sum = old_debt - debt_sum
                 if canceled_sum >= 0:
                     active_session.canceled_sum = canceled_sum

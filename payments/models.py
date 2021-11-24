@@ -563,7 +563,7 @@ class Order(models.Model):
 
                 # Событие холдирования
                 if (self.account):
-                    device_for_push_notification = AccountDevice.objects.first(account=self.account, active=True)
+                    device_for_push_notification = AccountDevice.objects.filter(account=self.account, active=True)[0]
                     if device_for_push_notification:
                         device_for_push_notification.send_message(title='Оповещение ParkPass',
                                                                   body='Холдирование средств: %s руб.' % int(

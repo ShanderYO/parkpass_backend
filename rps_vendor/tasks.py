@@ -30,6 +30,8 @@ def rps_process_updated_sessions(parking_id, sessions):
         session_id = str(client_id) + "&" + str(started_at)
 
         debt = float(session["debt"])
+        logging.info('DEBT !!!')
+        logging.info(debt)
         updated_at = int(session["updated_at"])
         parking_sessions = ParkingSession.objects.filter(
             session_id=session_id, parking=parking)
@@ -144,7 +146,7 @@ def send_push_notifications_about_subscription():
     )
     for subscription in soon_expired_subscriptions:
         if subscription.account:
-            device_for_push_notification = AccountDevice.objects.first(account=subscription.account, active=True)
+            device_for_push_notification = AccountDevice.objects.filter(account=subscription.account, active=True)[0]
             if device_for_push_notification:
                 device_for_push_notification.send_message(title='Оповещение ParkPass', body='Ваш абонемент %s заканчивается через 7 дней' % subscription.name)
         subscription.push_notified_about_soon_expired = True
@@ -159,7 +161,7 @@ def send_push_notifications_about_subscription():
 
     for subscription in expired_subscriptions:
         if subscription.account:
-            device_for_push_notification = AccountDevice.objects.first(account=subscription.account, active=True)
+            device_for_push_notification = AccountDevice.objects.filter(account=subscription.account, active=True)[0]
             if device_for_push_notification:
                 device_for_push_notification.send_message(title='Оповещение ParkPass', body='Ваш абонемент %s закончился' % subscription.name)
         subscription.push_notified_about_expired = True

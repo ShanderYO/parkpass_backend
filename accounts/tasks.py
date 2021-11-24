@@ -22,14 +22,14 @@ def generate_current_debt_order(parking_session_id):
 
         # check completed and zero debt
         if active_session.state in ParkingSession.ACTUAL_COMPLETED_STATES:
-            if active_session.debt < 0.01: # < that 1 penny
+            if active_session.get_debt() < 0.01: # < that 1 penny
                 active_session.state = ParkingSession.STATE_CLOSED
                 active_session.save()
                 logging.info("Close session %s with < 0.01 debt" % parking_session_id)
                 return
 
         ordered_sum = Order.get_ordered_sum_by_session(active_session)
-        new_order_sum = active_session.debt - ordered_sum
+        new_order_sum = active_session.get_debt() - ordered_sum
 
         logging.info(" %s : %s" % (ordered_sum, new_order_sum))
 
@@ -210,7 +210,7 @@ def force_pay(parking_session_id):
 
 
         else:
-            sum_to_pay = active_session.debt
+            sum_to_pay = active_session.get_debt()
             new_order = Order.objects.create(
                 session=active_session,
                 sum=sum_to_pay,
@@ -267,20 +267,20 @@ def generate_orders_and_pay():
     for session in active_sessions:
         ordered_sum = Order.get_ordered_sum_by_session(session)
 
-        if ordered_sum < session.debt:
+        if ordered_sum < session.get_debt():
             order = None
             if session.state == ParkingSession.STATE_COMPLETED \
                     or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR\
                     or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY:
 
-                current_account_debt = session.debt - ordered_sum
+                current_account_debt = session.get_debt() - ordered_sum
                 order = Order(
                     sum=current_account_debt, session=session,
                     acquiring=session.parking.acquiring
                 )
                 order.save()
             else:
-                current_account_debt = session.debt - ordered_sum
+                current_account_debt = session.get_debt() - ordered_sum
                 if current_account_debt >= session.parking.max_client_debt:
                     order = Order(
                         sum=session.parking.max_client_debt, session=session,

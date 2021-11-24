@@ -24,12 +24,12 @@
         <h1>Закрыть сессию</h1>
         <fieldset style="border:0;">
             <p>Захолдировано средств: {{ original.get_session_orders_holding_sum }} <br>
-                Сумма сессии - {{ original.debt }}
+                Сумма сессии - {{ original.get_debt }}
             </p>
             <br><br>
             <label for="name">Сумма</label>
             <input type="hidden" name="session_id" value="{{ original.pk }}">
-            <input id="name" name="sum" type="number" value="{{ original.debt }}" required>
+            <input id="name" name="sum" type="number" value="{{ original.get_debt }}" required>
             <input type="submit" value="Закрыть" class="default" name="_save">
         </fieldset>
     </form>
