@@ -21,6 +21,7 @@
             e.stopPropagation()
 
             var title = $('#id_title').val()
+            var user_ids = $('#id_user_ids').val()
             var text = $('#id_text').val()
             var id = $('#start-mailing').attr('data-id')
 
@@ -30,7 +31,7 @@
             }
             $('body').addClass('loading')
 
-            $.get('/api/v1/parking/push-notifications/', { title, text, id })
+            $.get('/api/v1/parking/push-notifications/', { title, text, id, user_ids })
               .done(function() {
                 alert("Готово");
                 location.reload();

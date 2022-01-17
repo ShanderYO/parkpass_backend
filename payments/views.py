@@ -785,9 +785,11 @@ class TestView(APIView):
         # from payments.tasks import  create_screenshot
         # create_screenshot.delay('https://consumer.1-ofd.ru/ticket?t=20211008T1607&s=200.00&fn=9287440300256165&i=7080&fp=1774076369&n=1', 'ыыыы')
         from django.template.loader import render_to_string
-        msg_html = render_to_string('emails/fiskal_notification.html', {'link': 'http://adasd.asd', 'image': 'https://%s/api/media/fiskal/ыыыы.png' % BASE_DOMAIN})
-        send_mail('Чек об операции. ParkPass', "", EMAIL_HOST_USER,
-                  ['lokkomokko1@gmail.com'], html_message=msg_html)
+        # msg_html = render_to_string('emails/fiskal_notification.html', {'link': 'http://adasd.asd', 'image': 'https://%s/api/media/fiskal/ыыыы.png' % BASE_DOMAIN})
+        msg_html = render_to_string('emails/sur-email-template.html')
+
+        send_mail('Test template', "", EMAIL_HOST_USER,
+                  ['lokkomokko1@gmail.com', 'lokkomokko1@yandex.ru'], html_message=msg_html)
 
         return HttpResponse('test21 all is good', status=200)
 
@@ -797,6 +799,23 @@ class TestView(APIView):
         # get_logger().info(request.data)
 
         return HttpResponse({}, status=200)
+
+class SetTestEmailsView(APIView):
+    def get(self, request):
+        email = request.GET.get('t', None)
+        if email:
+            import base64
+            try:
+                email = base64.b64decode(email).decode("utf8")
+                created_at = datetime.datetime.now()
+                if email:
+                    from django.db import connection
+                    with connection.cursor() as cursor:
+                        cursor.execute("INSERT INTO ios_users_for_beta_test(email, created_at) VALUES (%s, %s)", [email, created_at])
+            except Exception as e:
+                print(e)
+
+        return HttpResponse('s', status=200)
 
 
 class HomebankAcquiringPageView(APIView):

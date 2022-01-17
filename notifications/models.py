@@ -20,6 +20,7 @@ class AccountDevice(FCMDevice):
 class Mailing(models.Model):
     title = models.CharField(max_length=360)
     text = models.TextField()
+    user_ids = models.TextField(help_text="comma separate", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     sended_at = models.DateTimeField(null=True, blank=True)
     user_type = models.CharField(max_length=10, choices=(

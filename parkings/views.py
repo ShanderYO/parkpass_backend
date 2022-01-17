@@ -281,10 +281,19 @@ class GetParkingViewListMixin:
         parking_list = Parking.parking_manager.find_between_point(lt_point, rb_point)
 
         response_dict = dict()
-        response_dict["result"] = serializer(
+
+        parkings_list = serializer(
             parking_list, include_attr=("id", "name", "latitude",
-                                        "longitude", "free_places", "approved", 'address')
+                                        "longitude", "free_places", "approved", 'address', 'hide_parking_coordinates')
         )
+        for parking in parkings_list:
+            if parking['hide_parking_coordinates']:
+                parking['latitude'] = 0
+                parking['longitude'] = 0
+            del parking['hide_parking_coordinates']
+
+        response_dict["result"] = parkings_list
+
         return JsonResponse(response_dict, status=200)
 
 

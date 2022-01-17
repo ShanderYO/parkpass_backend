@@ -29,7 +29,7 @@
             <br><br>
             <label for="name">Сумма</label>
             <input type="hidden" name="session_id" value="{{ original.pk }}">
-            <input id="name" name="sum" type="number" value="{{ original.get_debt }}" required>
+            <input id="name" name="sum" type="number" step="any" value="{{ original.get_debt }}" required>
             <input type="submit" value="Закрыть" class="default" name="_save">
         </fieldset>
     </form>

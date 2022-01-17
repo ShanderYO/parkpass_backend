@@ -787,10 +787,19 @@ def send_push_notifications(request):
         text = request.GET.get('text', None)
         id = request.GET.get('id', None)
         mailing = Mailing.objects.get(id=id)
+        user_ids = request.GET.get('user_ids', None)
+
+        if user_ids:
+            user_ids = user_ids.split(',')
 
         if title and text and mailing:
-            qs = AccountDevice.objects.filter(active=True)
+            if user_ids:
+                qs = AccountDevice.objects.filter(active=True, account_id__in=user_ids)
+            else:
+                qs = AccountDevice.objects.filter(active=True)
+
             for account_device in qs:
+                get_logger().info("send push to %s" % account_device.account_id)
                 account_device.send_message(title=title, body=text)
 
             mailing.sended_at = timezone.now()
