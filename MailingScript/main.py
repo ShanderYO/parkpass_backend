@@ -58,7 +58,7 @@ def main():
                 i += 1
         ri += 1
 
-    emails = ['brigadir@gmail.com'] # for test
+    emails = ['app@vldmrnine.com', 'lokkomokko1@gmail.com'] # for test
     messages = []
 
     for email in emails:
@@ -67,7 +67,7 @@ def main():
         try:
             base64_email = base64.b64encode(bytes(str(email), 'utf-8')).decode('utf-8')
             msg_html = render_to_string('emails/ios-template.html', {'email': base64_email})
-            message = ('Участие в Beta-тестирвании ParkPass 3.0 для iOS', '', msg_html, EMAIL_HOST_USER, [email])
+            message = ('Участие в Beta-тестировании ParkPass 3.0 для iOS', '', msg_html, EMAIL_HOST_USER, [email])
         except Exception as e:
             print('Не удалось сформировать сообщение для %s', email)
             print(e)
