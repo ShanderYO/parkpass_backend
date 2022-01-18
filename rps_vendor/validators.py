@@ -45,7 +45,7 @@ class RpsCreateParkingSessionValidator(BaseValidator):
 
 class RpsUpdateParkingSessionValidator(BaseValidator):
     def is_valid(self):
-        get_logger().info("RpsCreateParkingSessionValidator: " + str(self.request.data))
+        get_logger().info("RpsUpdateParkingSessionValidator: " + str(self.request.data))
         client_id = self.request.data.get("client_id", None)
         started_at = self.request.data.get("started_at", None)
 

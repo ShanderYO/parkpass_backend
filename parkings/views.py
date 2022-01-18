@@ -457,7 +457,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
             'parking_session': serializer(session),
             'parking_id': parking_id,
             'started_at': started_at,
-            'account': serializer(account, exclude_attr=("created_at", "sms_code", "password")),
+            # 'account': serializer(session.client, exclude_attr=("created_at", "sms_code", "password")),
             'vendor_id': vendor_id
         })
 
