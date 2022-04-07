@@ -284,7 +284,9 @@ class GetParkingViewListMixin:
 
         parkings_list = serializer(
             parking_list, include_attr=("id", "name", "latitude",
-                                        "longitude", "free_places", "approved", 'address', 'hide_parking_coordinates')
+                                        "longitude", "free_places", "approved",
+                                        'address', 'hide_parking_coordinates', 'parkpass_status',
+                                        'rps_parking_card_available', 'rps_subscriptions_available')
         )
         for parking in parkings_list:
             if parking['hide_parking_coordinates']:
@@ -960,13 +962,17 @@ def exportParkingDataToExcel(request):
                     created_at__lte=date_to,
                 ).values_list(
                     'id', 'session_id', 'client_id', 'started_at', 'completed_at',
-                    'duration', 'debt', 'canceled_sum', 'current_refund_sum', 'state', 'manual_close'
+                    'duration', 'debt', 'canceled_sum', 'current_refund_sum', 'state','comment', 'manual_close'
                 ))
                 rows = []
                 additional_fields_array = []
+
                 for row in rows_list:
-                    rows.append(row[:10])
-                    additional_fields_array.append(row[10:])
+                    computed_row = list(row[:12])
+                    computed_row.insert(4, row[3])
+                    rows.append(computed_row[:12])
+                    additional_fields_array.append(computed_row[:13])
+
 
                 row_num_2 = 0
                 for row in rows:
@@ -978,6 +984,8 @@ def exportParkingDataToExcel(request):
                             orders_ids.append(order[0])
 
                         payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id'))
+                        if not payments:
+                            payments = list(HomeBankPayment.objects.filter(order_id__in=orders_ids).values_list('id'))
 
                         ids = ''
                         i = 0
@@ -1009,18 +1017,23 @@ def exportParkingDataToExcel(request):
                     else:
                         additional_fields = additional_fields + ('',) + ('',)
 
-                    rows[row_num_2] = row + additional_fields
+                    rows[row_num_2] = row + list(additional_fields)
 
                     row_num_2 += 1
 
+                print(rows)
+                print(additional_fields_array)
+
                 columns = [
-                    'ID', '№Сессии', 'ID клиента', 'Начало', 'Конец',
+                    'ID', '№ Сессии', 'ID клиента', 'Дата', 'Начало', 'Конец',
                     'Продолжительность', 'Стоимость', 'Оплачено', 'Рефанд',
-                    'Статус', 'ID ордера', 'ID Тинькоф Пеймента',
+                    'Статус', 'Комментарий', 'ID ордера', 'ID Пеймента'
                 ]
 
                 for col_num in range(len(columns)):
                     ws.write(row_num, col_num, columns[col_num], font_style)
+
+
 
                 # Sheet body, remaining rows
                 font_style = xlwt.XFStyle()
@@ -1033,23 +1046,25 @@ def exportParkingDataToExcel(request):
                         else:
                             val = ""
 
-                        if col_num == 3 or col_num == 4:
+                        if col_num == 3:
+                            if row[col_num]:
+                                val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%d.%m.%Y")
+
+                        if col_num == 4 or col_num == 5:
                             if row[col_num]:
                                 val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%H:%M:%S")
 
 
-                        if col_num == 7:
-                            sum = row[6] - row[7]
+                        if col_num == 8:
+                            sum = row[7] - row[8]
                             if sum < 0:
                                 sum = 0
 
                             val = str(sum)
 
-                        if col_num == 9:
+                        if col_num == 10:
                             val = str(
-                                next((x for x in ParkingSession.STATE_CHOICES
-                                      if x[0] == int(row[col_num])), ['', '-'])[1]) \
-                                if not additional_fields_array[row_num - 1][0] else 'Закрыта вручную'
+                                next((x for x in ParkingSession.STATE_CHOICES if x[0] == int(row[col_num])), ['', '-'])[1]) if not additional_fields_array[row_num - 1][11] else 'Закрыта вручную'
 
                         cwidth = ws.col(col_num).width
                         if (len(val) * 300) > cwidth:
@@ -1076,7 +1091,7 @@ def exportParkingDataToExcel(request):
 
                 columns = [
                     'ID', 'Название', 'ID клиента', 'Дата начала', 'Дата окончания абонемента',
-                    'Продолжительность', 'Сумма', 'ID ордера', 'ID Тинькоф Пеймента', 'Статус оплаты', 'Дата оплаты абонемента'
+                    'Продолжительность', 'Сумма', 'ID ордера', 'ID Пеймента', 'Статус оплаты', 'Дата оплаты абонемента'
                 ]
 
                 for col_num in range(len(columns)):
@@ -1092,6 +1107,9 @@ def exportParkingDataToExcel(request):
                             orders_ids.append(order[0])
 
                         payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'status', 'created_at'))
+
+                        if not payments:
+                            payments = list(HomeBankPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'status', 'created_at'))
 
                         ids = ''
                         i = 0
@@ -1181,13 +1199,18 @@ def exportParkingDataToExcel(request):
                 ))
                 rows = []
                 additional_fields_array = []
+
                 for row in rows_list:
-                    rows.append(row[:9])
-                    additional_fields_array.append(row[9:])
+                    computed_row = list(row[:9])
+                    computed_row.insert(4, computed_row[3])
+                    rows.append(computed_row[:10])
+                    additional_fields_array.append(computed_row[:10])
+                    # rows.insert(4, row)
+
 
                 columns = [
-                    'ID', 'Задолженность', 'ID клиента', 'Дата создания', 'Время заезда',
-                    'Время выезда', 'Продолжительность', 'Парковочная карта', 'Статус сессии', 'ID ордера', 'ID Тинькоф Пеймента', 'Статус оплаты',
+                    'ID', 'Задолженность', 'ID клиента', 'Время создания', 'Дата', 'Время заезда',
+                    'Время выезда', 'Продолжительность', 'Парковочная карта', 'Статус сессии', 'ID ордера', 'ID Пеймента', 'Статус оплаты',
                 ]
 
                 for col_num in range(len(columns)):
@@ -1203,6 +1226,9 @@ def exportParkingDataToExcel(request):
                             orders_ids.append(order[0])
 
                         payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'status'))
+
+                        if not payments:
+                            payments = list(HomeBankPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'status'))
 
                         ids = ''
                         i = 0
@@ -1235,12 +1261,14 @@ def exportParkingDataToExcel(request):
                     else:
                         additional_fields = additional_fields + ('',) + ('',) + ('',)
 
-                    rows[row_num_2] = row + additional_fields
+
+                    rows[row_num_2] = row + list(additional_fields)
 
                     row_num_2 += 1
 
                 # Sheet body, remaining rows
                 font_style = xlwt.XFStyle()
+                # print(rows)
                 for row in rows:
                     row_num += 1
 
@@ -1250,17 +1278,22 @@ def exportParkingDataToExcel(request):
                         else:
                             val = ""
 
-                        if col_num == 3 or col_num == 4 or col_num == 5:
+                        if col_num == 4:
+                            if row[col_num]:
+                                val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%d.%m.%Y")
+
+
+                        if col_num == 3 or col_num == 5 or col_num == 6:
                             if row[col_num]:
                                 val = datetime.datetime.strptime(val[:19], "%Y-%m-%d %H:%M:%S").strftime("%H:%M:%S")
 
-                        if col_num == 8:
+                        if col_num == 9:
                             if val:
                                 val = str(
                                     next((x for x in CARD_SESSION_STATES
                                           if x[0] == int(val)), ['', '-'])[1])
 
-                        if col_num == 11:
+                        if col_num == 12:
                             if val:
                                 val = str(
                                     next((x for x in PAYMENT_STATUSES

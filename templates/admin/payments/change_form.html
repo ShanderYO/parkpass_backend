@@ -1,0 +1,26 @@
+{% extends "admin/change_form.html" %}
+{% load util %}
+{% load i18n admin_urls %}
+{% block object-tools-items %}
+    <li>
+        <a href="{% url opts|admin_urlname:'history' original.pk|admin_urlquote %}"
+           class="historylink">{% trans "History" %}</a>
+    </li>
+
+    {% if original|isTinkoffPaymentPage %}
+        <script>
+            fetch('/api/media/tinkoff_errors.json')
+                .then((response) => {
+                    return response.json();
+                })
+                .then((errors) => {
+                    var errorCode = document.getElementById('id_error_code').value
+                    if (errorCode > 0) {
+                        document.getElementById('id_error_message').value = errors[errorCode]
+                    }
+                });
+
+        </script>
+    {% endif %}
+
+{% endblock %}

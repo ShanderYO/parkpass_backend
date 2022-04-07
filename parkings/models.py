@@ -2,6 +2,7 @@ import datetime
 import pytz
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models import signals
 
@@ -25,6 +26,17 @@ class ParkingManager(models.Manager):
 DEFAULT_PARKING_TIMEZONE = 'Europe/Moscow'
 ALL_TIMEZONES = sorted((item, item) for item in pytz.all_timezones)
 
+
+
+class Service(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    desc = models.TextField(null=True, blank=True)
+    icon = models.FileField(validators=[FileExtensionValidator(['png', 'jpg', 'svg'])])
+    created_at = models.DateTimeField(auto_now_add=True, editable=True)
+
+    def __str__(self):
+        return self.name
 
 class Parking(models.Model):
     DISCONNECTED = 0
@@ -76,6 +88,8 @@ class Parking(models.Model):
     hide_parking_coordinates = models.BooleanField(default=False, verbose_name="Скрыть парковку с карты")
 
     picture = models.ImageField(upload_to='object_images', null=True, blank=True)
+
+    services = models.ManyToManyField(Service, blank=True)
 
     tz_name = models.CharField(
         choices=ALL_TIMEZONES,
@@ -258,6 +272,8 @@ class ParkingSession(models.Model):
 
 
     manual_close = models.BooleanField(default=False)
+
+    comment = models.TextField(null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]

@@ -295,6 +295,18 @@ class InitPayDebtMixin:
             if result:
                 card_session.state = STATE_INITED
                 card_session.save()
+
+                if order.acquiring != 'homebank':
+                    qr_result = TinkoffAPI(with_terminal='pcard').sync_call(
+                        TinkoffAPI.GET_QR, {
+                            "PaymentId": result["payment_id"]
+                        }
+                    )
+
+                    if qr_result:
+                        if qr_result.get("Success", False):
+                            response_dict["data"] = qr_result["Data"]
+
                 response_dict["payment_url"] = result["payment_url"]
 
 
@@ -354,8 +366,19 @@ class InitWebPayDebtMixin:
                 acquiring=Parking.objects.get(id=card_session.parking_id).acquiring
             )
             payment = order.create_non_recurrent_payment(email, True)
+            qr_link = ""
+            if payment:
+                if order.acquiring != 'homebank':
+                    qr_result = TinkoffAPI(with_terminal='pcard').sync_call(
+                        TinkoffAPI.GET_QR, {
+                            "PaymentId": payment["payment_id"]
+                        }
+                    )
+                    if qr_result:
+                        if qr_result.get("Success", False):
+                            qr_link = qr_result["Data"]
 
-            return JsonResponse({"payment": serializer(payment), "order": serializer(order)}, status=200)
+            return JsonResponse({"payment": serializer(payment), "order": serializer(order), "qr_link": qr_link}, status=200)
 
         except ObjectDoesNotExist:
             e = ValidationException(

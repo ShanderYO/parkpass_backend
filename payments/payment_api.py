@@ -29,6 +29,7 @@ class TinkoffAPI():
     CONFIRM = "https://securepay.tinkoff.ru/v2/Confirm"
     CHARGE = "https://securepay.tinkoff.ru/v2/Charge"
     CANCEL = "https://securepay.tinkoff.ru/v2/Cancel"
+    GET_QR = "https://securepay.tinkoff.ru/v2/GetQr"
     OFD_AUTH_URL = "https://org.1-ofd.ru/api/user/login"
     OFD_GET_CHECK_URL = "https://org.1-ofd.ru/api/ticket/"
 
@@ -72,7 +73,6 @@ class TinkoffAPI():
             result = r.json()
             return result
         return None
-
 
     def get_token(self, params):
         concat_str = ""

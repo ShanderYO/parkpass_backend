@@ -1,8 +1,12 @@
 from django.contrib import admin
+from import_export import resources
+from import_export.admin import ExportActionMixin
+from import_export.fields import Field
 
 from parkings.models import Parking
 from rps_vendor.models import (
-    RpsParking, ParkingCard, RpsParkingCardSession, RpsSubscription, Developer, DevelopersLog
+    RpsParking, ParkingCard, RpsParkingCardSession, RpsSubscription, Developer, DevelopersLog, DEVELOPER_LOG_TYPES,
+    DEVELOPER_STATUS_TYPES
 )
 
 
@@ -57,10 +61,44 @@ class DeveloperAdmin(admin.ModelAdmin):
     readonly_fields = ('api_key', 'developer_id',)
 
 
+class DevelopersLogResource(resources.ModelResource):
+
+    type = Field()
+    status = Field()
+
+    class Meta:
+
+        model = DevelopersLog
+
+        export_order = ( 'parking__parking__name', 'developer__name', 'type', 'debt', 'status', 'created_at')
+
+        fields = ( 'parking__parking__name', 'developer__name', 'type', 'debt', 'status', 'created_at')
+
+    def dehydrate_type(self, item):
+        type = getattr(item, "type", "unknown")
+        return str(next((x for x in DEVELOPER_LOG_TYPES
+                                          if x[0] == int(type)), ['', '-'])[1])
+
+
+    def dehydrate_status(self, item):
+        status = getattr(item, "status", "unknown")
+        return str(next((x for x in DEVELOPER_STATUS_TYPES
+                                          if x[0] == int(status)), ['', '-'])[1])
+
 @admin.register(DevelopersLog)
-class DevelopersLogAdmin(admin.ModelAdmin):
+class DevelopersLogAdmin(ExportActionMixin, admin.ModelAdmin):
+
+    resource_class = DevelopersLogResource
+
     search_fields = ('parking_card_id',)
 
     list_display = ('parking', 'parking_card_id', 'developer', 'type', 'debt', 'status', 'created_at', )
 
     readonly_fields = ('parking', 'parking_card_id', 'developer', 'type', 'debt', 'status', 'created_at', )
+
+    list_filter = (
+        ('parking', admin.RelatedOnlyFieldListFilter),
+        'type'
+    )
+
+    list_per_page = 100

@@ -17,7 +17,7 @@ from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
 from jwtauth.models import Session, TokenTypes, Groups
 from parkings.models import Parking, ParkingSession
-from payments.models import Order, TinkoffPayment
+from payments.models import Order, TinkoffPayment, HomeBankPayment
 from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES
 from vendors.models import Vendor
 from .models import OwnerApplication, Owner
@@ -529,8 +529,14 @@ class CardSessionsView(LoginRequiredAPIView):
         ).select_related('account').select_related('parking_card')
 
         orders = Order.objects.filter(parking_card_session_id__in=qs).values_list('id', 'parking_card_session_id', 'created_at')
-        # payments = TinkoffPayment.objects.filter(order_id__in=orders).values_list('created_at')
-        # print(orders)
+        orders_ids = []
+
+        if orders:
+            for order in orders:
+                orders_ids.append(order[0])
+
+        payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'order_id')) + list(HomeBankPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'order_id'))
+
         if td:
             to_date_datetime = get_today_end_datetime()
             from_date_datetime = to_date_datetime - td
@@ -585,6 +591,7 @@ class CardSessionsView(LoginRequiredAPIView):
             for order in orders:
                 if order[1] == card_session_dict['id']:
                     card_session_dict['paid_date'] = order[2]
+                    card_session_dict['payment_id'] = next((x for x in payments if x[1] == order[0]), None)
 
             card_session_dict['parking_name'] = ''
             for parking in parkings:

@@ -42,6 +42,10 @@ def isAccountPage(original):
 def isMailingPage(original):
     return isinstance(original, Mailing)
 
+@register.filter
+def isTinkoffPaymentPage(original):
+    return isinstance(original, TinkoffPayment)
+
 @register.inclusion_tag('tags/orderAndPayments.html')
 def show_session_order_and_payments(original):
     orders = Order.objects.filter(session_id=original.id).values_list('id')

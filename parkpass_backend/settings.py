@@ -247,6 +247,7 @@ USE_TZ = True
 # TODO change SMTP parameters
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
+DEFAULT_FROM_EMAIL = "Команда ParkPass <noreply@parkpass.ru>"
 EMAIL_HOST_USER = 'noreply@parkpass.ru'
 EMAILS_HOST_ALERT = ['lokkomokko1@gmail.com', 'support@parkpass.ru']
 EMAIL_HOST_PASSWORD = 'noreplyParol'

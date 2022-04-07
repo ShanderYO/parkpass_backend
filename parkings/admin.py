@@ -4,7 +4,7 @@ from django.contrib import admin
 from .models import (
     Parking, ParkingSession,
     ComplainSession,
-    TopParkingWish, ProblemParkingSessionNotifierSettings)
+    TopParkingWish, ProblemParkingSessionNotifierSettings, Service)
 
 
 @admin.register(Parking)
@@ -54,3 +54,8 @@ class TopParkingWishAdmin(admin.ModelAdmin):
 @admin.register(ProblemParkingSessionNotifierSettings)
 class ProblemParkingSessionNotifierSettingsAdmin(admin.ModelAdmin):
     list_display = ("report_emails", "last_email_send_date", "available")
+
+
+@admin.register(Service)
+class ServiceAdmin(admin.ModelAdmin):
+    list_display = ('name',)

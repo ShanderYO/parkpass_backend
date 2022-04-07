@@ -14,6 +14,7 @@ from base.utils import get_logger, elastic_log
 from base.views import APIView
 from dss.Serializer import serializer
 from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
+from notifications.models import AccountDevice
 from parkings.models import ParkingSession
 from parkpass_backend import settings
 from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME, EMAIL_HOST_USER, REQUESTS_LOGGER_NAME, \
@@ -198,6 +199,13 @@ class TinkoffCallbackView(APIView):
                 subs = order.subscription
                 subs.activate()
                 subs.save()
+
+                # Событие продления абонемента
+                if (subs.account):
+                    device_for_push_notification = AccountDevice.objects.filter(account=subs.account, active=True)[0]
+                    if device_for_push_notification:
+                        device_for_push_notification.send_message(title='Абонемент продлён',
+                                                                  body='Мы продлили ваш абонемент на парковку %s до %s.' % (subs.parking.name, subs.expired_at))
 
             else:
                 subs = order.subscription

@@ -73,7 +73,7 @@ def request_rps_session_update():
 
 
 def _get_payload_from_session_queryset(active_sessions):
-    result_dict = {"sessions":[]}
+    result_dict = {"sessions": []}
     for active_session in active_sessions:
         session = {
             "parking_id": active_session.parking.id,
@@ -110,14 +110,14 @@ def _make_http_request(url, payload, rps_parking):
 
         except Exception as e:
             traceback_str = traceback.format_exc()
-            rps_parking.last_response_code=998
-            rps_parking.last_response_body="Parkpass intenal error: "+str(e) + '\n' + traceback_str
+            rps_parking.last_response_code = 998
+            rps_parking.last_response_body = "Parkpass intenal error: " + str(e) + '\n' + traceback_str
             rps_parking.save()
 
     except Exception as e:
         traceback_str = traceback.format_exc()
-        rps_parking.last_response_code=999
-        rps_parking.last_response_body="Vendor error: "+str(e) + '\n' + traceback_str
+        rps_parking.last_response_code = 999
+        rps_parking.last_response_body = "Vendor error: " + str(e) + '\n' + traceback_str
         rps_parking.save()
 
 
@@ -134,23 +134,49 @@ def prolong_subscription_sheduler():
 @app.task()
 def send_push_notifications_about_subscription():
     get_logger().info("send_push_notifications_about_subscription")
-    date_to_separate_old_subscriptions = datetime.datetime.strptime('20-10-2021', "%d-%m-%Y")
-    date_to_detect_soon_expired_subs = datetime.datetime.today() - datetime.timedelta(days=7)
-    soon_expired_subscriptions = RpsSubscription.objects.filter(
+    date_to_separate_old_subscriptions = datetime.datetime.strptime('16-02-2022', "%d-%m-%Y")
+
+    date_to_detect_soon_expired_subs = datetime.datetime.today() - datetime.timedelta(hours=24)
+    soon_expired_subscriptions = RpsSubscription.objects.filter(  # закончатся через сутки
         active=True,
-        expired_at__lt=timezone.now(),
+        expired_at__lt=date_to_detect_soon_expired_subs + datetime.timedelta(seconds=60),
         expired_at__gt=date_to_detect_soon_expired_subs,
         started_at__gt=date_to_separate_old_subscriptions,
-        push_notified_about_soon_expired=False,
+        # push_notified_about_soon_expired=False,
         push_notified_about_expired=False
     )
+    # 25 24                                        now
+    # ----------------------------------------
+    # ---expired------------------------------
     for subscription in soon_expired_subscriptions:
         if subscription.account:
             device_for_push_notification = AccountDevice.objects.filter(account=subscription.account, active=True)[0]
             if device_for_push_notification:
-                device_for_push_notification.send_message(title='Оповещение ParkPass', body='Ваш абонемент %s заканчивается через 7 дней' % subscription.name)
-        subscription.push_notified_about_soon_expired = True
-        subscription.save()
+                device_for_push_notification.send_message(title='Абонемент скоро закончится',
+                                                          body='Абонемент на парковку %s заканчивается Завтра в %s' % (
+                                                              subscription.parking.name,
+                                                              subscription.expired_at.strftime("%H:%M")))
+        # subscription.push_notified_about_soon_expired = True
+        # subscription.save()
+
+    date_to_detect_soon_expired_subs = datetime.datetime.today() - datetime.timedelta(hours=1)
+    soon_expired_subscriptions = RpsSubscription.objects.filter(  # закончатся час
+        active=True,
+        expired_at__lt=date_to_detect_soon_expired_subs + datetime.timedelta(seconds=60),
+        expired_at__gt=date_to_detect_soon_expired_subs,
+        started_at__gt=date_to_separate_old_subscriptions,
+        # push_notified_about_soon_expired=False,
+        push_notified_about_expired=False
+    )
+
+    for subscription in soon_expired_subscriptions:
+        if subscription.account:
+            device_for_push_notification = AccountDevice.objects.filter(account=subscription.account, active=True)[0]
+            if device_for_push_notification:
+                device_for_push_notification.send_message(title='Абонемент скоро закончится',
+                                                          body='Абонемент на парковку %s заканчивается Сегодня в %s' % (
+                                                              subscription.parking.name,
+                                                              subscription.expired_at.strftime("%H:%M")))
 
     expired_subscriptions = RpsSubscription.objects.filter(
         active=True,
@@ -163,6 +189,54 @@ def send_push_notifications_about_subscription():
         if subscription.account:
             device_for_push_notification = AccountDevice.objects.filter(account=subscription.account, active=True)[0]
             if device_for_push_notification:
-                device_for_push_notification.send_message(title='Оповещение ParkPass', body='Ваш абонемент %s закончился' % subscription.name)
+                device_for_push_notification.send_message(title='Абонемент закончился',
+                                                          body='Абонемент на парковку %s заканчился. Чтобы продлить его перейдите в приложение.' % subscription.parking.name)
         subscription.push_notified_about_expired = True
         subscription.save()
+
+
+@app.task()
+def check_sessions_for_notification():
+    get_logger().info("check_sessions_for_notification")
+
+    just_started_sessions = ParkingSession.objects.filter(  # только что начавшиеся сессии
+        started_at__gt=datetime.datetime.strptime('16-02-2022', "%d-%m-%Y"),
+        state__in=[
+            ParkingSession.STATE_STARTED_BY_CLIENT,
+            ParkingSession.STATE_STARTED_BY_VENDOR,
+        ],
+        is_suspended=False,
+        duration__gt=30,
+        duration__lt=55
+    )
+    for session in just_started_sessions:
+        account = session.client
+        if account:
+            device_for_push_notification = AccountDevice.objects.filter(account=account, active=True)[0]
+            if device_for_push_notification:
+                device_for_push_notification.send_message(
+                    title='Добро пожаловать на парковку %s' % session.parking.name,
+                    body='Время въезда: %s' % session.started_at)
+
+    just_closed_sessions = ParkingSession.objects.filter(  # закончившиеся сессии
+        started_at__gt=datetime.datetime.strptime('16-02-2022', "%d-%m-%Y"),
+        state=ParkingSession.STATE_CLOSED,
+        is_suspended=False,
+        completed_at__gt=timezone.now() + datetime.timedelta(seconds=30),
+        completed_at__lt=timezone.now() + datetime.timedelta(seconds=60),
+    )
+    for session in just_closed_sessions:
+        account = session.client
+        if account:
+            device_for_push_notification = AccountDevice.objects.filter(account=account, active=True)[0]
+            if device_for_push_notification:
+                secs = session.duration % 60
+                mins = (session.duration % 3600) // 60
+                hours = (session.duration % 86400) // 3600
+                days = (session.duration % 2592000) // 86400
+                months = session.duration // 2592000
+                duration = "%sм. %sд. %sч. %sм." % (months, days, hours, mins)
+
+                device_for_push_notification.send_message(title='Спасибо что воспользовались парковкой с ParkPass',
+                                                          body='Время выезда: %s. Время на парковке: %s. Сумма: %s' % (
+                                                              session.completed_at, duration, session.debt))

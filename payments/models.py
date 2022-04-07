@@ -278,6 +278,9 @@ class Order(models.Model):
             phone = self.parking_card_session.account.phone \
                 if self.parking_card_session.account else self.parking_card_session.parking_card.phone
 
+            if len(phone) == 1:
+                phone = ''
+
             if self.acquiring == 'homebank':
                 return {
                     "invoiceId": str(self.id).zfill(9),
@@ -392,6 +395,26 @@ class Order(models.Model):
 
         return "Оплата парковочной сессии, %s" % self.session.parking.name
 
+    def get_parking(self):
+        if self.subscription:
+            return self.subscription.parking
+
+        if self.parking_card_session or self.client_uuid:
+            parking = self.parking_card_session.get_parking()
+            return parking
+
+        return self.session.parking
+
+    def get_parking_max_client_debt(self):
+        if self.subscription:
+            return self.subscription.parking.max_client_debt
+
+        if self.parking_card_session or self.client_uuid:
+            parking = self.parking_card_session.get_parking()
+            return parking.max_client_debt
+
+        return self.session.parking.max_client_debt
+
     def is_refunded(self):
         return self.refunded_sum == self.sum
 
@@ -480,6 +503,7 @@ class Order(models.Model):
 
         # Payment success
         if result.get("Success", False):
+
             order_id = int(result["OrderId"])
             payment_id = int(result["PaymentId"])
             payment_url = result["PaymentURL"]
@@ -500,7 +524,9 @@ class Order(models.Model):
 
             # Send url to user
             return {
-                "payment_url": payment_url
+                "payment_url": payment_url,
+                "payment_id": payment_id,
+                "order_id": order_id
             }
 
         # Payment exception
@@ -561,16 +587,17 @@ class Order(models.Model):
                 new_payment.status = status
                 new_payment.save()
 
-                # Событие холдирования
-                if (self.account):
-                    device_for_push_notification = AccountDevice.objects.filter(account=self.account, active=True)[0]
-                    if device_for_push_notification:
-                        device_for_push_notification.send_message(title='Оповещение ParkPass',
-                                                                  body='Холдирование средств: %s руб.' % int(
-                                                                      self.sum * 100))
-
                 # Credit card bind
                 self.charge_payment(new_payment)
+
+                # Событие холдирования
+                if (self.get_account()):
+                    device_for_push_notification = AccountDevice.objects.filter(account=self.get_account(), active=True)[0]
+                    if device_for_push_notification:
+                        device_for_push_notification.send_message(title='Сделали промежуточный платеж %s руб.' % int(
+                                                                      self.sum * 100),
+                                                                  body='Парковка установила промежуточное списание по достижениюю (% руб) задолженности за парковку. Подробности внутри.' % self.get_parking_max_client_debt())
+
 
             # Payment exception
             elif int(result.get("ErrorCode", -1)) > 0:
@@ -582,6 +609,15 @@ class Order(models.Model):
                 new_payment.error_message = error_message
                 new_payment.error_description = error_details
                 new_payment.save()
+
+                # Событие ошибки холда
+                if (self.get_account()):
+                    device_for_push_notification = AccountDevice.objects.filter(account=self.get_account(), active=True)[0]
+                    if device_for_push_notification:
+                        device_for_push_notification.send_message(title='Не получилось сделать промежуточный платеж %s руб.' % int(
+                                                                      self.sum * 100),
+                                                                  body='Мы не смогли сделать промежуточный платёж за парковку. Подробности внутри.')
+
         except Exception as e:
             import traceback
             trace_back = traceback.format_exc()
@@ -732,7 +768,23 @@ class Order(models.Model):
             result = self.get_tinkoff_api().sync_call(
                 TinkoffAPI.CONFIRM, request_data
             )
+
             elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Response confirm session payment", result)
+
+            if not result.get("Success", False):
+                # Событие ошибки оплаты
+                if (self.get_account()):
+                    device_for_push_notification = AccountDevice.objects.filter(account=self.get_account(), active=True)[0]
+                    if device_for_push_notification:
+                        parking_name = '-'
+                        parking = self.get_parking()
+                        if parking:
+                            parking_name = parking.name
+                        device_for_push_notification.send_message(title='Оплата не прошла',
+                                                                  body='Не получилось оплатить %s руб. за паркововку в %s. Подробности внутри.' % (self.get_payment_amount(), parking_name))
+
+                pass
+
         except Exception as e:
             import traceback
             trace_back = traceback.format_exc()
