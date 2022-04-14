@@ -34,7 +34,7 @@ from parkings.validators import validate_longitude, validate_latitude, CreatePar
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
     UpdateListParkingSessionValidator, ComplainSessionValidator, SubscriptionsPayValidator
 from parkpass_backend.settings import ES_APP_SESSION_PAY_LOGS_INDEX_NAME, ES_APP_CARD_PAY_LOGS_INDEX_NAME, \
-    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME
+    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME, EMAIL_HOST_USER
 from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_PREPARED_AUTHORIZED, PAYMENT_STATUS_AUTHORIZED, \
     HomeBankPayment, PAYMENT_STATUSES
 from rps_vendor.models import RpsSubscription, RpsParking, RpsParkingCardSession, CARD_SESSION_STATES
@@ -314,7 +314,7 @@ class GetAvailableParkingsView(APIView):
             return JsonResponse({}, status=304)
         else:
             parkings_list = serializer(Parking.objects.filter(approved=True),
-                                       include_attr=('id', 'name', 'description', 'address',
+                                       include_attr=('id', 'name', 'description', 'address', 'city',
                                                      'latitude', 'longitude', 'free_places', 'max_permitted_time',
                                                      'currency', 'acquiring', 'rps_parking_card_available', 'hide_parking_coordinates'))
             for parking in parkings_list:
@@ -339,6 +339,25 @@ class TestSignedRequestView(SignedRequestAPIView):
         for key in request.data:
             res[key] = request.data[key]
         return JsonResponse(res, status=200)
+
+
+class SendValetEmailView(APIView): # TODO удалить после прохождения этапа 0
+
+    def post(self, request):
+        from django.core.mail import send_mail
+
+        time = request.data.get('time', None)
+        vcid = request.data.get('vcid', None)
+        pcid = request.data.get('pcid', None)
+
+        if not time or not vcid or not pcid:
+            return JsonResponse({'status': 'error', 'message': 'missing required params'}, status=400)
+
+        message = 'VCID: %s \nPCID: %s \nВремя: %s' % (vcid, pcid, time)
+        send_mail('Заказ автомобиля (%s)' % vcid, message, "Valet ParkPass <noreply@parkpass.ru>",
+                  ['info@primeparking.ru'])
+
+        return JsonResponse({'status': 'success'}, status=200)
 
 
 class UpdateParkingView(SignedRequestAPIView):
@@ -1207,7 +1226,7 @@ def exportParkingDataToExcel(request):
                     additional_fields_array.append(computed_row[:10])
                     # rows.insert(4, row)
 
-
+                # TODO Калькуляция задолженности у кард. В отчете пока без изменений
                 columns = [
                     'ID', 'Задолженность', 'ID клиента', 'Время создания', 'Дата', 'Время заезда',
                     'Время выезда', 'Продолжительность', 'Парковочная карта', 'Статус сессии', 'ID ордера', 'ID Пеймента', 'Статус оплаты',

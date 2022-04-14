@@ -4,6 +4,8 @@ import base64
 from datetime import datetime
 from decimal import Decimal
 
+import qrcode
+import qrcode.image.svg
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
@@ -307,6 +309,17 @@ class AccountView(LoginRequiredAPIView):
 
         return JsonResponse({}, status=200)
 
+class GetAccountIdQr(LoginRequiredAPIView):
+    validator_class = AccountParamValidator
+
+    def get(self, request):
+        account_dict = serializer(request.account, exclude_attr=("id",))
+        account_id = account_dict['id']
+        factory = qrcode.image.svg.SvgImage
+        img = qrcode.make(account_id, image_factory=factory, box_size=20)
+        response = HttpResponse()
+        img.save(response)
+        return response
 
 class AccountParkingListView(LoginRequiredAPIView):
     max_paginate_length = 10

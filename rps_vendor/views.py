@@ -211,7 +211,7 @@ class AccountInitPayment(LoginRequiredAPIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-            if card_session.debt == 0:
+            if card_session.get_debt() == 0:
                 e = ValidationException(
                     code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Debt is 0. Nothing to pay"
@@ -221,7 +221,7 @@ class AccountInitPayment(LoginRequiredAPIView):
             # Add user to session
             card_session.account = request.account
             order = Order.objects.create(
-                sum=Decimal(card_session.debt),
+                sum=Decimal(card_session.get_debt()),
                 parking_card_session=card_session,
                 acquiring=Parking.objects.get(id=card_session.parking_id).acquiring
             )
@@ -270,7 +270,7 @@ class InitPayDebtMixin:
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-            if card_session.debt == 0:
+            if card_session.get_debt() == 0:
                 e = ValidationException(
                     code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Debt is 0. Nothing to pay"
@@ -282,7 +282,7 @@ class InitPayDebtMixin:
             card_session.save()
 
             order = Order.objects.create(
-                sum=Decimal(card_session.debt),
+                sum=Decimal(card_session.get_debt()),
                 parking_card_session=card_session,
                 terminal=Terminal.objects.get(name="pcard"),
                 acquiring=Parking.objects.get(id=card_session.parking_id).acquiring
@@ -349,7 +349,7 @@ class InitWebPayDebtMixin:
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-            if card_session.debt == 0:
+            if card_session.get_debt() == 0:
                 e = ValidationException(
                     code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Debt is 0. Nothing to pay"
@@ -361,7 +361,7 @@ class InitWebPayDebtMixin:
             card_session.save()
 
             order = Order.objects.create(
-                sum=Decimal(card_session.debt),
+                sum=Decimal(card_session.get_debt()),
                 parking_card_session=card_session,
                 acquiring=Parking.objects.get(id=card_session.parking_id).acquiring
             )
@@ -432,7 +432,7 @@ class ConfirmPayDeveloperDebt(APIView):
                 parking_card_id=parking_card_id,
                 parking_id=parking_id,
                 # duration=duration,
-                debt=debt,
+                # debt=debt, // TODO убрал по причине калькуляции коммиссии
             )
 
             if card_session.state not in [STATE_CREATED, STATE_ERROR]:
@@ -442,7 +442,7 @@ class ConfirmPayDeveloperDebt(APIView):
                 )
                 return JsonResponse(e.to_dict(), status=400)
 
-            if card_session.debt == 0:
+            if card_session.get_debt() == 0:
                 e = ValidationException(
                     code=ValidationException.INVALID_RESOURCE_STATE,
                     message="Debt is 0. Nothing to pay"
@@ -454,7 +454,7 @@ class ConfirmPayDeveloperDebt(APIView):
             card_session.save()
 
             order = Order.objects.create(
-                sum=Decimal(card_session.debt),
+                sum=Decimal(card_session.get_debt()),
                 parking_card_session=card_session,
                 acquiring=Parking.objects.get(id=card_session.parking_id).acquiring,
                 authorized=True,

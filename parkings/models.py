@@ -84,6 +84,7 @@ class Parking(models.Model):
 
     commission_client = models.BooleanField(default=False, verbose_name="Комиссию оплачивает клиент")
     commission_client_value = models.IntegerField(default=0, verbose_name="Размер комиссии в процентах")
+    card_commission_client_value = models.IntegerField(default=0, verbose_name="Размер комиссии в процентах (карты)")
 
     hide_parking_coordinates = models.BooleanField(default=False, verbose_name="Скрыть парковку с карты")
 

@@ -358,6 +358,13 @@ class RpsParkingCardSession(models.Model):
 
         return None
 
+    def get_debt(self):
+        parking = self.get_parking()
+        debt = self.debt
+        if parking and parking.commission_client and parking.card_commission_client_value:
+            debt = (parking.card_commission_client_value * self.debt / 100) + self.debt
+        return debt
+
 
 SUBSCRIPTION_PAYMENT_STATUSES = (
     (STATE_CREATED, "Only created"),

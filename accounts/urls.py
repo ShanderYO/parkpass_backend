@@ -12,7 +12,7 @@ from accounts.views import (
     GetParkingSessionView, OwnerIssueView, VendorIssueView,
     ZendeskUserJWTChatView, UpdateTokenView, AccountSubscriptionListView, AccountSubscriptionSettingsView,
     ExternalLoginView, MockingExternalLoginView, AccountSubscriptionView, ZendeskUserJWTMobileView, WriteUsersLogsView,
-    AddCardTestView, GetReceiptCheckUrlView, AccountParkingAllHistoryView)
+    AddCardTestView, GetReceiptCheckUrlView, AccountParkingAllHistoryView, GetAccountIdQr)
 
 urlpatterns = [
     url(r'^login/$', LoginView.as_view()),
@@ -33,6 +33,7 @@ urlpatterns = [
     url(r'^jwt/mobile/$', csrf_exempt(ZendeskUserJWTMobileView.as_view())),
 
     url(r'^me/$', AccountView.as_view()),
+    url(r'^get-qr-id/$', GetAccountIdQr.as_view()),
     url(r'^avatar/set/$', SetAvatarView.as_view()),
     url(r'^card/add/$', AddCardView.as_view()),
     url(r'^card/add-test/$', AddCardTestView.as_view()),
