@@ -549,3 +549,4 @@ class DevelopersLog(models.Model):
     debt = models.IntegerField(null=True, blank=True)
     status = models.IntegerField(choices=DEVELOPER_STATUS_TYPES, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    message = models.CharField(max_length=2048, blank=True, null=True)

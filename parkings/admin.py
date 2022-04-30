@@ -4,7 +4,7 @@ from django.contrib import admin
 from .models import (
     Parking, ParkingSession,
     ComplainSession,
-    TopParkingWish, ProblemParkingSessionNotifierSettings, Service)
+    TopParkingWish, ProblemParkingSessionNotifierSettings, Service, ParkingValetSession, ParkingValetSessionRequest)
 
 
 @admin.register(Parking)
@@ -62,3 +62,15 @@ class ProblemParkingSessionNotifierSettingsAdmin(admin.ModelAdmin):
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
     list_display = ('name',)
+
+
+@admin.register(ParkingValetSession)
+class ParkingValetSessionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'parking', 'state', 'debt', 'responsible', 'started_at')
+    search_fields = ('parking_card__card_id', 'id', 'responsible__id')
+    readonly_fields = ["started_at", "updated_at", "parking_card_session", 'car_delivered_by', 'responsible', 'created_by_user', 'parking_card', 'parking']
+
+@admin.register(ParkingValetSessionRequest)
+class ParkingValetSessionRequestAdmin(admin.ModelAdmin):
+    list_display = ('id', 'status')
+    search_fields = ('id', 'valet_session__id')

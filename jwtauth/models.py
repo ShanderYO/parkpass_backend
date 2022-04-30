@@ -32,6 +32,7 @@ class Groups:
     ADMIN = 1 << 0
     OWNER = 1 << 1
     VENDOR = 1 << 2
+    COMPANY_USER = 1 << 3
     MAX = VENDOR
 
 ALL_GROUPS = [

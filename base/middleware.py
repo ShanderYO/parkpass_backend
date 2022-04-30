@@ -8,7 +8,7 @@ from jwtauth.models import Groups, TokenTypes, Session
 from jwtauth.utils import parse_jwt
 from base.utils import datetime_from_unix_timestamp_tz
 from control.models import AdminSession, Admin
-from owners.models import OwnerSession, Owner
+from owners.models import OwnerSession, Owner, CompanyUser
 from vendors.models import VendorSession, Vendor
 
 HTTP_HEADER_ENCODING = 'iso-8859-1'
@@ -55,6 +55,7 @@ class JWTTokenAuthenticationMiddleware():
         request.vendor = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.VENDOR))
         request.owner = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.OWNER))
         request.admin = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.ADMIN))
+        request.companyuser = SimpleLazyObject(lambda: self.get_jwt_account(request, Groups.COMPANY_USER))
 
         return self.get_response(request)
 
@@ -91,6 +92,9 @@ class JWTTokenAuthenticationMiddleware():
             if group == Groups.BASIC:
                 return Account.objects.filter(id=user_id).first()
 
+            if group == Groups.COMPANY_USER:
+                return CompanyUser.objects.filter(id=user_id).first()
+
             if group == Groups.VENDOR and groups & group > 0:
                 return Vendor.objects.filter(id=user_id).first()
 
@@ -99,6 +103,7 @@ class JWTTokenAuthenticationMiddleware():
 
             if group == Groups.ADMIN and groups & group > 0:
                 return Admin.objects.filter(id=user_id).first()
+
 
         return None
 

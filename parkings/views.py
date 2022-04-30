@@ -356,6 +356,36 @@ class SendValetEmailView(APIView): # TODO удалить после прохож
         message = 'VCID: %s \nPCID: %s \nВремя: %s' % (vcid, pcid, time)
         send_mail('Заказ автомобиля (%s)' % vcid, message, "Valet ParkPass <noreply@parkpass.ru>",
                   ['info@primeparking.ru'])
+        send_mail('Заказ автомобиля (%s)' % vcid, message, "Valet ParkPass <noreply@parkpass.ru>",
+                  ['support@parkpass.ru'])
+
+        return JsonResponse({'status': 'success'}, status=200)
+
+
+    def get(self, request):
+        from django.core.mail import send_mail
+        from django.core.mail import get_connection
+
+        # my_host = 'smtp.gmail.com'
+        # my_port = 587
+        # my_username = 'valet@parkpass.ru'
+        # my_password = '%15gouCA'
+        # my_use_tls = True
+        # connection = get_connection(host=my_host,
+        #                             port=my_port,
+        #                             username=my_username,
+        #                             password=my_password,
+        #                             use_tls=my_use_tls)
+        #
+        # send_mail('Тест письмо', 'some test message', "Valet ParkPass <valet@parkpass.ru>",
+        #           ['pr@r-p-s.ru', 'lokkomokko1@gmail.com', 'lokkomokko1@yandex.ru', 'mail@vldmrnine.com', 'cold2013@yandex.ru'],
+        #               connection=connection
+        #           )
+
+
+        send_mail('Тест письмо', 'some test message', "Valet ParkPass <valet@parkpass.ru>",
+                  ['test-3a37nuiq9@srv1.mail-tester.com'],
+                  )
 
         return JsonResponse({'status': 'success'}, status=200)
 

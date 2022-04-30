@@ -30,3 +30,4 @@ selenium==4.0.0a1
 webdriver-manager==3.5.2
 django-import-export==2.7.1
 qrcode==7.3.1
+django-admin-sortable==2.3.0

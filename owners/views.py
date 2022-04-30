@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import json
+from itertools import chain
 
 import xlwt
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Prefetch
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.timezone import timedelta
@@ -20,19 +21,27 @@ from parkings.models import Parking, ParkingSession
 from payments.models import Order, TinkoffPayment, HomeBankPayment
 from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES
 from vendors.models import Vendor
-from .models import OwnerApplication, Owner
+from .models import OwnerApplication, Owner, CompanyUser, CompanyUsersRole, CompanyUsersRolePermission, \
+    CompanyUsersPermission, CompanyUsersPermissionCategory, CompanyUserSerializer, CompanyUsersRoleSerializer
 from .models import Owner as Account
 from .models import Company
 from .validators import ConnectIssueValidator, TariffValidator
 
-
 LoginRequiredAPIView = generic_login_required_view(Owner)
 
+def get_owner (request):
+    return request.owner if request.owner else request.companyuser.company.owner
 
 class AccountInfoView(LoginRequiredAPIView):
     def get(self, request):
-        account_dict = serializer(request.owner, exclude_attr=("name", "created_at", "sms_code", "password"))
-        parkings = Parking.objects.filter(company__owner=request.owner)
+        user = request.owner or request.companyuser
+        account_dict = serializer(user, exclude_attr=("name", "created_at", "sms_code", "password"))
+        owner = request.owner
+        if not owner:
+            account_dict['companyuser'] = True
+            owner = user.company.owner
+
+        parkings = Parking.objects.filter(company__owner=owner)
         en_parkings = parkings.filter(parkpass_status=Parking.CONNECTED)
         account_dict['parkings_total'] = len(parkings)
         account_dict['parkings_enabled'] = len(en_parkings)
@@ -56,7 +65,7 @@ class AccountInfoView(LoginRequiredAPIView):
 class ParkingStatisticsView(LoginRequiredAPIView):
     def get(self, request):
         period = request.GET.get('period', None)
-        parking_id = request.GET.get('parking_id',"0").encode('utf-8')
+        parking_id = request.GET.get('parking_id', "0").encode('utf-8')
 
         from_date = parse_timestamp_utc(request.GET.get("from_date", None))
         to_date = parse_timestamp_utc(request.GET.get("to_date", None))
@@ -94,7 +103,7 @@ class ParkingStatisticsView(LoginRequiredAPIView):
             pass
 
         qs = ParkingSession.objects.filter(
-            parking__owner=request.owner
+            parking__owner=get_owner(request)
         )
 
         if td:
@@ -187,7 +196,7 @@ class SessionsView(LoginRequiredAPIView):
             pass
 
         qs = ParkingSession.objects.filter(
-            parking__owner=request.owner
+            parking__owner=get_owner(request)
         )
 
         if td:
@@ -242,6 +251,7 @@ class SessionsView(LoginRequiredAPIView):
 
         return JsonResponse(response_dict)
 
+
 class SubscriptionsView(LoginRequiredAPIView):
     def get(self, request, **kwargs):
 
@@ -284,7 +294,7 @@ class SubscriptionsView(LoginRequiredAPIView):
         else:
             pass
 
-        parkings = Parking.objects.filter(owner=request.owner)
+        parkings = Parking.objects.filter(owner=get_owner(request))
 
         qs = RpsSubscription.objects.filter(
             parking__in=parkings,
@@ -326,7 +336,6 @@ class SubscriptionsView(LoginRequiredAPIView):
         else:
             qs = qs.filter().order_by('-id')[:10]
 
-
         for subscriptions in qs:
             session_dict = serializer(subscriptions, datetime_format='timestamp_notimezone',
                                       include_attr=('id', 'name', 'account_id', 'unlimited', 'started_at',
@@ -339,6 +348,7 @@ class SubscriptionsView(LoginRequiredAPIView):
         }
 
         return JsonResponse(response_dict)
+
 
 class SubscriptionsViewForExcel(LoginRequiredAPIView):
     def get(self, request, **kwargs):
@@ -433,14 +443,15 @@ class SubscriptionsViewForExcel(LoginRequiredAPIView):
         font_style = xlwt.XFStyle()
         font_style.font.bold = True
 
-        columns = ['ID', 'Название', 'CardId', 'Тип клиента', 'Дата покупки', 'Дата окончания', 'Сумма', 'Статус', 'Автопродление']
+        columns = ['ID', 'Название', 'CardId', 'Тип клиента', 'Дата покупки', 'Дата окончания', 'Сумма', 'Статус',
+                   'Автопродление']
 
         for col_num in range(len(columns)):
             ws.write(row_num, col_num, columns[col_num], font_style)
 
         # Sheet body, remaining rows
         font_style = xlwt.XFStyle()
-        rows = qs.values_list('id', 'name', 'account_id','unlimited', 'started_at', 'expired_at', 'sum', 'active',
+        rows = qs.values_list('id', 'name', 'account_id', 'unlimited', 'started_at', 'expired_at', 'sum', 'active',
                               'prolongation')
         if rows:
             for row in rows:
@@ -476,6 +487,7 @@ class SubscriptionsViewForExcel(LoginRequiredAPIView):
         wb.save(response)
 
         return response
+
 
 class CardSessionsView(LoginRequiredAPIView):
     def get(self, request, **kwargs):
@@ -520,22 +532,23 @@ class CardSessionsView(LoginRequiredAPIView):
             pass
 
         # parkings = Parking.objects.filter(owner_id=2)
-        parkings = Parking.objects.filter(owner_id=request.owner)
-
+        parkings = Parking.objects.filter(owner_id=get_owner(request))
 
         qs = RpsParkingCardSession.objects.filter(
             parking_id__in=parkings,
             state=STATE_CONFIRMED,
         ).select_related('account').select_related('parking_card')
 
-        orders = Order.objects.filter(parking_card_session_id__in=qs).values_list('id', 'parking_card_session_id', 'created_at')
+        orders = Order.objects.filter(parking_card_session_id__in=qs).values_list('id', 'parking_card_session_id',
+                                                                                  'created_at')
         orders_ids = []
 
         if orders:
             for order in orders:
                 orders_ids.append(order[0])
 
-        payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'order_id')) + list(HomeBankPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'order_id'))
+        payments = list(TinkoffPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'order_id')) + list(
+            HomeBankPayment.objects.filter(order_id__in=orders_ids).values_list('id', 'order_id'))
 
         if td:
             to_date_datetime = get_today_end_datetime()
@@ -571,10 +584,9 @@ class CardSessionsView(LoginRequiredAPIView):
         else:
             qs = qs.filter().order_by('-id')[:10]
 
-
         for card_session in qs:
             card_session_dict = serializer(card_session, datetime_format='timestamp_notimezone',
-                                      include_attr=('id', 'parking_card_id', 'account_id', 'duration', 'debt'))
+                                           include_attr=('id', 'parking_card_id', 'account_id', 'duration', 'debt'))
 
             secs = card_session.duration % 60
             mins = (card_session.duration % 3600) // 60
@@ -649,7 +661,7 @@ class CardSessionsViewForExcel(LoginRequiredAPIView):
         else:
             pass
 
-        parkings = Parking.objects.filter(owner=request.owner)
+        parkings = Parking.objects.filter(owner=get_owner(request))
         # parkings = Parking.objects.filter(owner=2)
 
         qs = RpsParkingCardSession.objects.filter(
@@ -702,7 +714,8 @@ class CardSessionsViewForExcel(LoginRequiredAPIView):
         font_style = xlwt.XFStyle()
         font_style.font.bold = True
 
-        columns = ['ID', 'ID карты', 'ID клиента', 'Продолжительность', 'Сумма оплаты', 'Дата и время оплаты', 'Название парковки']
+        columns = ['ID', 'ID карты', 'ID клиента', 'Продолжительность', 'Сумма оплаты', 'Дата и время оплаты',
+                   'Название парковки']
 
         for col_num in range(len(columns)):
             ws.write(row_num, col_num, columns[col_num], font_style)
@@ -748,12 +761,12 @@ class CardSessionsViewForExcel(LoginRequiredAPIView):
                             if parking.id == row[col_num]:
                                 value = parking.name
 
-
                     ws.write(row_num, col_num, value, format)
 
         wb.save(response)
 
         return response
+
 
 class ParkingSessionsView(LoginRequiredAPIView):
     def get(self, request, **kwargs):
@@ -799,7 +812,7 @@ class ParkingSessionsView(LoginRequiredAPIView):
 
         qs = ParkingSession.objects.filter(
             parking__id=parking_id,
-            parking__owner=request.owner
+            parking__owner=get_owner(request)
         )
 
         if td:
@@ -838,16 +851,18 @@ class ParkingSessionsView(LoginRequiredAPIView):
 
         for session in qs:
             parking_dict = serializer(session.parking, include_attr=('id', 'name',))
-            session_dict = serializer(session, datetime_format='timestamp_notimezone', exclude_attr=('parking_id', 'try_refund', 'current_refund_sum', 'target_refund_sum'))
+            session_dict = serializer(session, datetime_format='timestamp_notimezone', exclude_attr=(
+                'parking_id', 'try_refund', 'current_refund_sum', 'target_refund_sum'))
             session_dict["parking"] = parking_dict
             result_list.append(session_dict)
 
         response_dict = {
-            "result":result_list,
-            "next":result_list[len(result_list) - 1]["id"] if len(result_list) > 0 else None
+            "result": result_list,
+            "next": result_list[len(result_list) - 1]["id"] if len(result_list) > 0 else None
         }
 
         return JsonResponse(response_dict)
+
 
 class ParkingSessionsViewForExcel(LoginRequiredAPIView):
     def get(self, request, **kwargs):
@@ -890,7 +905,7 @@ class ParkingSessionsViewForExcel(LoginRequiredAPIView):
             pass
 
         qs = ParkingSession.objects.filter(
-            parking__owner=request.owner
+            parking__owner=get_owner(request)
         )
 
         if td:
@@ -1005,6 +1020,7 @@ class ParkingSessionsViewForExcel(LoginRequiredAPIView):
 
         return response
 
+
 class ParkingsTopView(LoginRequiredAPIView):
     def get(self, request):
         count = parse_int(request.GET.get('count', [3])[0])
@@ -1048,7 +1064,7 @@ class ParkingsTopView(LoginRequiredAPIView):
             pass
 
         qs = ParkingSession.objects.filter(
-            parking__owner=request.owner
+            parking__owner=get_owner(request)
         )
 
         if td:
@@ -1079,7 +1095,7 @@ class ParkingsTopView(LoginRequiredAPIView):
         else:
             pass
 
-        parkings = Parking.objects.filter(owner=request.owner)
+        parkings = Parking.objects.filter(owner=get_owner(request))
 
         r = []
 
@@ -1094,10 +1110,10 @@ class ParkingsTopView(LoginRequiredAPIView):
             })
         r = sorted(r, key=lambda x: -x['income'] if x['income'] else 0)
         if page is None:
-            page=0
+            page = 0
 
         response_dict = {
-            "result": r[page*count:(page+1)*count],
+            "result": r[page * count:(page + 1) * count],
         }
 
         if not len(r) <= (page + 1) * count:
@@ -1124,7 +1140,7 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
     account_filter = 'owner'
 
     def set_owner_and_validate(self, request, obj):
-        obj.owner = request.owner
+        obj.owner = get_owner(request)
         if not obj.use_profile_contacts:
             if not all((obj.email, obj.phone)):
                 raise ValidationException(ValidationException.VALIDATION_ERROR,
@@ -1166,7 +1182,8 @@ class CompanyView(LoginRequiredAPIView, ObjectView):
 
 class EventsView(LoginRequiredAPIView, ObjectView):
     object = OwnerApplication
-    show_fields = ('owner_id', 'type', 'owner_id', 'parking_id', 'vendor_id', 'company_id', 'status', 'description', 'created_at', )
+    show_fields = (
+        'owner_id', 'type', 'owner_id', 'parking_id', 'vendor_id', 'company_id', 'status', 'description', 'created_at',)
     account_filter = 'owner'
 
 
@@ -1181,8 +1198,8 @@ class TariffView(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         response = {
-            "file_name":parking.tariff_file_name,
-            "file_content":parking.tariff_file_content
+            "file_name": parking.tariff_file_name,
+            "file_content": parking.tariff_file_content
         }
         return JsonResponse(response, status=200)
 
@@ -1228,7 +1245,7 @@ class ConnectParkingView(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         try:
-            company = Company.objects.get(id=company_id, owner=request.owner)
+            company = Company.objects.get(id=company_id, owner=get_owner(request))
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -1239,7 +1256,7 @@ class ConnectParkingView(LoginRequiredAPIView):
 
         OwnerApplication.objects.create(
             type=OwnerApplication.TYPE_CONNECT_PARKING,
-            owner=self.request.owner,
+            owner=get_owner(self.request),
             parking=parking,
             vendor=vendor,
             company=company,
@@ -1259,10 +1276,11 @@ class ParkingsView(LoginRequiredAPIView, ObjectView):
     object = Parking
     account_filter = 'owner'
     foreign_field = [('company', ('id', 'name',)), ('vendor', ('id', 'name',))]
+    hide_fields = ('picture', )
     readonly_fields = ()
 
     def on_create(self, request, obj):
-        obj.owner = request.owner # add owner
+        obj.owner = get_owner(request)  # add owner
         if not obj.latitude or not obj.longitude:
             raise ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -1283,7 +1301,7 @@ class ParkingsView(LoginRequiredAPIView, ObjectView):
 class VendorsView(LoginRequiredAPIView, ObjectView):
     object = Vendor
     methods = ('GET',)
-    show_fields = ('id','name',)
+    show_fields = ('id', 'name',)
 
 
 class PasswordChangeView(LoginRequiredAPIView):
@@ -1332,14 +1350,21 @@ class LoginWithEmailView(APIView):
         email = raw_email.lower()
 
         try:
-            owner = Owner.objects.get(email=email)
-            if owner.check_password(raw_password=password):
+
+            try:
+                user = Owner.objects.get(email=email)
+                group = Groups.OWNER
+            except ObjectDoesNotExist:
+                user = CompanyUser.objects.get(email=email)
+                group = Groups.COMPANY_USER
+
+            if user.check_password(raw_password=password):
                 session = Session.objects.create(
-                    #user=account,
+                    # user=account,
                     type=TokenTypes.WEB,
-                    temp_user_id=owner.id
+                    temp_user_id=user.id
                 )
-                access_token = session.update_access_token(group=Groups.OWNER)
+                access_token = session.update_access_token(group=group)
                 response_dict = serializer(session, include_attr=("refresh_token", 'expires_at',))
                 response_dict["access_token"] = access_token
                 return JsonResponse(response_dict)
@@ -1361,7 +1386,7 @@ class LoginWithEmailView(APIView):
 class LogoutView(LoginRequiredAPIView):
     def post(self, request):
         Session.objects.filter(
-            temp_user_id=request.owner.id
+            temp_user_id=get_owner(request).id
         ).delete()
         return JsonResponse({}, status=200)
 
@@ -1430,3 +1455,202 @@ class ZendeskJWTWidgetView(LoginRequiredAPIView):
         jwt_token = request.owner.get_or_create_jwt_for_zendesk_widget()
         return HttpResponse(jwt_token)
 
+
+# Для valet функциональности views
+
+class CompanyUsersView(LoginRequiredAPIView):
+    def get(self, request):
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        users = CompanyUser.objects.filter(company=company)
+        serializer = CompanyUserSerializer(users, many=True)
+        return JsonResponse(serializer.data, status=200, safe=False)
+
+    # создание нового пользователя
+    def post(self, request):
+        # TODO добавить вывод ошибок
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        email = request.data.get('email', None)
+        phone = request.data.get('phone', None)
+        first_name = request.data.get('first_name', None)
+        last_name = request.data.get('last_name', None)
+        password = request.data.get('password', None)
+        available_parking = request.data.get('available_parking', None)
+        role_id = request.data.get('role_id', None)
+
+        if email is None or password is None or available_parking is None or role_id is None:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "missing required params"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        user = CompanyUser.create_user(
+            self=None,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            phone=phone,
+            password=password,
+            available_parking=available_parking,
+            role_id=role_id,
+            company=company
+        )
+
+        return JsonResponse(user, status=200, safe=False)
+
+    def put(self, request):
+        request.data = json.loads(request.body)
+        # TODO добавить вывод ошибок
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        id = request.data.get('id', None)
+        email = request.data.get('email', None)
+        first_name = request.data.get('first_name', None)
+        last_name = request.data.get('last_name', None)
+        phone = request.data.get('phone', None)
+        password = request.data.get('password', None)
+        available_parking = request.data.get('available_parking', None)
+        role_id = request.data.get('role_id', None)
+
+        if id is None or email is None or available_parking is None or role_id is None:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "missing required params"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        user = CompanyUser.update_user(
+            self=None,
+            id=id,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            phone=phone,
+            password=password,
+            available_parking=available_parking,
+            role_id=role_id,
+            company=company
+        )
+
+        if (not user): # проверка на ошибки
+            return JsonResponse({'status': 'error'}, status=400)
+
+        return JsonResponse(user, status=200, safe=False)
+
+    def delete(self, request):
+        request.data = json.loads(request.body)
+        id = request.data.get('id', None)
+        if id is None:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "missing required params"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        CompanyUser.objects.get(id=id).delete()
+
+        return JsonResponse({'message': 'success'}, status=200)
+
+
+class CompanyUsersRoleView(LoginRequiredAPIView):
+    def get(self, request):
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+
+        # забираем роли стандартные и индивидуальные для компании
+        standard_roles = CompanyUsersRole.objects.filter(company__isnull=True)
+        company_roles = CompanyUsersRole.objects.filter(company=company)
+        roles = list(chain(standard_roles, company_roles))
+
+        serializer = CompanyUsersRoleSerializer(roles, many=True)
+        return JsonResponse(serializer.data, status=200, safe=False)
+
+    # создание роли
+    def post(self, request):
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        name = request.data.get('name', None)
+
+        if not name:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "missing required params"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        role = CompanyUsersRole.objects.create(
+            name=name,
+            company=company
+        )
+
+        serializer = CompanyUsersRoleSerializer([role], many=True)
+
+        return JsonResponse(serializer.data[0], status=200, safe=False)
+
+    def put(self, request):
+        request.data = json.loads(request.body)
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        name = request.data.get('name', None)
+        id = request.data.get('id', None)
+        permissions = request.data.get('permissions', None)
+
+        if name is None or id is None or permissions is None:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "missing required params"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        role = CompanyUsersRole.objects.get(id=id)
+
+        if (role.company_id != company.id):
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "its not allow to edit user from another company"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        role.name = name
+
+        for permission in permissions:
+            p = CompanyUsersRolePermission.objects.get(id=permission['id'])
+            p.active = permission['active']
+            p.save()
+
+        role.save()
+
+        serializer = CompanyUsersRoleSerializer([role], many=True)
+
+        return JsonResponse(serializer.data[0], status=200, safe=False)
+
+    def delete(self, request):
+        request.data = json.loads(request.body)
+        id = request.data.get('id', None)
+        if id is None:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "missing required params"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        CompanyUsersRole.objects.get(id=id).delete()
+
+        return JsonResponse({'message': 'success'}, status=200)
+
+
+
+class CompanyUsersPermissionView(APIView):
+    def get(self, request):
+        permissions = CompanyUsersPermission.objects.all()
+        categories = CompanyUsersPermissionCategory.objects.all()
+
+        return JsonResponse(
+            {
+                "permissions": serializer(permissions),
+                "categories": serializer(categories)
+            },
+            status=200
+        )

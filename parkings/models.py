@@ -1,16 +1,21 @@
+import calendar
 import datetime
+import time
+
 import pytz
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models import signals
+from django.utils import timezone
 
 from accounts.models import Account
 from base.utils import get_logger
 from base.validators import comma_separated_emails
 from parkpass_backend.settings import ALLOWED_HOSTS, ACQUIRING_LIST
 from payments.models import Order
+from rps_vendor.models import RpsParking, ParkingCard, RpsParkingCardSession
 from vendors.models import Vendor
 
 
@@ -27,7 +32,6 @@ DEFAULT_PARKING_TIMEZONE = 'Europe/Moscow'
 ALL_TIMEZONES = sorted((item, item) for item in pytz.all_timezones)
 
 
-
 class Service(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
@@ -37,6 +41,7 @@ class Service(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class Parking(models.Model):
     DISCONNECTED = 0
@@ -271,7 +276,6 @@ class ParkingSession(models.Model):
     is_send_warning_non_closed_message = models.BooleanField(default=False)
     created_at = models.DateField(auto_now_add=True)
 
-
     manual_close = models.BooleanField(default=False)
 
     comment = models.TextField(null=True, blank=True)
@@ -445,7 +449,6 @@ signals.post_save.connect(receiver=create_test_parking, sender=Vendor)  # Test p
 
 # is being created
 
-
 class ProblemParkingSessionNotifierSettings(models.Model):
     available = models.BooleanField(default=True)
     report_emails = models.TextField(validators=(comma_separated_emails,), null=True, blank=True)
@@ -456,3 +459,123 @@ class ProblemParkingSessionNotifierSettings(models.Model):
 
     class Meta:
         db_table = 'problem_parking_session_notifier_settings'
+
+
+
+VALET_SESSION_RECEIVED_THE_CAR = 1
+VALET_SESSION_PARKING_THE_CAR = 2
+VALET_SESSION_THE_CAR_IS_PARKED = 3
+VALET_SESSION_REQUESTING_A_CAR_DELIVERY = 4
+VALET_SESSION_IN_THE_PROCESS = 5
+VALET_SESSION_THE_CAR_IS_ISSUED = 6
+VALET_SESSION_COMPLETED = 7
+VALET_SESSION_COMPLETED_AND_PAID = 8
+
+VALET_SESSION_STATE_CHOICES = (
+    (VALET_SESSION_RECEIVED_THE_CAR, 'Принял автомобиль'),
+    (VALET_SESSION_PARKING_THE_CAR, 'Парковка автомобиля'),
+    (VALET_SESSION_THE_CAR_IS_PARKED, 'Автомобиль припаркован'),
+    (VALET_SESSION_REQUESTING_A_CAR_DELIVERY, 'Запрошена подача автомобиля'),
+    (VALET_SESSION_IN_THE_PROCESS, 'В процессе подачи'),
+    (VALET_SESSION_THE_CAR_IS_ISSUED, 'Машина выдана'),
+    (VALET_SESSION_COMPLETED, 'Валет сессия завершена'),
+    (VALET_SESSION_COMPLETED_AND_PAID, 'Сессия завершена и оплачена'),
+)
+
+
+class ParkingValetSession(models.Model):
+    id = models.CharField(primary_key=True, unique=True, max_length=50, editable=False)
+    client_id = models.CharField(max_length=50, null=True)
+    parking = models.ForeignKey(Parking, on_delete=models.CASCADE)
+    state = models.PositiveSmallIntegerField(choices=VALET_SESSION_STATE_CHOICES, default=VALET_SESSION_RECEIVED_THE_CAR)
+    car_number = models.CharField(max_length=20)
+    car_color = models.CharField(max_length=100)
+    car_model = models.CharField(max_length=100)
+    car_photo = models.ImageField(upload_to='valet_car_photo', null=True, blank=True)
+    debt = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    valet_card_id = models.CharField(max_length=100)
+    parking_card = models.ForeignKey('rps_vendor.ParkingCard', on_delete=models.SET_NULL, null=True)
+    parking_floor = models.SmallIntegerField(default=1)
+    parking_space_number = models.CharField(max_length=20)
+    created_by_user = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True, related_name='created_by_user_relate_table')
+    responsible = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True, related_name='responsible_relate_table')
+    parking_card_get_at = models.DateTimeField(null=True, blank=True)
+    car_delivery_time = models.DateTimeField(null=True, blank=True)
+    car_delivered_at = models.DateTimeField(null=True, blank=True)
+    car_delivered_by = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='car_delivered_by_relate_table')
+    paid_at = models.DateTimeField(null=True, blank=True)
+    parking_card_session = models.ForeignKey('rps_vendor.RpsParkingCardSession', on_delete=models.SET_NULL, null=True)
+    manual_close = models.BooleanField(default=False)
+    comment = models.TextField(null=True, blank=True, max_length=1024)
+    started_at = models.DateField(auto_now_add=True)
+    updated_at = models.DateField(auto_now=True)
+
+    def generate_id(self, valet_card_id):
+        timestamp = calendar.timegm(time.gmtime())
+        return f'{valet_card_id}-{timestamp}'
+
+    def set_state(self):
+        # TODO доделать этап 2
+        pass
+
+    def get_debt_from_remote(self):
+        rps_parking = RpsParking.objects.get(parking=self.parking)
+        response = rps_parking.get_parking_card_debt(self.parking_card)
+        if response:
+            self.debt = response['debt']
+            self.parking_card_get_at = response['entered_at']
+            self.set_parking_card_session(response['id'])
+
+    def set_responsible(self, company_user):
+        # user_role = company_user.role
+        # TODO доделать проверку прав
+        pass
+
+    def set_car_delivery_time(self, date):
+        self.car_delivery_time = date
+
+    def set_car_delivered_at(self):
+        self.car_delivered_at = timezone.now()
+
+    def set_car_delivered_by(self, valet_user):
+        self.car_delivered_at = valet_user
+
+    def set_paid_time(self):
+        self.paid_at = timezone.now()
+
+    def set_parking_card_session(self, card_session_id):
+        if card_session_id:
+            try:
+                card_session = RpsParkingCardSession.objects.get(id=card_session_id)
+                self.parking_card_session = card_session
+            except Exception as e:
+                get_logger().error('Не удалось сохранить парковочную сессию')
+                get_logger().error(str(e))
+
+    def __str__(self):
+        return self.id
+
+
+VALET_REQUEST_ACTIVE = 1
+VALET_REQUEST_ACCEPTED = 1
+VALET_REQUEST_CANCELED = 1
+
+VALET_REQUESTS_STATE_CHOICES = (
+    (VALET_REQUEST_ACTIVE, 'Ожидает принятия'),
+    (VALET_REQUEST_ACCEPTED, 'Запрос принят'),
+    (VALET_REQUEST_CANCELED, 'Запрос отменен'),
+)
+
+
+class ParkingValetSessionRequest(models.Model):
+    id = models.AutoField(primary_key=True)
+    valet_session = models.ForeignKey(ParkingValetSession, on_delete=models.CASCADE)
+    status = models.PositiveSmallIntegerField(choices=VALET_REQUESTS_STATE_CHOICES, default=VALET_REQUEST_ACTIVE)
+    created_at = models.DateField(auto_now_add=True, editable=False)
+    updated_at = models.DateField(auto_now=True, editable=False)
+    car_delivery_time = models.DateTimeField(null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    canceled_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.id} {self.valet_session.id}'

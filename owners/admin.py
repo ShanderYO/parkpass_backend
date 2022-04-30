@@ -1,3 +1,4 @@
+from adminsortable.admin import SortableAdmin
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
@@ -53,4 +54,31 @@ class CompanySettingReports(admin.ModelAdmin):
 
 @admin.register(CompanyReport)
 class CompanyReportAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(CompanyUsersPermissionCategory)
+class CompanyUsersPermissionCategoryAdmin(admin.ModelAdmin):
+    pass
+
+
+class CompanyUsersRolePermissionInline(admin.TabularInline):
+    model = CompanyUsersRolePermission
+    extra = 0 # how many rows to show
+
+
+class CompanyUsersPermissionAdmin(SortableAdmin):
+    list_display = ['__str__', 'slug', 'category']
+
+admin.site.register(CompanyUsersPermission, CompanyUsersPermissionAdmin)
+
+
+@admin.register(CompanyUsersRole)
+class CompanyUsersRoleAdmin(admin.ModelAdmin):
+    inlines = (CompanyUsersRolePermissionInline,)
+    pass
+
+
+@admin.register(CompanyUser)
+class CompanyUserAdmin(admin.ModelAdmin):
     pass

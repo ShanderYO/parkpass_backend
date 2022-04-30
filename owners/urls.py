@@ -40,4 +40,9 @@ urlpatterns = [
                   url(r'^companies/$', CompanyView.as_view()),
                   url(r'^companies/(?P<id>\d+)/$', CompanyView.as_view()),
                   url(r'^events/$', EventsView.as_view()),
+
+                  url(r'^users/$', CompanyUsersView.as_view()),
+                  url(r'^roles/$', CompanyUsersRoleView.as_view()),
+                  url(r'^permissions/$', CompanyUsersPermissionView.as_view()),
+
               ] + staticfiles_urlpatterns()

@@ -178,7 +178,10 @@ class LoginRequiredAPIView(APIView):
 
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request, self.account_type) or not getattr(request, self.account_type, None):
+        not_allow_condition = not hasattr(request, self.account_type) or not getattr(request, self.account_type, None)
+        if self.account_type == 'owner':
+            not_allow_condition = (not hasattr(request, self.account_type) or not getattr(request, self.account_type, None)) and (not hasattr(request, 'companyuser') or not getattr(request, 'companyuser', None))
+        if not_allow_condition:
             print(request)
             auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
             return JsonResponse(auth_exception.to_dict(), status=401)
@@ -326,6 +329,9 @@ class ObjectView(object):
                     account = acc
                     break
             #######DEPRECATED CODE#######
+
+            if not account and request.companyuser:
+                account = request.companyuser.company
             flt = {self.account_filter: account} if self.account_filter else {}
             return queryset.filter(**flt)
         else:
@@ -339,7 +345,7 @@ class ObjectView(object):
         if len(qs) == 0:
             raise ValidationException(ValidationException.RESOURCE_NOT_FOUND,
                                       "Object with such id wasn't found.")
-        qs = qs.filter(owner=request.owner)
+        qs = qs.filter(owner=request.owner if request.owner else request.companyuser.company.owner)
 
         if len(qs) == 0:
             raise PermissionException(PermissionException.NOT_PRIVELEGIED, "You're not privelegied to see"
@@ -468,7 +474,7 @@ class ObjectView(object):
                 elif fieldtype in ('DateField', 'DateTimeField'):
                     value = datetime_from_unix_timestamp_tz(value)
                 flt[key.encode('utf-8')] = value
-            flt['owner'] = request.owner
+            flt['owner'] = request.companyuser.company.owner if request.companyuser else request.owner
             qs = self.object.objects.filter(**flt)
 
             # Add id pagination
