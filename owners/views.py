@@ -22,7 +22,8 @@ from payments.models import Order, TinkoffPayment, HomeBankPayment
 from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES
 from vendors.models import Vendor
 from .models import OwnerApplication, Owner, CompanyUser, CompanyUsersRole, CompanyUsersRolePermission, \
-    CompanyUsersPermission, CompanyUsersPermissionCategory, CompanyUserSerializer, CompanyUsersRoleSerializer
+    CompanyUsersPermission, CompanyUsersPermissionCategory, CompanyUserSerializer, CompanyUsersRoleSerializer, \
+    CompanyUsersRolePermissionSerializer, CompanyUsersRolePermissionWithSlugSerializer
 from .models import Owner as Account
 from .models import Company
 from .validators import ConnectIssueValidator, TariffValidator
@@ -39,6 +40,7 @@ class AccountInfoView(LoginRequiredAPIView):
         owner = request.owner
         if not owner:
             account_dict['companyuser'] = True
+            account_dict['permissions'] = CompanyUsersRolePermissionWithSlugSerializer(user.role.companyusersrolepermission_set, many=True).data
             owner = user.company.owner
 
         parkings = Parking.objects.filter(company__owner=owner)

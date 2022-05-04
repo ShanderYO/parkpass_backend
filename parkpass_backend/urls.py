@@ -38,6 +38,7 @@ urlpatterns = [
     path('api/v1/parking/', include("rps_vendor.urls")),
     path('api/v1/vendor/', include("vendors.urls")),
     path('api/v1/auth/', include("jwtauth.urls")),
+    path('api/v1/valet/', include("valet.urls")),
     path('app/', GetAppUrlView.as_view())
 
               ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) \

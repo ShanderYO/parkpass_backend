@@ -247,13 +247,26 @@ class CompanyUsersRolePermission(models.Model):  # связующая табли
 
 
 class CompanyUsersRolePermissionSerializer(serializers.ModelSerializer):
-    # permission = CompanyUsersPermissionSerializer(read_only=True)
 
     class Meta:
         model = CompanyUsersRolePermission
         fields = [
             'id', 'permission', 'role', 'active'
         ]
+
+class CompanyUsersRolePermissionWithSlugSerializer(serializers.ModelSerializer):
+    permission_slug = serializers.SlugRelatedField(
+        read_only=True,
+        source='permission',
+        slug_field='slug'
+     )
+
+    class Meta:
+        model = CompanyUsersRolePermission
+        fields = [
+            'id', 'permission', 'permission_slug', 'role', 'active'
+        ]
+
 
 
 class CompanyUsersRole(models.Model):
