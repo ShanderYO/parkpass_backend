@@ -24,7 +24,7 @@ SECRET_KEY = 'kickk&tua$aj_jq4(+kt5wb4jfgqp5#t-ki-dh1nk2zs54al0l'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 
-ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1", '0.0.0.0']
+ALLOWED_HOSTS = ['*']
 
 # CORS_ORIGIN_WHITELIST = [
 #     "https://pay.parkpass.ru",
@@ -246,12 +246,12 @@ USE_TZ = True
 
 # Email configs
 # TODO change SMTP parameters
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST = 'smtp.yandex.ru'
 EMAIL_PORT = 587
 DEFAULT_FROM_EMAIL = "Команда ParkPass <noreply@parkpass.ru>"
 EMAIL_HOST_USER = 'noreply@parkpass.ru'
 EMAILS_HOST_ALERT = ['lokkomokko1@gmail.com', 'support@parkpass.ru']
-EMAIL_HOST_PASSWORD = 'noreplyParol'
+EMAIL_HOST_PASSWORD = 'Vn$qf{s5x8'
 EMAIL_USE_TLS = True
 
 
@@ -354,6 +354,9 @@ CELERY_BEAT_SCHEDULE = {
     }
 }
 
+
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 9242880
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/

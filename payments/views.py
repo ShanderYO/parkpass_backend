@@ -786,7 +786,7 @@ class TestView(APIView):
         # qs = AccountDevice.objects.filter(account_id=100000000000001132)
         # for account_device in qs:
         #     print('lalala')
-        #     account_device.send_message(title='Здарова друга', body='Привет')
+        #     account_device.send_message(title='111', body='Привет')
         import asyncio
         # from utils.screenshot import create_screenshot
         # create_screenshot('https://consumer.1-ofd.ru/ticket?t=20211008T1607&s=200.00&fn=9287440300256165&i=7080&fp=1774076369&n=1', 'ыыыы')
@@ -796,8 +796,8 @@ class TestView(APIView):
         # msg_html = render_to_string('emails/fiskal_notification.html', {'link': 'http://adasd.asd', 'image': 'https://%s/api/media/fiskal/ыыыы.png' % BASE_DOMAIN})
         msg_html = render_to_string('emails/sur-email-template.html')
 
-        send_mail('Test template', "", EMAIL_HOST_USER,
-                  ['lokkomokko1@gmail.com', 'lokkomokko1@yandex.ru'], html_message=msg_html)
+        send_mail('Test template', "Hello", EMAIL_HOST_USER,
+                  ['mail@vldmrnine.com'])
 
         return HttpResponse('test21 all is good', status=200)
 

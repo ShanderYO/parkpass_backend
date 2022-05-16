@@ -1,6 +1,9 @@
 from django.contrib import admin
 
 # Register your models here.
+from django.urls import reverse
+from django.utils.html import format_html
+
 from .models import (
     Parking, ParkingSession,
     ComplainSession,
@@ -66,12 +69,17 @@ class ServiceAdmin(admin.ModelAdmin):
 
 @admin.register(ParkingValetSession)
 class ParkingValetSessionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'parking', 'state', 'debt', 'responsible', 'started_at')
-    search_fields = ('parking_card__card_id', 'id', 'responsible__id')
+    list_display = ('id', 'parking', 'state', 'debt', 'started_at')
+    search_fields = ('parking_card__card_id', 'id')
     readonly_fields = ["started_at", "updated_at"]
     # readonly_fields = ["started_at", "updated_at", "parking_card_session", 'car_delivered_by', 'responsible', 'created_by_user', 'parking_card', 'parking']
 
 @admin.register(ParkingValetSessionRequest)
 class ParkingValetSessionRequestAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'status', 'created_at')
+
+    def link_to_session(self, obj):
+        link = reverse("admin:parkings_parkingvaletsession_change", args=[obj.valet_session_id])
+        return format_html('<a href="{}">Valet session №{}</a>', link, obj.valet_session.id)
+
+    list_display = ('__str__', 'link_to_session', 'status', 'created_at')
     search_fields = ('id', 'valet_session')

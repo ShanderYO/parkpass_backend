@@ -138,7 +138,7 @@ class ParkingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Parking
         fields = [
-            'id', 'name', 'address', 'city'
+            'id', 'name', 'address', 'city', 'picture'
         ]
 
 
@@ -475,9 +475,10 @@ VALET_SESSION_PARKING_THE_CAR = 2
 VALET_SESSION_THE_CAR_IS_PARKED = 3
 VALET_SESSION_REQUESTING_A_CAR_DELIVERY = 4
 VALET_SESSION_IN_THE_PROCESS = 5
-VALET_SESSION_THE_CAR_IS_ISSUED = 6
-VALET_SESSION_COMPLETED = 7
-VALET_SESSION_COMPLETED_AND_PAID = 8
+VALET_SESSION_THE_CAR_IS_WAITING = 6
+VALET_SESSION_THE_CAR_IS_ISSUED = 7
+VALET_SESSION_COMPLETED = 8
+VALET_SESSION_COMPLETED_AND_PAID = 9
 
 VALET_SESSION_STATE_CHOICES = (
     (VALET_SESSION_RECEIVED_THE_CAR, 'Принял автомобиль'),
@@ -485,6 +486,7 @@ VALET_SESSION_STATE_CHOICES = (
     (VALET_SESSION_THE_CAR_IS_PARKED, 'Автомобиль припаркован'),
     (VALET_SESSION_REQUESTING_A_CAR_DELIVERY, 'Запрошена подача автомобиля'),
     (VALET_SESSION_IN_THE_PROCESS, 'В процессе подачи'),
+    (VALET_SESSION_THE_CAR_IS_WAITING, 'Машина ожидает'),
     (VALET_SESSION_THE_CAR_IS_ISSUED, 'Машина выдана'),
     (VALET_SESSION_COMPLETED, 'Валет сессия завершена'),
     (VALET_SESSION_COMPLETED_AND_PAID, 'Сессия завершена и оплачена'),
@@ -496,21 +498,24 @@ class ParkingValetSession(models.Model):
     id = models.AutoField(primary_key=True)
     client_id = models.CharField(max_length=50, null=True)
     parking = models.ForeignKey(Parking, on_delete=models.CASCADE)
+    company = models.ForeignKey('owners.Company', on_delete=models.CASCADE, null=True)
     state = models.PositiveSmallIntegerField(choices=VALET_SESSION_STATE_CHOICES,
                                              default=VALET_SESSION_RECEIVED_THE_CAR)
     car_number = models.CharField(max_length=20)
-    car_color = models.CharField(max_length=100)
+    car_color = models.CharField(max_length=100, null=True)
     car_model = models.CharField(max_length=100)
-    car_photo = models.ImageField(upload_to='valet_car_photo', null=True, blank=True)
     debt = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    duration = models.IntegerField(default=0)
     valet_card_id = models.CharField(max_length=100)
-    parking_card = models.ForeignKey('rps_vendor.ParkingCard', on_delete=models.SET_NULL, null=True)
+    parking_card = models.ForeignKey('rps_vendor.ParkingCard', on_delete=models.SET_NULL, null=True, blank=True, to_field='card_id')
     parking_floor = models.SmallIntegerField(default=1)
-    parking_space_number = models.CharField(max_length=20)
+    parking_space_number = models.CharField(max_length=20, null=True)
     created_by_user = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True,
                                         related_name='created_by_user_relate_table')
-    responsible = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True,
+    responsible_for_reception = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True,
                                     related_name='responsible_relate_table')
+    responsible_for_delivery = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True,
+                                                  related_name='responsible_for_delivery_relate_table', blank=True)
     parking_card_get_at = models.CharField(null=True, blank=True, max_length=100)
     car_delivery_time = models.DateTimeField(null=True, blank=True)
     car_delivered_at = models.DateTimeField(null=True, blank=True)
@@ -520,8 +525,8 @@ class ParkingValetSession(models.Model):
     parking_card_session = models.ForeignKey('rps_vendor.RpsParkingCardSession', on_delete=models.SET_NULL, null=True)
     manual_close = models.BooleanField(default=False)
     comment = models.TextField(null=True, blank=True, max_length=1024)
-    started_at = models.DateField(auto_now_add=True)
-    updated_at = models.DateField(auto_now=True)
+    started_at = models.DateTimeField()
+    updated_at = models.DateTimeField(auto_now=True)
 
     @property
     def request(self):
@@ -536,14 +541,18 @@ class ParkingValetSession(models.Model):
         pass
 
     def get_debt_from_remote(self):
-        rps_parking = RpsParking.objects.get(parking=self.parking)
-        response = rps_parking.get_parking_card_debt(self.parking_card)
-        if response:
-            self.debt = response['debt']
-            self.parking_card_get_at = datetime.datetime.fromtimestamp(response['entered_at'] / 1000.0,
-                                                                       pytz.timezone('Europe/Moscow')).strftime(
-                '%d.%m.%Y в %H:%M')
-            self.set_parking_card_session(response['id'])
+        if self.parking_card:
+            rps_parking = RpsParking.objects.get(parking=self.parking)
+            response = rps_parking.get_parking_card_debt(self.parking_card)
+            if response:
+                self.duration = response['duration']
+                self.debt = response['debt']
+                self.parking_card_get_at = datetime.datetime.fromtimestamp(response['entered_at'] / 1000.0,
+                                                                           pytz.timezone('Europe/Moscow')).strftime(
+                    '%d.%m.%Y в %H:%M')
+                self.set_parking_card_session(response['id'])
+                self.save()
+
 
     def set_car_delivery_time(self, date):
         self.car_delivery_time = date
@@ -574,7 +583,8 @@ class ParkingValetSession(models.Model):
         # создаем запрос авто
         ParkingValetSessionRequest.objects.create(
             valet_session=self,
-            car_delivery_time=delivery_date
+            car_delivery_time=delivery_date,
+            company=self.company
         )
 
         self.save()
@@ -582,6 +592,26 @@ class ParkingValetSession(models.Model):
     def __str__(self):
         return f'{self.client_id} {self.car_model} {self.parking.name}'
 
+PHOTOS_AT_THE_RECEPTION = 1
+PHOTOS_FROM_PARKING = 2
+
+
+class ParkingValetSessionImages(models.Model):
+    id = models.AutoField(primary_key=True)
+    valet_session = models.ForeignKey(ParkingValetSession, on_delete=models.CASCADE)
+    type = models.PositiveSmallIntegerField(choices=((PHOTOS_AT_THE_RECEPTION, 'Фото при приеме'), (PHOTOS_FROM_PARKING, 'Фото с парковки')), default=PHOTOS_AT_THE_RECEPTION)
+    created_at = models.DateTimeField(auto_now_add=True, editable=False)
+    img = models.ImageField(upload_to='valet_car_photo')
+
+    def __str__(self):
+        return f'{self.id} {self.valet_session}'
+
+class ParkingValetSessionImagesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ParkingValetSessionImages
+        fields = [
+            'id', 'valet_session', 'type', 'created_at', 'img'
+        ]
 
 
 VALET_REQUEST_ACTIVE = 1
@@ -596,14 +626,17 @@ VALET_REQUESTS_STATE_CHOICES = (
 
 
 class ParkingValetSessionRequest(models.Model):
+    company = models.ForeignKey('owners.Company', on_delete=models.CASCADE, null=True)
     id = models.AutoField(primary_key=True)
     valet_session = models.ForeignKey(ParkingValetSession, on_delete=models.CASCADE)
     status = models.PositiveSmallIntegerField(choices=VALET_REQUESTS_STATE_CHOICES, default=VALET_REQUEST_ACTIVE)
-    created_at = models.DateField(auto_now_add=True, editable=False)
-    updated_at = models.DateField(auto_now=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
     car_delivery_time = models.DateTimeField(null=True, blank=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
     canceled_at = models.DateTimeField(null=True, blank=True)
+    accepted_by = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True)
+    finish_time = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.id} {self.valet_session}'
@@ -614,25 +647,70 @@ class ParkingValetSessionRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParkingValetSessionRequest
         fields = [
-            'id', 'status', 'car_delivery_time'
+            'id', 'status', 'car_delivery_time', 'accepted_by'
         ]
 
 
 class ParkingValetSessionSerializer(serializers.ModelSerializer):
+    from owners.models import CompanyUserSerializer
+
+    responsible_for_reception = CompanyUserSerializer(read_only=True)
+    responsible_for_delivery = CompanyUserSerializer(read_only=True)
+
     parking = ParkingSerializer(read_only=True)
-    duration = serializers.SlugRelatedField(
-        read_only=True,
-        source='parking_card_session',
-        slug_field='duration'
-    )
     request = ParkingValetSessionRequestSerializer(read_only=True)
+    photos = ParkingValetSessionImagesSerializer(source='parkingvaletsessionimages_set', many=True)
 
     class Meta:
         model = ParkingValetSession
         fields = [
             'id', 'state', 'client_id', 'parking', 'car_number', 'car_color',
-            'car_model', 'car_photo', 'debt', 'valet_card_id', 'parking_card',
-            'parking_floor', 'parking_space_number', 'created_by_user', 'responsible', 'car_color',
+            'car_model', 'debt', 'valet_card_id', 'parking_card',
+            'parking_floor', 'parking_space_number', 'created_by_user', 'responsible_for_reception', 'responsible_for_delivery', 'car_color',
             'parking_card_get_at', 'car_delivery_time', 'car_delivered_at', 'car_delivered_by', 'paid_at',
-            'parking_card_session', 'comment', 'started_at', 'duration', 'request'
+            'parking_card_session', 'comment', 'started_at', 'duration', 'request', 'photos'
         ]
+
+
+class ParkingValetSessionWithoutRelativesSerializer(serializers.ModelSerializer):
+
+    photos = ParkingValetSessionImagesSerializer(source='parkingvaletsessionimages_set', many=True)
+
+    class Meta:
+        model = ParkingValetSession
+        fields = [
+            'id', 'state', 'client_id', 'car_number', 'car_color',
+            'car_model', 'debt', 'valet_card_id', 'parking_card',
+            'parking_floor', 'parking_space_number', 'created_by_user', 'car_color',
+            'parking_card_get_at', 'car_delivery_time', 'car_delivered_at', 'car_delivered_by', 'paid_at',
+            'parking_card_session', 'comment', 'started_at', 'duration', 'photos'
+        ]
+
+class ParkingValetRequestIncludeSessionSerializer(serializers.ModelSerializer):
+    valet_session = ParkingValetSessionWithoutRelativesSerializer(read_only=True)
+    class Meta:
+        model = ParkingValetSessionRequest
+        fields = [
+            'id', 'status', 'car_delivery_time', 'accepted_by', 'valet_session', 'finish_time'
+        ]
+
+
+# class ParkingValetSessionForLkListSerializer(serializers.ModelSerializer):
+#     from owners.models import CompanyUserSerializer
+#
+#     photos = ParkingValetSessionImagesSerializer(source='parkingvaletsessionimages_set', many=True)
+#     responsible_for_reception = CompanyUserSerializer(read_only=True)
+#     # parking_card_number = serializers.SlugRelatedField(
+#     #     read_only=True,
+#     #     source='parking_card',
+#     #     slug_field='slug'
+#     # )
+#     class Meta:
+#         model = ParkingValetSession
+#         fields = [
+#             'id', 'state', 'client_id', 'parking', 'car_number', 'car_color',
+#             'car_model', 'debt', 'valet_card_id', 'parking_card',
+#             'parking_floor', 'parking_space_number', 'created_by_user', 'responsible_for_reception', 'responsible_for_delivery', 'car_color',
+#             'parking_card_get_at', 'car_delivery_time', 'car_delivered_at', 'car_delivered_by', 'paid_at',
+#             'parking_card_session', 'comment', 'started_at', 'photos', 'duration'
+#         ]

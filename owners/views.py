@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 import json
+import os
+import uuid
 from itertools import chain
 
 import xlwt
+from django.core.files.storage import FileSystemStorage
 from django.db.models import Sum, Q, Prefetch
 from django.http import HttpResponse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.timezone import timedelta
 from django.views import View
 
@@ -17,21 +21,27 @@ from base.validators import *
 from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
 from jwtauth.models import Session, TokenTypes, Groups
-from parkings.models import Parking, ParkingSession
+from parkings.models import Parking, ParkingSession, ParkingValetSession, ParkingValetSessionSerializer, \
+    ParkingValetSessionRequest, ParkingValetSessionImages, \
+    PHOTOS_AT_THE_RECEPTION, PHOTOS_FROM_PARKING, ParkingValetRequestIncludeSessionSerializer, VALET_REQUEST_ACCEPTED, \
+    VALET_SESSION_THE_CAR_IS_ISSUED
 from payments.models import Order, TinkoffPayment, HomeBankPayment
-from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES
+from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES, ParkingCard
 from vendors.models import Vendor
 from .models import OwnerApplication, Owner, CompanyUser, CompanyUsersRole, CompanyUsersRolePermission, \
     CompanyUsersPermission, CompanyUsersPermissionCategory, CompanyUserSerializer, CompanyUsersRoleSerializer, \
     CompanyUsersRolePermissionSerializer, CompanyUsersRolePermissionWithSlugSerializer
 from .models import Owner as Account
 from .models import Company
-from .validators import ConnectIssueValidator, TariffValidator
+from .validators import ConnectIssueValidator, TariffValidator, ValetSessionsCreateFromLKValidator, \
+    ValetSessionsUpdateFromLKValidator
 
 LoginRequiredAPIView = generic_login_required_view(Owner)
 
-def get_owner (request):
+
+def get_owner(request):
     return request.owner if request.owner else request.companyuser.company.owner
+
 
 class AccountInfoView(LoginRequiredAPIView):
     def get(self, request):
@@ -40,10 +50,11 @@ class AccountInfoView(LoginRequiredAPIView):
         owner = request.owner
         if not owner:
             account_dict['companyuser'] = True
-            account_dict['permissions'] = CompanyUsersRolePermissionWithSlugSerializer(user.role.companyusersrolepermission_set, many=True).data
+            account_dict['permissions'] = CompanyUsersRolePermissionWithSlugSerializer(
+                user.role.companyusersrolepermission_set, many=True).data
             owner = user.company.owner
 
-        parkings = Parking.objects.filter(company__owner=owner)
+        parkings = Parking.objects.filter(company__owner=owner, approved=True)
         en_parkings = parkings.filter(parkpass_status=Parking.CONNECTED)
         account_dict['parkings_total'] = len(parkings)
         account_dict['parkings_enabled'] = len(en_parkings)
@@ -296,7 +307,7 @@ class SubscriptionsView(LoginRequiredAPIView):
         else:
             pass
 
-        parkings = Parking.objects.filter(owner=get_owner(request))
+        parkings = Parking.objects.filter(owner=get_owner(request), approved=True)
 
         qs = RpsSubscription.objects.filter(
             parking__in=parkings,
@@ -393,7 +404,7 @@ class SubscriptionsViewForExcel(LoginRequiredAPIView):
         else:
             pass
 
-        parkings = Parking.objects.filter(owner=request.owner)
+        parkings = Parking.objects.filter(owner=request.owner, approved=True)
 
         qs = RpsSubscription.objects.filter(
             parking__in=parkings,
@@ -534,7 +545,7 @@ class CardSessionsView(LoginRequiredAPIView):
             pass
 
         # parkings = Parking.objects.filter(owner_id=2)
-        parkings = Parking.objects.filter(owner_id=get_owner(request))
+        parkings = Parking.objects.filter(owner_id=get_owner(request), approved=True)
 
         qs = RpsParkingCardSession.objects.filter(
             parking_id__in=parkings,
@@ -663,7 +674,7 @@ class CardSessionsViewForExcel(LoginRequiredAPIView):
         else:
             pass
 
-        parkings = Parking.objects.filter(owner=get_owner(request))
+        parkings = Parking.objects.filter(owner=get_owner(request), approved=True)
         # parkings = Parking.objects.filter(owner=2)
 
         qs = RpsParkingCardSession.objects.filter(
@@ -1097,7 +1108,7 @@ class ParkingsTopView(LoginRequiredAPIView):
         else:
             pass
 
-        parkings = Parking.objects.filter(owner=get_owner(request))
+        parkings = Parking.objects.filter(owner=get_owner(request), approved=True)
 
         r = []
 
@@ -1278,7 +1289,7 @@ class ParkingsView(LoginRequiredAPIView, ObjectView):
     object = Parking
     account_filter = 'owner'
     foreign_field = [('company', ('id', 'name',)), ('vendor', ('id', 'name',))]
-    hide_fields = ('picture', )
+    hide_fields = ('picture',)
     readonly_fields = ()
 
     def on_create(self, request, obj):
@@ -1536,7 +1547,7 @@ class CompanyUsersView(LoginRequiredAPIView):
             company=company
         )
 
-        if (not user): # проверка на ошибки
+        if (not user):  # проверка на ошибки
             return JsonResponse({'status': 'error'}, status=400)
 
         return JsonResponse(user, status=200, safe=False)
@@ -1643,7 +1654,6 @@ class CompanyUsersRoleView(LoginRequiredAPIView):
         return JsonResponse({'message': 'success'}, status=200)
 
 
-
 class CompanyUsersPermissionView(APIView):
     def get(self, request):
         permissions = CompanyUsersPermission.objects.all()
@@ -1656,3 +1666,329 @@ class CompanyUsersPermissionView(APIView):
             },
             status=200
         )
+
+
+class ValetSessionsView(LoginRequiredAPIView):
+    validator_class = ValetSessionsCreateFromLKValidator
+
+    #
+    def get(self, request):
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        id = request.GET.get('id', None)
+        result = None
+
+        if (id):
+            single_session = ParkingValetSession.objects.filter(id=id).last()
+            serializer = ParkingValetSessionSerializer([single_session], many=True)
+            result = serializer.data[0]
+        else:
+            sessions = ParkingValetSession.objects.filter(company_id=company.id).order_by('-id')
+            serializer = ParkingValetSessionSerializer(sessions, many=True)
+            result = serializer.data
+
+        return JsonResponse(
+            result,
+            status=200,
+            safe=False
+        )
+
+    def post(self, request):
+
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        # sessions = ParkingValetSession.objects.filter(company_id=company.id)
+
+        car_model = self.request.POST.get("car_model")
+        car_number = self.request.POST.get("car_number")
+        car_color = self.request.POST.get("car_color", None)
+        valet_card_id = self.request.POST.get("valet_card_id")
+        parking_card = self.request.POST.get("parking_card")
+        responsible_id = self.request.POST.get("responsible_id")
+        started_at = self.request.POST.get("started_at")
+        parking_space_number = self.request.POST.get("parking_space_number")
+        parking_id = self.request.POST.get("parking_id")
+        photo_accept_array = request.FILES.getlist('photo_accept', [])
+        photo_parking_array = request.FILES.getlist('photo_parking', [])
+
+        created_by_user = request.companyuser if request.companyuser else None
+        parking_card_model = None
+
+        if parking_card:
+            parking_card_model = ParkingCard.objects.get(card_id=parking_card)
+
+        session = ParkingValetSession.objects.create(
+            car_model=car_model,
+            car_number=car_number,
+            valet_card_id=valet_card_id,
+            parking_card=parking_card_model,
+            responsible_for_reception_id=responsible_id,
+            started_at=parse_datetime(started_at),
+            parking_space_number=parking_space_number,
+            parking_id=parking_id,
+            company_id=company.id,
+            created_by_user=created_by_user,
+            car_color=car_color
+        )
+
+        for file in photo_accept_array:
+            fs = FileSystemStorage()
+            extension = os.path.splitext(file.name)[1]
+            filename = fs.save(f'valet_car_photo/{str(uuid.uuid4())}{extension}', file)
+            uploaded_file_url = fs.url(filename)
+            ParkingValetSessionImages.objects.create(
+                valet_session_id=session.id,
+                type=PHOTOS_AT_THE_RECEPTION,
+                img=uploaded_file_url.replace('/api/media', '', 1)
+            )
+
+        for file in photo_parking_array:
+            fs = FileSystemStorage()
+            extension = os.path.splitext(file.name)[1]
+            filename = fs.save(f'valet_car_photo/{str(uuid.uuid4())}{extension}', file)
+            uploaded_file_url = fs.url(filename)
+            ParkingValetSessionImages.objects.create(
+                valet_session_id=session.id,
+                type=PHOTOS_FROM_PARKING,
+                img=uploaded_file_url.replace('/api/media', '', 1)
+            )
+
+        serializer = ParkingValetSessionSerializer([session], many=True)
+
+        return JsonResponse(
+            serializer.data[0],
+            status=200,
+            safe=False
+        )
+
+    def delete(self, request):
+        request.data = json.loads(request.body)
+        id = self.request.data.get("id")
+        ParkingValetSession.objects.filter(id=id).last().delete()
+        return JsonResponse(
+            {'message': 'success'},
+            status=200,
+            safe=False
+        )
+
+
+class ValetSessionsUpdateView(LoginRequiredAPIView):
+    validator_class = ValetSessionsUpdateFromLKValidator
+
+    def post(self, request):
+
+        owner = get_owner(request)
+        state = self.request.POST.get("state")
+        id = self.request.POST.get("id")
+        car_model = self.request.POST.get("car_model")
+        car_color = self.request.POST.get("car_color")
+        car_number = self.request.POST.get("car_number")
+        valet_card_id = self.request.POST.get("valet_card_id")
+        parking_card = self.request.POST.get("parking_card")
+        responsible_for_reception_id = self.request.POST.get("responsible_for_reception_id")
+        responsible_for_delivery_id = self.request.POST.get("responsible_for_delivery_id")
+        started_at = self.request.POST.get("started_at")
+        parking_space_number = self.request.POST.get("parking_space_number")
+        parking_floor = self.request.POST.get("parking_floor")
+        car_delivery_time = self.request.POST.get("car_delivery_time")
+        car_delivered_at = self.request.POST.get("car_delivered_at")
+        photo_accept_array = request.FILES.getlist('photo_accept', [])
+        photo_parking_array = request.FILES.getlist('photo_parking', [])
+
+        parking_card_model = None
+
+        if parking_card:
+            parking_card_model = ParkingCard.objects.get(card_id=parking_card)
+
+        session = ParkingValetSession.objects.filter(id=id).last()
+
+        if state: session.state = state
+        if car_model: session.car_model = car_model
+        if car_number: session.car_number = car_number
+        if car_color: session.car_color = car_color
+        if valet_card_id: session.valet_card_id = valet_card_id
+        if parking_card: session.parking_card = parking_card_model
+        if responsible_for_reception_id: session.responsible_for_reception_id = responsible_for_reception_id
+        if responsible_for_delivery_id: session.responsible_for_delivery_id = responsible_for_delivery_id
+        if started_at: session.started_at = started_at
+        if parking_space_number: session.parking_space_number = parking_space_number
+        if parking_floor: session.parking_floor = parking_floor
+        if car_delivery_time: session.car_delivery_time = car_delivery_time
+        if car_delivered_at: session.car_delivered_at = car_delivered_at
+
+        session.save()
+
+        if photo_accept_array and len(photo_accept_array) > 0:
+            # удаляем старые фотки
+            ParkingValetSessionImages.objects.filter(valet_session=session, type=PHOTOS_AT_THE_RECEPTION).delete()
+            for file in photo_accept_array:
+                fs = FileSystemStorage()
+                extension = os.path.splitext(file.name)[1]
+                filename = fs.save(f'valet_car_photo/{str(uuid.uuid4())}{extension}', file)
+                uploaded_file_url = fs.url(filename)
+                ParkingValetSessionImages.objects.create(
+                    valet_session_id=session.id,
+                    type=PHOTOS_AT_THE_RECEPTION,
+                    img=uploaded_file_url.replace('/api/media', '', 1)
+                )
+
+        if photo_parking_array and len(photo_parking_array) > 0:
+            # удаляем старые фотки
+            ParkingValetSessionImages.objects.filter(valet_session=session, type=PHOTOS_FROM_PARKING).delete()
+
+            for file in photo_parking_array:
+                fs = FileSystemStorage()
+                extension = os.path.splitext(file.name)[1]
+                filename = fs.save(f'valet_car_photo/{str(uuid.uuid4())}{extension}', file)
+                uploaded_file_url = fs.url(filename)
+                ParkingValetSessionImages.objects.create(
+                    valet_session_id=session.id,
+                    type=PHOTOS_FROM_PARKING,
+                    img=uploaded_file_url.replace('/api/media', '', 1)
+                )
+
+        serializer = ParkingValetSessionSerializer([session], many=True)
+
+        return JsonResponse(
+            serializer.data[0],
+            status=200,
+            safe=False
+        )
+
+
+class ValetRequestsView(LoginRequiredAPIView):
+    def get(self, request):
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        with_session = request.GET.get('with_session', None)
+        result = None
+
+        if not with_session:
+            requests = ParkingValetSessionRequest.objects.filter(company_id=company.id).order_by('-id')
+
+            result = serializer(requests)
+        else:
+            requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).order_by('-id')
+
+            s = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
+            result = s.data
+
+        return JsonResponse(
+            result,
+            status=200,
+            safe=False
+        )
+
+    def delete(self, request):
+        request.data = json.loads(request.body)
+        id = self.request.data.get("id")
+        ParkingValetSessionRequest.objects.get(id=id).delete()
+        return JsonResponse(
+            {'message': 'success'},
+            status=200,
+            safe=False
+        )
+
+
+class ValetRequestsAcceptView(LoginRequiredAPIView):
+    def post(self, request):
+        request_id = request.data.get('id')
+
+        valet_user = request.companyuser if request.companyuser else None
+
+
+        if not request_id:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Missing required value"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        if not valet_user:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Only valet user allow"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        instance = ParkingValetSessionRequest.objects.get(id=request_id)
+        instance.accepted_at = datetime.datetime.now(timezone.utc)
+        instance.accepted_by = valet_user
+        instance.car_delivery_time = instance.valet_session.car_delivery_time
+        instance.status = VALET_REQUEST_ACCEPTED
+        instance.save()
+
+
+        return JsonResponse(
+            {'message': 'success'},
+            status=200,
+            safe=False
+        )
+
+
+
+class ValetRequestsFinishView(LoginRequiredAPIView):
+    def post(self, request):
+        request_id = request.data.get('id')
+
+
+        if not request_id:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Missing required value"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+
+        instance = ParkingValetSessionRequest.objects.get(id=request_id)
+        instance.finish_time = datetime.datetime.now(timezone.utc)
+        instance.save()
+
+
+        return JsonResponse(
+            {'message': 'success'},
+            status=200,
+            safe=False
+        )
+
+
+class ValetRequestsHistoryView(LoginRequiredAPIView):
+    def get(self, request):
+
+        valet_user = request.companyuser if request.companyuser else None
+
+        if not valet_user:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Only valet user allow"
+            )
+
+        requests = ParkingValetSessionRequest.objects.filter(accepted_by=valet_user, finish_time__isnull=False).order_by('-id')
+
+        serializer = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
+
+        return JsonResponse(
+            serializer.data,
+            status=200,
+            safe=False
+        )
+
+
+class ValetUserParkingView(LoginRequiredAPIView):
+    def get(self, request):
+        parking_list = []
+        valet_user = request.companyuser if request.companyuser else None
+        if valet_user:
+            parking_list = valet_user.available_parking
+        else:
+            parking_list = Parking.objects.filter(approved=True, company__owner=get_owner(request))
+
+        return JsonResponse(
+            serializer(parking_list, exclude_attr=("vendor_id", "company_id", "max_client_debt",
+                                                        "tariff", "tariff_file_name", "tariff_file_content", 'hide_parking_coordinates', 'free_places', 'max_places')),
+            status=200,
+            safe=False
+        )
+
+
+

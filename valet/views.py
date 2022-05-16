@@ -15,7 +15,7 @@ class ValetSessionView(APIView):
         id = request.GET.get('id')
 
         try:
-            session = ParkingValetSession.objects.get(valet_card_id=id)
+            session = ParkingValetSession.objects.filter(valet_card_id=id).last()
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -35,7 +35,7 @@ class ValetSessionView(APIView):
         delivery_date = request.data.get('date')
 
         try:
-            session = ParkingValetSession.objects.get(valet_card_id=id)
+            session = ParkingValetSession.objects.filter(valet_card_id=id).last()
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -56,7 +56,7 @@ def get_valet_session_status(request):
 
     id = request.GET.get('id')
     try:
-        session = ParkingValetSession.objects.get(valet_card_id=id)
+        session = ParkingValetSession.objects.filter(valet_card_id=id).last()
     except ObjectDoesNotExist:
         e = ValidationException(
             ValidationException.VALIDATION_ERROR,

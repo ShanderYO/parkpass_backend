@@ -2,12 +2,13 @@
 import json
 import re
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 
 from accounts.validators import validate_email_format, validate_id
 from base.exceptions import ValidationException
 from base.validators import BaseValidator, validate_phone_number
 from parkings.validators import validate_tariff
+from rps_vendor.models import ParkingCard
 
 
 def validate_inn(value):
@@ -85,4 +86,59 @@ class ConnectIssueValidator(BaseValidator):
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e)
             return False
+        return True
+
+
+class ValetSessionsCreateFromLKValidator(BaseValidator):
+    def is_valid(self):
+
+        car_model = self.request.POST.get("car_model", None)
+        car_number = self.request.POST.get("car_number", None)
+        valet_card_id = self.request.POST.get("valet_card_id", None)
+        responsible_id = self.request.POST.get("responsible_id", None)
+        parking_id = self.request.POST.get("parking_id", None)
+        started_at = self.request.POST.get("started_at", None)
+
+        parking_card = self.request.POST.get("parking_card", None)
+
+        if not parking_id or not car_model or not car_number or not valet_card_id or not responsible_id or not started_at :
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Required params are missing"
+            return False
+
+        try:
+            if parking_card:
+                ParkingCard.objects.get(card_id=parking_card)
+        except ObjectDoesNotExist:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Parking card does not exist"
+            return False
+
+        return True
+
+
+class ValetSessionsUpdateFromLKValidator(BaseValidator):
+    def is_valid(self):
+        id = self.request.POST.get("id", None)
+        car_model = self.request.POST.get("car_model", None)
+        car_number = self.request.POST.get("car_number", None)
+        valet_card_id = self.request.POST.get("valet_card_id", None)
+        # responsible_for_reception_id = self.request.POST.get("responsible_for_reception_id", None)
+        started_at = self.request.POST.get("started_at", None)
+
+        parking_card = self.request.POST.get("parking_card", None)
+
+        if  not id  :
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Required params are missing"
+            return False
+
+        try:
+            if parking_card:
+                ParkingCard.objects.get(card_id=parking_card)
+        except ObjectDoesNotExist:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Parking card does not exist"
+            return False
+
         return True

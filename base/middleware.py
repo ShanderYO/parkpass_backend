@@ -92,7 +92,7 @@ class JWTTokenAuthenticationMiddleware():
             if group == Groups.BASIC:
                 return Account.objects.filter(id=user_id).first()
 
-            if group == Groups.COMPANY_USER:
+            if group == Groups.COMPANY_USER and groups & group > 0:
                 return CompanyUser.objects.filter(id=user_id).first()
 
             if group == Groups.VENDOR and groups & group > 0:

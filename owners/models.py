@@ -307,6 +307,7 @@ class CompanyUsersRoleSerializer(serializers.ModelSerializer):
 class CompanyUser(BaseAccount):
     id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=63)
+    avatar = models.ImageField(upload_to='valet_users_avatars', null=True, blank=True)
     last_name = models.CharField(max_length=63)
     middle_name = models.CharField(max_length=63, null=True, blank=True)
     email = models.EmailField(unique=True)

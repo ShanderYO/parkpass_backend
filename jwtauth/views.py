@@ -137,9 +137,15 @@ class UpdateTokensView(APIView):
     def post(self, request):
         access_token = request.data["access_token"]
         refresh_token = request.data["refresh_token"]
+        is_company_user = request.data.get("is_company_user", None)
+
 
         access_claims = parse_jwt(access_token)
         refresh_claims = parse_jwt(refresh_token)
+
+        group = Groups.BASIC
+        if is_company_user:
+            group = Groups.COMPANY_USER
 
         if not access_claims:
             e = AuthException(
@@ -163,8 +169,10 @@ class UpdateTokensView(APIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
+
+
         response_dict = serializer(session, include_attr=("refresh_token", 'expires_at',))
-        response_dict["access_token"] = session.update_access_token(group=Groups.BASIC)
+        response_dict["access_token"] = session.update_access_token(group=group)
 
         return JsonResponse(response_dict, status=200)
 

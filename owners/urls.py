@@ -41,8 +41,16 @@ urlpatterns = [
                   url(r'^companies/(?P<id>\d+)/$', CompanyView.as_view()),
                   url(r'^events/$', EventsView.as_view()),
 
+                  # valet
                   url(r'^users/$', CompanyUsersView.as_view()),
                   url(r'^roles/$', CompanyUsersRoleView.as_view()),
                   url(r'^permissions/$', CompanyUsersPermissionView.as_view()),
-
+                  url(r'^valet-parkings/$', ValetUserParkingView.as_view()),
+                  url(r'^valet-sessions/$', ValetSessionsView.as_view()),
+                  url(r'^valet-sessions/create$', ValetSessionsView.as_view()),
+                  url(r'^valet-sessions/update', ValetSessionsUpdateView.as_view()),
+                  url(r'^valet-requests/$', ValetRequestsView.as_view()),
+                  url(r'^valet-requests/accept$', ValetRequestsAcceptView.as_view()),
+                  url(r'^valet-requests/finish$', ValetRequestsFinishView.as_view()),
+                  url(r'^valet-requests/history$', ValetRequestsHistoryView.as_view()),
               ] + staticfiles_urlpatterns()

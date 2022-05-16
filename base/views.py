@@ -41,13 +41,13 @@ class APIView(View, ValidatePostParametersMixin):
         else:
             pass
 
-        # Only application/json Content-type allow
-        if not request.META.get('CONTENT_TYPE', "").startswith("application/json") and request.POST:
-            return JsonResponse({
-                "error": "HTTP Status 415 - Unsupported Media Type"
-            }, status=415)
+        # Only application/json | multipart/form-data Content-type allow
+        # if (not request.META.get('CONTENT_TYPE', "").startswith("application/json") and not request.META['CONTENT_TYPE'].startswith("multipart/form-data")) and request.POST:
+        #     return JsonResponse({
+        #         "error": "HTTP Status 415 - Unsupported Media Type"
+        #     }, status=415)
 
-        if request.method in {'POST', 'PUT'}:
+        if request.method in {'POST', 'PUT'} and not request.META['CONTENT_TYPE'].startswith("multipart/form-data"):
             # Parse json-string
             try:
                 request.data = json.loads(request.body)
@@ -60,6 +60,14 @@ class APIView(View, ValidatePostParametersMixin):
                 return JsonResponse(e.to_dict(), status=400)
 
             # Validate json-parameters
+            if self.validator_class:
+                exception_response = self.validate_request(request)
+                if exception_response:
+                    logger.warning("Sending exception '%s' with code '%d'" % (
+                        exception_response.content, exception_response.status_code))
+                    return exception_response
+
+        elif request.META['CONTENT_TYPE'].startswith("multipart/form-data"):
             if self.validator_class:
                 exception_response = self.validate_request(request)
                 if exception_response:
@@ -182,7 +190,7 @@ class LoginRequiredAPIView(APIView):
         if self.account_type == 'owner':
             not_allow_condition = (not hasattr(request, self.account_type) or not getattr(request, self.account_type, None)) and (not hasattr(request, 'companyuser') or not getattr(request, 'companyuser', None))
         if not_allow_condition:
-            print(request)
+            # print(request)
             auth_exception = AuthException(AuthException.INVALID_TOKEN, "Invalid or empty token")
             return JsonResponse(auth_exception.to_dict(), status=401)
         return super(LoginRequiredAPIView, self).dispatch(request, *args, **kwargs)
@@ -216,10 +224,10 @@ class LoginRequiredFormMultipartView(View, ValidatePostParametersMixin):
     def dispatch(self, request, *args, **kwargs):
 
         # Only multipart/form-data Content-type allow
-        if not request.META['CONTENT_TYPE'].startswith("multipart/form-data"):
-            return JsonResponse({
-                "error": "HTTP Status 415 - Unsupported Media Type"
-            }, status=415)
+        # if not request.META['CONTENT_TYPE'].startswith("multipart/form-data"):
+        #     return JsonResponse({
+        #         "error": "HTTP Status 415 - Unsupported Media Type"
+        #     }, status=415)
 
         if request.method == 'POST':
             # Parse json-string
@@ -426,6 +434,10 @@ class ObjectView(object):
                     account = acc
                     break
             #######DEPRECATED CODE#######
+
+            if not account and request.companyuser:
+                account = request.companyuser.company
+
             setattr(obj, self.author_field, account)
 
         if request.method == 'POST':

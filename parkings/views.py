@@ -209,7 +209,7 @@ class GetParkingViewMixin:
             )
             return JsonResponse(e.to_dict(), status=400)
         result_dict = serializer(parking, exclude_attr=("vendor_id", "company_id", "max_client_debt",
-                                                        "tariff", "tariff_file_name", "tariff_file_content", 'picture'))
+                                                        "tariff", "tariff_file_name", "tariff_file_content"))
         return JsonResponse(result_dict, status=200)
 
 
@@ -358,6 +358,8 @@ class SendValetEmailView(APIView): # TODO удалить после прохож
                   ['info@primeparking.ru'])
         send_mail('Заказ автомобиля (%s)' % vcid, message, "Valet ParkPass <noreply@parkpass.ru>",
                   ['support@parkpass.ru'])
+        send_mail('Заказ автомобиля (%s)' % vcid, message, "Valet ParkPass <noreply@parkpass.ru>",
+                  ['lokkomokko1@gmail.com'])
 
         return JsonResponse({'status': 'success'}, status=200)
 
