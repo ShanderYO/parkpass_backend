@@ -69,8 +69,8 @@ class ServiceAdmin(admin.ModelAdmin):
 
 @admin.register(ParkingValetSession)
 class ParkingValetSessionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'parking', 'state', 'debt', 'started_at')
-    search_fields = ('parking_card__card_id', 'id')
+    list_display = ('id', 'parking', 'state', 'car_number', 'car_model', 'valet_card_id', 'parking_card', 'parking_space_number', 'debt', 'started_at')
+    search_fields = ('parking_card__card_id', 'id', 'valet_card_id', 'car_number')
     readonly_fields = ["started_at", "updated_at"]
     # readonly_fields = ["started_at", "updated_at", "parking_card_session", 'car_delivered_by', 'responsible', 'created_by_user', 'parking_card', 'parking']
 

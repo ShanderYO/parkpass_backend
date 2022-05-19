@@ -43,6 +43,8 @@ urlpatterns = [
 
                   # valet
                   url(r'^users/$', CompanyUsersView.as_view()),
+                  url(r'^users/update/$', CompanyUsersUpdateView.as_view()),
+                  url(r'^users/avatar/upload$', CompanyUsersAvatarUpdateView.as_view()),
                   url(r'^roles/$', CompanyUsersRoleView.as_view()),
                   url(r'^permissions/$', CompanyUsersPermissionView.as_view()),
                   url(r'^valet-parkings/$', ValetUserParkingView.as_view()),

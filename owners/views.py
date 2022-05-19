@@ -2,9 +2,11 @@
 import json
 import os
 import uuid
+from io import BytesIO
 from itertools import chain
 
 import xlwt
+from PIL import Image
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Sum, Q, Prefetch
 from django.http import HttpResponse
@@ -1484,13 +1486,14 @@ class CompanyUsersView(LoginRequiredAPIView):
         # TODO добавить вывод ошибок
         owner = get_owner(request)
         company = Company.objects.get(owner=owner)
-        email = request.data.get('email', None)
-        phone = request.data.get('phone', None)
-        first_name = request.data.get('first_name', None)
-        last_name = request.data.get('last_name', None)
-        password = request.data.get('password', None)
-        available_parking = request.data.get('available_parking', None)
-        role_id = request.data.get('role_id', None)
+        email = request.POST.get('email', None)
+        phone = request.POST.get('phone', None)
+        first_name = request.POST.get('first_name', None)
+        last_name = request.POST.get('last_name', None)
+        avatar = request.FILES.get('avatar', None)
+        password = request.POST.get('password', None)
+        available_parking = request.POST.get('available_parking', None)
+        role_id = request.POST.get('role_id', None)
 
         if email is None or password is None or available_parking is None or role_id is None:
             e = ValidationException(
@@ -1506,49 +1509,11 @@ class CompanyUsersView(LoginRequiredAPIView):
             last_name=last_name,
             phone=phone,
             password=password,
-            available_parking=available_parking,
+            available_parking=available_parking.split(','),
             role_id=role_id,
+            avatar=avatar,
             company=company
         )
-
-        return JsonResponse(user, status=200, safe=False)
-
-    def put(self, request):
-        request.data = json.loads(request.body)
-        # TODO добавить вывод ошибок
-        owner = get_owner(request)
-        company = Company.objects.get(owner=owner)
-        id = request.data.get('id', None)
-        email = request.data.get('email', None)
-        first_name = request.data.get('first_name', None)
-        last_name = request.data.get('last_name', None)
-        phone = request.data.get('phone', None)
-        password = request.data.get('password', None)
-        available_parking = request.data.get('available_parking', None)
-        role_id = request.data.get('role_id', None)
-
-        if id is None or email is None or available_parking is None or role_id is None:
-            e = ValidationException(
-                ValidationException.VALIDATION_ERROR,
-                "missing required params"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-
-        user = CompanyUser.update_user(
-            self=None,
-            id=id,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            phone=phone,
-            password=password,
-            available_parking=available_parking,
-            role_id=role_id,
-            company=company
-        )
-
-        if (not user):  # проверка на ошибки
-            return JsonResponse({'status': 'error'}, status=400)
 
         return JsonResponse(user, status=200, safe=False)
 
@@ -1565,6 +1530,83 @@ class CompanyUsersView(LoginRequiredAPIView):
         CompanyUser.objects.get(id=id).delete()
 
         return JsonResponse({'message': 'success'}, status=200)
+
+
+class CompanyUsersUpdateView(LoginRequiredAPIView):
+
+    def post(self, request):
+        # TODO добавить вывод ошибок
+        owner = get_owner(request)
+        company = Company.objects.get(owner=owner)
+        id = request.POST.get('id', None)
+        email = request.POST.get('email', None)
+        first_name = request.POST.get('first_name', None)
+        last_name = request.POST.get('last_name', None)
+        phone = request.POST.get('phone', None)
+        password = request.POST.get('password', None)
+        available_parking = request.POST.get('available_parking', None)
+        role_id = request.POST.get('role_id', None)
+        avatar = request.FILES.get('avatar', None)
+
+        if id is None or email is None or available_parking is None or role_id is None:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "missing required params"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        user = CompanyUser.update_user(
+            self=None,
+            id=id,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            phone=phone,
+            password=password,
+            available_parking=available_parking.split(','),
+            role_id=role_id,
+            company=company,
+            avatar=avatar
+        )
+
+        if (not user):  # проверка на ошибки
+            return JsonResponse({'status': 'error'}, status=400)
+
+        return JsonResponse(user, status=200, safe=False)
+
+
+class CompanyUsersAvatarUpdateView(LoginRequiredAPIView):
+
+    def post(self, request):
+
+        avatar = request.FILES.get('avatar', None)
+
+        valet_user = request.companyuser if request.companyuser else None
+
+        if not valet_user:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Only valet user allow"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+        if avatar is None:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "missing required params"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+
+        fs = FileSystemStorage()
+        extension = os.path.splitext(avatar.name)[1]
+        filename = fs.save(f'valet_users_avatars/{str(uuid.uuid4())}{extension}', avatar)
+        uploaded_file_url = fs.url(filename)
+        valet_user.avatar = uploaded_file_url
+        valet_user.save()
+
+
+        return JsonResponse({"status": "success"}, status=200, safe=False)
 
 
 class CompanyUsersRoleView(LoginRequiredAPIView):
@@ -1679,11 +1721,12 @@ class ValetSessionsView(LoginRequiredAPIView):
         result = None
 
         if (id):
-            single_session = ParkingValetSession.objects.filter(id=id).last()
+            single_session = ParkingValetSession.objects.filter(id=id, parking__company_id=company.id).last()
             serializer = ParkingValetSessionSerializer([single_session], many=True)
             result = serializer.data[0]
         else:
-            sessions = ParkingValetSession.objects.filter(company_id=company.id).order_by('-id')
+            sessions = ParkingValetSession.objects.filter(company_id=company.id,
+                                                          parking__company_id=company.id).order_by('-id')
             serializer = ParkingValetSessionSerializer(sessions, many=True)
             result = serializer.data
 
@@ -1736,6 +1779,12 @@ class ValetSessionsView(LoginRequiredAPIView):
             extension = os.path.splitext(file.name)[1]
             filename = fs.save(f'valet_car_photo/{str(uuid.uuid4())}{extension}', file)
             uploaded_file_url = fs.url(filename)
+            #
+            # img = Image.open(self.profile)
+            # resize = img.resize((240, 240), Image.ANTIALIAS)
+            # new_image = BytesIO()
+            # resize.save(new_image, format=img.format, quality=75)
+
             ParkingValetSessionImages.objects.create(
                 valet_session_id=session.id,
                 type=PHOTOS_AT_THE_RECEPTION,
@@ -1809,13 +1858,20 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         if valet_card_id: session.valet_card_id = valet_card_id
         if parking_card: session.parking_card = parking_card_model
         if responsible_for_reception_id: session.responsible_for_reception_id = responsible_for_reception_id
-        if responsible_for_delivery_id: session.responsible_for_delivery_id = responsible_for_delivery_id
+
+        if responsible_for_delivery_id:
+            if responsible_for_delivery_id != session.responsible_for_delivery_id:
+                session.responsible_for_delivery_id = responsible_for_delivery_id
+                if session.request:
+                    session.request.accept(responsible_for_delivery_id)
+
         if started_at: session.started_at = started_at
         if parking_space_number: session.parking_space_number = parking_space_number
         if parking_floor: session.parking_floor = parking_floor
         if car_delivery_time: session.car_delivery_time = car_delivery_time
         if car_delivered_at: session.car_delivered_at = car_delivered_at
 
+        session.get_debt_from_remote()
         session.save()
 
         if photo_accept_array and len(photo_accept_array) > 0:
@@ -1860,18 +1916,13 @@ class ValetRequestsView(LoginRequiredAPIView):
     def get(self, request):
         owner = get_owner(request)
         company = Company.objects.get(owner=owner)
-        with_session = request.GET.get('with_session', None)
-        result = None
 
-        if not with_session:
-            requests = ParkingValetSessionRequest.objects.filter(company_id=company.id).order_by('-id')
+        requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).order_by(
+            '-id')
 
-            result = serializer(requests)
-        else:
-            requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).order_by('-id')
+        s = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
 
-            s = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
-            result = s.data
+        result = s.data
 
         return JsonResponse(
             result,
@@ -1896,7 +1947,6 @@ class ValetRequestsAcceptView(LoginRequiredAPIView):
 
         valet_user = request.companyuser if request.companyuser else None
 
-
         if not request_id:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
@@ -1911,13 +1961,8 @@ class ValetRequestsAcceptView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        instance = ParkingValetSessionRequest.objects.get(id=request_id)
-        instance.accepted_at = datetime.datetime.now(timezone.utc)
-        instance.accepted_by = valet_user
-        instance.car_delivery_time = instance.valet_session.car_delivery_time
-        instance.status = VALET_REQUEST_ACCEPTED
-        instance.save()
-
+        request = ParkingValetSessionRequest.objects.get(id=request_id)
+        request.accept(valet_user.id)
 
         return JsonResponse(
             {'message': 'success'},
@@ -1926,11 +1971,9 @@ class ValetRequestsAcceptView(LoginRequiredAPIView):
         )
 
 
-
 class ValetRequestsFinishView(LoginRequiredAPIView):
     def post(self, request):
         request_id = request.data.get('id')
-
 
         if not request_id:
             e = ValidationException(
@@ -1939,11 +1982,9 @@ class ValetRequestsFinishView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-
         instance = ParkingValetSessionRequest.objects.get(id=request_id)
         instance.finish_time = datetime.datetime.now(timezone.utc)
         instance.save()
-
 
         return JsonResponse(
             {'message': 'success'},
@@ -1954,7 +1995,6 @@ class ValetRequestsFinishView(LoginRequiredAPIView):
 
 class ValetRequestsHistoryView(LoginRequiredAPIView):
     def get(self, request):
-
         valet_user = request.companyuser if request.companyuser else None
 
         if not valet_user:
@@ -1963,7 +2003,8 @@ class ValetRequestsHistoryView(LoginRequiredAPIView):
                 "Only valet user allow"
             )
 
-        requests = ParkingValetSessionRequest.objects.filter(accepted_by=valet_user, finish_time__isnull=False).order_by('-id')
+        requests = ParkingValetSessionRequest.objects.filter(accepted_by=valet_user,
+                                                             finish_time__isnull=False).order_by('-id')
 
         serializer = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
 
@@ -1985,10 +2026,8 @@ class ValetUserParkingView(LoginRequiredAPIView):
 
         return JsonResponse(
             serializer(parking_list, exclude_attr=("vendor_id", "company_id", "max_client_debt",
-                                                        "tariff", "tariff_file_name", "tariff_file_content", 'hide_parking_coordinates', 'free_places', 'max_places')),
+                                                   "tariff", "tariff_file_name", "tariff_file_content",
+                                                   'hide_parking_coordinates', 'free_places', 'max_places', 'picture')),
             status=200,
             safe=False
         )
-
-
-

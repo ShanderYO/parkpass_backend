@@ -3,18 +3,20 @@ import datetime
 import time
 
 import pytz
+from PIL import Image
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models import signals
+from django.dispatch import receiver
 from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.models import Account
 from base.utils import get_logger
 from base.validators import comma_separated_emails
-from parkpass_backend.settings import ALLOWED_HOSTS, ACQUIRING_LIST
+from parkpass_backend.settings import ALLOWED_HOSTS, ACQUIRING_LIST, MEDIA_ROOT
 from payments.models import Order
 from rps_vendor.models import RpsParking, ParkingCard, RpsParkingCardSession
 from vendors.models import Vendor
@@ -601,10 +603,23 @@ class ParkingValetSessionImages(models.Model):
     valet_session = models.ForeignKey(ParkingValetSession, on_delete=models.CASCADE)
     type = models.PositiveSmallIntegerField(choices=((PHOTOS_AT_THE_RECEPTION, 'Фото при приеме'), (PHOTOS_FROM_PARKING, 'Фото с парковки')), default=PHOTOS_AT_THE_RECEPTION)
     created_at = models.DateTimeField(auto_now_add=True, editable=False)
-    img = models.ImageField(upload_to='valet_car_photo')
+    img = models.CharField(max_length=128)
 
     def __str__(self):
         return f'{self.id} {self.valet_session}'
+
+
+@receiver(models.signals.post_save, sender=ParkingValetSessionImages)
+def execute_after_save_image(sender, instance, created, *args, **kwargs):
+    pass
+    if created:
+        img = Image.open(MEDIA_ROOT + instance.img) # Open image using self
+
+        if img.height > 600 or img.width > 600:
+            new_img = (600, 600)
+            img.thumbnail(new_img)
+            img.save(MEDIA_ROOT + instance.img)  # saving image at the same path
+
 
 class ParkingValetSessionImagesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -638,6 +653,23 @@ class ParkingValetSessionRequest(models.Model):
     accepted_by = models.ForeignKey('owners.CompanyUser', on_delete=models.SET_NULL, null=True)
     finish_time = models.DateTimeField(null=True, blank=True)
 
+    def accept(self, valet_user_id):
+        self.accepted_by_id = valet_user_id
+        self.car_delivery_time = self.valet_session.car_delivery_time
+
+        if valet_user_id:
+            self.accepted_at = datetime.datetime.now(timezone.utc)
+            self.status = VALET_REQUEST_ACCEPTED
+            self.valet_session.state = VALET_SESSION_IN_THE_PROCESS
+            self.valet_session.save()
+
+        else:
+            self.accepted_at = None
+            self.status = VALET_REQUEST_ACTIVE
+            # self.valet_session.state = VALET_SESSION_THE_CAR_IS_PARKED
+
+        self.save()
+
     def __str__(self):
         return f'{self.id} {self.valet_session}'
 
@@ -647,7 +679,7 @@ class ParkingValetSessionRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParkingValetSessionRequest
         fields = [
-            'id', 'status', 'car_delivery_time', 'accepted_by'
+            'id', 'status', 'car_delivery_time', 'accepted_by','accepted_at', 'created_at'
         ]
 
 
@@ -683,15 +715,15 @@ class ParkingValetSessionWithoutRelativesSerializer(serializers.ModelSerializer)
             'car_model', 'debt', 'valet_card_id', 'parking_card',
             'parking_floor', 'parking_space_number', 'created_by_user', 'car_color',
             'parking_card_get_at', 'car_delivery_time', 'car_delivered_at', 'car_delivered_by', 'paid_at',
-            'parking_card_session', 'comment', 'started_at', 'duration', 'photos'
+            'parking_card_session', 'comment', 'started_at', 'duration', 'photos', 'responsible_for_reception', 'responsible_for_delivery'
         ]
 
 class ParkingValetRequestIncludeSessionSerializer(serializers.ModelSerializer):
-    valet_session = ParkingValetSessionWithoutRelativesSerializer(read_only=True)
+    valet_session = ParkingValetSessionSerializer(read_only=True)
     class Meta:
         model = ParkingValetSessionRequest
         fields = [
-            'id', 'status', 'car_delivery_time', 'accepted_by', 'valet_session', 'finish_time'
+            'id', 'status', 'car_delivery_time', 'accepted_by', 'accepted_at', 'valet_session', 'finish_time'
         ]
 
 

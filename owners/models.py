@@ -1,11 +1,15 @@
+import os
 import re
 import time
 
 import datetime
+import uuid
 
+from PIL import Image
 from adminsortable.models import SortableMixin
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.password_validation import validate_password
+from django.core.files.storage import FileSystemStorage
 from django.core.mail import send_mail
 from django.dispatch import receiver
 from jose import jwt
@@ -19,7 +23,7 @@ from base.models import BaseAccount, BaseAccountSession, BaseAccountIssue
 from base.validators import validate_phone_number, comma_separated_emails
 from owners.validators import validate_inn, validate_kpp
 from parkings.models import Parking
-from parkpass_backend.settings import ZENDESK_WIDGET_SECRET, EMAIL_HOST_USER
+from parkpass_backend.settings import ZENDESK_WIDGET_SECRET, EMAIL_HOST_USER, MEDIA_ROOT, BASE_DIR
 from payments.models import InvoiceWithdraw
 from django import forms
 
@@ -224,11 +228,25 @@ class CompanyUsersPermission(SortableMixin):  # само право
     category = models.ForeignKey(CompanyUsersPermissionCategory, on_delete=models.CASCADE)
     position = models.PositiveIntegerField(default=0, editable=False)
 
+    def set_default_permissions_for_all_roles(self):
+        roles = CompanyUsersRole.objects.all()
+        for role in roles:
+            CompanyUsersRolePermission.objects.create(
+                permission=self,
+                role=role
+            )
+
     class Meta:
         ordering = ('position',)
 
     def __str__(self):
         return f"{self.category.name}. {self.name}"
+
+
+@receiver(models.signals.post_save, sender=CompanyUsersPermission)
+def execute_after_save3(sender, instance, created, *args, **kwargs):
+    if created:
+        instance.set_default_permissions_for_all_roles()
 
 
 class CompanyUsersPermissionSerializer(serializers.ModelSerializer):
@@ -307,7 +325,6 @@ class CompanyUsersRoleSerializer(serializers.ModelSerializer):
 class CompanyUser(BaseAccount):
     id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=63)
-    avatar = models.ImageField(upload_to='valet_users_avatars', null=True, blank=True)
     last_name = models.CharField(max_length=63)
     middle_name = models.CharField(max_length=63, null=True, blank=True)
     email = models.EmailField(unique=True)
@@ -317,6 +334,7 @@ class CompanyUser(BaseAccount):
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
     created_by_user = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
     role = models.ForeignKey(CompanyUsersRole, on_delete=models.SET_NULL, null=True, blank=True)
+    avatar = models.CharField(max_length=128, null=True, blank=True)
 
     @property
     def session_class(self):
@@ -325,7 +343,6 @@ class CompanyUser(BaseAccount):
     @property
     def type(self):
         return 'companyuser'
-
 
     def set_password(self, string):
         self.password = make_password(string)
@@ -341,7 +358,7 @@ class CompanyUser(BaseAccount):
                   [self.email],
                   )
 
-    def create_user(self, email, first_name, last_name, phone, password, available_parking, role_id, company):
+    def create_user(self, email, first_name, last_name, phone, password, available_parking, role_id, company, avatar):
         role = CompanyUsersRole.objects.get(id=role_id)
         user = CompanyUser.objects.create(
             first_name=first_name,
@@ -352,15 +369,23 @@ class CompanyUser(BaseAccount):
             company=company,
             role=role
         )
+        if avatar:
+            fs = FileSystemStorage()
+            extension = os.path.splitext(avatar.name)[1]
+            filename = fs.save(f'valet_users_avatars/{str(uuid.uuid4())}{extension}', avatar)
+            uploaded_file_url = fs.url(filename)
+            user.avatar = uploaded_file_url
+            user.save()
+
         # проставляем парковки
         for parking_id in available_parking:
-            user.available_parking.add(Parking.objects.get(id=parking_id))
+            user.available_parking.add(Parking.objects.get(id=int(parking_id)))
 
         serializer = CompanyUserSerializer([user], many=True)
 
         return serializer.data[0]
 
-    def update_user(self, id, email, first_name, last_name, phone, password, available_parking, company, role_id):
+    def update_user(self, id, email, first_name, last_name, phone, password, available_parking, company, role_id, avatar):
         role = CompanyUsersRole.objects.get(id=role_id)
         user = CompanyUser.objects.get(id=id)
 
@@ -376,12 +401,20 @@ class CompanyUser(BaseAccount):
         user.email = email
         user.phone = phone
 
+        if avatar:
+            fs = FileSystemStorage()
+            extension = os.path.splitext(avatar.name)[1]
+            filename = fs.save(f'valet_users_avatars/{str(uuid.uuid4())}{extension}', avatar)
+            uploaded_file_url = fs.url(filename)
+            user.avatar = uploaded_file_url
+            user.save()
+
         for parking_id in available_parking:
-            user.available_parking.add(Parking.objects.get(id=parking_id))
+            user.available_parking.add(Parking.objects.get(id=int(parking_id)))
 
         # удаляем связи
         for parking in user.available_parking.all():
-            if parking.id not in available_parking:
+            if str(parking.id) not in available_parking:
                 user.available_parking.remove(parking.id)
 
 
@@ -407,12 +440,24 @@ class CompanyUser(BaseAccount):
         return f'{self.first_name} {self.last_name}'
 
 
+
+@receiver(models.signals.post_save, sender=CompanyUser)
+def execute_after_save_user(sender, instance, created, *args, **kwargs):
+    if instance.avatar:
+        img = Image.open(MEDIA_ROOT + instance.avatar.replace('/api/media', '')) # Open image using self
+
+        if img.height > 600 or img.width > 600:
+            new_img = (600, 600)
+            img.thumbnail(new_img)
+            img.save(MEDIA_ROOT + instance.avatar.replace('/api/media', ''))  # saving image at the same path
+
+
 class CompanyUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompanyUser
         fields = [
             'id', 'first_name', 'last_name', 'middle_name', 'email', 'phone', 'role_id', 'available_parking', 'company',
-            'created_by_user'
+            'created_by_user', 'avatar'
         ]
 
 
