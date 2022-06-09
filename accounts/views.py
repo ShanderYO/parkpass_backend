@@ -907,8 +907,8 @@ class StartParkingSession(LoginRequiredAPIView):
 
             # Событие въезда
             device_for_push_notification = AccountDevice.objects.filter(account=request.account, active=True)[0]
-            if device_for_push_notification:
-                device_for_push_notification.send_message(title='Оповещение ParkPass', body='Въезд')
+            # if device_for_push_notification:
+            #     device_for_push_notification.send_message(title='Оповещение ParkPass', body='Въезд')
 
             elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Start session", {
                 'parking_session': serializer(parking_session),

@@ -246,7 +246,7 @@ class Order(models.Model):
                     "amount": int(self.sum),
                     "terminalId": settings.HOMEBANK_TERMINAL_ID,
                     "currency": "KZT",
-                    "description": "Оплата парковочного абонемента",
+                    "description": self.get_payment_description(),
                     "backLink": "",
                     "failureBackLink": "",
                     "postLink": "https://%s/api/v1/payments/homebank-callback/" % settings.BASE_DOMAIN,
@@ -265,7 +265,7 @@ class Order(models.Model):
                     Phone=phone,
                     Taxation="usn_income",
                     Items=[{
-                        "Name": "Оплата парковочного абонемента",
+                        "Name": self.get_payment_description(),
                         "Price": str(int(self.sum * 100)),
                         "Quantity": 1.00,
                         "Amount": str(int(self.sum * 100)),
@@ -287,7 +287,7 @@ class Order(models.Model):
                     "amount": int(self.sum),
                     "terminalId": settings.HOMEBANK_TERMINAL_ID,
                     "currency": "KZT",
-                    "description": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
+                    "description": self.get_payment_description(),
                     "backLink": "",
                     "failureBackLink": "",
                     "postLink": "https://%s/api/v1/payments/homebank-callback/" % settings.BASE_DOMAIN,
@@ -306,7 +306,7 @@ class Order(models.Model):
                     Phone=phone,
                     Taxation="usn_income",
                     Items=[{
-                        "Name": "Оплата парковочной карты" if self.parking_card_session else "Оплата услуг Parkpass",
+                        "Name": self.get_payment_description(),
                         "Price": str(int(self.sum * 100)),
                         "Quantity": 1.00,
                         "Amount": str(int(self.sum * 100)),
@@ -388,7 +388,7 @@ class Order(models.Model):
 
         if self.parking_card_session or self.client_uuid:
             parking = self.parking_card_session.get_parking()
-            return 'Оплата паркочной карты, %s' % parking.name
+            return 'Оплата парковочной карты, %s' % parking.name
 
         if self.session is None:
             return 'Привязка карты'
@@ -588,16 +588,16 @@ class Order(models.Model):
                 new_payment.save()
 
                 # Credit card bind
-                self.charge_payment(new_payment)
 
                 # Событие холдирования
                 if (self.get_account()):
                     device_for_push_notification = AccountDevice.objects.filter(account=self.get_account(), active=True)[0]
-                    if device_for_push_notification:
-                        device_for_push_notification.send_message(title='Сделали промежуточный платеж %s руб.' % int(
-                                                                      self.sum * 100),
-                                                                  body='Парковка установила промежуточное списание по достижениюю (% руб) задолженности за парковку. Подробности внутри.' % self.get_parking_max_client_debt())
+                    # if device_for_push_notification:
+                    #     device_for_push_notification.send_message(title='Сделали промежуточный платеж %s руб.' % int(
+                    #                                                   self.sum * 100),
+                    #                                               body='Парковка установила промежуточное списание по достижениюю (% руб) задолженности за парковку. Подробности внутри.' % self.get_parking_max_client_debt())
 
+                self.charge_payment(new_payment)
 
             # Payment exception
             elif int(result.get("ErrorCode", -1)) > 0:

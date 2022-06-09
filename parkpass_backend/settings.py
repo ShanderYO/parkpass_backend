@@ -24,7 +24,7 @@ SECRET_KEY = 'kickk&tua$aj_jq4(+kt5wb4jfgqp5#t-ki-dh1nk2zs54al0l'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1", 'nginx-balancer']
 
 # CORS_ORIGIN_WHITELIST = [
 #     "https://pay.parkpass.ru",
