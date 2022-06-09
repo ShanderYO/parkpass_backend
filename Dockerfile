@@ -10,7 +10,7 @@ RUN apt-get install -y zlib1g-dev \
 
 # install manually all the missing libraries
 RUN apt-get update -y
-RUN apt-get install -y gconf-service libasound2 libatk1.0-0 libcairo2 libcups2 libfontconfig libgdk-pixbuf2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libxss1 fonts-liberation libnss3 lsb-release xdg-utils
+RUN apt-get install -y libasound2 libatk1.0-0 libcairo2 libcups2 libfontconfig libgdk-pixbuf2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libxss1 fonts-liberation libnss3 lsb-release xdg-utils
 
 # install chrome
 RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb

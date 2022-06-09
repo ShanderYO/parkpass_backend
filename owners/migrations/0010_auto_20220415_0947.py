@@ -2,7 +2,6 @@
 
 from django.db import migrations, models
 import django.db.models.deletion
-import positions.fields
 
 
 class Migration(migrations.Migration):
@@ -18,7 +17,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(primary_key=True, serialize=False)),
                 ('name', models.CharField(max_length=255)),
-                ('position', positions.fields.PositionField(default=-1)),
+                ('position', models.IntegerField(default=-1)),
             ],
         ),
         migrations.CreateModel(
