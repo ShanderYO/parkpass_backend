@@ -17,4 +17,4 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'parkpass_backend.settings')
 application = get_wsgi_application()
 
 if not 'runserver' in sys.argv and os.environ.get("PROD","0") == "1":
-    os.system("nohup sh /app/TelegramPaymentBot/bot.sh 0<&- &> telegram_bot.log.file &")
+    os.system("nohup sh /app/bots/telegram_payment_bot/bot.sh 0<&- &> telegram_bot.log.file &")

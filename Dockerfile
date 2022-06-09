@@ -94,4 +94,4 @@ VOLUME /var/log
 # Set up volume for static
 VOLUME /app/media
 
-#COPY /TelegramPaymentBot/bot.conf /etc/systemd/system
+#COPY /telegram_payment_bot/bot.conf /etc/systemd/system

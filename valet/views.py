@@ -13,10 +13,9 @@ class ValetSessionView(APIView):
 
     def get(self, request):
         id = request.GET.get('id')
+        session = ParkingValetSession.objects.filter(valet_card_id=id).last()
 
-        try:
-            session = ParkingValetSession.objects.filter(valet_card_id=id).last()
-        except ObjectDoesNotExist:
+        if not session:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 'Session not found'
@@ -33,10 +32,9 @@ class ValetSessionView(APIView):
     def post(self, request):  # заказ авто клиентом
         id = request.data.get('id')
         delivery_date = request.data.get('date')
+        session = ParkingValetSession.objects.filter(valet_card_id=id).last()
 
-        try:
-            session = ParkingValetSession.objects.filter(valet_card_id=id).last()
-        except ObjectDoesNotExist:
+        if not session:
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 'Session not found'

@@ -6,7 +6,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
-from TelegramPaymentBot.utils.utils import get_parking_info
+from bots.telegram_payment_bot.utils.utils import get_parking_info
 from parkings.models import Parking
 import aiogram.utils.markdown as fmt
 

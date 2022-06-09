@@ -107,7 +107,7 @@ services:
             - POSTGRES_DB_NAME=parkpass
             - POSTGRES_USER=parkpass
             - POSTGRES_PASSWORD=parkpass
-        command: bash -c "uwsgi --ini uwsgi.ini && nohup sh /app/TelegramPaymentBot/bot.sh 0<&- &> telegram_bot.log.file &"
+        command: bash -c "uwsgi --ini uwsgi.ini"
         volumes:
             - ./shares/app_sockets:/app/socket-dir
             - ./storage:/app/media

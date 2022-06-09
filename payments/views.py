@@ -796,9 +796,10 @@ class TestView(APIView):
         # msg_html = render_to_string('emails/fiskal_notification.html', {'link': 'http://adasd.asd', 'image': 'https://%s/api/media/fiskal/ыыыы.png' % BASE_DOMAIN})
         msg_html = render_to_string('emails/sur-email-template.html')
 
-        send_mail('Test template', "Hello", EMAIL_HOST_USER,
-                  ['mail@vldmrnine.com'])
-
+        # send_mail('Test template', "Hello", EMAIL_HOST_USER,
+        #           ['mail@vldmrnine.com'])
+        from bots.telegram_valet_bot.TelegramValetBot import send_message_by_valet_bot
+        send_message_by_valet_bot('hey hey hey')
         return HttpResponse('test21 all is good', status=200)
 
     @decorator_from_middleware(ApiTokenMiddleware)

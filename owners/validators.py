@@ -106,13 +106,13 @@ class ValetSessionsCreateFromLKValidator(BaseValidator):
             self.message = "Required params are missing"
             return False
 
-        try:
-            if parking_card:
-                ParkingCard.objects.get(card_id=parking_card)
-        except ObjectDoesNotExist:
-            self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Parking card does not exist"
-            return False
+        # try:
+        #     if parking_card:
+        #         ParkingCard.objects.get(card_id=parking_card)
+        # except ObjectDoesNotExist:
+        #     self.code = ValidationException.VALIDATION_ERROR
+        #     self.message = "Parking card does not exist"
+        #     return False
 
         return True
 
@@ -133,12 +133,12 @@ class ValetSessionsUpdateFromLKValidator(BaseValidator):
             self.message = "Required params are missing"
             return False
 
-        try:
-            if parking_card:
-                ParkingCard.objects.get(card_id=parking_card)
-        except ObjectDoesNotExist:
-            self.code = ValidationException.VALIDATION_ERROR
-            self.message = "Parking card does not exist"
-            return False
+        # try:
+        #     if parking_card:
+        #         ParkingCard.objects.get(card_id=parking_card)
+        # except ObjectDoesNotExist:
+        #     self.code = ValidationException.VALIDATION_ERROR
+        #     self.message = "Parking card does not exist"
+        #     return False
 
         return True

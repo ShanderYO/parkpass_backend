@@ -9,10 +9,10 @@ django.setup()
 
 import asyncio
 import logging
-from aiogram import Bot, Dispatcher, types, executor
+from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import BotCommand
-from TelegramPaymentBot.handlers.common import register_handlers_common
+from bots.telegram_payment_bot.handlers.common import register_handlers_common
 
 logger = logging.getLogger(__name__)
 

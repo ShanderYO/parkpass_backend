@@ -28,7 +28,7 @@ from base.views import generic_login_required_view, SignedRequestAPIView, APIVie
 from middlewares.AllowCorsMiddleware import AllowCorsMiddleware
 from notifications.models import AccountDevice
 from owners.models import Owner, OwnerApplication
-from parkings.models import Parking, ParkingSession, ComplainSession, Wish
+from parkings.models import Parking, ParkingSession, ComplainSession, Wish, ParkingSerializerForView
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
@@ -208,9 +208,9 @@ class GetParkingViewMixin:
                 "Target parking with such id not found"
             )
             return JsonResponse(e.to_dict(), status=400)
-        result_dict = serializer(parking, exclude_attr=("vendor_id", "company_id", "max_client_debt",
-                                                        "tariff", "tariff_file_name", "tariff_file_content"))
-        return JsonResponse(result_dict, status=200)
+
+        result_dict = ParkingSerializerForView([parking], read_only=True, many=True)
+        return JsonResponse(result_dict.data[0], status=200)
 
 
 class GetParkingView(GetParkingViewMixin, LoginRequiredAPIView):
