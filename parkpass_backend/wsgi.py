@@ -19,8 +19,8 @@ application = get_wsgi_application()
 if not 'runserver' in sys.argv and os.environ.get("PROD","0") == "1":
     os.system("nohup sh /app/bots/telegram_payment_bot/bot.sh 0<&- &> telegram_bot.log.file &")
 
-if not 'runserver' in sys.argv:
+if not 'runserver' in sys.argv and os.environ.get("PROD","0") == "1":
     os.system("nohup sh /app/bots/telegram_valetapp_bot/bot.sh 0<&- &> telegram_valetapp_bot.log.file &")
 
-if not 'runserver' in sys.argv:
+if not 'runserver' in sys.argv and os.environ.get("PROD","0") == "1":
     os.system("nohup sh /app/bots/telegram_valet_bot/bot.sh 0<&- &> telegram_valet_bot.log.file &")

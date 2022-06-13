@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='parking',
             name='valet_telegram_secret_key',
-            field=models.CharField(editable=False, blank=True, null=True),
+            field=models.CharField(editable=False, blank=True, null=True, max_length=128),
         ),
         migrations.RunPython(create_uuid),
     ]
