@@ -1,6 +1,7 @@
 import calendar
 import datetime
 import time
+import uuid
 
 import pytz
 from PIL import Image
@@ -17,7 +18,9 @@ from rest_framework import serializers
 from accounts.models import Account
 from base.utils import get_logger
 from base.validators import comma_separated_emails
-from parkpass_backend.settings import ALLOWED_HOSTS, ACQUIRING_LIST, MEDIA_ROOT
+from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
+from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
+from parkpass_backend.settings import ALLOWED_HOSTS, ACQUIRING_LIST, MEDIA_ROOT, BASE_DOMAIN, VALETAPP_DOMAIN
 from payments.models import Order
 from rps_vendor.models import RpsParking, ParkingCard, RpsParkingCardSession
 from vendors.models import Vendor
@@ -45,6 +48,13 @@ class Service(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ParkingValetTelegramChat(models.Model):
+    parking = models.ForeignKey('parkings.Parking', on_delete=models.CASCADE)
+    chat_id = models.CharField(max_length=63)
+    created_at = models.DateTimeField(auto_now_add=True)
+    valet_telegram_secret_key = models.CharField(max_length=64, null=True)
 
 
 class Parking(models.Model):
@@ -80,6 +90,8 @@ class Parking(models.Model):
     owner = models.ForeignKey("owners.Owner", null=True, blank=True, on_delete=models.CASCADE)
     company = models.ForeignKey(to='owners.Company', null=True, blank=True, on_delete=models.CASCADE)
     valet_email = models.CharField(max_length=200, null=True, blank=True)
+    valet_telegram_secret_key = models.CharField(max_length=128, blank=True, null=True, default=uuid.uuid4)
+
     created_at = models.DateField(auto_now_add=True)
     software_updated_at = models.DateField(blank=True, null=True)
     approved = models.BooleanField(default=False, verbose_name="Is approved by administrator")
@@ -137,6 +149,25 @@ class Parking(models.Model):
         template_url = "https://" + ALLOWED_HOSTS[0] + "/api/v1/parking/get/%s/tariff/"
         return template_url % self.id if self.tariff_file_content else "-"
 
+    def set_valet_telegram_chat(self, chat_id):
+        ParkingValetTelegramChat.objects.get_or_create(
+            parking=self,
+            chat_id=chat_id,
+            valet_telegram_secret_key=self.valet_telegram_secret_key
+        )
+        self.valet_telegram_secret_key = uuid.uuid4()
+        self.save()
+
+    def send_valet_notification(self, message, photos=[]):
+        chats_ids = []
+        chats = self.parkingvalettelegramchat_set.all()
+
+        if chats:
+            for chat in chats:
+                chats_ids.append(chat.chat_id)
+
+            send_message_by_valet_bot(message, chats_ids, photos)
+
 
 class ParkingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -145,12 +176,15 @@ class ParkingSerializer(serializers.ModelSerializer):
             'id', 'name', 'address', 'city', 'picture'
         ]
 
+
 class ParkingSerializerForView(serializers.ModelSerializer):
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
 
     class Meta:
         model = Parking
         exclude = ("vendor", "company", "max_client_debt",
-                                                        "tariff", "tariff_file_name", "tariff_file_content")
+                   "tariff", "tariff_file_name", "tariff_file_content")
 
 
 
@@ -482,6 +516,9 @@ class ProblemParkingSessionNotifierSettings(models.Model):
         db_table = 'problem_parking_session_notifier_settings'
 
 
+PHOTOS_AT_THE_RECEPTION = 1
+PHOTOS_FROM_PARKING = 2
+
 VALET_SESSION_RECEIVED_THE_CAR = 1
 VALET_SESSION_PARKING_THE_CAR = 2
 VALET_SESSION_THE_CAR_IS_PARKED = 3
@@ -581,20 +618,49 @@ class ParkingValetSession(models.Model):
             car_delivery_time=delivery_date,
             company=self.company
         )
-        message = 'VCID: %s \nВремя: %s' % (self.valet_card_id, self.car_delivery_time)
+        self.save()
 
-        send_mail('Заказ автомобиля: %s, Марка автомобиля: %s' % (self.car_number, self.car_model), message, "Valet ParkPass <noreply@parkpass.ru>",
+        current_session = ParkingValetSession.objects.get(
+            id=self.id)  # хак для того чтобы не обрабатывать значение даты в ручную, sorry
+        tzh = pytz.timezone(self.parking.tz_name)
+        time = timezone.localtime(current_session.car_delivery_time, tzh).strftime(("%d.%m.%Y %H:%M"))
+        message = 'VCID: %s \nВремя: %s' % (self.valet_card_id, time)
+
+        send_mail('Заказ автомобиля: %s, Марка автомобиля: %s' % (self.car_number, self.car_model), message,
+                  "Valet ParkPass <noreply@parkpass.ru>",
                   ['lokkomokko1@gmail.com', 'support@parkpass.ru'])
 
         if self.parking.valet_email:
-
             send_mail('Заказ автомобиля: %s, Марка автомобиля: %s' % (self.car_number, self.car_model), message,
                       "Valet ParkPass <noreply@parkpass.ru>",
                       [self.parking.valet_email])
 
-        self.save()
+        # Уведомления в телеграмм
+        # _______________________________________________________________________________
+        photos = []
+        parking_photos = ParkingValetSessionImages.objects.filter(valet_session=current_session,
+                                                                  type=PHOTOS_FROM_PARKING)
+        if parking_photos:
+            for photo in parking_photos:
+                photos.append(f'https://{BASE_DOMAIN}/api/media{photo.img}')
+
+        notification_message = """
+Пришёл запрос на подачу автомобиля. 
+Номер: %s
+Марка: %s
+Время подачи: %s
+
+<a href="%s">✅ Принять запрос</a>
+        """ % (current_session.car_number, current_session.car_model, time, VALETAPP_DOMAIN)
+
+        send_message_by_valetapp_bot(notification_message, self.company_id, None, photos)
+
+        self.parking.send_valet_notification(notification_message, photos)
+
+    # _______________________________________________________________________________
 
     def cancel_request_if_status_changed(self, state):
+        from owners.models import CompanyUser
         # Если меняю статус сессии
         # С Запрошена подача или В процессе подачи или Назначен ответственный
         # На Автомобиль припаркован
@@ -602,6 +668,9 @@ class ParkingValetSession(models.Model):
         if int(state) == VALET_SESSION_THE_CAR_IS_PARKED and self.state in [VALET_SESSION_REQUESTING_A_CAR_DELIVERY,
                                                                             VALET_SESSION_IN_THE_PROCESS,
                                                                             VALET_SESSION_THE_PERSON_IN_CHARGE]:
+            old_responsible_user = None
+            if self.responsible_for_delivery_id:
+                old_responsible_user = CompanyUser.objects.get(id=self.responsible_for_delivery_id)
 
             self.responsible_for_delivery = None
             self.car_delivery_time = None
@@ -614,6 +683,29 @@ class ParkingValetSession(models.Model):
                 request.accepted_by = None
                 request.accepted_at = None
                 request.save()
+
+            # Уведомления в телеграмм
+            # _______________________________________________________________________________
+            if old_responsible_user and old_responsible_user.telegram_id:
+                photos = []
+                parking_photos = ParkingValetSessionImages.objects.filter(valet_session=self,
+                                                                          type=PHOTOS_FROM_PARKING)
+                if parking_photos:
+                    for photo in parking_photos:
+                        photos.append(f'https://{BASE_DOMAIN}/api/media{photo.img}')
+
+                tzh = pytz.timezone(self.parking.tz_name)
+                time = timezone.localtime(self.car_delivery_time, tzh).strftime(("%d.%m.%Y %H:%M"))
+
+                notification_message = """
+Менеджер отменил подачу автомобиля. 
+Номер: %s
+Марка: %s
+Время подачи: %s
+                        """ % (self.car_number, self.car_model, time)
+                send_message_by_valetapp_bot(notification_message, self.company_id,
+                                             [old_responsible_user.telegram_id], photos)
+            # _______________________________________________________________________________
 
             return True
 
@@ -641,10 +733,6 @@ class ParkingValetSession(models.Model):
         return f'{self.client_id} {self.car_model} {self.parking.name}'
 
 
-PHOTOS_AT_THE_RECEPTION = 1
-PHOTOS_FROM_PARKING = 2
-
-
 class ParkingValetSessionImages(models.Model):
     id = models.AutoField(primary_key=True)
     valet_session = models.ForeignKey(ParkingValetSession, on_delete=models.CASCADE)
@@ -664,8 +752,8 @@ def execute_after_save_image(sender, instance, created, *args, **kwargs):
     if created:
         img = Image.open(MEDIA_ROOT + instance.img)  # Open image using self
 
-        if img.height > 600 or img.width > 600:
-            new_img = (600, 600)
+        if img.height > 1024 or img.width > 1024:
+            new_img = (1024, 1024)
             img.thumbnail(new_img)
             img.save(MEDIA_ROOT + instance.img)  # saving image at the same path
 
@@ -703,12 +791,43 @@ class ParkingValetSessionRequest(models.Model):
     finish_time = models.DateTimeField(null=True, blank=True)
 
     def set_responsible(self, valet_user_id):
+        from owners.models import CompanyUser
+
         self.accepted_by_id = valet_user_id
         self.car_delivery_time = self.valet_session.car_delivery_time
 
         if valet_user_id:
             self.valet_session.state = VALET_SESSION_THE_PERSON_IN_CHARGE
             self.valet_session.save()
+
+            # Уведомления в телеграмм
+            # _______________________________________________________________________________
+            responsible_user = CompanyUser.objects.get(id=valet_user_id)
+            if responsible_user and responsible_user.telegram_id:
+
+                photos = []
+                parking_photos = ParkingValetSessionImages.objects.filter(valet_session=self.valet_session,
+                                                                          type=PHOTOS_FROM_PARKING)
+                if parking_photos:
+                    for photo in parking_photos:
+                        photos.append(f'https://{BASE_DOMAIN}/api/media{photo.img}')
+
+                tzh = pytz.timezone(self.valet_session.parking.tz_name)
+                time = self.valet_session.car_delivery_time
+                try:
+                    time = timezone.localtime(self.valet_session.car_delivery_time, tzh).strftime(("%d.%m.%Y %H:%M"))
+                except Exception as e:
+                    print(e)
+
+                notification_message = """
+Вас назначили ответственным за подачу автомобиля. 
+Номер: %s
+Марка: %s
+Время подачи: %s
+                        """ % (self.valet_session.car_number, self.valet_session.car_model, time)
+                send_message_by_valetapp_bot(notification_message, self.company_id, [responsible_user.telegram_id],
+                                             photos)
+        # _______________________________________________________________________________
 
         else:
             self.accepted_at = None
@@ -725,6 +844,38 @@ class ParkingValetSessionRequest(models.Model):
             self.status = VALET_REQUEST_ACCEPTED
             self.valet_session.state = VALET_SESSION_IN_THE_PROCESS
             self.valet_session.save()
+
+            # Уведомления в телеграмм
+            # _______________________________________________________________________________
+
+            from owners.models import CompanyUser
+            valet = CompanyUser.objects.get(id=valet_user_id)
+
+            tzh = pytz.timezone(self.valet_session.parking.tz_name)
+            time = self.valet_session.car_delivery_time
+            try:
+                time = timezone.localtime(self.valet_session.car_delivery_time, tzh).strftime(("%d.%m.%Y %H:%M"))
+            except Exception as e:
+                print(e)
+
+            notification_message = """
+Валет принял заявку на подачу. 
+Номер: %s
+Марка: %s
+Время подачи: %s
+Валет: %s
+                                    """ % (
+            self.valet_session.car_number, self.valet_session.car_model, time, f'{valet.last_name} {valet.first_name}')
+
+            photos = []
+            parking_photos = ParkingValetSessionImages.objects.filter(valet_session=self.valet_session,
+                                                                      type=PHOTOS_FROM_PARKING)
+            if parking_photos:
+                for photo in parking_photos:
+                    photos.append(f'https://{BASE_DOMAIN}/api/media{photo.img}')
+
+            self.valet_session.parking.send_valet_notification(notification_message, photos)
+            # _______________________________________________________________________________
 
         else:
             self.accepted_at = None

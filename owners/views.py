@@ -22,11 +22,13 @@ from base.utils import *
 from base.validators import *
 from base.views import APIView, ObjectView
 from base.views import generic_login_required_view
+from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
 from jwtauth.models import Session, TokenTypes, Groups
 from parkings.models import Parking, ParkingSession, ParkingValetSession, ParkingValetSessionSerializer, \
     ParkingValetSessionRequest, ParkingValetSessionImages, \
     PHOTOS_AT_THE_RECEPTION, PHOTOS_FROM_PARKING, ParkingValetRequestIncludeSessionSerializer, VALET_REQUEST_ACCEPTED, \
     VALET_SESSION_THE_CAR_IS_ISSUED, VALET_SESSION_COMPLETED_AND_PAID, VALET_SESSION_COMPLETED, VALET_REQUEST_CANCELED
+from parkpass_backend.settings import BASE_DOMAIN
 from payments.models import Order, TinkoffPayment, HomeBankPayment
 from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES, ParkingCard
 from vendors.models import Vendor
@@ -1601,14 +1603,12 @@ class CompanyUsersAvatarUpdateView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-
         fs = FileSystemStorage()
         extension = os.path.splitext(avatar.name)[1]
         filename = fs.save(f'valet_users_avatars/{str(uuid.uuid4())}{extension}', avatar)
         uploaded_file_url = fs.url(filename)
         valet_user.avatar = uploaded_file_url
         valet_user.save()
-
 
         return JsonResponse({"status": "success"}, status=200, safe=False)
 
@@ -1733,11 +1733,12 @@ class ValetSessionsView(LoginRequiredAPIView):
             valet_user = request.companyuser if request.companyuser else None
             if valet_user:
                 sessions = ParkingValetSession.objects.filter(company_id=company.id,
-                                                              parking_id__in=map(lambda parking: parking.id, valet_user.available_parking.all())).order_by('-id')
+                                                              parking_id__in=map(lambda parking: parking.id,
+                                                                                 valet_user.available_parking.all())).order_by(
+                    '-id')
             else:
                 sessions = ParkingValetSession.objects.filter(company_id=company.id,
                                                               parking__company_id=company.id).order_by('-id')
-
 
             serializer = ParkingValetSessionSerializer(sessions, many=True)
             result = serializer.data
@@ -1770,7 +1771,6 @@ class ValetSessionsView(LoginRequiredAPIView):
         created_by_user = request.companyuser if request.companyuser else None
         parking_card_model = None
 
-
         # проверка на уже существующую сессию
         if (ParkingValetSession.objects.filter(valet_card_id=valet_card_id).exclude(state__in=[
             VALET_SESSION_COMPLETED_AND_PAID,
@@ -1782,7 +1782,6 @@ class ValetSessionsView(LoginRequiredAPIView):
                 "Session with this valet card already exist"
             )
             return JsonResponse(e.to_dict(), status=400)
-
 
         session = ParkingValetSession.objects.create(
             car_model=car_model,
@@ -1875,18 +1874,17 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
 
         # проверка на уже существующую сессию при новом значении валет карты
         if (valet_card_id and ParkingValetSession.objects.filter(valet_card_id=valet_card_id).exclude(
-            pk=session.id
+                pk=session.id
         ).exclude(state__in=[
             VALET_SESSION_COMPLETED_AND_PAID,
             VALET_SESSION_COMPLETED,
             VALET_SESSION_THE_CAR_IS_ISSUED
-        ],).exists()):
+        ], ).exists()):
             e = ValidationException(
                 ValidationException.VALIDATION_ERROR,
                 "Session with this valet card already exist"
             )
             return JsonResponse(e.to_dict(), status=400)
-
 
         if car_model: session.car_model = car_model
         if car_number: session.car_number = car_number
@@ -1898,8 +1896,45 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         if parking_space_number: session.parking_space_number = parking_space_number
         if parking_floor: session.parking_floor = parking_floor
         if parking_place: session.parking_place = parking_place
-        if car_delivery_time: session.car_delivery_time = car_delivery_time
-        if car_delivered_at: session.car_delivered_at = car_delivered_at
+        if car_delivery_time:
+            # событие - изменилось время подачи автмобиля
+
+            try:
+                delivery_datetime_object = datetime.datetime.strptime(car_delivery_time, '%Y-%m-%d %H:%M')
+
+                if session.car_delivery_time and (
+                        session.car_delivery_time.strftime('%Y-%m-%d %H:%M') != delivery_datetime_object.strftime(
+                    '%Y-%m-%d %H:%M')):
+
+                    # Уведомления в телеграмм
+                    # _______________________________________________________________________________
+                    if session.responsible_for_delivery and session.responsible_for_delivery.telegram_id:
+                        photos = []
+                        parking_photos = ParkingValetSessionImages.objects.filter(valet_session=session,
+                                                                                  type=PHOTOS_FROM_PARKING)
+                        if parking_photos:
+                            for photo in parking_photos:
+                                photos.append(f'https://{BASE_DOMAIN}/api/media{photo.img}')
+
+                        tzh = pytz.timezone(session.parking.tz_name)
+                        time = delivery_datetime_object.replace(tzinfo=pytz.utc).astimezone(tzh).strftime(
+                            '%Y-%m-%d %H:%M')
+
+                        notification_message = """
+Изменилось время подачи автомобиля.
+Номер: %s
+Марка: %s
+Время подачи: %s
+                                                            """ % (session.car_number, session.car_model, time)
+                        send_message_by_valetapp_bot(notification_message, session.company_id,
+                                                     [session.responsible_for_delivery.telegram_id], photos)
+                    # _______________________________________________________________________________
+            except Exception as e:
+                print(e)
+
+            session.car_delivery_time = car_delivery_time
+
+            if car_delivered_at: session.car_delivered_at = car_delivered_at
 
         cancel_request = False
         if state:
@@ -1907,7 +1942,6 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
             cancel_request = session.cancel_request_if_status_changed(state)
             # пробуем создать запрос
             create_request = session.create_request_if_status_changed(state)
-
 
             session.state = state
 
@@ -1963,17 +1997,21 @@ class ValetRequestsView(LoginRequiredAPIView):
         owner = get_owner(request)
         company = Company.objects.get(owner=owner)
         valet_user = request.companyuser if request.companyuser else None
-        parking_id=request.GET.get('parking_id', None)
+        parking_id = request.GET.get('parking_id', None)
 
-        requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).exclude(status=VALET_REQUEST_CANCELED).order_by(
+        requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).exclude(
+            status=VALET_REQUEST_CANCELED).order_by(
             '-id')
         if valet_user:
-            requests = requests.filter(valet_session__parking_id__in=map(lambda parking: parking.id, valet_user.available_parking.all()), finish_time__isnull=True).exclude(status=VALET_REQUEST_CANCELED).order_by(
-            '-id')
+            requests = requests.filter(
+                valet_session__parking_id__in=map(lambda parking: parking.id, valet_user.available_parking.all()),
+                finish_time__isnull=True).exclude(status=VALET_REQUEST_CANCELED).order_by(
+                '-id')
 
         if parking_id:
-            requests = requests.filter(valet_session__parking__id=parking_id, finish_time__isnull=True).exclude(status=VALET_REQUEST_CANCELED).order_by(
-            '-id')
+            requests = requests.filter(valet_session__parking__id=parking_id, finish_time__isnull=True).exclude(
+                status=VALET_REQUEST_CANCELED).order_by(
+                '-id')
 
         s = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
 
@@ -2037,9 +2075,42 @@ class ValetRequestsFinishView(LoginRequiredAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
 
-        instance = ParkingValetSessionRequest.objects.get(id=request_id)
-        instance.finish_time = datetime.datetime.now(timezone.utc)
-        instance.save()
+        request_instance = ParkingValetSessionRequest.objects.get(id=request_id)
+        request_instance.finish_time = datetime.datetime.now(timezone.utc)
+        request_instance.save()
+
+        # Уведомления в телеграмм
+        # _______________________________________________________________________________
+
+        from owners.models import CompanyUser
+        valet = CompanyUser.objects.get(id=request_instance.accepted_by_id)
+
+        tzh = pytz.timezone(request_instance.valet_session.parking.tz_name)
+        time = request_instance.valet_session.car_delivery_time
+        try:
+            time = timezone.localtime(request_instance.valet_session.car_delivery_time, tzh).strftime(("%d.%m.%Y %H:%M"))
+        except Exception as e:
+            print(e)
+
+        notification_message = """
+Автомобиль выдан клиенту. 😎
+Номер: %s
+Марка: %s
+Время подачи: %s
+Валет: %s
+                                            """ % (request_instance.valet_session.car_number, request_instance.valet_session.car_model, time,
+                                                   f'{valet.last_name} {valet.first_name}')
+
+        photos = []
+        parking_photos = ParkingValetSessionImages.objects.filter(valet_session=request_instance.valet_session,
+                                                                  type=PHOTOS_FROM_PARKING)
+        if parking_photos:
+            for photo in parking_photos:
+                photos.append(f'https://{BASE_DOMAIN}/api/media{photo.img}')
+
+        request_instance.valet_session.parking.send_valet_notification(notification_message, photos)
+        # _______________________________________________________________________________
+
 
         return JsonResponse(
             {'message': 'success'},
@@ -2058,16 +2129,47 @@ class ValetRequestsHistoryView(LoginRequiredAPIView):
                 "Only valet user allow"
             )
 
-        requests = ParkingValetSessionRequest.objects.filter(accepted_by=valet_user,
-                                                             finish_time__isnull=False).order_by('-id')
+        sessions = ParkingValetSession.objects.filter(
+            Q(responsible_for_reception=valet_user) | Q(responsible_for_delivery=valet_user),
+            state__in=[
+            VALET_SESSION_COMPLETED_AND_PAID,
+            VALET_SESSION_COMPLETED,
+            VALET_SESSION_THE_CAR_IS_ISSUED
+        ]).order_by('-id')
 
-        serializer = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
-
+        serializer = ParkingValetSessionSerializer(sessions, many=True)
+        #
+        # requests = ParkingValetSessionRequest.objects.filter(accepted_by=valet_user,
+        #                                                      finish_time__isnull=False).order_by('-id')
+        #
+        # serializer = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
+        #
+        # return JsonResponse(
+        #     serializer.data,
+        #     status=200,
+        #     safe=False
+        # )
         return JsonResponse(
             serializer.data,
             status=200,
             safe=False
         )
+
+
+class ValetTelegramDisableView(LoginRequiredAPIView):
+    def get(self, request):
+        valet_user = request.companyuser if request.companyuser else None
+
+        if not valet_user:
+            e = ValidationException(
+                ValidationException.VALIDATION_ERROR,
+                "Only valet user allow"
+            )
+
+        valet_user.telegram_id = None
+        valet_user.save()
+
+        return JsonResponse({'message': 'success'}, status=200)
 
 
 class ValetUserParkingView(LoginRequiredAPIView):
@@ -2077,7 +2179,7 @@ class ValetUserParkingView(LoginRequiredAPIView):
         if valet_user:
             parking_list = valet_user.available_parking
         else:
-            parking_list = Parking.objects.filter(approved=True, company__owner=get_owner(request))
+            parking_list = Parking.objects.filter(approved=True, owner=get_owner(request))
 
         return JsonResponse(
             serializer(parking_list, exclude_attr=("vendor_id", "company_id", "max_client_debt",

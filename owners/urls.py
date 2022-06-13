@@ -55,4 +55,7 @@ urlpatterns = [
                   url(r'^valet-requests/accept$', ValetRequestsAcceptView.as_view()),
                   url(r'^valet-requests/finish$', ValetRequestsFinishView.as_view()),
                   url(r'^valet-requests/history$', ValetRequestsHistoryView.as_view()),
+
+                  url(r'^telegram/disable$', ValetTelegramDisableView.as_view()),
+
               ] + staticfiles_urlpatterns()

@@ -68,7 +68,7 @@ class RpsParking(models.Model):
         get_logger("Returns: debt=%s, duration=%s" % (debt, duration,))
 
         # if Card
-        if debt is None:
+        if debt is None or (debt is 0 and enter_ts is 0 and duration is 0):
             return None
 
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
@@ -96,12 +96,12 @@ class RpsParking(models.Model):
         resp["source_hostname"] = source_hostname
         return resp
 
-    def get_parking_card_debt_for_developers(self, parking_card):
-        debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
+    def get_parking_card_debt_for_developers(self, parking_card, developer_id):
+        debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id, developer_id)
         get_logger("Returns: debt=%s, duration=%s" % (debt, duration,))
 
         # if Card
-        if debt is None:
+        if debt is None or (debt is 0 and enter_ts is 0 and duration is 0):
             return None
 
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
@@ -120,13 +120,13 @@ class RpsParking(models.Model):
             card_session.save()
 
         resp = serializer(card_session, exclude_attr=(
-        "account_id", "created_at", "id", "state", "client_uuid", "from_datetime", "leave_at"))
+            "account_id", "created_at", "id", "state", "client_uuid", "from_datetime", "leave_at"))
         resp["entered_at"] = enter_ts
         resp["card_session_id"] = card_session.id
 
         return resp
 
-    def _make_http_for_parking_card_debt(self, parking_card):
+    def _make_http_for_parking_card_debt(self, parking_card, developer_id=None):
         connect_timeout = 2
 
         SECRET_HASH = 'yWQ6pSSSNTDMmRsz3dnS'
@@ -144,14 +144,34 @@ class RpsParking(models.Model):
         get_logger().info("SEND REQUEST TO RPS %s" % self.get_parking_card_debt_url(query_str))
 
         try:
-            r = requests.get(
-                self.get_parking_card_debt_url(query_str),
-                timeout=(connect_timeout, 5.0))
+            # r = requests.get(
+            #     self.get_parking_card_debt_url(query_str),
+            #     timeout=(connect_timeout, 5.0))
+            #
+            session = requests.Session()
+            retry = Retry(connect=5, backoff_factor=0.5)
+            adapter = HTTPAdapter(max_retries=retry)
+            session.mount('http://', adapter)
+            session.mount('https://', adapter)
+
+            r = session.get(self.get_parking_card_debt_url(query_str), verify=False)
+
 
             try:
                 self.last_response_code = r.status_code
                 get_logger().info("GET RESPONSE FORM RPS %s" % r.status_code)
                 get_logger().info(r.content)
+
+                if developer_id:
+                    DevelopersLog.objects.create(
+                        parking_card_id=parking_card,
+                        developer=Developer.objects.get(developer_id=developer_id),
+                        type=DEVELOPER_LOG_RPS_GET_DEBT,
+                        status=DEVELOPER_STATUS_SUCCESS,
+                        parking=self,
+                        message=f'{self.get_parking_card_debt_url(query_str)} \n status_code: {r.status_code} \n response: {r.content}'
+                    )
+
                 if r.status_code == 200:
                     result = r.json()
                     self.last_response_body = result
@@ -243,12 +263,11 @@ class RpsParkingCardSession(models.Model):
         mins = (self.duration - hours * 3600 - secs) / 60
         return "%02d:%02d:%02d" % (hours, mins, secs)
 
-
-    def get_parking (self):
+    def get_parking(self):
         from parkings.models import Parking
         return Parking.objects.get(id=self.parking_id)
 
-    def notify_authorize(self, order):
+    def notify_authorize(self, order, developer_id=None, rps_parking=None):
         self.state = STATE_AUTHORIZED
         self.save()
 
@@ -277,12 +296,13 @@ class RpsParkingCardSession(models.Model):
                 'parking').get(parking__id=self.parking_id)
 
             leave_at = self._make_http_ok_status(
-                rps_parking.request_payment_authorize_url, payload)
+                rps_parking.request_payment_authorize_url, payload, developer_id, rps_parking)
             if leave_at is not None:
                 order.parking_card_session.leave_at = leave_at
                 order.parking_card_session.save()
             else:
                 get_logger().info("Get `leave_at` is None from RPS")
+                return False
 
             elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
                 'rps_request_data': leave_at,
@@ -309,7 +329,7 @@ class RpsParkingCardSession(models.Model):
         self.save()
         return True
 
-    def _make_http_ok_status(self, url, payload):
+    def _make_http_ok_status(self, url, payload, developer_id=None, rps_parking=None):
         get_logger().info("_make_http_ok_status")
         connect_timeout = 2
 
@@ -322,9 +342,29 @@ class RpsParkingCardSession(models.Model):
 
         try:
             get_logger().info("Try to make_http_ok")
-            r = requests.post(url, data=payload, headers=headers,
-                              timeout=(connect_timeout, 30.0))  # TODO make
+
+            session = requests.Session()
+            retry = Retry(connect=5, backoff_factor=0.5)
+            adapter = HTTPAdapter(max_retries=retry)
+            session.mount('http://', adapter)
+            session.mount('https://', adapter)
+
+
+            # r = requests.post(url, data=payload, headers=headers,
+            #                   timeout=(connect_timeout, 30.0))  # TODO make
+            #
+            r = session.post(url, data=payload, headers=headers, verify=False)
+
             try:
+                if developer_id:
+                    DevelopersLog.objects.create(
+                        parking_card_id=self.parking_card.card_id,
+                        developer=Developer.objects.get(developer_id=developer_id),
+                        type=DEVELOPER_LOG_RPS_CONFIRM,
+                        status=DEVELOPER_STATUS_SUCCESS,
+                        parking=rps_parking,
+                        message=f'{url} \n status_code: {r.status_code} \n response: {r.content}'
+                    )
                 self.last_response_code = r.status_code
                 get_logger().info("GET RESPONSE FORM RPS %s" % r.status_code)
                 get_logger().info(r.content)
@@ -534,10 +574,15 @@ class Developer(models.Model):
 
 DEVELOPER_LOG_GET_DEBT = 0
 DEVELOPER_LOG_CONFIRM = 1
+DEVELOPER_LOG_RPS_GET_DEBT = 2
+DEVELOPER_LOG_RPS_CONFIRM = 4
 DEVELOPER_STATUS_ERROR = 0
 DEVELOPER_STATUS_SUCCESS = 1
 DEVELOPER_LOG_TYPES = [(DEVELOPER_LOG_GET_DEBT, 'Получение задолженности'),
-                       (DEVELOPER_LOG_CONFIRM, 'Оплата задолженности')]
+                       (DEVELOPER_LOG_CONFIRM, 'Оплата задолженности'),
+                       (DEVELOPER_LOG_RPS_GET_DEBT, 'РПС ответ на получение задолженности'),
+                       (DEVELOPER_LOG_RPS_CONFIRM, 'РПС ответ на оплату задолженности')
+                       ]
 DEVELOPER_STATUS_TYPES = [(DEVELOPER_STATUS_ERROR, 'Error'), (DEVELOPER_STATUS_SUCCESS, 'Success')]
 
 
@@ -549,4 +594,4 @@ class DevelopersLog(models.Model):
     debt = models.IntegerField(null=True, blank=True)
     status = models.IntegerField(choices=DEVELOPER_STATUS_TYPES, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-    message = models.CharField(max_length=2048, blank=True, null=True)
+    message = models.TextField(max_length=2048, blank=True, null=True)

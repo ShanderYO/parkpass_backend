@@ -170,7 +170,8 @@ class GetDeveloperParkingCardDebtMixin:
             if not rps_parking.parking.rps_parking_card_available:
                 raise ObjectDoesNotExist()
 
-            response_dict = rps_parking.get_parking_card_debt_for_developers(parking_card)
+            response_dict = rps_parking.get_parking_card_debt_for_developers(parking_card, developer_id)
+
             if response_dict:
                 developer_log.parking = rps_parking
                 developer_log.debt = response_dict["debt"]
@@ -463,7 +464,7 @@ class ConfirmPayDeveloperDebt(APIView):
             get_logger().info("ConfirmPayDeveloperDebt notify_authorize")
 
             status = 'error'
-            if order.parking_card_session.notify_authorize(order):
+            if order.parking_card_session.notify_authorize(order, developer_id, rps_parking):
                 status = 'success'
                 developer_log.status = DEVELOPER_STATUS_SUCCESS
                 developer_log.save()

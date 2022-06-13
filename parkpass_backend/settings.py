@@ -22,6 +22,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'kickk&tua$aj_jq4(+kt5wb4jfgqp5#t-ki-dh1nk2zs54al0l'
 
 # SECURITY WARNING: don't run with debug turned on in production!
+# DEBUG = False if os.environ.get("PROD","0") == "1" else True
 DEBUG = int(os.environ.get("DJANGO_DEBUG", 1)) == 1
 
 ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1", 'nginx-balancer']
@@ -86,11 +87,11 @@ ACQUIRING_LIST = (
 
 BASE_DOMAIN = 'parkpass.ru' if os.environ.get("PROD","0") == "1" else 'sandbox.parkpass.ru'
 PARKPASS_PAY_APP_LINK = 'https://pay.parkpass.ru' if os.environ.get("PROD","0") == "1" else 'https://testpay.parkpass.ru'
+VALETAPP_DOMAIN = 'https://valetapp.parkpass.ru' if os.environ.get("PROD","0") == "1" else 'https://testvaletapp.parkpass.ru'
 
 # Application definition
 #TINKOFF_API_REFRESH_TOKEN = 't.MQCiorv_cccpkAw5u5kknrpNd54WbunlOx4iy6cCEH69BbwSDQQWql2nnTuHxY_VpuHtrPW8dHUojjwOl3uc5A'
 PARKPASS_INN = "7725415044"
-
 
 INSTALLED_APPS = [
     'django.contrib.admin',

@@ -335,6 +335,7 @@ class CompanyUser(BaseAccount):
     created_by_user = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
     role = models.ForeignKey(CompanyUsersRole, on_delete=models.SET_NULL, null=True, blank=True)
     avatar = models.CharField(max_length=128, null=True, blank=True)
+    telegram_id = models.CharField(max_length=63, null=True, blank=True)
 
     @property
     def session_class(self):
@@ -351,8 +352,7 @@ class CompanyUser(BaseAccount):
         return len(string) == 78
 
     def send_login_email(self):
-        email_message = f'Доступ к личному кабинету (https://sandbox.parkpass.ru/owner-cabinet/) \n' \
-                        f'Логин: {self.email}\n' \
+        email_message = f'Логин: {self.email}\n' \
                         f'Пароль: {self.password}\n'
         send_mail('ParkPass Кабинет. Регистрация пользователя', email_message, EMAIL_HOST_USER,
                   [self.email],
@@ -444,12 +444,16 @@ class CompanyUser(BaseAccount):
 @receiver(models.signals.post_save, sender=CompanyUser)
 def execute_after_save_user(sender, instance, created, *args, **kwargs):
     if instance.avatar:
-        img = Image.open(MEDIA_ROOT + instance.avatar.replace('/api/media', '')) # Open image using self
+        try:
+            img = Image.open(MEDIA_ROOT + instance.avatar.replace('/api/media', '')) # Open image using self
 
-        if img.height > 600 or img.width > 600:
-            new_img = (600, 600)
-            img.thumbnail(new_img)
-            img.save(MEDIA_ROOT + instance.avatar.replace('/api/media', ''))  # saving image at the same path
+            if img.height > 600 or img.width > 600:
+                new_img = (600, 600)
+                img.thumbnail(new_img)
+                img.save(MEDIA_ROOT + instance.avatar.replace('/api/media', ''))  # saving image at the same path
+
+        except Exception as e:
+            print(str(e))
 
 
 class CompanyUserSerializer(serializers.ModelSerializer):

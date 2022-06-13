@@ -9,7 +9,6 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.utils.decorators import decorator_from_middleware
 
-from accounts.sms_gateway import sms_sender
 from base.utils import get_logger, elastic_log
 from base.views import APIView
 from dss.Serializer import serializer
@@ -17,9 +16,8 @@ from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from notifications.models import AccountDevice
 from parkings.models import ParkingSession
 from parkpass_backend import settings
-from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME, EMAIL_HOST_USER, REQUESTS_LOGGER_NAME, \
-    EMAILS_HOST_ALERT, ES_APP_SESSION_PAY_LOGS_INDEX_NAME, ES_APP_CARD_PAY_LOGS_INDEX_NAME, \
-    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME, BASE_DOMAIN
+from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME, ES_APP_SESSION_PAY_LOGS_INDEX_NAME, ES_APP_CARD_PAY_LOGS_INDEX_NAME, \
+    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME
 from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
     PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
     PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
@@ -27,7 +25,6 @@ from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED,
 from payments.payment_api import TinkoffAPI, HomeBankOdfAPI
 
 from payments.tasks import start_cancel_request, make_buy_subscription_request, create_screenshot
-import requests
 
 
 class TinkoffCallbackView(APIView):
@@ -753,7 +750,6 @@ class TestView(APIView):
 
         # TinkoffAPI().get_check_url("0001785103056432", 9287440300256165, 4498)
         # req_string = HomeBankOdfAPI().create_check()
-        from django.core.mail import send_mail
         # send_mail('Подтвердите e-mail', "привет", EMAIL_HOST_USER,
         #           ['lokkomokko1@gmail.com'])
         # logger = get_logger(REQUESTS_LOGGER_NAME)
@@ -787,7 +783,6 @@ class TestView(APIView):
         # for account_device in qs:
         #     print('lalala')
         #     account_device.send_message(title='111', body='Привет')
-        import asyncio
         # from utils.screenshot import create_screenshot
         # create_screenshot('https://consumer.1-ofd.ru/ticket?t=20211008T1607&s=200.00&fn=9287440300256165&i=7080&fp=1774076369&n=1', 'ыыыы')
         # from payments.tasks import  create_screenshot
@@ -798,8 +793,17 @@ class TestView(APIView):
 
         # send_mail('Test template', "Hello", EMAIL_HOST_USER,
         #           ['mail@vldmrnine.com'])
-        from bots.telegram_valet_bot.TelegramValetBot import send_message_by_valet_bot
-        send_message_by_valet_bot('hey hey hey')
+        # from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
+
+        # send_message_by_valet_bot(message, chats_ids, photos)
+        # image = URLInputFile(
+        #     "https://www.python.org/static/community_logos/python-powered-h-140x182.png",
+        #     filename="python-logo.png"
+        # )
+
+        from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
+        notification_message = '<a href="%s">Принять запрос</a>'
+        send_message_by_valet_bot(notification_message, [688045242], [])
         return HttpResponse('test21 all is good', status=200)
 
     @decorator_from_middleware(ApiTokenMiddleware)

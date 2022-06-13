@@ -278,7 +278,7 @@ class Order(models.Model):
             phone = self.parking_card_session.account.phone \
                 if self.parking_card_session.account else self.parking_card_session.parking_card.phone
 
-            if len(phone) == 1:
+            if phone and len(phone) == 1:
                 phone = ''
 
             if self.acquiring == 'homebank':
