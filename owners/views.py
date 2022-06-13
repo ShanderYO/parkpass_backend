@@ -1758,6 +1758,7 @@ class ValetSessionsView(LoginRequiredAPIView):
         car_model = self.request.POST.get("car_model")
         car_number = self.request.POST.get("car_number")
         car_color = self.request.POST.get("car_color", None)
+        comment = self.request.POST.get("comment", '')
         valet_card_id = self.request.POST.get("valet_card_id")
         parking_card = self.request.POST.get("parking_card")
         responsible_id = self.request.POST.get("responsible_id")
@@ -1795,7 +1796,8 @@ class ValetSessionsView(LoginRequiredAPIView):
             parking_id=parking_id,
             company_id=company.id,
             created_by_user=created_by_user,
-            car_color=car_color
+            car_color=car_color,
+            comment=comment
         )
 
         for file in photo_accept_array:
@@ -1854,6 +1856,7 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         id = self.request.POST.get("id")
         car_model = self.request.POST.get("car_model")
         car_color = self.request.POST.get("car_color")
+        comment = self.request.POST.get("comment", '')
         car_number = self.request.POST.get("car_number")
         valet_card_id = self.request.POST.get("valet_card_id")
         parking_card = self.request.POST.get("parking_card")
@@ -1896,6 +1899,8 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         if parking_space_number: session.parking_space_number = parking_space_number
         if parking_floor: session.parking_floor = parking_floor
         if parking_place: session.parking_place = parking_place
+        if comment: session.comment = comment
+
         if car_delivery_time:
             # событие - изменилось время подачи автмобиля
 
