@@ -17,6 +17,8 @@ from django.db import models
 # Create your models here.
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 from dss.Serializer import serializer
 
