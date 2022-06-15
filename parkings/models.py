@@ -18,8 +18,6 @@ from rest_framework import serializers
 from accounts.models import Account
 from base.utils import get_logger
 from base.validators import comma_separated_emails
-from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
-from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
 from parkpass_backend.settings import ALLOWED_HOSTS, ACQUIRING_LIST, MEDIA_ROOT, BASE_DOMAIN, VALETAPP_DOMAIN
 from payments.models import Order
 from rps_vendor.models import RpsParking, ParkingCard, RpsParkingCardSession
@@ -159,6 +157,8 @@ class Parking(models.Model):
         self.save()
 
     def send_valet_notification(self, message, photos=[]):
+        from parkings.tasks import send_message_by_valet_bots_task
+
         chats_ids = []
         chats = self.parkingvalettelegramchat_set.all()
 
@@ -166,7 +166,7 @@ class Parking(models.Model):
             for chat in chats:
                 chats_ids.append(chat.chat_id)
 
-            send_message_by_valet_bot(message, chats_ids, photos)
+            send_message_by_valet_bots_task.delay(message, chats_ids, None, photos)
 
 
 class ParkingSerializer(serializers.ModelSerializer):
@@ -637,6 +637,8 @@ class ParkingValetSession(models.Model):
 
         # Уведомления в телеграмм
         # _______________________________________________________________________________
+        from parkings.tasks import send_message_by_valet_bots_task
+
         photos = []
         parking_photos = ParkingValetSessionImages.objects.filter(valet_session=current_session,
                                                                   type=PHOTOS_FROM_PARKING)
@@ -653,7 +655,7 @@ class ParkingValetSession(models.Model):
 <a href="%s">✅ Принять запрос</a>
         """ % (current_session.car_number, current_session.car_model, time, VALETAPP_DOMAIN)
 
-        send_message_by_valetapp_bot(notification_message, self.company_id, None, photos)
+        send_message_by_valet_bots_task.delay(notification_message, self.company_id, None, photos, True)
 
         self.parking.send_valet_notification(notification_message, photos)
 
@@ -686,6 +688,8 @@ class ParkingValetSession(models.Model):
 
             # Уведомления в телеграмм
             # _______________________________________________________________________________
+            from parkings.tasks import send_message_by_valet_bots_task
+
             if old_responsible_user and old_responsible_user.telegram_id:
                 photos = []
                 parking_photos = ParkingValetSessionImages.objects.filter(valet_session=self,
@@ -703,8 +707,8 @@ class ParkingValetSession(models.Model):
 Марка: %s
 Время подачи: %s
                         """ % (self.car_number, self.car_model, time)
-                send_message_by_valetapp_bot(notification_message, self.company_id,
-                                             [old_responsible_user.telegram_id], photos)
+                send_message_by_valet_bots_task.delay(notification_message, self.company_id,
+                                             [old_responsible_user.telegram_id], photos, True)
             # _______________________________________________________________________________
 
             return True
@@ -807,6 +811,8 @@ class ParkingValetSessionRequest(models.Model):
 
             # Уведомления в телеграмм
             # _______________________________________________________________________________
+            from parkings.tasks import send_message_by_valet_bots_task
+
             responsible_user = CompanyUser.objects.get(id=valet_user_id)
             if responsible_user and responsible_user.telegram_id:
 
@@ -830,8 +836,8 @@ class ParkingValetSessionRequest(models.Model):
 Марка: %s
 Время подачи: %s
                         """ % (self.valet_session.car_number, self.valet_session.car_model, time)
-                send_message_by_valetapp_bot(notification_message, self.company_id, [responsible_user.telegram_id],
-                                             photos)
+                send_message_by_valet_bots_task.delay(notification_message, self.company_id, [responsible_user.telegram_id],
+                                             photos, True)
         # _______________________________________________________________________________
 
         else:

@@ -5,11 +5,10 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
 from django.utils import timezone
 
-from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
-from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
 from parkings.models import ParkingSession, ProblemParkingSessionNotifierSettings
 from parkpass_backend.celery import app
-
+from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
+from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
 
 @app.task()
 def process_updated_sessions(parking_id, sessions):
@@ -72,9 +71,10 @@ def check_non_closed_vendor_session():
 
 
 @app.task()
-def send_message_by_valet_bot_task(message, chats, photos):
-    asyncio.run(send_message_by_valet_bot(message, chats, photos))
+def send_message_by_valet_bots_task(message, chats, company_id, photos, from_valetapp_bot = False):
 
-@app.task()
-def send_message_by_valetapp_bot_task(message, company_id, user_ids, photos):
-    asyncio.run(send_message_by_valetapp_bot(message, company_id, user_ids, photos))
+
+    if from_valetapp_bot:
+        asyncio.run(send_message_by_valetapp_bot(message, company_id, chats, photos))
+    else:
+        asyncio.run(send_message_by_valet_bot(message, chats, photos))

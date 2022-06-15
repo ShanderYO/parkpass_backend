@@ -352,7 +352,11 @@ CELERY_BEAT_SCHEDULE = {
     'task-notify-mos-parking-vendor': {
         'task': 'vendor.task.notify_mos_parking',
         'schedule': 15.0
-    }
+    },
+    'bot-notification': {
+        'task': 'parkings.tasks.send_message_by_valet_bots_task',
+        'schedule': 5.0
+    },
 }
 
 

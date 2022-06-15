@@ -1920,6 +1920,7 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
 
                     # Уведомления в телеграмм
                     # _______________________________________________________________________________
+                    from parkings.tasks import send_message_by_valet_bots_task
                     if session.responsible_for_delivery and session.responsible_for_delivery.telegram_id:
                         photos = []
                         parking_photos = ParkingValetSessionImages.objects.filter(valet_session=session,
@@ -1938,7 +1939,7 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
 Марка: %s
 Время подачи: %s
                                                             """ % (session.car_number, session.car_model, time)
-                        send_message_by_valetapp_bot(notification_message, session.company_id,
+                        send_message_by_valet_bots_task.delay(notification_message, session.company_id,
                                                      [session.responsible_for_delivery.telegram_id], photos)
                     # _______________________________________________________________________________
             except Exception as e:
