@@ -70,11 +70,16 @@ def check_non_closed_vendor_session():
                 settings.save()
 
 
+
+
+
 @app.task()
 def send_message_by_valet_bots_task(message, chats, company_id, photos, from_valetapp_bot = False):
 
-
     if from_valetapp_bot:
-        asyncio.run(send_message_by_valetapp_bot(message, company_id, chats, photos))
+        asyncio.get_event_loop().run_until_complete(send_message_by_valetapp_bot(message, company_id, chats, photos))
+        # asyncio.run()
     else:
-        asyncio.run(send_message_by_valet_bot(message, chats, photos))
+        asyncio.get_event_loop().run_until_complete(send_message_by_valet_bot(message, chats, photos))
+        # asyncio.run(send_message_by_valet_bot(message, chats, photos))
+

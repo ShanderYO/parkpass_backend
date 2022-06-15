@@ -88,7 +88,7 @@ def send_message_by_valetapp_bot(message, company_id, user_ids, photos):
 
     chats = []
 
-    if not chats:
+    if not user_ids:
         users = CompanyUser.objects.filter(company_id=company_id, telegram_id__isnull=False)
 
         if users:
