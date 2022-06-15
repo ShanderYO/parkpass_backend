@@ -41,6 +41,7 @@ async def send_message(user_id: int, text: str, photos: list = []) -> bool:
                     await bot.send_media_group(user_id, media=media)
                 else:
                     await bot.send_photo(user_id, photo=photos[0], caption=text)
+
             except Exception as e:
                 get_logger().info(e)
                 print(e)

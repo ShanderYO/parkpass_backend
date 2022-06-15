@@ -761,8 +761,8 @@ def execute_after_save_image(sender, instance, created, *args, **kwargs):
     if created:
         img = Image.open(MEDIA_ROOT + instance.img)  # Open image using self
 
-        if img.height > 1024 or img.width > 1024:
-            new_img = (1024, 1024)
+        if img.height > 1920 or img.width > 1920:
+            new_img = (1920, 1920)
             img.thumbnail(new_img)
             img.save(MEDIA_ROOT + instance.img)  # saving image at the same path
 
