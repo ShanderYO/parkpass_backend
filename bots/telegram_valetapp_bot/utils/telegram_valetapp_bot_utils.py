@@ -4,7 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import exceptions, executor
 
-
+from base.utils import get_logger
 
 API_TOKEN = '5394962244:AAFmxIl-sSjLnryKTR4V7pmYau1wetARztI'
 
@@ -29,17 +29,22 @@ async def send_message(user_id: int, text: str, photos: list = []) -> bool:
 
     try:
         if len(photos) > 0:
-            if len(photos) > 1:
-                media = types.MediaGroup()
+            try:
+                if len(photos) > 1:
+                    media = types.MediaGroup()
 
-                i = 0
-                for photo in photos:
-                    media.attach_photo(photo, caption = text if i == 0 else '', parse_mode=types.ParseMode.HTML)
-                    i += 1
+                    i = 0
+                    for photo in photos:
+                        media.attach_photo(photo, caption=text if i == 0 else '', parse_mode=types.ParseMode.HTML)
+                        i += 1
 
-                await bot.send_media_group(user_id, media=media)
-            else:
-                await bot.send_photo(user_id, photo=photos[0], caption=text)
+                    await bot.send_media_group(user_id, media=media)
+                else:
+                    await bot.send_photo(user_id, photo=photos[0], caption=text)
+            except Exception as e:
+                get_logger().info(e)
+                print(e)
+                await bot.send_message(user_id, text, parse_mode=types.ParseMode.HTML)
 
         else:
             await bot.send_message(user_id, text, parse_mode=types.ParseMode.HTML)
