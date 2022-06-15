@@ -655,7 +655,7 @@ class ParkingValetSession(models.Model):
 <a href="%s">✅ Принять запрос</a>
         """ % (current_session.car_number, current_session.car_model, time, VALETAPP_DOMAIN)
 
-        send_message_by_valet_bots_task.delay(notification_message, self.company_id, None, photos, True)
+        send_message_by_valet_bots_task.delay(notification_message, None, self.company_id, photos, True)
 
         self.parking.send_valet_notification(notification_message, photos)
 
@@ -707,8 +707,8 @@ class ParkingValetSession(models.Model):
 Марка: %s
 Время подачи: %s
                         """ % (self.car_number, self.car_model, time)
-                send_message_by_valet_bots_task.delay(notification_message, self.company_id,
-                                             [old_responsible_user.telegram_id], photos, True)
+                send_message_by_valet_bots_task.delay(notification_message,
+                                             [old_responsible_user.telegram_id], self.company_id, photos, True)
             # _______________________________________________________________________________
 
             return True
@@ -836,7 +836,7 @@ class ParkingValetSessionRequest(models.Model):
 Марка: %s
 Время подачи: %s
                         """ % (self.valet_session.car_number, self.valet_session.car_model, time)
-                send_message_by_valet_bots_task.delay(notification_message, self.company_id, [responsible_user.telegram_id],
+                send_message_by_valet_bots_task.delay(notification_message, [responsible_user.telegram_id], self.company_id,
                                              photos, True)
         # _______________________________________________________________________________
 

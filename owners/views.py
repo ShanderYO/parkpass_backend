@@ -1939,8 +1939,8 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
 Марка: %s
 Время подачи: %s
                                                             """ % (session.car_number, session.car_model, time)
-                        send_message_by_valet_bots_task.delay(notification_message, session.company_id,
-                                                     [session.responsible_for_delivery.telegram_id], photos)
+                        send_message_by_valet_bots_task.delay(notification_message, [session.responsible_for_delivery.telegram_id], session.company_id,
+                                                      photos, True)
                     # _______________________________________________________________________________
             except Exception as e:
                 print(e)
