@@ -27,7 +27,8 @@ from jwtauth.models import Session, TokenTypes, Groups
 from parkings.models import Parking, ParkingSession, ParkingValetSession, ParkingValetSessionSerializer, \
     ParkingValetSessionRequest, ParkingValetSessionImages, \
     PHOTOS_AT_THE_RECEPTION, PHOTOS_FROM_PARKING, ParkingValetRequestIncludeSessionSerializer, VALET_REQUEST_ACCEPTED, \
-    VALET_SESSION_THE_CAR_IS_ISSUED, VALET_SESSION_COMPLETED_AND_PAID, VALET_SESSION_COMPLETED, VALET_REQUEST_CANCELED
+    VALET_SESSION_THE_CAR_IS_ISSUED, VALET_SESSION_COMPLETED_AND_PAID, VALET_SESSION_COMPLETED, VALET_REQUEST_CANCELED, \
+    VALET_SESSION_THE_CAR_IS_PARKED, VALET_SESSION_REQUESTING_A_CAR_DELIVERY
 from parkpass_backend.settings import BASE_DOMAIN
 from payments.models import Order, TinkoffPayment, HomeBankPayment
 from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES, ParkingCard
@@ -1872,6 +1873,7 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         photo_parking_array = request.FILES.getlist('photo_parking', [])
 
         parking_card_model = None
+        delivery_time_was_changed = False
 
         session = ParkingValetSession.objects.filter(id=id).last()
 
@@ -1904,12 +1906,17 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         if car_delivery_time:
             # событие - изменилось время подачи автмобиля
 
+            if not session.car_delivery_time:
+                delivery_time_was_changed = True
+
             try:
                 delivery_datetime_object = datetime.datetime.strptime(car_delivery_time, '%Y-%m-%d %H:%M')
 
                 if session.car_delivery_time and (
                         session.car_delivery_time.strftime('%Y-%m-%d %H:%M') != delivery_datetime_object.strftime(
                     '%Y-%m-%d %H:%M')):
+
+                    delivery_time_was_changed = True
 
                     # Уведомления в телеграмм
                     # _______________________________________________________________________________
@@ -1939,14 +1946,15 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
 
             session.car_delivery_time = car_delivery_time
 
-            if car_delivered_at: session.car_delivered_at = car_delivered_at
+        if car_delivered_at: session.car_delivered_at = car_delivered_at
 
         cancel_request = False
         if state:
             # пробуем отменить запроc
             cancel_request = session.cancel_request_if_status_changed(state)
             # пробуем создать запрос
-            create_request = session.create_request_if_status_changed(state)
+            create_request = session.create_request_if_status_changed(state,
+                                                                      add_time_by_backend=not delivery_time_was_changed)
 
             session.state = state
 
@@ -2093,7 +2101,8 @@ class ValetRequestsFinishView(LoginRequiredAPIView):
         tzh = pytz.timezone(request_instance.valet_session.parking.tz_name)
         time = request_instance.valet_session.car_delivery_time
         try:
-            time = timezone.localtime(request_instance.valet_session.car_delivery_time, tzh).strftime(("%d.%m.%Y %H:%M"))
+            time = timezone.localtime(request_instance.valet_session.car_delivery_time, tzh).strftime(
+                ("%d.%m.%Y %H:%M"))
         except Exception as e:
             print(e)
 
@@ -2103,8 +2112,9 @@ class ValetRequestsFinishView(LoginRequiredAPIView):
 Марка: %s
 Время подачи: %s
 Валет: %s
-                                            """ % (request_instance.valet_session.car_number, request_instance.valet_session.car_model, time,
-                                                   f'{valet.last_name} {valet.first_name}')
+                                            """ % (
+            request_instance.valet_session.car_number, request_instance.valet_session.car_model, time,
+            f'{valet.last_name} {valet.first_name}')
 
         photos = []
         parking_photos = ParkingValetSessionImages.objects.filter(valet_session=request_instance.valet_session,
@@ -2115,7 +2125,6 @@ class ValetRequestsFinishView(LoginRequiredAPIView):
 
         request_instance.valet_session.parking.send_valet_notification(notification_message, photos)
         # _______________________________________________________________________________
-
 
         return JsonResponse(
             {'message': 'success'},
@@ -2137,10 +2146,12 @@ class ValetRequestsHistoryView(LoginRequiredAPIView):
         sessions = ParkingValetSession.objects.filter(
             Q(responsible_for_reception=valet_user) | Q(responsible_for_delivery=valet_user),
             state__in=[
-            VALET_SESSION_COMPLETED_AND_PAID,
-            VALET_SESSION_COMPLETED,
-            VALET_SESSION_THE_CAR_IS_ISSUED
-        ]).order_by('-id')
+                VALET_SESSION_THE_CAR_IS_PARKED,
+                VALET_SESSION_REQUESTING_A_CAR_DELIVERY,
+                VALET_SESSION_COMPLETED_AND_PAID,
+                VALET_SESSION_COMPLETED,
+                VALET_SESSION_THE_CAR_IS_ISSUED
+            ]).order_by('-id')
 
         serializer = ParkingValetSessionSerializer(sessions, many=True)
         #

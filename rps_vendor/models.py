@@ -70,7 +70,7 @@ class RpsParking(models.Model):
         get_logger("Returns: debt=%s, duration=%s" % (debt, duration,))
 
         # if Card
-        if debt is None or (debt is 0 and enter_ts is 0 and duration is 0):
+        if debt is None or (debt == 0 and enter_ts == 0 and duration == 0):
             return None
 
         card_session, _ = RpsParkingCardSession.objects.get_or_create(
@@ -103,7 +103,7 @@ class RpsParking(models.Model):
         get_logger("Returns: debt=%s, duration=%s" % (debt, duration,))
 
         # if Card
-        if debt is None or (debt is 0 and enter_ts is 0 and duration is 0):
+        if debt is None or (debt == 0 and enter_ts == 0 and duration == 0):
             return None
 
         card_session, _ = RpsParkingCardSession.objects.get_or_create(

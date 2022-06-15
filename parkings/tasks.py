@@ -1,9 +1,12 @@
+import asyncio
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
 from django.utils import timezone
 
+from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
+from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
 from parkings.models import ParkingSession, ProblemParkingSessionNotifierSettings
 from parkpass_backend.celery import app
 
@@ -66,3 +69,12 @@ def check_non_closed_vendor_session():
 
                 settings.last_email_send_date = timezone.now()
                 settings.save()
+
+
+@app.task()
+def send_message_by_valet_bot_task(message, chats, photos):
+    asyncio.run(send_message_by_valet_bot(message, chats, photos))
+
+@app.task()
+def send_message_by_valetapp_bot_task(message, company_id, user_ids, photos):
+    asyncio.run(send_message_by_valetapp_bot(message, company_id, user_ids, photos))

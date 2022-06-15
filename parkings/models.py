@@ -711,7 +711,7 @@ class ParkingValetSession(models.Model):
 
         return False
 
-    def create_request_if_status_changed(self, state):
+    def create_request_if_status_changed(self, state, add_time_by_backend):
         # Если статус Сессии меняется
         # С Припаркован
         # На Запрошена Подача автомобиля или Назначен ответственный
@@ -723,7 +723,12 @@ class ParkingValetSession(models.Model):
                 now = datetime.datetime.now(timezone.utc)
                 now_plus_10 = now + datetime.timedelta(minutes=10)
 
-                self.book(now_plus_10)
+                date = self.car_delivery_time
+
+                if add_time_by_backend:
+                    date = now_plus_10
+
+                self.book(date)
 
                 return True
 

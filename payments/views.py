@@ -803,7 +803,8 @@ class TestView(APIView):
 
         from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
         notification_message = '<a href="%s">Принять запрос</a>'
-        send_message_by_valet_bot(notification_message, [688045242], [])
+        import asyncio
+        asyncio.run(send_message_by_valet_bot(notification_message, [688045242], []))
         return HttpResponse('test21 all is good', status=200)
 
     @decorator_from_middleware(ApiTokenMiddleware)

@@ -84,30 +84,18 @@ async def broadcaster(user_ids, message, photos) -> int:
 
 
 def send_message_by_valetapp_bot(message, company_id, user_ids, photos):
+    from owners.models import CompanyUser
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    chats = []
 
-    async def create_tasks_func():
+    if not chats:
+        users = CompanyUser.objects.filter(company_id=company_id, telegram_id__isnull=False)
 
-        from owners.models import CompanyUser
+        if users:
+            for user in users:
+                chats.append(user.telegram_id)
 
-        chats = []
+    else:
+        chats = user_ids
 
-        if not chats:
-            users = CompanyUser.objects.filter(company_id=company_id, telegram_id__isnull=False)
-
-            if users:
-                for user in users:
-                    chats.append(user.telegram_id)
-
-        else:
-            chats = user_ids
-
-        tasks = list()
-        task = asyncio.create_task(broadcaster(chats, message, photos))
-        tasks.append(task)
-        await asyncio.wait(tasks)
-
-    loop.run_until_complete(create_tasks_func())
-    loop.close()
+    asyncio.run(broadcaster(chats, message, photos))

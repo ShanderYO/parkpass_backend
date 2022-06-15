@@ -78,17 +78,6 @@ async def broadcaster(user_ids, message, photos) -> int:
     return count
 
 
-
-
 def send_message_by_valet_bot(message, chats, photos):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    return broadcaster(chats, message, photos)
 
-    async def create_tasks_func():
-        tasks = list()
-        task = asyncio.create_task(broadcaster(chats, message, photos))
-        tasks.append(task)
-        await asyncio.wait(tasks)
-
-    loop.run_until_complete(create_tasks_func())
-    loop.close()
