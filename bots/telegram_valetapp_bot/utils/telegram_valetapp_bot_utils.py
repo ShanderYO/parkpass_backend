@@ -98,4 +98,4 @@ def send_message_by_valetapp_bot(message, company_id, user_ids, photos):
     else:
         chats = user_ids
 
-    asyncio.run(broadcaster(chats, message, photos))
+    return broadcaster(chats, message, photos)
