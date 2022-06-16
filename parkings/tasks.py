@@ -1,14 +1,17 @@
 import asyncio
+import datetime
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
 from django.utils import timezone
 
-from parkings.models import ParkingSession, ProblemParkingSessionNotifierSettings
+from parkings.models import ParkingSession, ProblemParkingSessionNotifierSettings, ParkingValetSessionRequest
 from parkpass_backend.celery import app
 from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
 from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
+from valet.utils.valet_notification_center import ValetNotificationCenter, VALET_NOTIFICATION_REQUEST_FOR_DELIVERY
+
 
 @app.task()
 def process_updated_sessions(parking_id, sessions):
@@ -55,12 +58,12 @@ def check_non_closed_vendor_session():
                 msg = "Обнаружена проблемная сессия parkpass #%s.\n" \
                       "Время выезда клиента %s.\n Время обнаружения %s\n" \
                       "Пользователь: ID=%s, Парковка %s ID=%s" % (
-                    parking_session.id,
-                    parking_session.completed_at, now,
-                    parking_session.client_id,
-                    parking_session.parking.name,
-                    parking_session.parking.id
-                )
+                          parking_session.id,
+                          parking_session.completed_at, now,
+                          parking_session.client_id,
+                          parking_session.parking.name,
+                          parking_session.parking.id
+                      )
                 email = EmailMessage('Проблемная сессия Parkpass', msg, to=settings.report_emails.split(","))
                 email.send()
                 parking_session.is_send_warning_non_closed_message = True
@@ -70,12 +73,8 @@ def check_non_closed_vendor_session():
                 settings.save()
 
 
-
-
-
 @app.task()
-def send_message_by_valet_bots_task(message, chats, company_id, photos, from_valetapp_bot = False):
-
+def send_message_by_valet_bots_task(message, chats, company_id, photos, from_valetapp_bot=False):
     if from_valetapp_bot:
         asyncio.get_event_loop().run_until_complete(send_message_by_valetapp_bot(message, company_id, chats, photos))
         # asyncio.run()
@@ -83,3 +82,22 @@ def send_message_by_valet_bots_task(message, chats, company_id, photos, from_val
         asyncio.get_event_loop().run_until_complete(send_message_by_valet_bot(message, chats, photos))
         # asyncio.run(send_message_by_valet_bot(message, chats, photos))
 
+
+@app.task()
+def send_book_valet_notifications_if_less_30_minutes():
+    now = datetime.datetime.now(timezone.utc)
+    now_plus_30 = now + datetime.timedelta(minutes=30)
+
+    requests = ParkingValetSessionRequest.objects.filter(
+        finish_time__isnull=True,
+        notificated_about_car_book=False,
+        car_delivery_time__lte=now_plus_30
+    )
+
+    if requests:
+        for request in requests:
+            ValetNotificationCenter(
+                type=VALET_NOTIFICATION_REQUEST_FOR_DELIVERY,
+                session=request.valet_session,
+                send_email_about_booking_notification=False
+            ).run()

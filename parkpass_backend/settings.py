@@ -353,10 +353,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'vendor.task.notify_mos_parking',
         'schedule': 15.0
     },
-    'bot-notification': {
-        'task': 'parkings.tasks.send_message_by_valet_bots_task',
-        'schedule': 5.0
-    },
+    # 'valet-bot-notification': {
+    #     'task': 'parkings.tasks.send_message_by_valet_bots_task',
+    #     'schedule': 10.0
+    # },
+    # 'send-book-valet-notifications-if-less-30-minutes': {
+    #     'task': 'parkings.tasks.send_book_valet_notifications_if_less_30_minutes',
+    #     'schedule': 60.0
+    # },
 }
 
 

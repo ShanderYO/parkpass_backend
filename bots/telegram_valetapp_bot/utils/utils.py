@@ -3,8 +3,6 @@ from base.exceptions import ValidationException
 import asyncio
 from aiogram_broadcaster import TextBroadcaster
 
-BOT_TOKEN = '5394962244:AAFmxIl-sSjLnryKTR4V7pmYau1wetARztI'
-
 
 def set_user_telegram_id(user_id, telegram_id):
     from owners.models import CompanyUser

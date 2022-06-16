@@ -32,6 +32,8 @@ from parkings.models import Parking, ParkingSession, ParkingValetSession, Parkin
 from parkpass_backend.settings import BASE_DOMAIN
 from payments.models import Order, TinkoffPayment, HomeBankPayment
 from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES, ParkingCard
+from valet.utils.valet_notification_center import ValetNotificationCenter, VALET_NOTIFICATION_DELIVERY_TIME_CHANGE, \
+    VALET_NOTIFICATION_CAR_IS_ISSUED
 from vendors.models import Vendor
 from .models import OwnerApplication, Owner, CompanyUser, CompanyUsersRole, CompanyUsersRolePermission, \
     CompanyUsersPermission, CompanyUsersPermissionCategory, CompanyUserSerializer, CompanyUsersRoleSerializer, \
@@ -1761,6 +1763,7 @@ class ValetSessionsView(LoginRequiredAPIView):
         car_color = self.request.POST.get("car_color", None)
         comment = self.request.POST.get("comment", '')
         valet_card_id = self.request.POST.get("valet_card_id")
+        pcid = self.request.POST.get("pcid", '')
         parking_card = self.request.POST.get("parking_card")
         responsible_id = self.request.POST.get("responsible_id")
         started_at = self.request.POST.get("started_at")
@@ -1789,6 +1792,7 @@ class ValetSessionsView(LoginRequiredAPIView):
             car_model=car_model,
             car_number=car_number,
             valet_card_id=valet_card_id,
+            pcid=pcid,
             parking_card=parking_card,
             responsible_for_reception_id=responsible_id,
             started_at=parse_datetime(started_at),
@@ -1860,6 +1864,7 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         comment = self.request.POST.get("comment", '')
         car_number = self.request.POST.get("car_number")
         valet_card_id = self.request.POST.get("valet_card_id")
+        pcid = self.request.POST.get("pcid", '')
         parking_card = self.request.POST.get("parking_card")
         responsible_for_reception_id = self.request.POST.get("responsible_for_reception_id")
         responsible_for_delivery_id = self.request.POST.get("responsible_for_delivery_id")
@@ -1895,6 +1900,7 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         if car_number: session.car_number = car_number
         if car_color: session.car_color = car_color
         if valet_card_id: session.valet_card_id = valet_card_id
+        if pcid: session.pcid = pcid
         if parking_card: session.parking_card = parking_card
         if responsible_for_reception_id: session.responsible_for_reception_id = responsible_for_reception_id
         if started_at: session.started_at = started_at
@@ -1920,32 +1926,18 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
 
                     # Уведомления в телеграмм
                     # _______________________________________________________________________________
-                    from parkings.tasks import send_message_by_valet_bots_task
-                    if session.responsible_for_delivery and session.responsible_for_delivery.telegram_id:
-                        photos = []
-                        parking_photos = ParkingValetSessionImages.objects.filter(valet_session=session,
-                                                                                  type=PHOTOS_FROM_PARKING)
-                        if parking_photos:
-                            for photo in parking_photos:
-                                photos.append(f'https://{BASE_DOMAIN}/api/media{photo.img}')
-
-                        tzh = pytz.timezone(session.parking.tz_name)
-                        time = delivery_datetime_object.replace(tzinfo=pytz.utc).astimezone(tzh).strftime(
-                            '%Y-%m-%d %H:%M')
-
-                        notification_message = """
-Изменилось время подачи автомобиля.
-Номер: %s
-Марка: %s
-Время подачи: %s
-                                                            """ % (session.car_number, session.car_model, time)
-                        send_message_by_valet_bots_task.delay(notification_message, [session.responsible_for_delivery.telegram_id], session.company_id,
-                                                      photos, True)
+                    ValetNotificationCenter(
+                        type=VALET_NOTIFICATION_DELIVERY_TIME_CHANGE,
+                        session=session,
+                    ).run()
                     # _______________________________________________________________________________
             except Exception as e:
                 print(e)
 
             session.car_delivery_time = car_delivery_time
+            if session.request:
+                session.request.car_delivery_time = car_delivery_time
+                session.request.save()
 
         if car_delivered_at: session.car_delivered_at = car_delivered_at
 
@@ -2013,19 +2005,22 @@ class ValetRequestsView(LoginRequiredAPIView):
         valet_user = request.companyuser if request.companyuser else None
         parking_id = request.GET.get('parking_id', None)
 
-        requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).exclude(
+
+        now = datetime.datetime.now(timezone.utc)
+        now_plus_30 = now + datetime.timedelta(minutes=30)
+
+
+
+
+        requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).filter(car_delivery_time__lte=now_plus_30).exclude(
             status=VALET_REQUEST_CANCELED).order_by(
             '-id')
         if valet_user:
             requests = requests.filter(
-                valet_session__parking_id__in=map(lambda parking: parking.id, valet_user.available_parking.all()),
-                finish_time__isnull=True).exclude(status=VALET_REQUEST_CANCELED).order_by(
-                '-id')
+                valet_session__parking_id__in=map(lambda parking: parking.id, valet_user.available_parking.all()))
 
-        if parking_id:
-            requests = requests.filter(valet_session__parking__id=parking_id, finish_time__isnull=True).exclude(
-                status=VALET_REQUEST_CANCELED).order_by(
-                '-id')
+        elif parking_id:
+            requests = requests.filter(valet_session__parking__id=parking_id)
 
         s = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
 
@@ -2095,36 +2090,11 @@ class ValetRequestsFinishView(LoginRequiredAPIView):
 
         # Уведомления в телеграмм
         # _______________________________________________________________________________
-
-        from owners.models import CompanyUser
-        valet = CompanyUser.objects.get(id=request_instance.accepted_by_id)
-
-        tzh = pytz.timezone(request_instance.valet_session.parking.tz_name)
-        time = request_instance.valet_session.car_delivery_time
-        try:
-            time = timezone.localtime(request_instance.valet_session.car_delivery_time, tzh).strftime(
-                ("%d.%m.%Y %H:%M"))
-        except Exception as e:
-            print(e)
-
-        notification_message = """
-Автомобиль выдан клиенту. 😎
-Номер: %s
-Марка: %s
-Время подачи: %s
-Валет: %s
-                                            """ % (
-            request_instance.valet_session.car_number, request_instance.valet_session.car_model, time,
-            f'{valet.last_name} {valet.first_name}')
-
-        photos = []
-        parking_photos = ParkingValetSessionImages.objects.filter(valet_session=request_instance.valet_session,
-                                                                  type=PHOTOS_FROM_PARKING)
-        if parking_photos:
-            for photo in parking_photos:
-                photos.append(f'https://{BASE_DOMAIN}/api/media{photo.img}')
-
-        request_instance.valet_session.parking.send_valet_notification(notification_message, photos)
+        ValetNotificationCenter(
+            type=VALET_NOTIFICATION_CAR_IS_ISSUED,
+            session=request_instance.valet_session,
+            valet_user_id=request_instance.accepted_by_id
+        ).run()
         # _______________________________________________________________________________
 
         return JsonResponse(
