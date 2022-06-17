@@ -150,7 +150,7 @@ class Parking(models.Model):
         return template_url % self.id if self.tariff_file_content else "-"
 
     def set_valet_telegram_chat(self, chat_id):
-        chat = ParkingValetTelegramChat.objects.get_or_create(
+        chat, _ = ParkingValetTelegramChat.objects.get_or_create(
             parking=self,
             chat_id=chat_id,
         )
