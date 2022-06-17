@@ -5,7 +5,8 @@ from rps_vendor.views import RpsCreateParkingSessionView, RpsCancelParkingSessio
     RpsCompleteParkingSessionView, RpsParkingSessionListUpdateView, MockingGetParkingCardDebt, MockingOrderAuthorized, \
     MockingOrderConfirm, MockingOrderRefund, GetParkingCardDebt, InitPayDebt, AccountInitPayment, GetCardSessionStatus, \
     SubscriptionCallbackView, RpsCreateOrGetAccount, SubscriptionUpdateView, GetDeveloperParkingCardDebt, \
-    ConfirmPayDeveloperDebt, CheckTimestamp, ResetDeveloperToken, send_push_notifications, check_remote_network
+    ConfirmPayDeveloperDebt, CheckTimestamp, ResetDeveloperToken, send_push_notifications, check_remote_network, \
+    get_users_for_push_notifications
 
 urlpatterns = [
     url(r'^rps/session/create/$', RpsCreateParkingSessionView.as_view()),
@@ -53,6 +54,7 @@ urlpatterns = [
     # service methods
     url(r'^check-remote-network/$', check_remote_network),
     url(r'^push-notifications/$', send_push_notifications),
+    url(r'^get-users-for-push-notifications/$', get_users_for_push_notifications),
 ]
 
 urlpatterns += staticfiles_urlpatterns()

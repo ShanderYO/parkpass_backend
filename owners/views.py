@@ -1892,6 +1892,8 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         delivery_time_was_changed = False
 
         session = ParkingValetSession.objects.filter(id=id).last()
+        old_state = session.state
+
 
         # проверка на уже существующую сессию при новом значении валет карты
         if (valet_card_id and ParkingValetSession.objects.filter(valet_card_id=valet_card_id).exclude(
@@ -1960,17 +1962,6 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
             create_request = session.create_request_if_status_changed(state,
                                                                       add_time_by_backend=not delivery_time_was_changed)
 
-            # Уведомления в телеграмм
-            # Машина припаркована
-            # _______________________________________________________________________________
-            valet = request.companyuser if request.companyuser else None
-            if valet and int(session.state) != int(state) and int(state) == VALET_SESSION_THE_CAR_IS_PARKED:
-                ValetNotificationCenter(
-                    type=VALET_NOTIFICATION_CAR_IS_PARKED,
-                    session=session,
-                    valet_user_id=valet.id
-                ).run()
-            # _______________________________________________________________________________
 
             session.state = state
 
@@ -2011,6 +2002,18 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
                     type=PHOTOS_FROM_PARKING,
                     img=uploaded_file_url.replace('/api/media', '', 1)
                 )
+
+        # Уведомления в телеграмм
+        # Машина припаркована
+        # _______________________________________________________________________________
+        valet = request.companyuser if request.companyuser else None
+        if valet and int(old_state) != int(state) and int(state) == VALET_SESSION_THE_CAR_IS_PARKED:
+            ValetNotificationCenter(
+                type=VALET_NOTIFICATION_CAR_IS_PARKED,
+                session=session,
+                valet_user_id=valet.id
+            ).run()
+        # _______________________________________________________________________________
 
         serializer = ParkingValetSessionSerializer([session], many=True)
 

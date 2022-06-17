@@ -217,6 +217,7 @@ VCID: %s
         self.session.parking.send_valet_notification(notification_message, self.photos)
 
     def _car_is_parked_notification(self):
+
         from owners.models import CompanyUser
         valet = CompanyUser.objects.get(id=self.valet_user_id)
 

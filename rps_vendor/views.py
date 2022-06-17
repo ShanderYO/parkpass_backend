@@ -21,7 +21,7 @@ from dss.Serializer import serializer
 from jwtauth.utils import datetime_to_timestamp
 from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from notifications.models import AccountDevice, Mailing
-from parkings.models import Parking
+from parkings.models import Parking, ParkingSession
 from parkings.views import CreateParkingSessionView, UpdateParkingSessionView, CancelParkingSessionView, \
     CompleteParkingSessionView
 from parkpass_backend.settings import ES_APP_CARD_PAY_LOGS_INDEX_NAME
@@ -812,12 +812,26 @@ def send_push_notifications(request):
         id = request.GET.get('id', None)
         mailing = Mailing.objects.get(id=id)
         user_ids = request.GET.get('user_ids', None)
+        parking_id = request.GET.get('parking_id', None)
+        parkings_sessions_date = request.GET.get('parkings_sessions_date', None)
 
         if user_ids:
             user_ids = user_ids.split(',')
 
         if title and text and mailing:
-            if user_ids:
+            if parking_id:
+                parking = Parking.objects.get(id=parking_id)
+                sessions = ParkingSession.objects.filter(parking=parking, client_id__isnull=False)
+                if parkings_sessions_date:
+                    sessions = sessions.filter(started_at__gte=mailing.parkings_sessions_date)
+
+                user_ids = []
+                for session in sessions:
+                    if session.client_id not in user_ids:
+                        user_ids.append(session.client_id)
+
+                qs = AccountDevice.objects.filter(active=True, account_id__in=user_ids)
+            elif user_ids:
                 qs = AccountDevice.objects.filter(active=True, account_id__in=user_ids)
             else:
                 qs = AccountDevice.objects.filter(active=True)
@@ -830,6 +844,34 @@ def send_push_notifications(request):
             mailing.save()
             return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
 
+
+    return HttpResponse("Fail", status=400)
+
+def get_users_for_push_notifications(request):
+    if request.user.is_superuser:
+        parking_id = request.GET.get('parking_id', None)
+        id = request.GET.get('id', None)
+        mailing = Mailing.objects.get(id=id)
+
+        if parking_id:
+            parking = Parking.objects.get(id=parking_id)
+            sessions = ParkingSession.objects.filter(parking=parking, client_id__isnull=False)
+            if mailing.parkings_sessions_date:
+                sessions = sessions.filter(started_at__gte=mailing.parkings_sessions_date)
+
+            user_ids = []
+            for session in sessions:
+                if session.client_id not in user_ids:
+                    user_ids.append(session.client_id)
+
+            qs = AccountDevice.objects.filter(active=True, account_id__in=user_ids)
+            result = []
+            if qs:
+                for q in qs:
+                    if str(q.account_id) not in result:
+                        result.append(str(q.account_id))
+
+            return JsonResponse({'result': result}, status=200)
 
     return HttpResponse("Fail", status=400)
 
