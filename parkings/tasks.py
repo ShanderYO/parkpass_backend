@@ -6,7 +6,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
 from django.utils import timezone
 
-from parkings.models import ParkingSession, ProblemParkingSessionNotifierSettings, ParkingValetSessionRequest
+from parkings.models import ParkingSession, ProblemParkingSessionNotifierSettings, ParkingValetSessionRequest, \
+    VALET_REQUEST_CANCELED
 from parkpass_backend.celery import app
 from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
 from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
@@ -87,17 +88,27 @@ def send_message_by_valet_bots_task(message, chats, company_id, photos, from_val
 def send_book_valet_notifications_if_less_30_minutes():
     now = datetime.datetime.now(timezone.utc)
     now_plus_30 = now + datetime.timedelta(minutes=30)
+    logging.info("send_book_valet_notifications_if_less_30_minutes !!!")
 
     requests = ParkingValetSessionRequest.objects.filter(
         finish_time__isnull=True,
         notificated_about_car_book=False,
-        car_delivery_time__lte=now_plus_30
-    )
+        car_delivery_time__lte=now_plus_30,
+        car_delivery_time__gte=now
+    ).exclude(
+            status=VALET_REQUEST_CANCELED)
 
     if requests:
         for request in requests:
+
             ValetNotificationCenter(
                 type=VALET_NOTIFICATION_REQUEST_FOR_DELIVERY,
                 session=request.valet_session,
                 send_email_about_booking_notification=False
             ).run()
+
+            request.notificated_about_car_book = True
+            request.save()
+
+            logging.info("save save save %s", request.id)
+

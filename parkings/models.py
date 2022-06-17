@@ -628,10 +628,18 @@ class ParkingValetSession(models.Model):
         current_session = ParkingValetSession.objects.get(
             id=self.id)  # хак для того чтобы не обрабатывать значение даты в ручную, sorry
 
-        ValetNotificationCenter(
-            type=VALET_NOTIFICATION_REQUEST_FOR_DELIVERY,
-            session=current_session
-        ).run()
+        now = datetime.datetime.now(timezone.utc)
+        now_plus_30 = now + datetime.timedelta(minutes=30)
+
+        if current_session.car_delivery_time and (current_session.car_delivery_time <= now_plus_30): # проверка на время < 30min
+            ValetNotificationCenter(
+                type=VALET_NOTIFICATION_REQUEST_FOR_DELIVERY,
+                session=current_session
+            ).run()
+
+            request = ParkingValetSessionRequest.objects.get(id=current_session.request.id)
+            request.notificated_about_car_book = True
+            request.save()
         # _______________________________________________________________________________
 
 

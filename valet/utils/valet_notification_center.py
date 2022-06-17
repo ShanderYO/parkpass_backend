@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 import pytz
 from django.core.mail import send_mail
@@ -34,11 +35,6 @@ class ValetNotificationCenter:
                 ("%d.%m.%Y %H:%M"))
         except Exception as e:
             print(e)
-        # ..................................................
-
-        # ..................................................
-        now = datetime.datetime.now(timezone.utc)
-        self.now_plus_30 = now + datetime.timedelta(minutes=30)
         # ..................................................
 
         # подготавливаем фотки
@@ -100,17 +96,13 @@ VCID: %s
 <a href="%s">✅ Принять запрос</a>
                             """ % (
             self.session.car_number, self.session.car_model, self.session.valet_card_id, self.delivery_time_from_utc,
-            VALETAPP_DOMAIN)
+            f'{VALETAPP_DOMAIN}/home/?accept-request={self.session.request.id}')
 
-        if self.session.car_delivery_time <= self.now_plus_30:
-            self.session.request.notificated_about_car_book = True  # устанавливаем галку что валеты оповещены
-            self.session.request.save()
-
-            # для валетов
-            send_message_by_valet_bots_task.delay(notification_message, None, self.session.company_id, self.photos,
-                                                  True)
-            # для общих уведомлений группы
-            self.session.parking.send_valet_notification(notification_message, self.photos)
+        # для валетов
+        send_message_by_valet_bots_task.delay(notification_message, None, self.session.company_id, self.photos,
+                                              True)
+        # для общих уведомлений группы
+        self.session.parking.send_valet_notification(notification_message, self.photos)
 
     def _cancel_notification(self):
         from parkings.tasks import send_message_by_valet_bots_task
@@ -122,7 +114,7 @@ VCID: %s
 VCID: %s
 Время подачи: %s
                                 """ % (
-        self.session.car_number, self.session.car_model, self.session.valet_card_id, self.delivery_time_from_utc)
+            self.session.car_number, self.session.car_model, self.session.valet_card_id, self.delivery_time_from_utc)
         send_message_by_valet_bots_task.delay(notification_message,
                                               self.chats, self.session.company_id, self.photos, True)
         pass
@@ -142,7 +134,9 @@ VCID: %s
 Время подачи: %s
 
 <a href="%s">✅ Принять запрос</a>
-                                    """ % (self.session.car_number, self.session.car_model, self.session.valet_card_id, self.delivery_time_from_utc, VALETAPP_DOMAIN)
+                                    """ % (
+            self.session.car_number, self.session.car_model, self.session.valet_card_id, self.delivery_time_from_utc,
+            f'{VALETAPP_DOMAIN}/home/?accept-request={self.session.request.id}')
             send_message_by_valet_bots_task.delay(notification_message, self.chats, self.session.company_id,
                                                   self.photos, True)
 
@@ -159,7 +153,7 @@ VCID: %s
 Время подачи: %s
 Валет: %s
                                             """ % (
-            self.session.car_number, self.session.car_model,self.session.valet_card_id, self.delivery_time_from_utc,
+            self.session.car_number, self.session.car_model, self.session.valet_card_id, self.delivery_time_from_utc,
             f'{valet.last_name} {valet.first_name}')
 
         self.session.parking.send_valet_notification(notification_message, self.photos)
@@ -176,7 +170,8 @@ VCID: %s
 VCID: %s
 Время подачи: %s
                                                                         """ % (
-                self.session.car_number, self.session.car_model,self.session.valet_card_id, self.delivery_time_from_utc)
+                self.session.car_number, self.session.car_model, self.session.valet_card_id,
+                self.delivery_time_from_utc)
             send_message_by_valet_bots_task.delay(notification_message,
                                                   [self.session.responsible_for_delivery.telegram_id],
                                                   self.session.company_id,
