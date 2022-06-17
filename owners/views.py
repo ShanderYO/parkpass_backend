@@ -33,7 +33,7 @@ from parkpass_backend.settings import BASE_DOMAIN
 from payments.models import Order, TinkoffPayment, HomeBankPayment
 from rps_vendor.models import RpsSubscription, STATE_CONFIRMED, RpsParkingCardSession, CARD_SESSION_STATES, ParkingCard
 from valet.utils.valet_notification_center import ValetNotificationCenter, VALET_NOTIFICATION_DELIVERY_TIME_CHANGE, \
-    VALET_NOTIFICATION_CAR_IS_ISSUED
+    VALET_NOTIFICATION_CAR_IS_ISSUED, VALET_NOTIFICATION_CAR_IS_ACCEPTED, VALET_NOTIFICATION_CAR_IS_PARKED
 from vendors.models import Vendor
 from .models import OwnerApplication, Owner, CompanyUser, CompanyUsersRole, CompanyUsersRolePermission, \
     CompanyUsersPermission, CompanyUsersPermissionCategory, CompanyUserSerializer, CompanyUsersRoleSerializer, \
@@ -1835,6 +1835,17 @@ class ValetSessionsView(LoginRequiredAPIView):
 
         serializer = ParkingValetSessionSerializer([session], many=True)
 
+        # Уведомления в телеграмм
+        # _______________________________________________________________________________
+        if created_by_user:
+            ValetNotificationCenter(
+                type=VALET_NOTIFICATION_CAR_IS_ACCEPTED,
+                session=session,
+                valet_user_id=created_by_user.id
+            ).run()
+        # _______________________________________________________________________________
+
+
         return JsonResponse(
             serializer.data[0],
             status=200,
@@ -1948,6 +1959,18 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
             # пробуем создать запрос
             create_request = session.create_request_if_status_changed(state,
                                                                       add_time_by_backend=not delivery_time_was_changed)
+
+            # Уведомления в телеграмм
+            # Машина припаркована
+            # _______________________________________________________________________________
+            valet = request.companyuser if request.companyuser else None
+            if valet and int(session.state) != int(state) and int(state) == VALET_SESSION_THE_CAR_IS_PARKED:
+                ValetNotificationCenter(
+                    type=VALET_NOTIFICATION_CAR_IS_PARKED,
+                    session=session,
+                    valet_user_id=valet.id
+                ).run()
+            # _______________________________________________________________________________
 
             session.state = state
 

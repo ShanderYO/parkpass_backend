@@ -13,6 +13,8 @@ VALET_NOTIFICATION_SET_RESPONSIBLE = 3
 VALET_NOTIFICATION_REQUEST_ACCEPT = 4
 VALET_NOTIFICATION_DELIVERY_TIME_CHANGE = 5
 VALET_NOTIFICATION_CAR_IS_ISSUED = 6
+VALET_NOTIFICATION_CAR_IS_ACCEPTED = 7
+VALET_NOTIFICATION_CAR_IS_PARKED = 8
 
 
 class ValetNotificationCenter:
@@ -64,6 +66,10 @@ class ValetNotificationCenter:
             self._change_delivery_time_notification()
         elif self.type == VALET_NOTIFICATION_CAR_IS_ISSUED:  # автомобиль выдан
             self._car_is_issued_notification()
+        elif self.type == VALET_NOTIFICATION_CAR_IS_ACCEPTED:  # автомобиль принят
+            self._car_is_accepted_notification()
+        elif self.type == VALET_NOTIFICATION_CAR_IS_PARKED:  # автомобиль припаркован
+            self._car_is_parked_notification()
 
     def _book_notification(self):
         from parkings.tasks import send_message_by_valet_bots_task
@@ -87,7 +93,7 @@ class ValetNotificationCenter:
         # ..................................................
 
         notification_message = """
-Пришёл запрос на подачу автомобиля. 
+<b>Пришёл запрос на подачу автомобиля</b>. 
 Номер: %s
 Марка: %s
 VCID: %s
@@ -108,7 +114,7 @@ VCID: %s
         from parkings.tasks import send_message_by_valet_bots_task
 
         notification_message = """
-Менеджер отменил подачу автомобиля. 
+<b>Менеджер отменил подачу автомобиля</b>. 
 Номер: %s
 Марка: %s
 VCID: %s
@@ -127,7 +133,7 @@ VCID: %s
 
         if valet and valet.telegram_id:
             notification_message = """
-Вас назначили ответственным за подачу автомобиля. 
+<b>Вас назначили ответственным за подачу автомобиля</b>. 
 Номер: %s
 Марка: %s
 VCID: %s
@@ -146,7 +152,7 @@ VCID: %s
         valet = CompanyUser.objects.get(id=self.valet_user_id)
 
         notification_message = """
-Валет принял заявку на подачу. 
+<b>Валет принял заявку на подачу</b>. 
 Номер: %s
 Марка: %s
 VCID: %s
@@ -191,4 +197,38 @@ VCID: %s
                                                     """ % (
             self.session.car_number, self.session.car_model, self.session.valet_card_id, self.delivery_time_from_utc,
             f'{valet.last_name} {valet.first_name}')
+        self.session.parking.send_valet_notification(notification_message, self.photos)
+
+    def _car_is_accepted_notification(self):
+        from owners.models import CompanyUser
+        valet = CompanyUser.objects.get(id=self.valet_user_id)
+
+        notification_message = """
+<b>Валет принял автомобиль</b>. 
+Номер: %s
+Марка: %s
+VCID: %s
+Комментарий: %s
+Валет: %s
+                                                    """ % (
+            self.session.car_number, self.session.car_model, self.session.valet_card_id, self.session.comment,
+            f'{valet.last_name} {valet.first_name}')
+
+        self.session.parking.send_valet_notification(notification_message, self.photos)
+
+    def _car_is_parked_notification(self):
+        from owners.models import CompanyUser
+        valet = CompanyUser.objects.get(id=self.valet_user_id)
+
+        notification_message = """
+<b>Валет припарковал автомобиль</b>. 
+Номер: %s
+Марка: %s
+VCID: %s
+Место: %s
+Валет: %s
+                                                            """ % (
+            self.session.car_number, self.session.car_model, self.session.valet_card_id, self.session.parking_place,
+            f'{valet.last_name} {valet.first_name}')
+
         self.session.parking.send_valet_notification(notification_message, self.photos)
