@@ -44,7 +44,7 @@ def send_email(user, pwd, recipient, subject, body):
 
 
     try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server = smtplib.SMTP("smtp.yandex.ru", 587)
         server.ehlo()
         server.starttls()
         server.login(user, pwd)
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     if not_running_containers:
         send_email(
             'noreply@parkpass.ru',
-            'noreplyParol',
+            'Vn$qf{s5x8',
             ['lokkomokko1@gmail.com', 'app@vldmrnine.com'],
             '!!!! ОПОВЕЩЕНИЕ С САЙТА. ОТКЛЮЧИЛСЯ(-ЛИСЬ) КОНТЕЙНЕРЫ !!!!',
             'Список отключившихся контейнеров: ' + ', '.join(not_running_containers)
