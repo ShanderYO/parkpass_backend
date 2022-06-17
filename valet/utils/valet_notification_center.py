@@ -73,14 +73,14 @@ class ValetNotificationCenter:
         if self.send_email_about_booking_notification:
             message = 'VCID: %s \nВремя: %s' % (self.session.valet_card_id, self.delivery_time_from_utc)
 
-            send_mail('Заказ автомобиля: %s, Марка автомобиля: %s' % (self.session.car_number, self.session.car_model),
+            send_mail('Заказ автомобиля: %s, %s' % (self.session.car_number, self.session.car_model),
                       message,
                       "Valet ParkPass <noreply@parkpass.ru>",
                       ['lokkomokko1@gmail.com', 'support@parkpass.ru'])
 
             if self.session.parking.valet_email:
                 send_mail(
-                    'Заказ автомобиля: %s, Марка автомобиля: %s' % (self.session.car_number, self.session.car_model),
+                    'Заказ автомобиля: %s, %s' % (self.session.car_number, self.session.car_model),
                     message,
                     "Valet ParkPass <noreply@parkpass.ru>",
                     [self.session.parking.valet_email])
