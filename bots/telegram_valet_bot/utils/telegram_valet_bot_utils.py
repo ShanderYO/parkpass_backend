@@ -6,7 +6,7 @@ from aiogram.utils import exceptions, executor
 
 from base.utils import get_logger
 
-API_TOKEN = '5400138957:AAFFkszKGg4aBK_S_TTFyqaE7lBZDJTHG8M'
+API_TOKEN = '5534371311:AAH8GmzjCTz5tbdKjcDA-jNO_bJIhn-ZblY'
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('broadcast')

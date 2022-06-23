@@ -18,7 +18,7 @@ from bots.telegram_valet_bot.handlers.common import register_handlers_common
 
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = '5400138957:AAFFkszKGg4aBK_S_TTFyqaE7lBZDJTHG8M'
+BOT_TOKEN = '5534371311:AAH8GmzjCTz5tbdKjcDA-jNO_bJIhn-ZblY'
 
 # Регистрация команд, отображаемых в интерфейсе Telegram
 async def set_commands(bot: Bot):
