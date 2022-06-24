@@ -2041,12 +2041,16 @@ class ValetRequestsView(LoginRequiredAPIView):
         requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).filter(car_delivery_time__lte=now_plus_30).exclude(
             status=VALET_REQUEST_CANCELED).order_by(
             '-id')
-        if valet_user:
+
+        if parking_id:
+            requests = requests.filter(valet_session__parking__id=parking_id)
+
+        elif valet_user:
             requests = requests.filter(
                 valet_session__parking_id__in=map(lambda parking: parking.id, valet_user.available_parking.all()))
 
-        elif parking_id:
-            requests = requests.filter(valet_session__parking__id=parking_id)
+        if valet_user:
+            requests = requests.filter(Q(accepted_by__isnull=True) | Q(accepted_by = valet_user))
 
         s = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
 
