@@ -1718,6 +1718,7 @@ class CompanyUsersPermissionView(APIView):
 
 
 class ValetSessionsView(LoginRequiredAPIView):
+
     validator_class = ValetSessionsCreateFromLKValidator
 
     #
@@ -1725,6 +1726,8 @@ class ValetSessionsView(LoginRequiredAPIView):
         owner = get_owner(request)
         company = Company.objects.get(owner=owner)
         id = request.GET.get('id', None)
+        offset = int(request.GET.get('offset', 0))
+        limit = 10
         result = None
 
         if (id):
@@ -1738,10 +1741,10 @@ class ValetSessionsView(LoginRequiredAPIView):
                 sessions = ParkingValetSession.objects.filter(company_id=company.id,
                                                               parking_id__in=map(lambda parking: parking.id,
                                                                                  valet_user.available_parking.all())).order_by(
-                    '-id')
+                    '-id')[offset:limit+offset]
             else:
                 sessions = ParkingValetSession.objects.filter(company_id=company.id,
-                                                              parking__company_id=company.id).order_by('-id')
+                                                              parking__company_id=company.id).order_by('-id')[offset:limit+offset]
 
             serializer = ParkingValetSessionSerializer(sessions, many=True)
             result = serializer.data
