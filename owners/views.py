@@ -7,6 +7,7 @@ from itertools import chain
 
 import xlwt
 from PIL import Image
+from django.contrib.postgres.search import SearchVector
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Sum, Q, Prefetch
 from django.http import HttpResponse
@@ -1718,16 +1719,21 @@ class CompanyUsersPermissionView(APIView):
 
 
 class ValetSessionsView(LoginRequiredAPIView):
-
     validator_class = ValetSessionsCreateFromLKValidator
 
     #
     def get(self, request):
+        from django.db.models import CharField
+        from django.db.models.functions import Lower
+
+        CharField.register_lookup(Lower)
+
         owner = get_owner(request)
         company = Company.objects.get(owner=owner)
         id = request.GET.get('id', None)
+        search = str(request.GET.get('search', '').lower())
         offset = int(request.GET.get('offset', 0))
-        limit = 10
+        limit = 20
         result = None
 
         if (id):
@@ -1735,17 +1741,23 @@ class ValetSessionsView(LoginRequiredAPIView):
             serializer = ParkingValetSessionSerializer([single_session], many=True)
             result = serializer.data[0]
         else:
-
             valet_user = request.companyuser if request.companyuser else None
-            if valet_user:
-                sessions = ParkingValetSession.objects.filter(company_id=company.id,
-                                                              parking_id__in=map(lambda parking: parking.id,
-                                                                                 valet_user.available_parking.all())).order_by(
-                    '-id')[offset:limit+offset]
-            else:
-                sessions = ParkingValetSession.objects.filter(company_id=company.id,
-                                                              parking__company_id=company.id).order_by('-id')[offset:limit+offset]
+            sessions = ParkingValetSession.objects.filter(company_id=company.id).order_by(
+                '-id')
+            if search:
+                sessions = sessions.filter(Q(car_number__lower__contains=search) | Q(
+                    car_model__lower__contains=search) | Q(
+                    valet_card_id__lower__contains=search))
 
+                # sessions = sessions.annotate(search=SearchVector('car_number', 'car_model', 'valet_card_id'),).filter(search=search)
+
+            if valet_user:
+                sessions = sessions.filter(parking_id__in=map(lambda parking: parking.id,
+                                                              valet_user.available_parking.all()))
+            else:
+                sessions = sessions.filter(parking__company_id=company.id)
+
+            sessions = sessions[offset:limit + offset]
             serializer = ParkingValetSessionSerializer(sessions, many=True)
             result = serializer.data
 
@@ -1848,7 +1860,6 @@ class ValetSessionsView(LoginRequiredAPIView):
             ).run()
         # _______________________________________________________________________________
 
-
         return JsonResponse(
             serializer.data[0],
             status=200,
@@ -1897,7 +1908,6 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         session = ParkingValetSession.objects.filter(id=id).last()
         old_state = session.state
 
-
         # проверка на уже существующую сессию при новом значении валет карты
         if (valet_card_id and ParkingValetSession.objects.filter(valet_card_id=valet_card_id).exclude(
                 pk=session.id
@@ -1937,7 +1947,6 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
                 if session.car_delivery_time and (
                         session.car_delivery_time.strftime('%Y-%m-%d %H:%M') != delivery_datetime_object.strftime(
                     '%Y-%m-%d %H:%M')):
-
                     delivery_time_was_changed = True
 
                     # Уведомления в телеграмм
@@ -1964,7 +1973,6 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
             # пробуем создать запрос
             create_request = session.create_request_if_status_changed(state,
                                                                       add_time_by_backend=not delivery_time_was_changed)
-
 
             session.state = state
 
@@ -2034,14 +2042,11 @@ class ValetRequestsView(LoginRequiredAPIView):
         valet_user = request.companyuser if request.companyuser else None
         parking_id = request.GET.get('parking_id', None)
 
-
         now = datetime.datetime.now(timezone.utc)
         now_plus_30 = now + datetime.timedelta(minutes=30)
 
-
-
-
-        requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).filter(car_delivery_time__lte=now_plus_30).exclude(
+        requests = ParkingValetSessionRequest.objects.filter(company_id=company.id, finish_time__isnull=True).filter(
+            car_delivery_time__lte=now_plus_30).exclude(
             status=VALET_REQUEST_CANCELED).order_by(
             '-id')
 
@@ -2053,7 +2058,7 @@ class ValetRequestsView(LoginRequiredAPIView):
                 valet_session__parking_id__in=map(lambda parking: parking.id, valet_user.available_parking.all()))
 
         if valet_user:
-            requests = requests.filter(Q(accepted_by__isnull=True) | Q(accepted_by = valet_user))
+            requests = requests.filter(Q(accepted_by__isnull=True) | Q(accepted_by=valet_user))
 
         s = ParkingValetRequestIncludeSessionSerializer(requests, many=True)
 
@@ -2097,7 +2102,11 @@ class ValetRequestsAcceptView(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
         request = ParkingValetSessionRequest.objects.get(id=request_id)
-        request.accept(valet_user.id)
+
+        if request.accepted_by_id and valet_user.id != request.accepted_by_id:
+            return JsonResponse({'message': 'Запрос уже принят'}, status=400)
+        else:
+            request.accept(valet_user.id)
 
         return JsonResponse(
             {'message': 'success'},
