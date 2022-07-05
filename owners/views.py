@@ -1967,12 +1967,17 @@ class ValetSessionsUpdateView(LoginRequiredAPIView):
         if car_delivered_at: session.car_delivered_at = car_delivered_at
 
         cancel_request = False
+
         if state:
             # пробуем отменить запроc
             cancel_request = session.cancel_request_if_status_changed(state)
             # пробуем создать запрос
             create_request = session.create_request_if_status_changed(state,
                                                                       add_time_by_backend=not delivery_time_was_changed)
+
+            if state == VALET_SESSION_THE_CAR_IS_ISSUED:
+                now = datetime.datetime.now(timezone.utc)
+                session.car_delivered_at = now
 
             session.state = state
 
