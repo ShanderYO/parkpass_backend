@@ -297,22 +297,26 @@ class RpsParkingCardSession(models.Model):
             rps_parking = RpsParking.objects.select_related(
                 'parking').get(parking__id=self.parking_id)
 
-            leave_at = self._make_http_ok_status(
+            result = self._make_http_ok_status(
                 rps_parking.request_payment_authorize_url, payload, developer_id, rps_parking)
-            if leave_at is not None:
-                order.parking_card_session.leave_at = leave_at
-                order.parking_card_session.save()
+
+            if result['success']:
+                if result['leave_at'] is not None:
+                    order.parking_card_session.leave_at = result['leave_at']
+                    order.parking_card_session.save()
+                else:
+                    get_logger().info("Get `leave_at` is None from RPS")
+                    # return False
+
+                elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
+                    'rps_request_data': result['leave_at'] if result['leave_at'] else '',
+                    'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+                    'payload': payload
+                })
+
+                return True
             else:
-                get_logger().info("Get `leave_at` is None from RPS")
                 return False
-
-            elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
-                'rps_request_data': leave_at,
-                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-                'payload': payload
-            })
-
-            return True
 
         except ObjectDoesNotExist:
             self.state = STATE_ERROR
@@ -375,14 +379,14 @@ class RpsParkingCardSession(models.Model):
                     self.last_response_body = result
                     if result["status"] == "OK":
                         if result["leave_at"] is None or result["leave_at"] == '':
-                            return None
+                            return {'success': True, 'leave_at': None}
                         else:
-                            return parse(result["leave_at"]).replace(tzinfo=None)
+                            return {'success': True, 'leave_at': parse(result["leave_at"]).replace(tzinfo=None)}
                 else:
                     self.last_response_body = ""
                 self.save()
 
-                return None
+                return {'success': False, 'leave_at': ''}
 
             except Exception as e:
                 get_logger().warn(str(e))
