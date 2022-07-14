@@ -796,6 +796,7 @@ class ParkingValetSessionRequest(models.Model):
         self.save()
 
     def accept(self, valet_user_id):
+        accepted_by_id__old = self.accepted_by_id
         self.accepted_by_id = valet_user_id
         self.car_delivery_time = self.valet_session.car_delivery_time
 
@@ -805,14 +806,15 @@ class ParkingValetSessionRequest(models.Model):
             self.valet_session.state = VALET_SESSION_IN_THE_PROCESS
             self.valet_session.save()
 
-            # Уведомления в телеграмм
-            # _______________________________________________________________________________
-            ValetNotificationCenter(
-                type=VALET_NOTIFICATION_REQUEST_ACCEPT,
-                session=self.valet_session,
-                valet_user_id=valet_user_id
-            ).run()
-            # _______________________________________________________________________________
+            if accepted_by_id__old != valet_user_id: # проверка на дубль оповещения
+                # Уведомления в телеграмм
+                # _______________________________________________________________________________
+                ValetNotificationCenter(
+                    type=VALET_NOTIFICATION_REQUEST_ACCEPT,
+                    session=self.valet_session,
+                    valet_user_id=valet_user_id
+                ).run()
+                # _______________________________________________________________________________
 
         else:
             self.accepted_at = None
