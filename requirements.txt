@@ -19,3 +19,4 @@ numpy==1.14.0
 pandas==0.23.0
 openpyxl==2.6.0
 Jinja2==2.10.3
+sentry-sdk==1.9.10
