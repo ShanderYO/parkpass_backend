@@ -331,15 +331,6 @@ ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
 REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
 
-Prepare the Django SDK
-
-The Django integration adds support for the Django Web Framework from Version 1.6 upwards.
-
-Install sentry-sdk:
-
-pip install --upgrade sentry-sdk
-To configure the SDK, initialize it with the Django integration in your settings.py file:
-
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
