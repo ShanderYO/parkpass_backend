@@ -330,3 +330,31 @@ SECRET_KEY_JWT = os.environ.get("SECRET_KEY_JWT", 'secret')
 ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
 REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
+
+Prepare the Django SDK
+
+The Django integration adds support for the Django Web Framework from Version 1.6 upwards.
+
+Install sentry-sdk:
+
+pip install --upgrade sentry-sdk
+To configure the SDK, initialize it with the Django integration in your settings.py file:
+
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
+sentry_sdk.init(
+    dsn="https://9ce16247fff045c08d750b2bdec5817b@o4503925707243520.ingest.sentry.io/4503925722775552",
+    integrations=[
+        DjangoIntegration(),
+    ],
+
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    # We recommend adjusting this value in production.
+    traces_sample_rate=1.0,
+
+    # If you wish to associate users to errors (assuming you are using
+    # django.contrib.auth) you may enable sending PII data.
+    send_default_pii=True
+)
