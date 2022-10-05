@@ -10,6 +10,25 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
+sentry_sdk.init(
+    dsn="https://9ce16247fff045c08d750b2bdec5817b@o4503925707243520.ingest.sentry.io/4503925722775552",
+    integrations=[
+        DjangoIntegration(),
+    ],
+
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    # We recommend adjusting this value in production.
+    traces_sample_rate=1.0,
+
+    # If you wish to associate users to errors (assuming you are using
+    # django.contrib.auth) you may enable sending PII data.
+    send_default_pii=True
+)
+
 import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -410,22 +429,3 @@ ES_APP_ENTER_APP_LOGS_INDEX_NAME = "enter-app-logs" if os.environ.get("PROD","0"
 ES_APP_SESSION_PAY_LOGS_INDEX_NAME = "session-pay-logs" if os.environ.get("PROD","0") == "1" else "sandbox-session-pay-logs"
 ES_APP_CARD_PAY_LOGS_INDEX_NAME = "card-pay-logs" if os.environ.get("PROD","0") == "1" else "sandbox-card-pay-logs"
 ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME = "subscription-pay-logs" if os.environ.get("PROD","0") == "1" else "sandbox-subscription-pay-logs"
-
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-
-sentry_sdk.init(
-    dsn="https://9ce16247fff045c08d750b2bdec5817b@o4503925707243520.ingest.sentry.io/4503925722775552",
-    integrations=[
-        DjangoIntegration(),
-    ],
-
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    # We recommend adjusting this value in production.
-    traces_sample_rate=1.0,
-
-    # If you wish to associate users to errors (assuming you are using
-    # django.contrib.auth) you may enable sending PII data.
-    send_default_pii=True
-)
