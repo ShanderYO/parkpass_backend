@@ -411,6 +411,7 @@ ES_APP_SESSION_PAY_LOGS_INDEX_NAME = "session-pay-logs" if os.environ.get("PROD"
 ES_APP_CARD_PAY_LOGS_INDEX_NAME = "card-pay-logs" if os.environ.get("PROD","0") == "1" else "sandbox-card-pay-logs"
 ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME = "subscription-pay-logs" if os.environ.get("PROD","0") == "1" else "sandbox-subscription-pay-logs"
 
+import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
 sentry_sdk.init(
