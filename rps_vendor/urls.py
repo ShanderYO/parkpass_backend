@@ -6,7 +6,7 @@ from rps_vendor.views import RpsCreateParkingSessionView, RpsCancelParkingSessio
     MockingOrderConfirm, MockingOrderRefund, GetParkingCardDebt, InitPayDebt, AccountInitPayment, GetCardSessionStatus, \
     SubscriptionCallbackView, RpsCreateOrGetAccount, SubscriptionUpdateView, GetDeveloperParkingCardDebt, \
     ConfirmPayDeveloperDebt, CheckTimestamp, ResetDeveloperToken, send_push_notifications, check_remote_network, \
-    get_users_for_push_notifications
+    GetCardSessionStatusForDeveloper, get_users_for_push_notifications
 
 urlpatterns = [
     url(r'^rps/session/create/$', RpsCreateParkingSessionView.as_view()),
