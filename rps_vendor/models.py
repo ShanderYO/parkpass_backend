@@ -228,12 +228,14 @@ STATE_CONFIRMED = 4
 STATE_ERROR = 5
 
 CARD_SESSION_STATES = (
-    (STATE_CREATED, "Only created"),
-    (STATE_INITED, "Inited pay"),
-    (STATE_AUTHORIZED, "Authorized pay"),
-    (STATE_CONFIRMED, "Confirmed pay"),
-    (STATE_ERROR, "Error"),
+    (STATE_CREATED, "created"),
+    (STATE_INITED, "inited_pay"),
+    (STATE_AUTHORIZED, "authorized_pay"),
+    (STATE_CONFIRMED, "confirmed_pay"),
+    (STATE_ERROR, "error"),
 )
+
+CARD_SESSION_STATE_DICT = {state[0]:state[1] for state in CARD_SESSION_STATES}
 
 
 class RpsParkingCardSession(models.Model):

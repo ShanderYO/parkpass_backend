@@ -30,7 +30,7 @@ from payments.models import Order, TinkoffPayment, PAYMENT_STATUS_AUTHORIZED, PA
 from payments.payment_api import TinkoffAPI
 from rps_vendor.models import ParkingCard, RpsParking, RpsParkingCardSession, STATE_CREATED, STATE_INITED, STATE_ERROR, \
     RpsSubscription, STATE_CONFIRMED, Developer, DevelopersLog, DEVELOPER_LOG_GET_DEBT, DEVELOPER_STATUS_SUCCESS, \
-    DEVELOPER_LOG_CONFIRM
+    DEVELOPER_LOG_CONFIRM, CARD_SESSION_STATE_DICT
 from rps_vendor.tasks import rps_process_updated_sessions
 from rps_vendor.validators import RpsCreateParkingSessionValidator, RpsUpdateParkingSessionValidator, \
     RpsCancelParkingSessionValidator, RpsCompleteParkingSessionValidator, RpsUpdateListParkingSessionValidator, \
@@ -501,6 +501,7 @@ class GetCardSessionStatusMixin:
 
             last_order = orders[0]
             response_dict = {
+                "payment_state": CARD_SESSION_STATE_DICT[card_session.state],
                 "order_id": last_order.id,
                 "sum": last_order.sum,
                 "refunded_sum": last_order.refunded_sum,
