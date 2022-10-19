@@ -532,6 +532,51 @@ class GetCardSessionStatusMixin:
 class GetCardSessionStatus(GetCardSessionStatusMixin, APIView):
     pass
 
+
+class GetCardSessionStatusForDeveloperMixin:
+    validator_class = ParkingCardSessionBodyValidator
+
+    @decorator_from_middleware(ApiTokenMiddleware)
+    def post(self, request, *args, **kwargs):
+        card_session = int(request.data["card_session"])
+
+        try:
+            card_session = RpsParkingCardSession.objects.get(
+                id=card_session
+            )
+            orders = Order.objects.filter(
+                parking_card_session=card_session).order_by('-created_at')
+            orders = Order.objects.filter(
+                parking_card_session=card_session).order_by('-created_at')
+
+            last_order = orders[0]
+            response_dict = {
+                "payment_state": CARD_SESSION_STATE_DICT[card_session.state],
+                "error": None,
+            }
+
+            payments = TinkoffPayment.objects.filter(order=last_order)
+            current_payment = payments[0] if payments.exists() else None
+            if current_payment and current_payment.error_code > 0:
+                if current_payment.error_message or current_payment.error_description:
+                    response_dict["error"] = "Error occurs at payments"
+                    card_session.state = STATE_ERROR
+                    card_session.save()
+
+            return JsonResponse(response_dict, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                message="Parking card session does not exist"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+
+class GetCardSessionStatusForDeveloper(GetCardSessionStatusForDeveloperMixin, APIView):
+    pass
+
+
 class CheckTimestamp(APIView):
     def get(self, request, *args, **kwargs):
         return HttpResponse(int(time.time()), status=200)

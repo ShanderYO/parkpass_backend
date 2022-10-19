@@ -32,6 +32,7 @@ urlpatterns = [
 
     url(r'^developer/cards/debt/$', GetDeveloperParkingCardDebt.as_view()),
     url(r'^developer/cards/confirm/$', ConfirmPayDeveloperDebt.as_view()),
+    url(r'^developer/cards/payment/status/$', GetCardSessionStatusForDeveloper.as_view()),
 
     url(r'^developer/checktimestamp/$', CheckTimestamp.as_view()),
     url(r'^developer/reset-token/$', ResetDeveloperToken.as_view()),
