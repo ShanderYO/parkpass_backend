@@ -144,7 +144,7 @@ class GetParkingCardDebt(GetParkingCardDebtMixin, APIView):
 class GetDeveloperParkingCardDebtMixin:
     validator_class = ParkingCardRequestBodyValidator
 
-    @decorator_from_middleware(ApiTokenMiddleware)
+    #@decorator_from_middleware(ApiTokenMiddleware)
     def post(self, request, *args, **kwargs):
 
         card_id = request.data["card_id"]
@@ -536,7 +536,7 @@ class GetCardSessionStatus(GetCardSessionStatusMixin, APIView):
 class GetCardSessionStatusForDeveloperMixin:
     validator_class = ParkingCardSessionBodyValidator
 
-    @decorator_from_middleware(ApiTokenMiddleware)
+    #@decorator_from_middleware(ApiTokenMiddleware)
     def post(self, request, *args, **kwargs):
         card_session = int(request.data["card_session"])
 
