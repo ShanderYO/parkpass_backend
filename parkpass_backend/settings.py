@@ -56,6 +56,7 @@ ALLOWED_HOSTS = [".parkpass.ru", "127.0.0.1", 'nginx-balancer']
 # ]
 
 CORS_ORIGIN_ALLOW_ALL=True
+CORS_ALLOW_ALL_ORIGINS=True
 
 SMS_GATEWAY_ENABLED = int(os.environ.get("SMS_GATEWAY_ENABLE", 1)) == 1
 
