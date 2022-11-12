@@ -127,7 +127,6 @@ INSTALLED_APPS = [
 
     'django_celery_beat',
     'django_elasticsearch',
-    'corsheaders',
     #'tests',
     'base',
     'accounts',
@@ -142,6 +141,9 @@ INSTALLED_APPS = [
     'fcm_django',
     'notifications'
 ]
+
+if os.environ.get("PROD"):
+    INSTALLED_APPS.append('corsheaders')
 
 FCM_ID = 966710494584
 FCM_KEY_1 = "AAAA4RRvhXg:APA91bEthBvT5Ywz5rZ2pkypGHNAU-qBMBWXrRBC6vOzRTfaEjRpdDITP_h9MMQlc397Lf8wmmU2KPIPtq3Y_VlypdZqi6Ahkfx_EJcsi1nhseuqOSFKXwruqFc_t1SlNJt5ZhDqB-JF"
@@ -158,7 +160,6 @@ FCM_DJANGO_SETTINGS = {
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -167,6 +168,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
 ]
+
+if os.environ.get("PROD"):
+    MIDDLEWARE.append('corsheaders.middleware.CorsMiddleware')
 
 ROOT_URLCONF = 'parkpass_backend.urls'
 
