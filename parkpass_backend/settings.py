@@ -31,6 +31,8 @@ sentry_sdk.init(
 
 import os
 
+PROD = int(os.environ.get("PROD"))
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -143,7 +145,7 @@ INSTALLED_APPS = [
     'notifications'
 ]
 
-if os.environ.get("PROD"):
+if PROD:
     INSTALLED_APPS.append('corsheaders')
 
 FCM_ID = 966710494584
@@ -170,7 +172,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
 ]
 
-if os.environ.get("PROD"):
+if PROD:
     MIDDLEWARE.append('corsheaders.middleware.CorsMiddleware')
 
 ROOT_URLCONF = 'parkpass_backend.urls'
