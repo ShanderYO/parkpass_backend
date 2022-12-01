@@ -14,11 +14,11 @@ from .models import (
 class ParkingModelAdmin(admin.ModelAdmin):
     search_fields = ('name', 'address',)
 
-    list_display = ('name', 'city', 'address',
+    list_display = ('name', 'city', 'address', 'domain',
                     'enabled', 'approved', 'parkpass_status',)
 
     list_filter = ('approved', 'enabled', 'parkpass_status',
-                   'city', 'vendor', 'owner',)
+                   'city', 'vendor', 'owner', 'domain')
 
     readonly_fields = ('tariff_download_link',)
 

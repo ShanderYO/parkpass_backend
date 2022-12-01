@@ -78,6 +78,7 @@ class Parking(models.Model):
     description = models.TextField(null=True, blank=True)
     address = models.CharField(max_length=63, null=True, blank=True)
     city = models.CharField(max_length=63, null=True, blank=True)
+    domain = models.CharField(max_length=128, null=True, blank=True, default='')
     latitude = models.DecimalField(max_digits=10, decimal_places=8)
     longitude = models.DecimalField(max_digits=11, decimal_places=8)
     enabled = models.BooleanField(default=True)
