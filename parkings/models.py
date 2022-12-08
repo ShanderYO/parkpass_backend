@@ -190,6 +190,15 @@ class ParkingSerializerForView(serializers.ModelSerializer):
         model = Parking
         exclude = ("vendor", "company", "max_client_debt",
                    "tariff", "tariff_file_name", "tariff_file_content")
+        
+        
+class ParkingSerializerForNotAuthView(serializers.ModelSerializer):
+
+    class Meta:
+        model = Parking
+        fields = [
+            'name', 'address', 'description', 'city', 'domain', 'currency', 'acquiring', 'picture', 'tz_name'
+        ]
 
 
 
