@@ -28,8 +28,7 @@ from base.views import generic_login_required_view, SignedRequestAPIView, APIVie
 from middlewares.AllowCorsMiddleware import AllowCorsMiddleware
 from notifications.models import AccountDevice
 from owners.models import Owner, OwnerApplication
-from parkings.models import Parking, ParkingSession, ComplainSession, Wish, ParkingSerializerForView, \
-    ParkingSerializerForNotAuthView
+from parkings.models import Parking, ParkingSession, ComplainSession, Wish, ParkingSerializerForView
 from parkings.tasks import process_updated_sessions
 from parkings.validators import validate_longitude, validate_latitude, CreateParkingSessionValidator, \
     UpdateParkingSessionValidator, UpdateParkingValidator, CompleteParkingSessionValidator, \
@@ -214,23 +213,8 @@ class GetParkingViewMixin:
         return JsonResponse(result_dict.data[0], status=200)
 
 
-class GetParkingView(APIView):
-    account_type = 'account'
-    def get(self, request, *args, **kwargs):
-        not_allow_condition = not hasattr(request, self.account_type) or not getattr(request, self.account_type, None)
-        parking = Parking.objects.filter(id=kwargs["pk"])
-        parking = parking.first()
-        if not parking:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "Target parking with such id not found"
-            )
-            return JsonResponse(e.to_dict(), status=400)
-        if not_allow_condition:
-            result_dict = ParkingSerializerForNotAuthView([parking], read_only=True, many=True)
-        else:
-            result_dict = ParkingSerializerForView([parking], read_only=True, many=True)
-        return JsonResponse(result_dict.data[0], status=200)
+class GetParkingView(GetParkingViewMixin, LoginRequiredAPIView):
+    pass
 
 
 class GetTariffParkingView(View):
