@@ -165,6 +165,21 @@ class LoginView(APIView):
     validator_class = LoginParamValidator
 
     def post(self, request):
+        
+        ban = ['176.59', '213.87', '178.176', '188.162', '31.173']
+        
+        def get_client_ip(request):
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip = x_forwarded_for.split(',')[0]
+            else:
+                ip = request.META.get('REMOTE_ADDR')
+            return ip
+        
+        ip = get_client_ip(request)
+        if any(ip.startswith(i) for i in ban):
+            return JsonResponse({}, status=403)
+        
         phone = clear_phone(request.data["phone"])
         success_status = 200
         if Account.objects.filter(phone=phone).exists():
