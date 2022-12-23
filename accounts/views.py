@@ -188,7 +188,7 @@ class LoginView(APIView):
             account = Account(phone=phone)
             success_status = 201
             # Временный блок
-            return JsonResponse({}, status=201)
+            return JsonResponse({}, status=403)
             
 
         account.create_sms_code(stub=(phone == "77891234560"))
