@@ -33,6 +33,9 @@ class PhoneLoginView(APIView):
         else:
             account = Account(phone=phone)
             success_status = 201
+            # Временный блок
+            JsonResponse({}, status=201)
+            
 
         if country_id:
             country = Country.objects.get(id=country_id)

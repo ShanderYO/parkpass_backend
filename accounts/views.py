@@ -187,9 +187,6 @@ class LoginView(APIView):
         else:
             account = Account(phone=phone)
             success_status = 201
-            # Временный блок
-            return JsonResponse({}, status=403)
-            
 
         account.create_sms_code(stub=(phone == "77891234560"))
         account.sms_verified = False
