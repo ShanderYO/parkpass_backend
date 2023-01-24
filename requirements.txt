@@ -35,3 +35,4 @@ aiogram-broadcaster==0.0.7
 python-telegram-bot==13.7
 telegram==0.0.1
 sentry-sdk==1.9
+unicode==2.9
