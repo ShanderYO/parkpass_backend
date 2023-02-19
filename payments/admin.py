@@ -32,6 +32,8 @@ class OrderAdmin(admin.ModelAdmin):
 class TinkoffPaymentAdmin(admin.ModelAdmin):
     list_display = ('payment_id', 'status', 'order',
                     'error_code', 'created_at',)
+    
+    readonly_fields = ('order',)
 
 
 @admin.register(HomeBankPayment)
