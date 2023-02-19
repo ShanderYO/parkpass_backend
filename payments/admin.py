@@ -24,7 +24,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = ('id', 'session', 'sum',
                     'authorized', 'paid',)
 
-    readonly_fields = ('sum', 'session',
+    readonly_fields = ('sum', 'session', 'account', 'parking_card_session', 'subscription',
                        'fiscal_notification', 'created_at',)
 
 
