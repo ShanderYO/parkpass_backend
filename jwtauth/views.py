@@ -34,8 +34,8 @@ class PhoneLoginView(APIView):
             account = Account(phone=phone)
             success_status = 201
             # Временный блок
-            return JsonResponse({}, status=403)
-            
+            if 'okhttp' in request.META['HTTP_USER_AGENT']:
+                return JsonResponse({}, status=403)
 
         if country_id:
             country = Country.objects.get(id=country_id)
