@@ -75,6 +75,7 @@ class TinkoffAPI():
         return None
 
     def get_token(self, params):
+        params = {key: params[key]  for key in params if type(params[key]) not in (dict, list)}
         concat_str = ""
         for key in params:
             concat_str += str(params[key])
