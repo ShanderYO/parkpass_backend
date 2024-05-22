@@ -1,7 +1,7 @@
-FROM python:3.9
+FROM python:3.9.18-bullseye
 
 # update pip
-RUN python3.9 -m pip install pip --upgrade
+#RUN python3.9 -m pip install pip --upgrade
 RUN python3.9 -m pip install wheel
 
 # Install Pillow ubuntu dependencies
