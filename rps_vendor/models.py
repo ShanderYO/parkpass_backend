@@ -43,6 +43,12 @@ class RpsParking(models.Model):
     last_response_code = models.IntegerField(default=0)
     last_response_body = models.TextField(null=True, blank=True)
     parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
+    
+    domain = models.CharField(max_length=255, null=True, blank=True)
+    token = models.CharField(max_length=255, null=True, blank=True)
+    token_expired = models.DateTimeField(null=True, blank=True)
+    integrator_id = models.CharField(max_length=255, null=True, blank=True)
+    integrator_password = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]

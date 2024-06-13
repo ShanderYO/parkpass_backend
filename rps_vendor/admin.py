@@ -7,7 +7,8 @@ from rps_vendor.models import (
 
 @admin.register(RpsParking)
 class RpsParkingAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('parking', 'domain', 'token', 'token_expired', 'integrator_id', 'integrator_password')
+    search_fields = ('parking__name', 'domain', 'integrator_id')
 
 
 @admin.register(ParkingCard)
