@@ -138,28 +138,16 @@ class TopParkingWish(models.Model):
 
 
 class ParkingSession(models.Model):
-
-    # States mask
-    STARTED_BY_CLIENT_MASK = 1 << 0  # 1
-    STARTED_BY_VENDOR_MASK = 1 << 1  # 2
-    COMPLETED_BY_CLIENT_MASK = 1 << 2  # 4
-    COMPLETED_BY_VENDOR_MASK = 1 << 3  # 8
+        
+    ENTER_ALLOWED_MASK = 1 << 4  # 16
+    EXIT_ALLOWED_MASK = 1 << 5   # 32
 
     # States
     STATE_CANCELED = -1
     STATE_CLOSED = 0
-    STATE_STARTED_BY_CLIENT = 1
-    STATE_STARTED_BY_VENDOR = 2
-    STATE_STARTED = 3 # (STARTED_BY_CLIENT_MASK + STARTED_BY_VENDOR_MASK)
-
-    STATE_COMPLETED_BY_CLIENT = 6 # (STATE_STARTED_BY_VENDOR + COMPLETED_BY_CLIENT_MASK)
-    STATE_COMPLETED_BY_CLIENT_FULLY = 7 # (STATE_STARTED + COMPLETED_BY_CLIENT_MASK)
-
-    STATE_COMPLETED_BY_VENDOR = 10 # (STATE_STARTED_BY_VENDOR + COMPLETED_BY_VENDOR_MASK)
-    STATE_COMPLETED_BY_VENDOR_FULLY = 11 # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK)
-
-    STATE_COMPLETED = 14 # (STARTED_BY_VENDOR_MASK + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
-    STATE_COMPLETED_FULLY = 15  # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
+    STATE_STARTED = 3 # (ENTER_ALLOWED_MASK + ENTER_ALLOWED_MASK)
+    
+    STATE_COMPLETED = 14
 
     STATE_VERIFICATION_REQUIRED = 21
     
@@ -168,19 +156,14 @@ class ParkingSession(models.Model):
 
     SESSION_STATES = [
         STATE_CANCELED,
-        STATE_STARTED_BY_CLIENT, STATE_COMPLETED_BY_VENDOR, STATE_STARTED, # Stage 1
-        STATE_COMPLETED_BY_CLIENT, STATE_COMPLETED_BY_CLIENT_FULLY, # Stage 2
-        STATE_COMPLETED_BY_VENDOR, STATE_COMPLETED_BY_VENDOR_FULLY, # Stage 2
-        STATE_COMPLETED, STATE_COMPLETED_FULLY, # Stage 3
-        STATE_CLOSED, # Stage 4
-        STATE_VERIFICATION_REQUIRED # Stage 5
+        STATE_ENTER_ALLOWED, STATE_EXIT_ALLOWED, STATE_ENTER_ALLOWED, # Stage 1
+        STATE_EXIT_ALLOWED, STATE_EXIT_ALLOWED, # Stage 2
+        STATE_CLOSED, # Stage 3
+        STATE_VERIFICATION_REQUIRED # Stage 4
     ]
 
     ACTUAL_COMPLETED_STATES = [
-        STATE_COMPLETED_BY_VENDOR,
-        STATE_COMPLETED_BY_VENDOR_FULLY,
-        STATE_COMPLETED,
-        STATE_COMPLETED_FULLY
+        STATE_EXIT_ALLOWED
     ]
 
     STATE_CHOICES = (
@@ -301,29 +284,25 @@ class ParkingSession(models.Model):
         return 0
 
     def add_client_start_mark(self):
-        self.state += self.STARTED_BY_CLIENT_MASK \
-            if not (self.state & self.STARTED_BY_CLIENT_MASK) else self.state
+        self.state |= self.ENTER_ALLOWED_MASK
 
     def add_vendor_start_mark(self):
-        self.state += self.STARTED_BY_VENDOR_MASK \
-            if not (self.state & self.STATE_STARTED_BY_VENDOR) else self.state
+        self.state |= self.ENTER_ALLOWED_MASK
 
     def add_client_complete_mark(self):
-        self.state += self.COMPLETED_BY_CLIENT_MASK \
-            if not (self.state & self.COMPLETED_BY_CLIENT_MASK) else self.state
+        self.state |= self.EXIT_ALLOWED_MASK
 
     def add_vendor_complete_mark(self):
-        self.state += self.COMPLETED_BY_VENDOR_MASK \
-            if not (self.state & self.COMPLETED_BY_VENDOR_MASK) else self.state
+        self.state |= self.EXIT_ALLOWED_MASK
 
     def is_started_by_vendor(self):
-        return bool(self.state & self.STARTED_BY_VENDOR_MASK)
+        return bool(self.state & self.ENTER_ALLOWED_MASK)
 
     def is_completed_by_vendor(self):
-        return bool(self.state & self.COMPLETED_BY_VENDOR_MASK)
+        return bool(self.state & self.EXIT_ALLOWED_MASK)
 
     def is_completed_by_client(self):
-        return bool(self.state & self.COMPLETED_BY_CLIENT_MASK)
+        return bool(self.state & self.EXIT_ALLOWED_MASK)
 
     def is_closed(self):
         return self.state == self.STATE_CLOSED
@@ -336,19 +315,17 @@ class ParkingSession(models.Model):
         ]
 
     def is_available_for_vendor_update(self):
-        return self.state not in [self.STATE_CANCELED, self.STATE_COMPLETED_BY_VENDOR,
-                                  self.STATE_COMPLETED_BY_VENDOR_FULLY, self.STATE_COMPLETED, self.STATE_CLOSED]
+        return self.state not in [self.STATE_CANCELED, self.STATE_EXIT_ALLOWED,
+                                  self.STATE_EXIT_ALLOWED, self.STATE_EXIT_ALLOWED, self.STATE_CLOSED]
 
     def reset_client_completed_state(self):
-        self.state -= self.state & self.COMPLETED_BY_CLIENT_MASK
+        self.state -= self.state & self.EXIT_ALLOWED_MASK
 
     def is_cancelable(self):
         return self.state in [
-            self.STATE_STARTED_BY_CLIENT,
-            self.STATE_STARTED_BY_VENDOR,
+            self.STATE_ENTER_ALLOWED,
+            self.STATE_EXIT_ALLOWED,
             self.STATE_STARTED,
-            self.STATE_COMPLETED_BY_CLIENT,
-            self.STATE_COMPLETED_BY_CLIENT_FULLY
         ]
 
 

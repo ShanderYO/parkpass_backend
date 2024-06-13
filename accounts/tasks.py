@@ -138,10 +138,7 @@ def generate_orders_and_pay():
     # TODO check canceled sessions
     active_sessions = ParkingSession.objects.filter(
         state__in=[ParkingSession.STATE_STARTED,
-                   ParkingSession.STATE_STARTED_BY_VENDOR,
-                   ParkingSession.STATE_COMPLETED_BY_VENDOR,
-                   ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY,
-                   ParkingSession.STATE_COMPLETED_BY_CLIENT_FULLY,
+                   ParkingSession.STATE_EXIT_ALLOWED,
                    ParkingSession.STATE_COMPLETED],
         is_suspended=False,
     )
@@ -153,8 +150,7 @@ def generate_orders_and_pay():
         if ordered_sum < session.debt:
             order = None
             if session.state == ParkingSession.STATE_COMPLETED \
-                    or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR\
-                    or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY:
+                    or session.state == ParkingSession.STATE_EXIT_ALLOWED:
 
                 current_account_debt = session.debt - ordered_sum
                 order = Order(
