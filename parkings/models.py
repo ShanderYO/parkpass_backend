@@ -162,6 +162,9 @@ class ParkingSession(models.Model):
     STATE_COMPLETED_FULLY = 15  # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
 
     STATE_VERIFICATION_REQUIRED = 21
+    
+    STATE_ENTER_ALLOWED = 22
+    STATE_EXIT_ALLOWED = 23
 
     SESSION_STATES = [
         STATE_CANCELED,
@@ -182,17 +185,11 @@ class ParkingSession(models.Model):
 
     STATE_CHOICES = (
         (STATE_CANCELED, 'Canceled'),
-        (STATE_STARTED_BY_CLIENT, 'Started_by_client'),
-        (STATE_STARTED_BY_VENDOR, 'Started_by_vendor'),
-        (STATE_STARTED, 'Started'),
-        (STATE_COMPLETED_BY_CLIENT, 'Completed_by_client'),
-        (STATE_COMPLETED_BY_CLIENT_FULLY, 'Completed_by_client_fully'),
-        (STATE_COMPLETED_BY_VENDOR, 'Completed_by_vendor'),
-        (STATE_COMPLETED_BY_VENDOR_FULLY, 'Completed_by_vendor_fully'),
-        (STATE_COMPLETED, 'Completed without client start'),
-        (STATE_COMPLETED_FULLY, 'Completed'),
         (STATE_CLOSED, 'Closed'),
-        (STATE_VERIFICATION_REQUIRED, 'Verification required')
+        (STATE_STARTED, 'Started'),
+        (STATE_COMPLETED, 'Completed'),
+        (STATE_ENTER_ALLOWED, 'Enter Allowed'),
+        (STATE_EXIT_ALLOWED, 'Exit Allowed'),
     )
 
     CLIENT_STATE_CANCELED = -1
@@ -235,6 +232,8 @@ class ParkingSession(models.Model):
     vendor_id = models.IntegerField(default=0)
 
     created_at = models.DateField(auto_now_add=True)
+    
+    error = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]
