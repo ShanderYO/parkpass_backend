@@ -81,7 +81,9 @@ INSTALLED_APPS = [
     'rps_vendor',
     'owners',
     'control',
-    'partners'
+    'partners',
+    'drf_spectacular',
+    'integration',
 ]
 
 MIDDLEWARE = [
@@ -339,3 +341,29 @@ SECRET_KEY_JWT = os.environ.get("SECRET_KEY_JWT", 'secret')
 ACCESS_TOKEN_LIFETIME_IN_SECONDS = 1* 60 * 60 # 1 hour
 REFRESH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 14 # 2 weak
 SECRET_TOKEN_LIFETIME_IN_MINUTE = 60 # 1 hour
+
+# Настройки swagger
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Parkpass API',
+    'DESCRIPTION': 'Parkpass project',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'TOS': {
+        'name': 'Условия использования',
+        'url': 'https://telegra.ph/Usloviya-ispolzovaniya-servisa-10-10',
+        },
+    'SCHEMA_PATH_PREFIX': None,
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAuthenticated'],
+    'SERVE_AUTHENTICATION': ['rest_framework.authentication.SessionAuthentication'],
+}
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # "DEFAULT_PERMISSION_CLASSES": [
+    #         "rest_framework.permissions.IsAuthenticated",
+    #     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ]
+}

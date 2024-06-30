@@ -16,6 +16,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls.static import static
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+    )
+
 
 
 from parkpass_backend import settings
@@ -35,9 +41,18 @@ urlpatterns = [
     path('api/v1/parking/', include("rps_vendor.urls")),
     path('api/v1/vendor/', include("vendors.urls")),
     path('api/v1/auth/', include("jwtauth.urls")),
+    path('api/v1/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/v2/integration/', include('integration.urls')),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) \
     + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
 urlpatterns += staticfiles_urlpatterns()
+
+# Swagger routers
+urlpatterns = [
+    path('api/v1/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/v1/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/v1/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+] + urlpatterns
