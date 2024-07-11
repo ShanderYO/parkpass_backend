@@ -6,9 +6,9 @@ from .models import Account, AccountSession
 
 @admin.register(Account)
 class AccountAdmin(AccountAdmin):
-    search_fields = ('id', 'phone', 'last_name',)
+    search_fields = ('id', 'phone', 'last_name', 'car_plate')
 
-    list_display = ('id', 'first_name', 'last_name',
+    list_display = ('id', 'first_name', 'last_name', 'car_plate',
                     'phone', 'email')
 
     readonly_fields = ('phone', 'email', 'sms_code', 'created_at', )

@@ -148,7 +148,8 @@ class AccountParamValidator(BaseValidator):
     def is_valid(self):
         first_name = self.request.data.get("first_name", None)
         last_name = self.request.data.get("last_name", None)
-        if not first_name and not last_name:
+        car_plate = self.request.data.get("car_plate", None)
+        if not first_name and not last_name and not car_plate:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = "Nothing change"
             return False
@@ -157,6 +158,9 @@ class AccountParamValidator(BaseValidator):
                 validate_name(first_name)
             if last_name:
                 validate_name(last_name)
+            if car_plate:
+                validate_car_plate(car_plate)
+                
         except ValidationError as e:
             self.code = ValidationException.VALIDATION_ERROR
             self.message = str(e)
@@ -253,6 +257,9 @@ def validate_name(value):
     if not re.match(regex, value):
         raise ValidationError("Name has invalid format. Please use only letters. Also, length must be <= 50 letters.")
 
+def validate_car_plate(value):
+    if len(value) > 9:
+        raise ValidationError("Car plate too long")
 
 def validate_account_birthday(value):
     if value > datetime.date.today() or value < datetime.date(1900,1,1):

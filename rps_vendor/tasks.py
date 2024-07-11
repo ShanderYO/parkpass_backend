@@ -58,7 +58,6 @@ def request_rps_session_update():
         active_sessions = ParkingSession.objects.filter(
             parking=rps_parking.parking,
             state__in=[ParkingSession.STATE_STARTED, ParkingSession.STATE_ENTER_ALLOWED],
-            is_suspended=False,
         )
         if active_sessions.count() == 0:
             continue

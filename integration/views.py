@@ -3,8 +3,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from drf_spectacular.utils import extend_schema
+from base.views import  LoginRequiredAPIView
 
-class TokenIntegrationView(APIView):
+class TokenIntegrationView(LoginRequiredAPIView, APIView):
     @extend_schema(
         responses={200: 'Токен успешно получен'}
     )

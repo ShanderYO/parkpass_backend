@@ -7,6 +7,7 @@ from base.models import BaseAccount, BaseAccountSession
 class Account(BaseAccount):
     external_vendor_id = models.IntegerField(null=True, default=None)
     external_id = models.CharField(max_length=1024, null=True, blank=True)
+    car_plate = models.CharField(max_length=32, default="")
 
     @property
     def session_class(self):

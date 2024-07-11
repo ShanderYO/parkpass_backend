@@ -194,8 +194,6 @@ class ParkingSessionEdit(TestCase):
             "client_id": 1,
             "target_refund_sum": 5,
             "debt": 10,
-            "is_suspended": True,
-            "suspended_at": "0"
         })
 
         response = Client().post(url, body, **TOKEN_DICT)

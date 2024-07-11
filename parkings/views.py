@@ -389,7 +389,6 @@ class CreateParkingSessionView(SignedRequestAPIView):
             last_active_session = ParkingSession.get_active_session(account)
             if last_active_session:
                 last_active_session.state = ParkingSession.STATE_VERIFICATION_REQUIRED
-                last_active_session.suspended_at = utc_started_at
                 last_active_session.save()
 
             session = ParkingSession(

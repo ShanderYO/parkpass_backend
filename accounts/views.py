@@ -7,8 +7,10 @@ from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.views import View
+from rest_framework.views import APIView as ApiView
 from dss.Serializer import serializer
-
+from rest_framework import status
+from drf_spectacular.utils import extend_schema
 from accounts.models import Account, AccountSession
 
 from accounts.tasks import generate_current_debt_order, force_pay
@@ -84,10 +86,7 @@ class DeactivateAccountView(LoginRequiredAPIView):
         ps = ParkingSession.get_active_session(account)
         if ps is not None:
             generate_current_debt_order.delay(ParkingSession.get_active_session(account).id)
-            if not ps.is_suspended:
-                ps.is_suspended = True
-                ps.suspended_at = timezone.now()
-                ps.save()
+            ps.save()
 
         cards = CreditCard.objects.filter(account=account)
         for card in cards:
@@ -262,7 +261,7 @@ class LogoutView(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class AccountView(LoginRequiredAPIView):
+class AccountView(LoginRequiredAPIView, ApiView):
     validator_class = AccountParamValidator
 
     def get(self, request):
@@ -277,7 +276,29 @@ class AccountView(LoginRequiredAPIView):
 
         return JsonResponse(account_dict, status=200)
 
+
+    @extend_schema(
+        request={"type": "object", "properties": {"car_plate": {"type": "string"}}},
+        responses={200: None, 400: {"description": "Invalid input"}}
+    )
     def post(self, request):
+        """
+            Описание вашего API
+            ---
+            parameters:
+                - name: car_plate
+                type: string
+                required: true
+                description: Automobile number plate of the user
+            responses:
+                200:
+                    description: Успешный ответ
+                400:
+                    description: Некорректный ввод
+        """
+        car_plate = request.data.get("car_plate", "")
+        if car_plate:
+            request.account.car_plate = car_plate
         first_name = request.data.get("first_name")
         if first_name:
             request.account.first_name = first_name
@@ -322,7 +343,7 @@ class AccountParkingListView(LoginRequiredAPIView):
                 return JsonResponse(e.to_dict(), status=400)
 
         result_query = ParkingSession.objects.filter(
-            Q(client_id=request.account.id, state__lte=0) | Q(client_id=request.account.id, is_suspended=True))\
+            Q(client_id=request.account.id, state__lte=0) | Q(client_id=request.account.id))\
             .select_related("parking")
 
         if from_date and to_date:
@@ -354,7 +375,7 @@ class AccountParkingListView(LoginRequiredAPIView):
         return JsonResponse(response)
 
 
-class DebtParkingSessionView(LoginRequiredAPIView):
+class DebtParkingSessionView(LoginRequiredAPIView, ApiView):
     def get(self, request):
         current_parking_session = ParkingSession.get_active_session(request.account)
         if current_parking_session:
@@ -607,7 +628,7 @@ class GetParkingSessionView(LoginRequiredAPIView):
             return JsonResponse(e.to_dict(), status=400)
 
 
-class StartParkingSession(LoginRequiredAPIView):
+class StartParkingSession(LoginRequiredAPIView, ApiView):
     validator_class = StartAccountParkingSessionValidator
 
     def post(self, request):
@@ -667,21 +688,6 @@ class ForceStopParkingSession(LoginRequiredAPIView):
 
     def post(self, request):
         id = int(request.data["id"])
-
-        try:
-            parking_session = ParkingSession.objects.get(id=id)
-            if not parking_session.is_suspended:
-                parking_session.is_suspended = True
-                parking_session.suspended_at = timezone.now()
-                parking_session.save()
-
-        except ObjectDoesNotExist:
-            e = ValidationException(
-                ValidationException.RESOURCE_NOT_FOUND,
-                "ParkingSession with id %s not found" % id
-            )
-            return JsonResponse(e.to_dict(), status=400)
-
         return JsonResponse({}, status=200)
 
 
@@ -693,13 +699,8 @@ class ResumeParkingSession(LoginRequiredAPIView):
 
         try:
             parking_session = ParkingSession.objects.get(id=id)
-            if parking_session.is_suspended:
-                parking_session.is_suspended = False
-                parking_session.suspended_at = None
-                parking_session.save()
-
-                if parking_session.is_started_by_vendor():
-                    generate_current_debt_order.delay(parking_session.id)
+            if parking_session.is_started_by_vendor():
+                generate_current_debt_order.delay(parking_session.id)
 
         except ObjectDoesNotExist:
             e = ValidationException(
@@ -711,13 +712,15 @@ class ResumeParkingSession(LoginRequiredAPIView):
         return JsonResponse({}, status=200)
 
 
-class CompleteParkingSession(LoginRequiredAPIView):
+class CompleteParkingSession(LoginRequiredAPIView, ApiView):
     validator_class = CompleteAccountParkingSessionValidator
 
     def post(self, request):
         session_id = request.data["id"]
         parking_id = int(request.data["parking_id"])
         completed_at = int(request.data["completed_at"])
+        device_id = request.data["deviceId"]
+        qr_number = request.data["qrNumber"]
 
         try:
             parking_session = ParkingSession.objects.select_related('parking').get(
@@ -738,12 +741,8 @@ class CompleteParkingSession(LoginRequiredAPIView):
 
             # If session start is not confirm from vendor
             if not parking_session.is_started_by_vendor():
-                parking_session.is_suspended = True
-                parking_session.suspended_at = utc_completed_at
                 parking_session.save()
                 return JsonResponse({}, status=200)
-            else:
-                parking_session.is_suspended = False
 
             # Set up completed time if not specified by vendor
             if not parking_session.is_completed_by_vendor():

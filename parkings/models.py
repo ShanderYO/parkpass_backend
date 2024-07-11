@@ -204,9 +204,6 @@ class ParkingSession(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     duration = models.IntegerField(default=0)
 
-    is_suspended = models.BooleanField(default=False)
-    suspended_at = models.DateTimeField(null=True, blank=True)
-
     try_refund = models.BooleanField(default=False)
     target_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
     current_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
@@ -217,6 +214,12 @@ class ParkingSession(models.Model):
     created_at = models.DateField(auto_now_add=True)
     
     error = models.CharField(max_length=255, null=True, blank=True)
+    
+    ticket_id = models.IntegerField(default=0)
+    device_id = models.IntegerField(default=0)
+    qr_number = models.IntegerField(default=0)
+    
+    
 
     class Meta:
         ordering = ["-id"]
@@ -247,7 +250,7 @@ class ParkingSession(models.Model):
         try:
             return ParkingSession.objects.get(
                 client=account, state__gt=0,
-                state__lt=ParkingSession.STATE_VERIFICATION_REQUIRED, is_suspended=False)
+                state__lt=ParkingSession.STATE_VERIFICATION_REQUIRED)
 
         except ObjectDoesNotExist:
             return None
@@ -269,16 +272,12 @@ class ParkingSession(models.Model):
             self.client_state = self.CLIENT_STATE_ACTIVE
         if self.state >= 6 and self.state <= 15:
             self.client_state = self.CLIENT_STATE_COMPLETED
-        if self.is_suspended:
-            self.client_state = self.CLIENT_STATE_SUSPENDED
         if self.state == 0:
             self.client_state = self.CLIENT_STATE_CLOSED
 
     def get_calculated_duration(self):
         if self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()
-        if self.is_suspended and self.suspended_at:
-            return (self.suspended_at - self.started_at).total_seconds()
         if self.updated_at:
             return (self.updated_at - self.started_at).total_seconds()
         return 0

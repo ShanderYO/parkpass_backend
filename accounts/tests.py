@@ -570,7 +570,6 @@ class StartAccountTestCaseWithDebt(TestCase):
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, '{}')
-        self.assertTrue(ParkingSession.objects.get(id=1).is_suspended)
 
     def test_force_stop_session_invalid(self):
         url = URL_PREFIX + "session/stop/"
@@ -596,7 +595,6 @@ class StartAccountTestCaseWithDebt(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, '{}')
-        self.assertTrue(ParkingSession.objects.get(id=1).is_suspended)
 
         url = URL_PREFIX + "session/resume/"
 
@@ -608,7 +606,6 @@ class StartAccountTestCaseWithDebt(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, '{}')
-        self.assertFalse(ParkingSession.objects.get(id=1).is_suspended)
 
 
 class ReceiptTestCase(TestCase):
