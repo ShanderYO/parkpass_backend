@@ -55,8 +55,10 @@ class RpsParking(models.Model):
     def get_parking_card_debt_url(self, query):
         return self.request_parking_card_debt_url + '?' + query
 
-    def get_parking_card_debt(self, parking_card):
-        debt, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
+    def get_parking_card_debt(self, parking_card, debt=None, duration=None):
+        if debt is None or duration is None:
+            get_logger(f"get_parking_card_debt: debt={str(debt)} or duration={str(duration)} call make_http from rps")
+            debt, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
         get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
 
         # if Card
