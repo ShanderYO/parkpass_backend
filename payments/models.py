@@ -11,6 +11,7 @@ from django.core.mail import send_mail
 from django.db import models
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.contrib.postgres.fields import JSONField
 
 import payments
 from dss.Serializer import serializer
@@ -209,6 +210,7 @@ class Order(models.Model):
 
     # use multiple terminals
     terminal = models.ForeignKey(Terminal, null=True, on_delete=models.CASCADE)
+    payload = JSONField(null=False, default=dict)
 
     acquiring = models.CharField(max_length=20, choices=ACQUIRING_LIST, default='tinkoff')
 
@@ -235,7 +237,7 @@ class Order(models.Model):
                 result_sum = result_sum + session.sum
         return result_sum
 
-    def generate_receipt_data(self):
+    def generate_receipt_data(self, email=None):
         if self.subscription:
             email = self.subscription.account.email if self.subscription.account else None
             phone = self.subscription.account.phone if self.subscription.account else None
@@ -274,7 +276,8 @@ class Order(models.Model):
                 )
 
         if self.parking_card_session or self.client_uuid:
-            email = self.parking_card_session.account.email if self.parking_card_session.account else None
+            if email is None:
+                email = self.parking_card_session.account.email if self.parking_card_session.account else None
             phone = self.parking_card_session.account.phone \
                 if self.parking_card_session.account else self.parking_card_session.parking_card.phone
 
@@ -467,7 +470,7 @@ class Order(models.Model):
 
         receipt_data = self.generate_receipt_data()
         receipt_data["Email"] = email
-
+        
         init_payment = TinkoffPayment.objects.create(
             order=self,
             receipt_data=receipt_data

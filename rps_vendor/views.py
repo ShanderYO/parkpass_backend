@@ -35,7 +35,7 @@ from rps_vendor.tasks import rps_process_updated_sessions
 from rps_vendor.validators import RpsCreateParkingSessionValidator, RpsUpdateParkingSessionValidator, \
     RpsCancelParkingSessionValidator, RpsCompleteParkingSessionValidator, RpsUpdateListParkingSessionValidator, \
     ParkingCardRequestBodyValidator, ParkingCardSessionBodyValidator, CreateOrGetAccountBodyValidator, \
-    SubscriptionUpdateBodyValidator, DeveloperCardSessionBodyValidator
+    SubscriptionUpdateBodyValidator, DeveloperCardSessionBodyValidator, InitPaymentValidator
 
 
 class RpsCreateParkingSessionView(SignedRequestAPIView):
@@ -478,6 +478,100 @@ class ConfirmPayDeveloperDebt(APIView):
                 message="Parking card session does not exist"
             )
             return JsonResponse(e.to_dict(), status=400)
+
+
+class InitPaymentMixin:
+    validator_class = InitPaymentValidator
+
+    def post(self, request, *args, **kwargs):
+        card_id = request.data["card_id"]
+        parking_id = request.data["parking_id"]
+        parking_enter_time = request.data["parking_enter_time"]
+        parking_amount_calculated_time = request.data["parking_amount_calculated_time"]
+        currency = request.data.get("currency", "RUB")
+        email = request.data.get("email", None)
+        duration = int(request.data["duration"])
+        amount = int(request.data["amount"])
+        parking_redirect_url = request.data["parking_redirect_url"]
+        parking_payment_url = request.data["parking_payment_url"]
+        
+
+        parking_card, _ = ParkingCard.objects.get_or_create(
+            card_id=card_id
+        )
+        try:
+            rps_parking = RpsParking.objects.select_related(
+                'parking').get(parking__id=parking_id)
+
+            if not rps_parking.parking.rps_parking_card_available:
+                raise ObjectDoesNotExist()
+
+            parking_card_debt = rps_parking.get_parking_card_debt(parking_card, debt=amount, duration=duration)
+            if parking_card_debt:
+                parking_card_debt["parking_name"] = rps_parking.parking.name
+            else:
+                e = ValidationException(
+                    ValidationException.RESOURCE_NOT_FOUND,
+                    "Card with number %s does not exist" % card_id)
+                return JsonResponse(e.to_dict(), status=400)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                code=ValidationException.ACTION_UNAVAILABLE,
+                message="Parking does not found or parking card is unavailable"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+        
+        
+        card_session = int(parking_card_debt['id'])
+        try:
+            card_session = RpsParkingCardSession.objects.get(
+                id=card_session
+            )
+            if card_session.state not in [STATE_CREATED, STATE_ERROR]:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Parking card session is already paid"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            if card_session.debt == 0:
+                e = ValidationException(
+                    code=ValidationException.INVALID_RESOURCE_STATE,
+                    message="Debt is 0. Nothing to pay"
+                )
+                return JsonResponse(e.to_dict(), status=400)
+
+            new_client_uuid = uuid.uuid4()
+            card_session.client_uuid = new_client_uuid
+            card_session.save()
+
+            order = Order.objects.create(
+                sum=Decimal(card_session.debt),
+                parking_card_session=card_session,
+                terminal=Terminal.objects.get(name="pcard")
+            )
+            result = order.create_non_recurrent_payment(email=email)
+            response_dict = dict(
+                client_uuid=str(new_client_uuid)
+            )
+            if result:
+                card_session.state = STATE_INITED
+                card_session.save()
+                response_dict["payment_url"] = result["payment_url"]
+
+            return JsonResponse(response_dict, status=200)
+
+        except ObjectDoesNotExist:
+            e = ValidationException(
+                ValidationException.RESOURCE_NOT_FOUND,
+                message="Parking card session does not exist"
+            )
+            return JsonResponse(e.to_dict(), status=400)
+
+
+class InitPayment(InitPaymentMixin, APIView):
+    pass
 
 
 class GetCardSessionStatusMixin:
