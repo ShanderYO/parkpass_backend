@@ -4,6 +4,8 @@ import logging
 import re
 import time
 import datetime
+import requests
+from requests.exceptions import RequestException, HTTPError, ConnectionError, Timeout
 
 import pytz
 from django.core.exceptions import ObjectDoesNotExist, FieldError
@@ -16,6 +18,36 @@ from dss.Serializer import serializer
 from base.exceptions import ValidationException
 from parkpass_backend.settings import BASE_LOGGER_NAME
 from parkpass_backend.settings import PAGINATION_OBJECTS_PER_PAGE
+
+
+def send_request_with_retries(url, method='GET', retries=3, backoff_factor=0.3, **kwargs):
+    """
+    Send a HTTP request with retries.
+    
+    Parameters:
+        url (str): The URL to send the request to.
+        method (str): The HTTP method to use ('GET', 'POST', etc.). Default is 'GET'.
+        retries (int): The maximum number of retry attempts. Default is 3.
+        backoff_factor (float): A backoff factor to apply between attempts. Default is 0.3.
+        **kwargs: Additional arguments passed to `requests.request`.
+
+    Returns:
+        requests.Response: The response object.
+    
+    Raises:
+        requests.exceptions.RequestException: An error occurred while handling the request.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.request(method, url, **kwargs)
+            response.raise_for_status()  # Raise HTTPError for bad responses (4xx and 5xx)
+            return response
+        except (HTTPError, ConnectionError, Timeout) as e:
+            if attempt == retries:
+                raise RequestException(f"Request failed after {retries} retries") from e
+            time.sleep(backoff_factor * (2 ** (attempt - 1)))  # Exponential backoff
+        except RequestException as e:
+            raise e  # Non-retryable error, raise immediately
 
 
 def strtobool(s):

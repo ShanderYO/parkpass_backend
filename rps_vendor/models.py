@@ -23,7 +23,7 @@ from urllib3 import Retry
 from dss.Serializer import serializer
 
 from accounts.models import Account
-from base.utils import get_logger, elastic_log
+from base.utils import get_logger, elastic_log, send_request_with_retries
 from parkpass_backend.settings import ES_APP_CARD_PAY_LOGS_INDEX_NAME
 from payments.models import Order
 
@@ -65,8 +65,8 @@ class RpsParking(models.Model):
     def get_parking_card_debt_url(self, query):
         return self.request_parking_card_debt_url + '?' + query
 
-    def get_parking_card_debt(self, parking_card, debt=None, duration=None):
-        if debt is None or duration is None:
+    def get_parking_card_debt(self, parking_card, debt=None, duration=None, enter_ts=None):
+        if debt is None or duration is None or enter_ts is None:
             get_logger(f"get_parking_card_debt: debt={str(debt)} or duration={str(duration)} call make_http from rps")
             debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
         get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
@@ -296,36 +296,42 @@ class RpsParkingCardSession(models.Model):
 
         self.last_request_date = timezone.now()
         self.last_request_body = payload
+        if order.payload:
+            url = order.payload["parking_payment_url"]
+            data = {"regularCustomerId": order.payload["card_id"],
+                    "amount": int(order.sum)}
+            send_request_with_retries(url, 'POST', retries=5, data=data)
+            return True
+        else:
+            try:
+                rps_parking = RpsParking.objects.select_related(
+                    'parking').get(parking__id=self.parking_id)
 
-        try:
-            rps_parking = RpsParking.objects.select_related(
-                'parking').get(parking__id=self.parking_id)
+                result = self._make_http_ok_status(
+                    rps_parking.request_payment_authorize_url, payload, developer_id, rps_parking)
 
-            result = self._make_http_ok_status(
-                rps_parking.request_payment_authorize_url, payload, developer_id, rps_parking)
+                if result['success']:
+                    if result['leave_at'] is not None:
+                        order.parking_card_session.leave_at = result['leave_at']
+                        order.parking_card_session.save()
+                    else:
+                        get_logger().info("Get `leave_at` is None from RPS")
+                        # return False
 
-            if result['success']:
-                if result['leave_at'] is not None:
-                    order.parking_card_session.leave_at = result['leave_at']
-                    order.parking_card_session.save()
+                    elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
+                        'rps_request_data': result['leave_at'] if result['leave_at'] else '',
+                        'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+                        'payload': payload
+                    })
+
+                    return True
                 else:
-                    get_logger().info("Get `leave_at` is None from RPS")
-                    # return False
+                    return False
 
-                elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
-                    'rps_request_data': result['leave_at'] if result['leave_at'] else '',
-                    'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-                    'payload': payload
-                })
-
-                return True
-            else:
-                return False
-
-        except ObjectDoesNotExist:
-            self.state = STATE_ERROR
-            self.save()
-            get_logger().warn("RPS parking is not found")
+            except ObjectDoesNotExist:
+                self.state = STATE_ERROR
+                self.save()
+                get_logger().warn("RPS parking is not found")
 
         return False
 

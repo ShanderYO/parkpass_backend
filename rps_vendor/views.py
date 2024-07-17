@@ -2,6 +2,7 @@ import datetime
 import secrets
 import time
 import uuid
+from datetime import datetime as dt
 from decimal import Decimal
 
 import requests
@@ -495,6 +496,9 @@ class InitPaymentMixin:
         parking_redirect_url = request.data["parking_redirect_url"]
         parking_payment_url = request.data["parking_payment_url"]
         
+        enter_ts =  datetime_to_timestamp(dt.strptime(parking_enter_time,
+                                                      "%Y-%m-%d %H:%M:%S.%f"))
+        
 
         parking_card, _ = ParkingCard.objects.get_or_create(
             card_id=card_id
@@ -506,7 +510,7 @@ class InitPaymentMixin:
             if not rps_parking.parking.rps_parking_card_available:
                 raise ObjectDoesNotExist()
 
-            parking_card_debt = rps_parking.get_parking_card_debt(parking_card, debt=amount, duration=duration)
+            parking_card_debt = rps_parking.get_parking_card_debt(parking_card, debt=amount, duration=duration, enter_ts=enter_ts)
             if parking_card_debt:
                 parking_card_debt["parking_name"] = rps_parking.parking.name
             else:
@@ -549,11 +553,20 @@ class InitPaymentMixin:
             order = Order.objects.create(
                 sum=Decimal(card_session.debt),
                 parking_card_session=card_session,
-                terminal=Terminal.objects.get(name="pcard")
+                terminal=Terminal.objects.get(name="pcard"),
+                payload=dict(
+                    card_id=card_id,
+                    parking_redirect_url=parking_redirect_url,
+                    parking_payment_url=parking_payment_url,
+                    currency=currency,
+                    parking_enter_time=parking_enter_time,
+                    parking_amount_calculated_time=parking_amount_calculated_time
+                )
             )
             result = order.create_non_recurrent_payment(email=email)
             response_dict = dict(
-                client_uuid=str(new_client_uuid)
+                client_uuid=str(new_client_uuid),
+                order_id=order.id,
             )
             if result:
                 card_session.state = STATE_INITED
