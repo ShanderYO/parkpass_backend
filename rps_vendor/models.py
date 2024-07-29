@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
+from integration.services import RpsIntegrationService
 
 from dss.Serializer import serializer
 
@@ -53,6 +54,12 @@ class RpsParking(models.Model):
     last_response_code = models.IntegerField(default=0)
     last_response_body = models.TextField(null=True, blank=True)
     parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
+    
+    domain = models.CharField(max_length=255, null=True, blank=True)
+    token = models.CharField(max_length=255, null=True, blank=True)
+    token_expired = models.DateTimeField(null=True, blank=True)
+    integrator_id = models.CharField(max_length=255, null=True, blank=True)
+    integrator_password = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]
@@ -61,6 +68,19 @@ class RpsParking(models.Model):
 
     def __str__(self):
         return "%s" % (self.parking.name)
+    
+    def ensure_token(self):
+        if self.token_expired is None or self.token_expired <= timezone.now():
+            token, expired_date = RpsIntegrationService.get_token(self)
+            if token:
+                self.token = token
+                self.token_expired = expired_date
+                self.save()
+            return token
+        return self.token
+
+    def make_rps_request(self, endpoint, payload):
+        return RpsIntegrationService.make_rps_request(self, endpoint, payload)
 
     def get_parking_card_debt_url(self, query):
         return self.request_parking_card_debt_url + '?' + query
