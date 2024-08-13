@@ -9,12 +9,15 @@ if TYPE_CHECKING:
 
 
 class RpsIntegrationService:
+
+    connect_timeout = 5.0
+
     @staticmethod
-    def get_token(rps_parking: 'RpsParking'):
+    def get_token(rps_parking: "RpsParking"):
         url = f"https://{rps_parking.domain}/api2/integration/token"
         payload = {
             "id": rps_parking.integrator_id,
-            "pwd": rps_parking.integrator_password
+            "pwd": rps_parking.integrator_password,
         }
 
         try:
@@ -22,8 +25,10 @@ class RpsIntegrationService:
             if response.status_code == 200:
                 result = response.json()
                 token = result.get("token")
-                
-                expired_date = dt.strptime(result.get("tokenValidTo"), "%Y-%m-%d %H:%M:%S")
+
+                expired_date = dt.strptime(
+                    result.get("tokenValidTo"), "%Y-%m-%d %H:%M:%S"
+                )
                 return token, expired_date
             else:
                 # Handle non-200 response
@@ -32,44 +37,23 @@ class RpsIntegrationService:
             # Handle request exception
             return None, None
 
-    @staticmethod
-    def make_rps_request(rps_parking: 'RpsParking', endpoint, payload):
-        domain = f"http://{rps_parking.request_update_url.split('/')[1:][1]}"
-        url = f"https://your-rps-domain.com/api/v1/parking/{endpoint}/"
+    def make_rps_request(self, rps_parking, url, payload=None):
         headers = {
-            "Authorization": f"Bearer {rps_parking.ensure_token()}",
-            "Content-Type": "application/json"
+            "RPSIntegrator": f"Id {rps_parking.integrator_id}",
+            "Authorization": f"Bearer {rps_parking.token}",
+            "Content-Type": "application/json",
         }
-
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(2, 5))
-            # Handle response...
-            return response.json() if response.status_code == 200 else None
-        except requests.exceptions.RequestException as e:
-            # Handle request exception
-            return None
-
-
-class RPSService:
-    def __init__(self, rps_parking_instance):
-        self.rps_parking = rps_parking_instance
-
-    def make_rps_request(self, url, payload=None):
-        headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
-            'Content-Type': 'application/json'  # пример content-type, подставьте свой если нужно
-        }
-
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             response.raise_for_status()
             return response.json() if response.status_code == 200 else None
         except requests.exceptions.RequestException as e:
             # Обработка ошибок запроса
             print(f"Request to RPS failed: {e}")
             return None
-        
+
 
 class RPSService:
     def __init__(self, rps_parking_instance, base_url: str):
@@ -78,169 +62,178 @@ class RPSService:
         self.base_url = base_url  # базовый URL РПС
 
     def get_subscriptions(self):
-        url = f'{self.base_url}/subscriptions'
+        url = f"{self.base_url}/subscriptions"
         headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
+            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
+            "Authorization": f"Bearer {self.rps_parking.token}",
         }
 
         try:
-            response = requests.get(url, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.get(
+                url, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             response.raise_for_status()
             return response.json() if response.status_code == 200 else None
         except requests.exceptions.RequestException as e:
             print(f"Request to RPS failed: {e}")
             return None
 
-    def purchase_subscription(self, user_id, subscription_id, amount, ts_id, transaction_id):
-        url = f'{self.base_url}/subscriptions/pay'
+    def purchase_subscription(
+        self, user_id, subscription_id, amount, ts_id, transaction_id
+    ):
+        url = f"{self.base_url}/subscriptions/pay"
         headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
-            'Content-Type': 'application/json'
+            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
+            "Authorization": f"Bearer {self.rps_parking.token}",
+            "Content-Type": "application/json",
         }
         payload = {
-            'user_id': user_id,
-            'subscription_id': subscription_id,
-            'sum': amount,
-            'ts_id': ts_id,
-            'transaction_id': transaction_id
+            "user_id": user_id,
+            "subscription_id": subscription_id,
+            "sum": amount,
+            "ts_id": ts_id,
+            "transaction_id": transaction_id,
         }
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             return response.status_code  # Возвращаем статус кода ответа
         except requests.exceptions.RequestException as e:
             print(f"Request to RPS failed: {e}")
             return None
 
     def subscription_callback(self, subscription_id, expired_at):
-        url = 'https://parkpass.ru/api/v1/parking/rps/subscription/callback/'
-        payload = {
-            'subscription_id': subscription_id,
-            'expired_at': expired_at
-        }
+        url = "https://parkpass.ru/api/v1/parking/rps/subscription/callback/"
+        payload = {"subscription_id": subscription_id, "expired_at": expired_at}
 
         try:
-            response = requests.post(url, json=payload, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, timeout=(self.connect_timeout, 5.0)
+            )
             return response.status_code  # Возвращаем статус кода ответа
         except requests.exceptions.RequestException as e:
             print(f"Callback to ParkPass failed: {e}")
             return None
 
     def entrance_permission(self, eTicket, regularCustomerId):
-        url = f'{self.base_url}/api2/integration/qr/entrance/permission'
+        url = f"{self.base_url}/api2/integration/qr/entrance/permission"
         headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
-            'Content-Type': 'application/json'
+            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
+            "Authorization": f"Bearer {self.rps_parking.token}",
+            "Content-Type": "application/json",
         }
-        payload = {
-            'eTicket': eTicket,
-            'regularCustomerId': regularCustomerId
-        }
+        payload = {"eTicket": eTicket, "regularCustomerId": regularCustomerId}
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             return response.json() if response.status_code == 200 else None
         except requests.exceptions.RequestException as e:
             print(f"Request to RPS failed: {e}")
             return None
 
     def entrance_confirmation(self, eTicket, regularCustomerId):
-        url = f'{self.base_url}/api2/integration/qr/entrance/confirmation'
+        url = f"{self.base_url}/api2/integration/qr/entrance/confirmation"
         headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
-            'Content-Type': 'application/json'
+            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
+            "Authorization": f"Bearer {self.rps_parking.token}",
+            "Content-Type": "application/json",
         }
-        payload = {
-            'eTicket': eTicket,
-            'regularCustomerId': regularCustomerId
-        }
+        payload = {"eTicket": eTicket, "regularCustomerId": regularCustomerId}
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             return response.status_code  # Возвращаем статус кода ответа
         except requests.exceptions.RequestException as e:
             print(f"Request to RPS failed: {e}")
             return None
 
     def get_sessions_status(self, sessions):
-        url = f'{self.base_url}/api2/integration/qr/sessions'
+        url = f"{self.base_url}/api2/integration/qr/sessions"
         headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
-            'Content-Type': 'application/json'
+            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
+            "Authorization": f"Bearer {self.rps_parking.token}",
+            "Content-Type": "application/json",
         }
-        payload = {
-            'sessions': sessions
-        }
+        payload = {"sessions": sessions}
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             return response.json() if response.status_code == 200 else None
         except requests.exceptions.RequestException as e:
             print(f"Request to RPS failed: {e}")
             return None
 
     def notify_payment(self, eTicket, regularCustomerId, amount):
-        url = f'{self.base_url}/api2/integration/payment'
+        url = f"{self.base_url}/api2/integration/payment"
         headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
-            'Content-Type': 'application/json'
+            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
+            "Authorization": f"Bearer {self.rps_parking.token}",
+            "Content-Type": "application/json",
         }
         payload = {
-            'eTicket': eTicket,
-            'regularCustomerId': regularCustomerId,
-            'amount': amount
+            "eTicket": eTicket,
+            "regularCustomerId": regularCustomerId,
+            "amount": amount,
         }
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             return response.status_code  # Возвращаем статус кода ответа
         except requests.exceptions.RequestException as e:
             print(f"Request to RPS failed: {e}")
             return None
 
     def exit_permission(self, deviceId, qrNumber, eTicket, regularCustomerId):
-        url = f'{self.base_url}/api2/integration/qr/exit/permission'
+        url = f"{self.base_url}/api2/integration/qr/exit/permission"
         headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
-            'Content-Type': 'application/json'
+            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
+            "Authorization": f"Bearer {self.rps_parking.token}",
+            "Content-Type": "application/json",
         }
         payload = {
-            'deviceId': deviceId,
-            'qrNumber': qrNumber,
-            'eTicket': eTicket,
-            'regularCustomerId': regularCustomerId
+            "deviceId": deviceId,
+            "qrNumber": qrNumber,
+            "eTicket": eTicket,
+            "regularCustomerId": regularCustomerId,
         }
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             return response.json() if response.status_code == 200 else None
         except requests.exceptions.RequestException as e:
             print(f"Request to RPS failed: {e}")
             return None
 
     def exit_confirmation(self, deviceId, qrNumber, eTicket, regularCustomerId):
-        url = f'{self.base_url}/api2/integration/qr/exit/confirmation'
+        url = f"{self.base_url}/api2/integration/qr/exit/confirmation"
         headers = {
-            'RPSIntegrator': f'Id {self.rps_parking.integrator_id}',
-            'Authorization': f'Bearer {self.rps_parking.token}',
-            'Content-Type': 'application/json'
+            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
+            "Authorization": f"Bearer {self.rps_parking.token}",
+            "Content-Type": "application/json",
         }
         payload = {
-            'deviceId': deviceId,
-            'qrNumber': qrNumber,
-            'eTicket': eTicket,
-            'regularCustomerId': regularCustomerId
+            "deviceId": deviceId,
+            "qrNumber": qrNumber,
+            "eTicket": eTicket,
+            "regularCustomerId": regularCustomerId,
         }
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0))
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+            )
             return response.status_code  # Возвращаем статус кода ответа
         except requests.exceptions.RequestException as e:
             print(f"Request to RPS failed: {e}")
