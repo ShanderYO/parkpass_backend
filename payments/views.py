@@ -301,9 +301,6 @@ class TinkoffCallbackView(APIView):
         else:
             get_logger().warn("Unknown successefull operation")
             order.save()
-
-        if order.payload:
-            HttpResponseRedirect(order.payload.get("parking_redirect_url"))
         return HttpResponse("OK", status=200)
 
     def log_data(self, data):
