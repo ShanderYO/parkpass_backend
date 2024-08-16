@@ -39,9 +39,9 @@ class RpsIntegrationService:
 
     def make_rps_request(self, rps_parking, url, payload=None):
         headers = {
-            "RPSIntegrator": f"Id {rps_parking.integrator_id}",
+            "RPSIntegrator": f"{rps_parking.integrator_id}",
             "Authorization": f"Bearer {rps_parking.token}",
-            "Content-Type": "application/json",
+            # "Content-Type": "application/json",
         }
         try:
             response = requests.post(
@@ -53,13 +53,21 @@ class RpsIntegrationService:
             # Обработка ошибок запроса
             print(f"Request to RPS failed: {e}")
             return None
+        
+    def send_rps_confirm_payment(self, rps_parking, card_id, amount):
+        url = f"https://{rps_parking.domain}/api2/integration/payment"
+        payload = {"regularCustomerId": card_id, "amount": amount}
+        
+        return self.make_rps_request(rps_parking, url, payload)
 
 
 class RPSService:
     def __init__(self, rps_parking_instance, base_url: str):
         self.rps_parking = rps_parking_instance
         self.connect_timeout = 5.0
-        self.base_url = base_url  # базовый URL РПС
+        self.base_url = base_url
+        
+    def send_rps_confirm_payment(self, u):
 
     def get_subscriptions(self):
         url = f"{self.base_url}/subscriptions"
