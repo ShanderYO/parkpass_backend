@@ -53,11 +53,11 @@ class RpsIntegrationService:
             # Обработка ошибок запроса
             print(f"Request to RPS failed: {e}")
             return None
-        
+
     def send_rps_confirm_payment(self, rps_parking, card_id, amount):
         url = f"https://{rps_parking.domain}/api2/integration/payment"
         payload = {"regularCustomerId": card_id, "amount": amount}
-        
+
         return self.make_rps_request(rps_parking, url, payload)
 
 
@@ -66,8 +66,6 @@ class RPSService:
         self.rps_parking = rps_parking_instance
         self.connect_timeout = 5.0
         self.base_url = base_url
-        
-    def send_rps_confirm_payment(self, u):
 
     def get_subscriptions(self):
         url = f"{self.base_url}/subscriptions"

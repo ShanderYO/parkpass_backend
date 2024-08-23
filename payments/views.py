@@ -217,8 +217,17 @@ class TinkoffCallbackView(APIView):
             elif self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
                 order.save()
+                if order.payload:
+                    parking_id = order.parking_card_session.parking_id
+                    rps_parking = RpsParking.objects.get(parking_id=parking_id)
+                    card_id = order.payload.get("card_id")
+                    RpsIntegrationService().send_rps_confirm_payment(
+                        rps_parking, card_id, int(order.sum)
+                    )
+                    get_logger().info(
+                        "send_rps_confirm_payment from notify_confirm_rps"
+                    )
                 self.notify_confirm_rps(order)  # TODO make async
-
             else:
                 order.paid = False
                 order.authorized = False
@@ -824,20 +833,12 @@ class HomeBankCallbackView(APIView):
 
     def notify_confirm_rps(self, order):
         if order.parking_card_session.notify_confirm(order):
-            parking_id = order.parking_card_session.parking_id
-            rps_parking = RpsParking.objects.get(parking_id=parking_id)
-            card_id = order.payload.get("card_id")
-            RpsIntegrationService().send_rps_confirm_payment(rps_parking, card_id, int(order.sum))
             order.paid_notified_at = timezone.now()
             order.save()
 
     def notify_authorize_rps(self, order):
         get_logger().info("notify_authorize_rps")
         if order.parking_card_session.notify_authorize(order):
-            parking_id = order.parking_card_session.parking_id
-            rps_parking = RpsParking.objects.get(parking_id=parking_id)
-            card_id = order.payload.get("card_id")
-            RpsIntegrationService().send_rps_confirm_payment(rps_parking, card_id, int(order.sum))
             self.confirm_order(order)
         else:
             self.refund(order)
