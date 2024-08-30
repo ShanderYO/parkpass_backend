@@ -19,11 +19,12 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
+from integration.services import RpsIntegrationService
 
 from dss.Serializer import serializer
 
 from accounts.models import Account
-from base.utils import get_logger, elastic_log
+from base.utils import get_logger, elastic_log, send_request_with_retries
 from parkpass_backend.settings import ES_APP_CARD_PAY_LOGS_INDEX_NAME
 from payments.models import Order
 
@@ -53,6 +54,12 @@ class RpsParking(models.Model):
     last_response_code = models.IntegerField(default=0)
     last_response_body = models.TextField(null=True, blank=True)
     parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
+    
+    domain = models.CharField(max_length=255, null=True, blank=True)
+    token = models.CharField(max_length=255, null=True, blank=True)
+    token_expired = models.DateTimeField(null=True, blank=True)
+    integrator_id = models.CharField(max_length=255, null=True, blank=True)
+    integrator_password = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]
@@ -61,13 +68,28 @@ class RpsParking(models.Model):
 
     def __str__(self):
         return "%s" % (self.parking.name)
+    
+    def ensure_token(self):
+        if self.token_expired is None or self.token_expired <= timezone.now():
+            token, expired_date = RpsIntegrationService.get_token(self)
+            if token:
+                self.token = token
+                self.token_expired = expired_date
+                self.save()
+            return token
+        return self.token
+
+    def make_rps_request(self, endpoint, payload):
+        return RpsIntegrationService.make_rps_request(self, endpoint, payload)
 
     def get_parking_card_debt_url(self, query):
         return self.request_parking_card_debt_url + '?' + query
 
-    def get_parking_card_debt(self, parking_card):
-        debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
-        get_logger("Returns: debt=%s, duration=%s" % (debt, duration,))
+    def get_parking_card_debt(self, parking_card, debt=None, duration=None, enter_ts=None):
+        if debt is None or duration is None or enter_ts is None:
+            get_logger(f"get_parking_card_debt: debt={str(debt)} or duration={str(duration)} call make_http from rps")
+            debt, enter_ts, duration = self._make_http_for_parking_card_debt(parking_card.card_id)
+        get_logger("Returns: debt=%s, duration=%s" %(debt, duration,))
 
         # if Card
         if debt is None or (debt == 0 and enter_ts == 0 and duration == 0):
@@ -294,36 +316,42 @@ class RpsParkingCardSession(models.Model):
 
         self.last_request_date = timezone.now()
         self.last_request_body = payload
+        if order.payload:
+            url = order.payload["parking_payment_url"]
+            data = {"regularCustomerId": order.payload["card_id"],
+                    "amount": int(order.sum)}
+            send_request_with_retries(url, 'POST', retries=5, data=data)
+            return True
+        else:
+            try:
+                rps_parking = RpsParking.objects.select_related(
+                    'parking').get(parking__id=self.parking_id)
 
-        try:
-            rps_parking = RpsParking.objects.select_related(
-                'parking').get(parking__id=self.parking_id)
+                result = self._make_http_ok_status(
+                    rps_parking.request_payment_authorize_url, payload, developer_id, rps_parking)
 
-            result = self._make_http_ok_status(
-                rps_parking.request_payment_authorize_url, payload, developer_id, rps_parking)
+                if result['success']:
+                    if result['leave_at'] is not None:
+                        order.parking_card_session.leave_at = result['leave_at']
+                        order.parking_card_session.save()
+                    else:
+                        get_logger().info("Get `leave_at` is None from RPS")
+                        # return False
 
-            if result['success']:
-                if result['leave_at'] is not None:
-                    order.parking_card_session.leave_at = result['leave_at']
-                    order.parking_card_session.save()
+                    elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
+                        'rps_request_data': result['leave_at'] if result['leave_at'] else '',
+                        'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+                        'payload': payload
+                    })
+
+                    return True
                 else:
-                    get_logger().info("Get `leave_at` is None from RPS")
-                    # return False
+                    return False
 
-                elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
-                    'rps_request_data': result['leave_at'] if result['leave_at'] else '',
-                    'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-                    'payload': payload
-                })
-
-                return True
-            else:
-                return False
-
-        except ObjectDoesNotExist:
-            self.state = STATE_ERROR
-            self.save()
-            get_logger().warn("RPS parking is not found")
+            except ObjectDoesNotExist:
+                self.state = STATE_ERROR
+                self.save()
+                get_logger().warn("RPS parking is not found")
 
         return False
 

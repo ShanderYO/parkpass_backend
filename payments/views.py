@@ -4,7 +4,7 @@ import os
 from decimal import Decimal
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, HttpResponseRedirect
 from django.shortcuts import render
 from django.utils import timezone
 from django.utils.decorators import decorator_from_middleware
@@ -16,15 +16,38 @@ from middlewares.ApiTokenMiddleware import ApiTokenMiddleware
 from notifications.models import AccountDevice
 from parkings.models import ParkingSession
 from parkpass_backend import settings
-from parkpass_backend.settings import ES_APP_PAYMENTS_LOGS_INDEX_NAME, ES_APP_SESSION_PAY_LOGS_INDEX_NAME, ES_APP_CARD_PAY_LOGS_INDEX_NAME, \
-    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME
-from payments.models import CreditCard, TinkoffPayment, PAYMENT_STATUS_REJECTED, \
-    PAYMENT_STATUS_AUTHORIZED, PAYMENT_STATUS_CONFIRMED, PAYMENT_STATUS_REVERSED, PAYMENT_STATUS_REFUNDED, \
-    PAYMENT_STATUS_PARTIAL_REFUNDED, Order, PAYMENT_STATUS_RECEIPT, FiskalNotification, PAYMENT_STATUS_UNKNOWN, \
-    PAYMENT_STATUS_PREPARED_AUTHORIZED, HomeBankPayment, HomeBankFiskalNotification
+from parkpass_backend.settings import (
+    ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+    ES_APP_SESSION_PAY_LOGS_INDEX_NAME,
+    ES_APP_CARD_PAY_LOGS_INDEX_NAME,
+    ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME,
+)
+from payments.models import (
+    CreditCard,
+    TinkoffPayment,
+    PAYMENT_STATUS_REJECTED,
+    PAYMENT_STATUS_AUTHORIZED,
+    PAYMENT_STATUS_CONFIRMED,
+    PAYMENT_STATUS_REVERSED,
+    PAYMENT_STATUS_REFUNDED,
+    PAYMENT_STATUS_PARTIAL_REFUNDED,
+    Order,
+    PAYMENT_STATUS_RECEIPT,
+    FiskalNotification,
+    PAYMENT_STATUS_UNKNOWN,
+    PAYMENT_STATUS_PREPARED_AUTHORIZED,
+    HomeBankPayment,
+    HomeBankFiskalNotification,
+)
 from payments.payment_api import TinkoffAPI, HomeBankOdfAPI
 
-from payments.tasks import start_cancel_request, make_buy_subscription_request, create_screenshot
+from payments.tasks import (
+    start_cancel_request,
+    make_buy_subscription_request,
+    create_screenshot,
+)
+from integration.services import RpsIntegrationService
+from rps_vendor.models import RpsParking
 
 
 class TinkoffCallbackView(APIView):
@@ -38,14 +61,18 @@ class TinkoffCallbackView(APIView):
 
     def post(self, request, *args, **kwargs):
         self.log_data(request.data)
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get Tinkoff callback", request.data)
+        elastic_log(
+            ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get Tinkoff callback", request.data
+        )
 
         self.is_successful = request.data.get("Success", False)
         self.status = self.parse_status(request.data["Status"])
         self.current_terminal = request.data.get("TerminalKey")
 
         if self.status == PAYMENT_STATUS_UNKNOWN:
-            get_logger().error("status 400: Unknown status: -> %s" % request.data["Status"])
+            get_logger().error(
+                "status 400: Unknown status: -> %s" % request.data["Status"]
+            )
             return HttpResponse(status=400)
 
         if not self.is_successful:
@@ -63,7 +90,10 @@ class TinkoffCallbackView(APIView):
         amount = int(request.data.get("Amount", 0))
 
         # Check if PAYMENT REFUNDED
-        if self.status == PAYMENT_STATUS_REFUNDED or self.status == PAYMENT_STATUS_PARTIAL_REFUNDED:
+        if (
+            self.status == PAYMENT_STATUS_REFUNDED
+            or self.status == PAYMENT_STATUS_PARTIAL_REFUNDED
+        ):
             # self.refunded_order(
             #     order_id, amount,
             #     self.status==PAYMENT_STATUS_PARTIAL_REFUNDED)
@@ -82,8 +112,9 @@ class TinkoffCallbackView(APIView):
             return HttpResponse("OK", status=200)
 
         # Get order with dependencies
-        order = Order.retrieve_order_with_fk(order_id, fk=["account", "session",
-                                                           "parking_card_session", "subscription"])
+        order = Order.retrieve_order_with_fk(
+            order_id, fk=["account", "session", "parking_card_session", "subscription"]
+        )
         if not order:
             get_logger().warn("Order with id %s does not exist" % order_id)
             return HttpResponse("OK", status=200)
@@ -104,11 +135,19 @@ class TinkoffCallbackView(APIView):
                 order.save()
                 self.close_parking_session_if_needed(order)
 
-            elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Payment callback for session", {
-                'parking_session': serializer(order.session),
-                'request_data': request.data,
-                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-            })
+            elastic_log(
+                ES_APP_SESSION_PAY_LOGS_INDEX_NAME,
+                "Payment callback for session",
+                {
+                    "parking_session": serializer(order.session),
+                    "request_data": request.data,
+                    "order": serializer(
+                        order,
+                        foreign=False,
+                        include_attr=("id", "sum", "authorized", "paid"),
+                    ),
+                },
+            )
 
         elif self.is_account_credit_card_payment(order):
             rebill_id = int(request.data["RebillId"])
@@ -116,7 +155,8 @@ class TinkoffCallbackView(APIView):
             exp_date = request.data["ExpDate"]
 
             stored_card = CreditCard.objects.filter(
-                card_id=card_id, account=order.account).first()
+                card_id=card_id, account=order.account
+            ).first()
 
             # Change rebill_id
             if stored_card:
@@ -131,7 +171,7 @@ class TinkoffCallbackView(APIView):
                     account=order.account,
                     pan=pan,
                     exp_date=exp_date,
-                    rebill_id=rebill_id
+                    rebill_id=rebill_id,
                 )
 
                 if not CreditCard.objects.filter(account=order.account).exists():
@@ -155,10 +195,18 @@ class TinkoffCallbackView(APIView):
                 order.paid = True
                 order.save()
 
-            elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Payment callback for card", {
-                'request_data': request.data,
-                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-            })
+            elastic_log(
+                ES_APP_CARD_PAY_LOGS_INDEX_NAME,
+                "Payment callback for card",
+                {
+                    "request_data": request.data,
+                    "order": serializer(
+                        order,
+                        foreign=False,
+                        include_attr=("id", "sum", "authorized", "paid"),
+                    ),
+                },
+            )
         elif self.is_parking_card_pay(order):
             get_logger().warn("is_parking_card_pay")
             if self.status == PAYMENT_STATUS_AUTHORIZED:
@@ -169,17 +217,34 @@ class TinkoffCallbackView(APIView):
             elif self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
                 order.save()
+                if order.payload:
+                    parking_id = order.parking_card_session.parking_id
+                    rps_parking = RpsParking.objects.get(parking_id=parking_id)
+                    card_id = order.payload.get("card_id")
+                    RpsIntegrationService().send_rps_confirm_payment(
+                        rps_parking, card_id, int(order.sum)
+                    )
+                    get_logger().info(
+                        "send_rps_confirm_payment from notify_confirm_rps"
+                    )
                 self.notify_confirm_rps(order)  # TODO make async
-
             else:
                 order.paid = False
                 order.authorized = False
                 self.notify_refund_rps(order)  # TODO make async
 
-            elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Payment callback for card", {
-                'request_data': request.data,
-                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-            })
+            elastic_log(
+                ES_APP_CARD_PAY_LOGS_INDEX_NAME,
+                "Payment callback for card",
+                {
+                    "request_data": request.data,
+                    "order": serializer(
+                        order,
+                        foreign=False,
+                        include_attr=("id", "sum", "authorized", "paid"),
+                    ),
+                },
+            )
 
         elif self.is_subscription_pay(order):
             if self.status == PAYMENT_STATUS_AUTHORIZED:
@@ -198,30 +263,55 @@ class TinkoffCallbackView(APIView):
                 subs.save()
 
                 # Событие продления абонемента
-                if (subs.account):
-                    device_for_push_notification = AccountDevice.objects.filter(account=subs.account, active=True)[0]
+                if subs.account:
+                    device_for_push_notification = AccountDevice.objects.filter(
+                        account=subs.account, active=True
+                    )[0]
                     if device_for_push_notification:
-                        device_for_push_notification.send_message(title='Абонемент продлён',
-                                                                  body='Мы продлили ваш абонемент на парковку %s до %s.' % (subs.parking.name, subs.expired_at))
+                        device_for_push_notification.send_message(
+                            title="Абонемент продлён",
+                            body="Мы продлили ваш абонемент на парковку %s до %s."
+                            % (subs.parking.name, subs.expired_at),
+                        )
 
             else:
                 subs = order.subscription
                 subs.reset(error_message="Payment error")
 
-            elastic_log(ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME, "Payment callback for subscription", {
-                'request_data': request.data,
-                'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-                'subs': serializer(subs,
-                                     include_attr=('id', 'name', 'description', 'sum', 'data', 'started_at',
-                                                   'expired_at', 'duration', 'prolongation', 'unlimited',
-                                                   'state', 'active', 'error_message',))
-            })
-
+            elastic_log(
+                ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME,
+                "Payment callback for subscription",
+                {
+                    "request_data": request.data,
+                    "order": serializer(
+                        order,
+                        foreign=False,
+                        include_attr=("id", "sum", "authorized", "paid"),
+                    ),
+                    "subs": serializer(
+                        subs,
+                        include_attr=(
+                            "id",
+                            "name",
+                            "description",
+                            "sum",
+                            "data",
+                            "started_at",
+                            "expired_at",
+                            "duration",
+                            "prolongation",
+                            "unlimited",
+                            "state",
+                            "active",
+                            "error_message",
+                        ),
+                    ),
+                },
+            )
 
         else:
             get_logger().warn("Unknown successefull operation")
             order.save()
-
         return HttpResponse("OK", status=200)
 
     def log_data(self, data):
@@ -265,24 +355,25 @@ class TinkoffCallbackView(APIView):
 
     def create_fiskal(self, data):
         """{u'OrderId': u'636', u'Status': u'RECEIPT',
-            u'Type': u'IncomeReturn', u'FiscalDocumentAttribute': 173423614,
-            u'Success': True, u'ReceiptDatetime': u'2018-06-18T12:27:00+03:00',
-            u'FiscalNumber': 2, u'Receipt': {
-                u'Items': [{u'Tax': u'vat10', u'Price': 4000,
-                u'Amount': 4000, u'Name': u'Payment for parking session # 45', u'Quantity': 1
-                }],
-                u'Taxation': u'osn',
-                u'Email': u'strevg@yandex.ru',
-                u'Phone': u'(+7)9852413193'
-            }, u'Token': u'853b3d4808f0fad89759e9d80f16210f4499216787dd71453c8d594c7e74659e',
-            u'FiscalDocumentNumber': 118, u'FnNumber': u'8710000101855975',
-            u'ErrorCode': u'0', u'Amount': 4000, u'TerminalKey': u'1516954410942',
-            u'PaymentId': 23735099, u'EcrRegNumber': u'0001785103056432', u'ShiftNumber': 56}
+        u'Type': u'IncomeReturn', u'FiscalDocumentAttribute': 173423614,
+        u'Success': True, u'ReceiptDatetime': u'2018-06-18T12:27:00+03:00',
+        u'FiscalNumber': 2, u'Receipt': {
+            u'Items': [{u'Tax': u'vat10', u'Price': 4000,
+            u'Amount': 4000, u'Name': u'Payment for parking session # 45', u'Quantity': 1
+            }],
+            u'Taxation': u'osn',
+            u'Email': u'strevg@yandex.ru',
+            u'Phone': u'(+7)9852413193'
+        }, u'Token': u'853b3d4808f0fad89759e9d80f16210f4499216787dd71453c8d594c7e74659e',
+        u'FiscalDocumentNumber': 118, u'FnNumber': u'8710000101855975',
+        u'ErrorCode': u'0', u'Amount': 4000, u'TerminalKey': u'1516954410942',
+        u'PaymentId': 23735099, u'EcrRegNumber': u'0001785103056432', u'ShiftNumber': 56}
         """
         receipt_datetime_str = data["ReceiptDatetime"]
 
         datetime_object = datetime.datetime.strptime(
-            receipt_datetime_str.split("+")[0], "%Y-%m-%dT%H:%M:%S")
+            receipt_datetime_str.split("+")[0], "%Y-%m-%dT%H:%M:%S"
+        )
         order_id = int(data.get("OrderId", -1))
 
         try:
@@ -301,18 +392,24 @@ class TinkoffCallbackView(APIView):
             fiscal_document_number=data.get("FiscalDocumentNumber", -1),
             fiscal_document_attribute=data.get("FiscalDocumentAttribute", -1),
             card_pan=order.paid_card_pan,
-            receipt=str(data.get("Receipt", "[]"))
+            receipt=str(data.get("Receipt", "[]")),
         )
 
-        check_url_request = TinkoffAPI().get_check_url(fiskal.ecr_reg_number, fiskal.fn_number,
-                                                       fiskal.fiscal_document_number)
+        check_url_request = TinkoffAPI().get_check_url(
+            fiskal.ecr_reg_number, fiskal.fn_number, fiskal.fiscal_document_number
+        )
 
-        if (check_url_request):
-            fiskal.url = "https://consumer.1-ofd.ru/v1?%s" % check_url_request['ticket']['qrCode']
+        if check_url_request:
+            fiskal.url = (
+                "https://consumer.1-ofd.ru/v1?%s"
+                % check_url_request["ticket"]["qrCode"]
+            )
             fiskal.save()
             account = order.get_account()
             if account and account.email_fiskal_notification_enabled and account.email:
-                create_screenshot.delay(fiskal.url, str(account.id) + str(order.id), account.email)
+                create_screenshot.delay(
+                    fiskal.url, str(account.id) + str(order.id), account.email
+                )
                 pass
 
         order.fiscal_notification = fiskal
@@ -320,19 +417,19 @@ class TinkoffCallbackView(APIView):
 
     def refunded_order(self, order_id, refunded_amount, is_partial):
         """
-            {
-                u'OrderId': u'18',
-                u'Status': u'REFUNDED',
-                u'Success': True,
-                u'Token': u'ced65967528612f4aa4a4890d59f44706c788e152c9dc4a4a73db331f2a99055',
-                u'ExpDate': u'1122',
-                u'ErrorCode': u'0',
-                u'Amount': 100,
-                u'TerminalKey': u'1516954410942DEMO',
-                u'CardId': 3582969,
-                u'PaymentId': 17881695,
-                u'Pan': u'430000******0777'
-            }
+        {
+            u'OrderId': u'18',
+            u'Status': u'REFUNDED',
+            u'Success': True,
+            u'Token': u'ced65967528612f4aa4a4890d59f44706c788e152c9dc4a4a73db331f2a99055',
+            u'ExpDate': u'1122',
+            u'ErrorCode': u'0',
+            u'Amount': 100,
+            u'TerminalKey': u'1516954410942DEMO',
+            u'CardId': 3582969,
+            u'PaymentId': 17881695,
+            u'Pan': u'430000******0777'
+        }
         """
 
         order = self.retrieve_order(order_id)
@@ -343,19 +440,19 @@ class TinkoffCallbackView(APIView):
 
     def reverse_order(self, order_id, amount):
         """
-            {
-                u'OrderId': u'743',
-                u'Status': u'REVERSED',
-                u'Success': True,
-                u'Token': u'f6f9f767f1b5e2e947fab9021b97aedd92894f0417517ae1e516423c47e08897',
-                u'ExpDate': u'0819',
-                u'ErrorCode': u'0',
-                u'Amount': 100,
-                u'TerminalKey': u'1516954410942',
-                u'CardId': 5546930,
-                u'PaymentId': 27254547,
-                u'Pan': u'510092******6768'
-            }
+        {
+            u'OrderId': u'743',
+            u'Status': u'REVERSED',
+            u'Success': True,
+            u'Token': u'f6f9f767f1b5e2e947fab9021b97aedd92894f0417517ae1e516423c47e08897',
+            u'ExpDate': u'0819',
+            u'ErrorCode': u'0',
+            u'Amount': 100,
+            u'TerminalKey': u'1516954410942',
+            u'CardId': 5546930,
+            u'PaymentId': 27254547,
+            u'Pan': u'510092******6768'
+        }
         """
 
         order = self.retrieve_order(order_id)
@@ -408,11 +505,13 @@ class TinkoffCallbackView(APIView):
         parking_session = order.session
         get_logger().info("check begin confirmation..")
         non_authorized_orders = Order.objects.filter(
-            session=parking_session,
-            authorized=False
+            session=parking_session, authorized=False
         )
 
-        if not non_authorized_orders.exists() and parking_session.is_completed_by_vendor():
+        if (
+            not non_authorized_orders.exists()
+            and parking_session.is_completed_by_vendor()
+        ):
             # Start confirmation
             session_orders = Order.objects.filter(
                 session=parking_session,
@@ -422,10 +521,14 @@ class TinkoffCallbackView(APIView):
                     try:
                         get_logger().info(str(session_order))
                         get_logger().info(str(PAYMENT_STATUS_AUTHORIZED))
-                        payment = TinkoffPayment.objects.get(order=session_order,
-                                                             status__in=[PAYMENT_STATUS_PREPARED_AUTHORIZED,
-                                                                         PAYMENT_STATUS_AUTHORIZED],
-                                                             error_code=-1)
+                        payment = TinkoffPayment.objects.get(
+                            order=session_order,
+                            status__in=[
+                                PAYMENT_STATUS_PREPARED_AUTHORIZED,
+                                PAYMENT_STATUS_AUTHORIZED,
+                            ],
+                            error_code=-1,
+                        )
                         session_order.confirm_payment(payment)
                     except ObjectDoesNotExist as e:
                         get_logger().info(e)
@@ -433,10 +536,7 @@ class TinkoffCallbackView(APIView):
             get_logger().info("Wait closing session")
 
     def close_parking_session_if_needed(self, order):
-        non_paid_orders = Order.objects.filter(
-            session=order.session,
-            paid=False
-        )
+        non_paid_orders = Order.objects.filter(session=order.session, paid=False)
         if not non_paid_orders.exists():
             parking_session = order.session
             if parking_session.is_completed_by_vendor():
@@ -444,10 +544,18 @@ class TinkoffCallbackView(APIView):
                 parking_session.state = ParkingSession.STATE_CLOSED
                 parking_session.save()
 
-                elastic_log(ES_APP_SESSION_PAY_LOGS_INDEX_NAME, "Close session after payment", {
-                    'parking_session': serializer(parking_session),
-                    'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-                })
+                elastic_log(
+                    ES_APP_SESSION_PAY_LOGS_INDEX_NAME,
+                    "Close session after payment",
+                    {
+                        "parking_session": serializer(parking_session),
+                        "order": serializer(
+                            order,
+                            foreign=False,
+                            include_attr=("id", "sum", "authorized", "paid"),
+                        ),
+                    },
+                )
 
     def confirm_order(self, order):
         payments = TinkoffPayment.objects.filter(order=order, error_code=-1)
@@ -476,16 +584,14 @@ class TinkoffCallbackView(APIView):
         if payments.exists():
             payment = payments[0]
             request_data = payment.build_cancel_request_data(int(order.sum * 100))
-            result = TinkoffAPI().sync_call(
-                TinkoffAPI.CANCEL, request_data
-            )
+            result = TinkoffAPI().sync_call(TinkoffAPI.CANCEL, request_data)
             get_logger().info(result)
-            if result.get("Status") == u'REVERSED':
+            if result.get("Status") == "REVERSED":
                 order.refunded_sum = float(result.get("OriginalAmount", 0)) / 100
-                get_logger().info('REVERSED: %s' % order.refunded_sum)
+                get_logger().info("REVERSED: %s" % order.refunded_sum)
                 order.save()
             else:
-                get_logger().warning('Refund undefined status')
+                get_logger().warning("Refund undefined status")
 
 
 class HomeBankCallbackView(APIView):
@@ -497,15 +603,19 @@ class HomeBankCallbackView(APIView):
 
     def post(self, request, *args, **kwargs):
         self.log_data(request.data)
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get HomeBank callback", request.data)
+        elastic_log(
+            ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get HomeBank callback", request.data
+        )
 
-        self.status = request.data.get('status', None)
+        self.status = request.data.get("status", None)
         self.is_successful = False
-        if request.data.get("code") == 'ok':
+        if request.data.get("code") == "ok":
             self.is_successful = True
 
         if not self.is_successful:
-            get_logger().error("Fail to pay, reasonCode - %s" % request.data["reasonCode"])
+            get_logger().error(
+                "Fail to pay, reasonCode - %s" % request.data["reasonCode"]
+            )
             return HttpResponse(status=400)
 
         # Read general params
@@ -513,13 +623,14 @@ class HomeBankCallbackView(APIView):
         payment_id = request.data["id"]
         amount = int(request.data.get("amount", 0))
         pan = request.data.get("cardMask", "-")
-        card_id = request.data.get("cardId", '-')
+        card_id = request.data.get("cardId", "-")
 
         get_logger().info("home bank log 1")
 
         # Get order with dependencies
-        order = Order.retrieve_order_with_fk(order_id, fk=["account", "session",
-                                                           "parking_card_session", "subscription"])
+        order = Order.retrieve_order_with_fk(
+            order_id, fk=["account", "session", "parking_card_session", "subscription"]
+        )
 
         if not order:
             get_logger().warn("Order with id %s does not exist" % order_id)
@@ -527,11 +638,12 @@ class HomeBankCallbackView(APIView):
 
         payment = HomeBankPayment.objects.filter(order=order)[0]
 
-        self.payment_set(order=order, payment=payment, status=PAYMENT_STATUS_AUTHORIZED, params={
-            'payment_id': payment_id,
-            'pan': pan,
-            'card_id': card_id
-        })
+        self.payment_set(
+            order=order,
+            payment=payment,
+            status=PAYMENT_STATUS_AUTHORIZED,
+            params={"payment_id": payment_id, "pan": pan, "card_id": card_id},
+        )
 
         return HttpResponse("OK", status=200)
 
@@ -555,12 +667,14 @@ class HomeBankCallbackView(APIView):
 
                 get_logger().info("PAYMENT_STATUS_CONFIRMED")
 
-                if os.environ.get("PROD","0") == "1":
+                if os.environ.get("PROD", "0") == "1":
 
                     fiskal_data = HomeBankOdfAPI().create_check(order, payment)
 
                     if fiskal_data:
-                        fiskal = HomeBankFiskalNotification.objects.create(**fiskal_data)
+                        fiskal = HomeBankFiskalNotification.objects.create(
+                            **fiskal_data
+                        )
                         order.homebank_fiscal_notification = fiskal
                         order.save()
 
@@ -569,16 +683,17 @@ class HomeBankCallbackView(APIView):
         elif self.is_account_credit_card_payment(order):
             if params:
                 stored_card = CreditCard.objects.filter(
-                    card_char_id=params['card_id'], account=order.account).first()
+                    card_char_id=params["card_id"], account=order.account
+                ).first()
                 get_logger().info("home bank log 3")
 
                 # Create new card and return first pay
                 if not stored_card:
                     credit_card = CreditCard(
-                        card_char_id=params['card_id'],
-                        pan=params['pan'],
+                        card_char_id=params["card_id"],
+                        pan=params["pan"],
                         account=order.account,
-                        acquiring='homebank'
+                        acquiring="homebank",
                     )
 
                     if not CreditCard.objects.filter(account=order.account).exists():
@@ -589,9 +704,9 @@ class HomeBankCallbackView(APIView):
                     if status == PAYMENT_STATUS_AUTHORIZED:
                         order.authorized = True
                         order.save()
-                        payment.payment_id = params['payment_id']
+                        payment.payment_id = params["payment_id"]
                         payment.save()
-                        start_cancel_request.delay(order.id, acquiring='homebank')
+                        start_cancel_request.delay(order.id, acquiring="homebank")
 
                     get_logger().info("home bank log 4")
 
@@ -624,8 +739,9 @@ class HomeBankCallbackView(APIView):
 
                 subs = order.subscription
                 subs.authorize()
-                make_buy_subscription_request.delay(order.subscription.id, acquiring='homebank')
-
+                make_buy_subscription_request.delay(
+                    order.subscription.id, acquiring="homebank"
+                )
 
             elif status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
@@ -671,10 +787,7 @@ class HomeBankCallbackView(APIView):
         return order.account != None
 
     def close_parking_session_if_needed(self, order):
-        non_paid_orders = Order.objects.filter(
-            session=order.session,
-            paid=False
-        )
+        non_paid_orders = Order.objects.filter(session=order.session, paid=False)
         if not non_paid_orders.exists():
             parking_session = order.session
             if parking_session.is_completed_by_vendor():
@@ -693,11 +806,13 @@ class HomeBankCallbackView(APIView):
         parking_session = order.session
         get_logger().info("check begin confirmation..")
         non_authorized_orders = Order.objects.filter(
-            session=parking_session,
-            authorized=False
+            session=parking_session, authorized=False
         )
 
-        if not non_authorized_orders.exists() and parking_session.is_completed_by_vendor():
+        if (
+            not non_authorized_orders.exists()
+            and parking_session.is_completed_by_vendor()
+        ):
             # Start confirmation
             session_orders = Order.objects.filter(
                 session=parking_session,
@@ -707,8 +822,9 @@ class HomeBankCallbackView(APIView):
                     try:
                         get_logger().info(str(session_order))
                         get_logger().info(str(PAYMENT_STATUS_AUTHORIZED))
-                        payment = HomeBankPayment.objects.filter(order=session_order,
-                                                             status__in=[PAYMENT_STATUS_AUTHORIZED])[0]
+                        payment = HomeBankPayment.objects.filter(
+                            order=session_order, status__in=[PAYMENT_STATUS_AUTHORIZED]
+                        )[0]
                         session_order.confirm_payment_homebank(payment)
                     except ObjectDoesNotExist as e:
                         get_logger().info(e)
@@ -733,13 +849,13 @@ class HomeBankCallbackView(APIView):
             payment = payments[0]
             payment.cancel_payment()
 
+
 class TestView(APIView):
 
     def get(self, request):
         # from accounts.tasks import generate_current_debt_order, force_pay
         # parking_session_id = 2954
         # force_pay(parking_session_id)
-
 
         # payment = HomeBankPayment.objects.get(id=229)
         # receipt_data = json.loads(payment.receipt_data)
@@ -788,8 +904,9 @@ class TestView(APIView):
         # from payments.tasks import  create_screenshot
         # create_screenshot.delay('https://consumer.1-ofd.ru/ticket?t=20211008T1607&s=200.00&fn=9287440300256165&i=7080&fp=1774076369&n=1', 'ыыыы')
         from django.template.loader import render_to_string
+
         # msg_html = render_to_string('emails/fiskal_notification.html', {'link': 'http://adasd.asd', 'image': 'https://%s/api/media/fiskal/ыыыы.png' % BASE_DOMAIN})
-        msg_html = render_to_string('emails/sur-email-template.html')
+        msg_html = render_to_string("emails/sur-email-template.html")
 
         # send_mail('Test template', "Hello", EMAIL_HOST_USER,
         #           ['mail@vldmrnine.com'])
@@ -801,12 +918,18 @@ class TestView(APIView):
         #     filename="python-logo.png"
         # )
 
-        from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
+        from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import (
+            send_message_by_valet_bot,
+        )
+
         notification_message = '<a href="%s">Принять запрос</a>'
         import asyncio
         from parkings.tasks import send_message_by_valet_bots_task
-        send_message_by_valet_bots_task.delay(notification_message, [688045242], None, [])
-        return HttpResponse('test21 all is good', status=200)
+
+        send_message_by_valet_bots_task.delay(
+            notification_message, [688045242], None, []
+        )
+        return HttpResponse("test21 all is good", status=200)
 
     @decorator_from_middleware(ApiTokenMiddleware)
     def post(self, request):
@@ -815,29 +938,38 @@ class TestView(APIView):
 
         return HttpResponse({}, status=200)
 
+
 class SetTestEmailsView(APIView):
     def get(self, request):
-        email = request.GET.get('t', None)
+        email = request.GET.get("t", None)
         if email:
             import base64
+
             try:
                 email = base64.b64decode(email).decode("utf8")
                 created_at = datetime.datetime.now()
                 if email:
                     from django.db import connection
+
                     with connection.cursor() as cursor:
-                        cursor.execute("INSERT INTO ios_users_for_beta_test(email, created_at) VALUES (%s, %s)", [email, created_at])
+                        cursor.execute(
+                            "INSERT INTO ios_users_for_beta_test(email, created_at) VALUES (%s, %s)",
+                            [email, created_at],
+                        )
             except Exception as e:
                 print(e)
 
-        return HttpResponse('s', status=200)
+        return HttpResponse("s", status=200)
 
 
 class HomebankAcquiringPageView(APIView):
     def get(self, request):
-        order_id = request.GET.get('order_id', None)
-        email = request.GET.get('email', '')
-        back_link = request.GET.get('back_link', "https://%s/api/v1/payments/result-success/" % settings.BASE_DOMAIN)
+        order_id = request.GET.get("order_id", None)
+        email = request.GET.get("email", "")
+        back_link = request.GET.get(
+            "back_link",
+            "https://%s/api/v1/payments/result-success/" % settings.BASE_DOMAIN,
+        )
         try:
             order = Order.objects.get(id=order_id)
             payment = HomeBankPayment.objects.filter(order=order)[0]
@@ -850,26 +982,29 @@ class HomebankAcquiringPageView(APIView):
 
         receipt_data = json.loads(payment.receipt_data)
 
-        return render(request, 'acquiring/homebank.html', {
-            'payment': payment,
-            'invoice_id': str(order.id).zfill(9),
-            'client_id': settings.HOMEBANK_CLIENT_ID,
-            'client_secret': settings.HOMEBANK_CLIENT_SECRET,
-            'terminal': settings.HOMEBANK_TERMINAL_ID,
-            'amount': order.get_payment_amount(),
-            'description': receipt_data['description'],
-            'domain': settings.BASE_DOMAIN,
-            'back_link': back_link,
-            'email': email
-
-        })
+        return render(
+            request,
+            "acquiring/homebank.html",
+            {
+                "payment": payment,
+                "invoice_id": str(order.id).zfill(9),
+                "client_id": settings.HOMEBANK_CLIENT_ID,
+                "client_secret": settings.HOMEBANK_CLIENT_SECRET,
+                "terminal": settings.HOMEBANK_TERMINAL_ID,
+                "amount": order.get_payment_amount(),
+                "description": receipt_data["description"],
+                "domain": settings.BASE_DOMAIN,
+                "back_link": back_link,
+                "email": email,
+            },
+        )
 
 
 class HomebankAcquiringResultPageSuccessView(APIView):
     def get(self, request):
-        return render(request, 'acquiring/success-page.html')
+        return render(request, "acquiring/success-page.html")
 
 
 class HomebankAcquiringResultPageErrorView(APIView):
     def get(self, request):
-        return render(request, 'acquiring/error-page.html')
+        return render(request, "acquiring/error-page.html")

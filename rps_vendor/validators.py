@@ -314,6 +314,41 @@ class ParkingCardSessionBodyValidator(BaseValidator):
             return False
 
         return True
+    
+
+class InitPaymentValidator(BaseValidator):
+    def is_valid(self):
+        get_logger().info("ParkingCardRequestBodyValidator: " + str(self.request.data))
+        parking_id = self.request.data.get("parking_id", None)
+        card_id = self.request.data.get("card_id", None)
+        duration = self.request.data.get("duration", None)
+        amount = self.request.data.get("amount", None)
+        parking_enter_time = self.request.data.get("parking_enter_time", None)
+        parking_amount_calculated_time = self.request.data.get("parking_amount_calculated_time", None)
+        currency = self.request.data.get("currency", None)
+        parking_redirect_url = self.request.data.get("parking_redirect_url", None)
+        parking_payment_url = self.request.data.get("parking_payment_url", None)
+
+        if not parking_id or not card_id or not duration or not amount or not currency or not parking_enter_time or not parking_amount_calculated_time or not parking_redirect_url or not parking_payment_url:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = "Keys 'parking_id', 'card_id', 'duration', 'currency', 'parking_enter_time', 'parking_amount_calculated_time', 'parking_redirect_url', 'parking_payment_url' amount are required"
+            return False
+
+        try:
+            validate_id(parking_id, "parking_id")
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e)
+            return False
+
+        try:
+            validate_parking_card_id(card_id)
+        except ValidationError as e:
+            self.code = ValidationException.VALIDATION_ERROR
+            self.message = str(e)
+            return False
+
+        return True
 
 class DeveloperCardSessionBodyValidator(BaseValidator):
     def is_valid(self):
