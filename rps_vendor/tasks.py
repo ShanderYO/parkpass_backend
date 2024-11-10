@@ -65,8 +65,7 @@ def request_rps_session_update():
             state__in=[
                 ParkingSession.STATE_STARTED,
                 ParkingSession.ENTER_ALLOWED,
-            ],
-            is_suspended=False,
+            ]
         )
         if active_sessions.count() == 0:
             continue
@@ -237,7 +236,6 @@ def check_sessions_for_notification():
             state__in=[
                 ParkingSession.ENTER_ALLOWED,
             ],
-            is_suspended=False,
             duration__gt=30,
             duration__lt=55,
         )

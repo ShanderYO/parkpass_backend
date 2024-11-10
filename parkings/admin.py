@@ -34,7 +34,7 @@ class ParkingSessionAdmin(admin.ModelAdmin):
                    'completed_at', 'client',)
 
     list_display = ('session_id', 'client', 'parking',
-                    'state', 'is_suspended', 'get_debt', 'duration',)
+                    'state', 'error', 'get_debt', 'duration',)
 
     exclude_fields = ('created_at',)
 

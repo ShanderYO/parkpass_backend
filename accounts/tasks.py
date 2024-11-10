@@ -309,7 +309,6 @@ def generate_orders_and_pay():
             ParkingSession.EXIT_ALLOWED,
             ParkingSession.STATE_COMPLETED,
         ],
-        is_suspended=False,
     )
     logging.info(
         "start generate_dept_orders task: active sessions %s " % len(active_sessions)

@@ -3,24 +3,26 @@
 from django.db import migrations, models
 import uuid
 
+
 def create_uuid(apps, schema_editor):
-    from parkings.models import Parking
+    Parking = apps.get_model("parkings", "Parking")
     for device in Parking.objects.all():
         device.valet_telegram_secret_key = uuid.uuid4()
         device.save()
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('parkings', '0037_parking_valet_email'),
+        ("parkings", "0037_parking_valet_email"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='parking',
-            name='valet_telegram_secret_key',
-            field=models.CharField(editable=False, blank=True, null=True, max_length=128),
+            model_name="parking",
+            name="valet_telegram_secret_key",
+            field=models.CharField(
+                editable=False, blank=True, null=True, max_length=128
+            ),
         ),
         migrations.RunPython(create_uuid),
     ]

@@ -81,7 +81,9 @@ INSTALLED_APPS = [
     'rps_vendor',
     'owners',
     'control',
-    'partners'
+    'partners',
+    'fcm_django',
+    'notifications',
 ]
 
 MIDDLEWARE = [

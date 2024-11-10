@@ -351,6 +351,10 @@ class ParkingSession(models.Model):
 
     id = models.AutoField(unique=True, primary_key=True)
     session_id = models.CharField(max_length=128)
+    
+    e_ticket = models.CharField(max_length=128, null=True, blank=True)  # ИД парковочного талона
+    device_id = models.CharField(max_length=128, null=True, blank=True)  # ИД стойки выезда
+    qr_number = models.CharField(max_length=128, null=True, blank=True)  # ИД QR кода на выезде
 
     client = models.ForeignKey("accounts.Account", on_delete=models.CASCADE)
     parking = models.ForeignKey(Parking, on_delete=models.CASCADE)
@@ -371,9 +375,6 @@ class ParkingSession(models.Model):
     updated_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     duration = models.IntegerField(default=0)
-
-    is_suspended = models.BooleanField(default=False)
-    suspended_at = models.DateTimeField(null=True, blank=True)
 
     try_refund = models.BooleanField(default=False)
     target_refund_sum = models.DecimalField(max_digits=7, decimal_places=2, default=0)
@@ -419,8 +420,7 @@ class ParkingSession(models.Model):
         try:
             return ParkingSession.objects.get(
                 client=account,
-                state__gt=0,
-                is_suspended=False,
+                state__gt=0
             )
 
         except ObjectDoesNotExist:
@@ -454,16 +454,12 @@ class ParkingSession(models.Model):
             self.client_state = self.CLIENT_STATE_ACTIVE
         if self.state >= 6 and self.state <= 15:
             self.client_state = self.CLIENT_STATE_COMPLETED
-        if self.is_suspended:
-            self.client_state = self.CLIENT_STATE_SUSPENDED
         if self.state == 0:
             self.client_state = self.CLIENT_STATE_CLOSED
 
     def get_calculated_duration(self):
         if self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()
-        if self.is_suspended and self.suspended_at:
-            return (self.suspended_at - self.started_at).total_seconds()
         if self.updated_at:
             return (self.updated_at - self.started_at).total_seconds()
         return 0

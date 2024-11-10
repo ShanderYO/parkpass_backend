@@ -490,7 +490,6 @@ class CreateParkingSessionView(SignedRequestAPIView):
             if last_active_session:
                 last_active_session.state = ParkingSession.STATE_CANCELED
                 last_active_session.error = "Verification required"
-                last_active_session.suspended_at = utc_started_at
                 last_active_session.save()
 
             session = ParkingSession(

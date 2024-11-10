@@ -111,10 +111,6 @@ class DeactivateAccountView(LoginRequiredAPIView):
             generate_current_debt_order.delay(
                 ParkingSession.get_active_session(account).id
             )
-            if not ps.is_suspended:
-                ps.is_suspended = True
-                ps.suspended_at = timezone.now()
-                ps.save()
 
         cards = CreditCard.objects.filter(account=account)
         for card in cards:
@@ -385,7 +381,7 @@ class AccountParkingListView(LoginRequiredAPIView):
 
         result_query = ParkingSession.objects.filter(
             Q(client_id=request.account.id, state__lte=0)
-            | Q(client_id=request.account.id, is_suspended=True)
+            | Q(client_id=request.account.id)
         ).select_related("parking")
 
         if from_date and to_date:
@@ -458,7 +454,7 @@ class AccountParkingAllHistoryView(LoginRequiredAPIView):
 
         parking_result_query = ParkingSession.objects.filter(
             Q(client_id=client_id, state__lte=0)
-            | Q(client_id=client_id, is_suspended=True)
+            | Q(client_id=client_id)
         ).select_related("parking")
 
         subscription_qs = RpsSubscription.objects.filter(
@@ -1078,11 +1074,6 @@ class ForceStopParkingSession(LoginRequiredAPIView):
 
         try:
             parking_session = ParkingSession.objects.get(id=id)
-            if not parking_session.is_suspended:
-                parking_session.is_suspended = True
-                parking_session.suspended_at = timezone.now()
-                parking_session.save()
-
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -1101,14 +1092,8 @@ class ResumeParkingSession(LoginRequiredAPIView):
 
         try:
             parking_session = ParkingSession.objects.get(id=id)
-            if parking_session.is_suspended:
-                parking_session.is_suspended = False
-                parking_session.suspended_at = None
-                parking_session.save()
-
-                if parking_session.is_started_by_vendor():
-                    generate_current_debt_order.delay(parking_session.id)
-
+            if parking_session.is_started_by_vendor():
+                generate_current_debt_order.delay(parking_session.id)
         except ObjectDoesNotExist:
             e = ValidationException(
                 ValidationException.RESOURCE_NOT_FOUND,
@@ -1148,12 +1133,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
 
             # If session start is not confirm from vendor
             if not parking_session.is_started_by_vendor():
-                parking_session.is_suspended = True
-                parking_session.suspended_at = utc_completed_at
-                parking_session.save()
                 return JsonResponse({}, status=200)
-            else:
-                parking_session.is_suspended = False
 
             # Set up completed time if not specified by vendor
             if not parking_session.is_completed_by_vendor():
