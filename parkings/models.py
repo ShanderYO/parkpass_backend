@@ -300,38 +300,27 @@ class ParkingSession(models.Model):
     STATE_CLOSED = 0
     ENTER_ALLOWED = 1
     STATE_STARTED = 3  # (STARTED_BY_CLIENT_MASK + STARTED_BY_VENDOR_MASK)
-
-    STATE_COMPLETED_BY_CLIENT = 6
-    STATE_COMPLETED_BY_CLIENT_FULLY = 7  # (STATE_STARTED + COMPLETED_BY_CLIENT_MASK)
-
-    STATE_COMPLETED_BY_VENDOR = 10
-    STATE_COMPLETED_BY_VENDOR_FULLY = 11  # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK)
+  
+    EXIT_ALLOWED = 12
+        
 
     STATE_COMPLETED = 14  # (STARTED_BY_VENDOR_MASK + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
     STATE_COMPLETED_FULLY = (
         15  # (STATE_STARTED + COMPLETED_BY_VENDOR_MASK + COMPLETED_BY_CLIENT_MASK)
     )
 
-    STATE_VERIFICATION_REQUIRED = 21
-
     SESSION_STATES = [
         STATE_CANCELED,
         ENTER_ALLOWED,
-        STATE_COMPLETED_BY_VENDOR,
         STATE_STARTED,  # Stage 1
-        STATE_COMPLETED_BY_CLIENT,
-        STATE_COMPLETED_BY_CLIENT_FULLY,  # Stage 2
-        STATE_COMPLETED_BY_VENDOR,
-        STATE_COMPLETED_BY_VENDOR_FULLY,  # Stage 2
+        EXIT_ALLOWED, # Stage 2
         STATE_COMPLETED,
         STATE_COMPLETED_FULLY,  # Stage 3
         STATE_CLOSED,  # Stage 4
-        STATE_VERIFICATION_REQUIRED,  # Stage 5
     ]
 
     ACTUAL_COMPLETED_STATES = [
-        STATE_COMPLETED_BY_VENDOR,
-        STATE_COMPLETED_BY_VENDOR_FULLY,
+        EXIT_ALLOWED,
         STATE_COMPLETED,
         STATE_COMPLETED_FULLY,
     ]
@@ -340,14 +329,10 @@ class ParkingSession(models.Model):
         (STATE_CANCELED, "Canceled"),
         (ENTER_ALLOWED, "Enter_allowed"),
         (STATE_STARTED, "Started"),
-        (STATE_COMPLETED_BY_CLIENT, "Completed_by_client"),
-        (STATE_COMPLETED_BY_CLIENT_FULLY, "Completed_by_client_fully"),
-        (STATE_COMPLETED_BY_VENDOR, "Completed_by_vendor"),
-        (STATE_COMPLETED_BY_VENDOR_FULLY, "Completed_by_vendor_fully"),
+        (EXIT_ALLOWED, "Exit_allowed"),
         (STATE_COMPLETED, "Completed without client start"),
         (STATE_COMPLETED_FULLY, "Completed"),
         (STATE_CLOSED, "Closed"),
-        (STATE_VERIFICATION_REQUIRED, "Verification required"),
     )
 
     CLIENT_STATE_CANCELED = -1
@@ -374,6 +359,10 @@ class ParkingSession(models.Model):
     paid = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
     state = models.IntegerField(choices=STATE_CHOICES)
+    
+    # Поле error для хранения ошибки, если требуется проверка
+    error = models.CharField(max_length=255, default="")
+    
     client_state = models.IntegerField(
         choices=CLIENT_STATES, editable=False, default=CLIENT_STATE_ACTIVE
     )
@@ -431,7 +420,6 @@ class ParkingSession(models.Model):
             return ParkingSession.objects.get(
                 client=account,
                 state__gt=0,
-                state__lt=ParkingSession.STATE_VERIFICATION_REQUIRED,
                 is_suspended=False,
             )
 
@@ -480,19 +468,19 @@ class ParkingSession(models.Model):
             return (self.updated_at - self.started_at).total_seconds()
         return 0
 
-    def add_client_start_mark(self):
-        self.state += (
-            self.STARTED_BY_CLIENT_MASK
-            if not (self.state & self.STARTED_BY_CLIENT_MASK)
-            else self.state
-        )
+    # def add_client_start_mark(self):
+    #     self.state += (
+    #         self.STARTED_BY_CLIENT_MASK
+    #         if not (self.state & self.STARTED_BY_CLIENT_MASK)
+    #         else self.state
+    #     )
 
-    def add_vendor_start_mark(self):
-        self.state += (
-            self.STARTED_BY_VENDOR_MASK
-            if not (self.state & self.STARTED_BY_CLIENT_MASK)
-            else self.state
-        )
+    # def add_vendor_start_mark(self):
+    #     self.state += (
+    #         self.STARTED_BY_VENDOR_MASK
+    #         if not (self.state & self.STARTED_BY_CLIENT_MASK)
+    #         else self.state
+    #     )
 
     def add_client_complete_mark(self):
         self.state += (
@@ -530,8 +518,7 @@ class ParkingSession(models.Model):
     def is_available_for_vendor_update(self):
         return self.state not in [
             self.STATE_CANCELED,
-            self.STATE_COMPLETED_BY_VENDOR,
-            self.STATE_COMPLETED_BY_VENDOR_FULLY,
+            self.EXIT_ALLOWED,
             self.STATE_COMPLETED,
             self.STATE_CLOSED,
         ]
@@ -543,8 +530,7 @@ class ParkingSession(models.Model):
         return self.state in [
             self.ENTER_ALLOWED,
             self.STATE_STARTED,
-            self.STATE_COMPLETED_BY_CLIENT,
-            self.STATE_COMPLETED_BY_CLIENT_FULLY,
+            self.EXIT_ALLOWED,
         ]
 
     def get_debt(self):

@@ -1020,7 +1020,7 @@ class StartParkingSession(LoginRequiredAPIView):
                 session_id=session_id, parking_id=parking_id
             )
             parking_session.extra_data = extra_data
-            parking_session.add_client_start_mark()
+            # parking_session.add_client_start_mark()
             parking_session.save()
             return JsonResponse({"id": parking_session.id}, status=200)
 
@@ -1139,7 +1139,7 @@ class CompleteParkingSession(LoginRequiredAPIView):
             )
 
             # if session is already not active
-            if parking_session.state == ParkingSession.STATE_VERIFICATION_REQUIRED:
+            if parking_session.state == ParkingSession.STATE_CANCELED and parking_session.error == "Verification required":
                 e = ValidationException(
                     ValidationException.VALIDATION_ERROR,
                     "Parking session verification required",

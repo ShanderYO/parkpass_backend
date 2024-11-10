@@ -306,9 +306,7 @@ def generate_orders_and_pay():
         state__in=[
             ParkingSession.STATE_STARTED,
             ParkingSession.ENTER_ALLOWED,
-            ParkingSession.STATE_COMPLETED_BY_VENDOR,
-            ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY,
-            ParkingSession.STATE_COMPLETED_BY_CLIENT_FULLY,
+            ParkingSession.EXIT_ALLOWED,
             ParkingSession.STATE_COMPLETED,
         ],
         is_suspended=False,
@@ -324,8 +322,7 @@ def generate_orders_and_pay():
             order = None
             if (
                 session.state == ParkingSession.STATE_COMPLETED
-                or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR
-                or session.state == ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY
+                or session.state == ParkingSession.EXIT_ALLOWED
             ):
 
                 current_account_debt = session.get_debt() - ordered_sum

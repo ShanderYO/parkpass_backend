@@ -400,7 +400,7 @@ class CreateSessionParkingTestCase(TestCase):
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
 
-        parkings = ParkingSession.objects.filter(state=ParkingSession.STATE_VERIFICATION_REQUIRED)
+        parkings = ParkingSession.objects.filter(state=ParkingSession.STATE_CANCELED, error="Verification required")
         self.assertEquals(parkings.count(), 1)
 
     def test_parking_datetime_converted(self):
