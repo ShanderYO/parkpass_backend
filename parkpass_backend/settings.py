@@ -379,6 +379,11 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'vendor.task.notify_mos_parking',
         'schedule': 15.0
     },
+    'update_rps_token': {
+        'task': 'parkings.tasks.update_rps_token',
+        'schedule': 60.0
+    },
+    
     # 'valet-bot-notification': {
     #     'task': 'parkings.tasks.send_message_by_valet_bots_task',
     #     'schedule': 10.0

@@ -7,7 +7,7 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 
 from parkings.models import ParkingSession, ProblemParkingSessionNotifierSettings, ParkingValetSessionRequest, \
-    VALET_REQUEST_CANCELED
+    VALET_REQUEST_CANCELED, RpsParking
 from parkpass_backend.celery import app
 from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
 from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
@@ -111,4 +111,19 @@ def send_book_valet_notifications_if_less_30_minutes():
             request.save()
 
             logging.info("save save save %s", request.id)
+            
+            
+@app.task()
+def update_rps_token():
+    now = datetime.datetime.now(timezone.utc)
+    for rps_parking in RpsParking.objects.all():
+        if not rps_parking.domain or not rps_parking.integrator_id or not rps_parking.integrator_password:
+            continue
+        if rps_parking.token_expired and now > (rps_parking.token_expired - datetime.timedelta(days=1)):
+            try:
+                rps_parking.ensure_token()
+            except Exception as e:
+                pass
+        
+        
 
