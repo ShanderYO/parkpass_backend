@@ -14,7 +14,7 @@ class RpsIntegrationService:
 
     @staticmethod
     def get_token(rps_parking: "RpsParking"):
-        url = f"https://{rps_parking.domain}/api2/integration/token"
+        url = f"https://{rps_parking.domain}/api2/integration/token/"
         payload = {
             "id": rps_parking.integrator_id,
             "pwd": rps_parking.integrator_password,
