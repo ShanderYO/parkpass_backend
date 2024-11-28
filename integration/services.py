@@ -1,4 +1,6 @@
 import requests
+import logging
+
 from typing import TYPE_CHECKING
 from datetime import timedelta
 from django.utils import timezone
@@ -109,7 +111,7 @@ class RpsIntegrationService:
             elif response.get("reason") is None:
                 # Успешный ответ, обновляем статус сессии
                 parking_session.state = parking_session.STATE_STARTED
-                parking_session.error = ""  # Очистка ошибок
+                parking_session.error = ""
             else:
                 # В ответе есть причина ошибки
                 parking_session.error = response.get("reason")
@@ -118,9 +120,32 @@ class RpsIntegrationService:
             parking_session.save()
 
         except Exception as e:
-            # Обработка неожиданных исключений
             parking_session.error = f"Exception occurred: {str(e)}"
             parking_session.save()
+            
+    def get_sessions_status(self, rps_parking, sessions_payload):
+        """
+        Получает статус сессий из РПС.
+        :param rps_parking: объект RpsParking для авторизации
+        :param sessions_payload: список словарей с eTicket и regularCustomerId
+        :return: JSON-ответ от сервера или None в случае ошибки
+        """
+        url = f"https://{rps_parking.domain}/api2/integration/qr/sessions"
+        payload = {"sessions": sessions_payload}
+
+        try:
+            # Выполняем запрос через make_rps_request
+            response = self.make_rps_request(rps_parking, url, payload)
+            if response is not None and response.get("reason") == "Ok":
+                return response
+            else:
+                # Логируем, если сервер вернул неуспешный ответ
+                logging.error(f"Failed to fetch session statuses: {response}")
+                return None
+        except Exception as e:
+            # Логируем исключение в случае ошибки
+            logging.error(f"Exception occurred while fetching session statuses: {str(e)}")
+            return None
 
 
 class RPSService:

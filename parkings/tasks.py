@@ -2,8 +2,10 @@ import asyncio
 import datetime
 import logging
 
+from celery import shared_task
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
+from django.utils.timezone import now
 from django.utils import timezone
 
 from parkings.models import ParkingSession, ProblemParkingSessionNotifierSettings, ParkingValetSessionRequest, \
@@ -12,6 +14,8 @@ from parkpass_backend.celery import app
 from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
 from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
 from valet.utils.valet_notification_center import ValetNotificationCenter, VALET_NOTIFICATION_REQUEST_FOR_DELIVERY
+from integration.service import RpsIntegrationService
+from payments.tasks import generate_current_debt_order
 
 
 @app.task()
@@ -124,6 +128,48 @@ def update_rps_token():
                 rps_parking.ensure_token()
             except Exception as e:
                 pass
+            
+            
+@shared_task
+def fetch_and_update_session_statuses():
+    """
+    Получает статусы сессий с сервера РПС и обновляет их в базе.
+    """
+    active_sessions = ParkingSession.objects.filter(state=ParkingSession.STATE_STARTED)
+    if not active_sessions.exists():
+        return
+
+    sessions_payload = [
+        {"eTicket": session.eTicket, "regularCustomerId": session.client_id}
+        for session in active_sessions
+    ]
+
+    rps_service = RpsIntegrationService()
+    response = rps_service.get_sessions_status(sessions_payload)
+
+    if not response or response.get("reason") != "Ok":
+        logging.error("Failed to fetch session statuses or invalid response")
+        return
+
+    for session_data in response.get("sessions", []):
+        try:
+            session = ParkingSession.objects.get(eTicket=session_data["eTicket"])
+
+            # Обновление данных сессии
+            session.updated_at = now()
+            session.debt = abs(Decimal(session_data.get("cardBalance", "0")))
+            if session_data["status"] == "close":
+                session.state = ParkingSession.STATE_COMPLETED
+                session.save()
+
+                # Запуск процесса списания денежных средств
+                generate_current_debt_order.delay(session.id)
+            else:
+                session.save()
+
+        except ParkingSession.DoesNotExist:
+            logging.warning(f"Session with eTicket {session_data['eTicket']} not found.")
+
         
         
 

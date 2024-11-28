@@ -387,6 +387,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'accounts.tasks.check_and_confirm_entrance',
         'schedule': 10.0,  # Выполняется каждые 10 секунд
     },
+     'fetch-and-update-session-statuses': {
+        'task': 'parkings.tasks.fetch_and_update_session_statuses',
+        'schedule': 300.0,  # каждые 5 минут
+    },
     
     
     # 'valet-bot-notification': {
