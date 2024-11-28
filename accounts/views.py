@@ -17,6 +17,7 @@ from django_elasticsearch.client import es_client
 from dss.Serializer import serializer
 
 from accounts.models import Account, AccountSession
+from integration.services import RpsIntegrationService
 
 from accounts.tasks import generate_current_debt_order, force_pay
 from accounts.validators import (
@@ -1041,8 +1042,18 @@ class StartParkingSession(LoginRequiredAPIView):
                 started_at=utc_started_at,
             )
             parking_session.save()
+            
+            
 
             # Событие въезда
+            integration_service = RpsIntegrationService()
+            parking = parking_session.parking
+            rps_parking = parking.rpsparking_set.last()
+            integration_service.check_entrance_permission(rps_parking=rps_parking,
+                                                          e_ticket=parking_session.e_ticket,
+                                                          card_id=str(request.account.id),
+                                                          parking_session=parking_session)
+            
             device_for_push_notification = AccountDevice.objects.filter(
                 account=request.account, active=True
             )[0]

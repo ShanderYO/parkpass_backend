@@ -19,7 +19,7 @@ class RpsIntegrationService:
             "id": rps_parking.integrator_id,
             "pwd": rps_parking.integrator_password,
         }
-
+        
         try:
             response = requests.post(url, json=payload, timeout=5)
             if response.status_code == 200:
@@ -54,11 +54,41 @@ class RpsIntegrationService:
             print(f"Request to RPS failed: {e}")
             return None
 
-    def send_rps_confirm_payment(self, rps_parking, card_id, amount):
+    def send_rps_confirm_payment(self, rps_parking, card_id: str, amount: float):
         url = f"https://{rps_parking.domain}/api2/integration/payment"
         payload = {"regularCustomerId": card_id, "amount": amount}
 
         return self.make_rps_request(rps_parking, url, payload)
+    
+    def check_entrance_permission(self, rps_parking, e_ticket: str, card_id: str, parking_session):
+        """
+        Проверяет разрешение на въезд через сервер РПС.
+        """
+        url = f"https://{rps_parking.domain}/api2/integration/qr/entrance/permission"
+        payload = {
+            "eTicket": e_ticket,
+            "regularCustomerId": card_id
+        }
+
+        try:
+            response = self.make_rps_request(rps_parking, url, payload)
+
+            if response is None:
+                parking_session.error = "Integration request failed"
+                parking_session.save()
+                return
+
+            if response.get("reason") is None:
+                parking_session.state = parking_session.ENTER_ALLOWED
+                parking_session.e_ticket = e_ticket
+                parking_session.save()
+            else:
+                parking_session.error = response.get("reason")
+                parking_session.save()
+
+        except Exception as e:
+            parking_session.error = str(e)
+            parking_session.save()
 
 
 class RPSService:
@@ -66,62 +96,6 @@ class RPSService:
         self.rps_parking = rps_parking_instance
         self.connect_timeout = 5.0
         self.base_url = base_url
-
-    def get_subscriptions(self):
-        url = f"{self.base_url}/subscriptions"
-        headers = {
-            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
-            "Authorization": f"Bearer {self.rps_parking.token}",
-        }
-
-        try:
-            response = requests.get(
-                url, headers=headers, timeout=(self.connect_timeout, 5.0)
-            )
-            response.raise_for_status()
-            return response.json() if response.status_code == 200 else None
-        except requests.exceptions.RequestException as e:
-            print(f"Request to RPS failed: {e}")
-            return None
-
-    def purchase_subscription(
-        self, user_id, subscription_id, amount, ts_id, transaction_id
-    ):
-        url = f"{self.base_url}/subscriptions/pay"
-        headers = {
-            "RPSIntegrator": f"Id {self.rps_parking.integrator_id}",
-            "Authorization": f"Bearer {self.rps_parking.token}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "user_id": user_id,
-            "subscription_id": subscription_id,
-            "sum": amount,
-            "ts_id": ts_id,
-            "transaction_id": transaction_id,
-        }
-
-        try:
-            response = requests.post(
-                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
-            )
-            return response.status_code  # Возвращаем статус кода ответа
-        except requests.exceptions.RequestException as e:
-            print(f"Request to RPS failed: {e}")
-            return None
-
-    def subscription_callback(self, subscription_id, expired_at):
-        url = "https://parkpass.ru/api/v1/parking/rps/subscription/callback/"
-        payload = {"subscription_id": subscription_id, "expired_at": expired_at}
-
-        try:
-            response = requests.post(
-                url, json=payload, timeout=(self.connect_timeout, 5.0)
-            )
-            return response.status_code  # Возвращаем статус кода ответа
-        except requests.exceptions.RequestException as e:
-            print(f"Callback to ParkPass failed: {e}")
-            return None
 
     def entrance_permission(self, eTicket, regularCustomerId):
         url = f"{self.base_url}/api2/integration/qr/entrance/permission"
