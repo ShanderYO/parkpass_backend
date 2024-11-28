@@ -1,6 +1,7 @@
 import logging
 from decimal import Decimal
 
+from celery import shared_task
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 
@@ -15,6 +16,8 @@ from payments.models import (
     PAYMENT_STATUS_PREPARED_AUTHORIZED,
     HomeBankPayment,
 )
+
+from integration.service import RpsIntegrationService
 from payments.payment_api import TinkoffAPI
 import requests
 
@@ -423,3 +426,44 @@ def confirm_once_per_3_day():
                 payments = TinkoffPayment.objects.filter(order=order)
             if payments.exists():
                 order.confirm_payment(payments[0])
+                
+
+@shared_task
+def check_and_confirm_entrance():
+    """
+    Проверяет сессии со статусом ENTER_ALLOWED и выполняет confirm_entrance
+    для тех, которые находятся в этом статусе более 30 секунд.
+    """
+    logging.info("Начало задачи check_and_confirm_entrance")
+
+    # Определяем время 30 секунд назад
+    threshold_time = timezone.now() - timezone.timedelta(seconds=30)
+
+    # Получаем сессии со статусом ENTER_ALLOWED, которые были обновлены более 30 секунд назад
+    sessions_to_confirm = ParkingSession.objects.filter(
+        state=ParkingSession.ENTER_ALLOWED,
+        updated_at__lte=threshold_time
+    )
+
+    logging.info(f"Найдено {sessions_to_confirm.count()} сессий для подтверждения въезда.")
+
+    integration_service = RpsIntegrationService()
+
+    for session in sessions_to_confirm:
+        try:
+            rps_parking = session.parking.rps_parking  # Получаем объект RpsParking
+            if not rps_parking:
+                logging.warning(f"Для сессии {session.id} не найден RpsParking.")
+                continue
+
+            # Выполняем confirm_entrance
+            integration_service.confirm_entrance(
+                rps_parking=rps_parking,
+                e_ticket=session.e_ticket,
+                regular_customer_id=session.client.id,  # ИД пользователя
+                parking_session=session
+            )
+        except Exception as e:
+            logging.error(f"Ошибка при подтверждении въезда для сессии {session.id}: {e}")
+
+    logging.info("Задача check_and_confirm_entrance завершена.")

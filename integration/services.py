@@ -89,6 +89,38 @@ class RpsIntegrationService:
         except Exception as e:
             parking_session.error = str(e)
             parking_session.save()
+            
+    def confirm_entrance(self, rps_parking, e_ticket, regular_customer_id, parking_session):
+        """
+        Подтверждает въезд на парковку через сервер РПС.
+        """
+        url = f"https://{rps_parking.domain}/api2/integration/qr/entrance/confirmation"
+        payload = {
+            "eTicket": e_ticket,
+            "regularCustomerId": regular_customer_id
+        }
+
+        try:
+            response = self.make_rps_request(rps_parking, url, payload)
+
+            if response is None:
+                # Если нет ответа, записываем ошибку
+                parking_session.error = "No response from RPS server"
+            elif response.get("reason") is None:
+                # Успешный ответ, обновляем статус сессии
+                parking_session.state = parking_session.STATE_STARTED
+                parking_session.error = ""  # Очистка ошибок
+            else:
+                # В ответе есть причина ошибки
+                parking_session.error = response.get("reason")
+
+            # Сохраняем изменения в сессии
+            parking_session.save()
+
+        except Exception as e:
+            # Обработка неожиданных исключений
+            parking_session.error = f"Exception occurred: {str(e)}"
+            parking_session.save()
 
 
 class RPSService:

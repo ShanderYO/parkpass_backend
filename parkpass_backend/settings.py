@@ -383,6 +383,11 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'parkings.tasks.update_rps_token',
         'schedule': 60.0
     },
+     'task-check-and-confirm-entrance': {
+        'task': 'accounts.tasks.check_and_confirm_entrance',
+        'schedule': 10.0,  # Выполняется каждые 10 секунд
+    },
+    
     
     # 'valet-bot-notification': {
     #     'task': 'parkings.tasks.send_message_by_valet_bots_task',
