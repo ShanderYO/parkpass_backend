@@ -17,7 +17,7 @@ from payments.models import (
     HomeBankPayment,
 )
 
-from integration.service import RpsIntegrationService
+from integration.services import RpsIntegrationService
 from payments.payment_api import TinkoffAPI
 import requests
 

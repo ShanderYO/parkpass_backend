@@ -14,8 +14,8 @@ from parkpass_backend.celery import app
 from bots.telegram_valet_bot.utils.telegram_valet_bot_utils import send_message_by_valet_bot
 from bots.telegram_valetapp_bot.utils.telegram_valetapp_bot_utils import send_message_by_valetapp_bot
 from valet.utils.valet_notification_center import ValetNotificationCenter, VALET_NOTIFICATION_REQUEST_FOR_DELIVERY
-from integration.service import RpsIntegrationService
-from payments.tasks import generate_current_debt_order
+from integration.services import RpsIntegrationService
+from accounts.tasks import generate_current_debt_order
 
 
 @app.task()

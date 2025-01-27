@@ -56,6 +56,7 @@ from parkpass_backend.settings import (
 from payments.models import CreditCard, Order
 from payments.utils import TinkoffExceptionAdapter
 from rps_vendor.models import RpsSubscription, RpsParkingCardSession
+from integration.tasks import check_entrance_permission
 
 from accounts.sms_gateway import sms_sender
 
@@ -1046,13 +1047,17 @@ class StartParkingSession(LoginRequiredAPIView):
             
 
             # Событие въезда
-            integration_service = RpsIntegrationService()
             parking = parking_session.parking
-            rps_parking = parking.rpsparking_set.last()
-            integration_service.check_entrance_permission(rps_parking=rps_parking,
-                                                          e_ticket=parking_session.e_ticket,
-                                                          card_id=str(request.account.id),
-                                                          parking_session=parking_session)
+            rps_parking = parking.rpsparking_set.order_by('id').last()
+            rps_service = RpsIntegrationService()
+            
+            rps_service.check_entrance_permission(
+                rps_parking=rps_parking,
+                e_ticket=parking_session.e_ticket,
+                card_id=str(parking_session.client.id),
+                parking_session=parking_session
+            )
+            
             
             device_for_push_notification = AccountDevice.objects.filter(
                 account=request.account, active=True

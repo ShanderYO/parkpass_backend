@@ -50,11 +50,12 @@ class RpsIntegrationService:
                 url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
             )
             response.raise_for_status()
-            return response.json() if response.status_code == 200 else None
+            return response.json() if response.status_code == 200 else {"error": response.json().get("reason", "Unknown Error")}
         except requests.exceptions.RequestException as e:
-            # Обработка ошибок запроса
-            print(f"Request to RPS failed: {e}")
-            return None
+            # Возвращаем ошибку в случае исключения
+            logging.error(f"Request to RPS failed: {e}")
+            return {"error": str(e)}
+
 
     def send_rps_confirm_payment(self, rps_parking, card_id: str, amount: float):
         url = f"https://{rps_parking.domain}/api2/integration/payment"
@@ -69,27 +70,25 @@ class RpsIntegrationService:
         url = f"https://{rps_parking.domain}/api2/integration/qr/entrance/permission"
         payload = {
             "eTicket": e_ticket,
-            "regularCustomerId": card_id
+            "regularCustomerId": card_id,
         }
 
         try:
             response = self.make_rps_request(rps_parking, url, payload)
 
-            if response is None:
-                parking_session.error = "Integration request failed"
-                parking_session.save()
-                return
-
-            if response.get("reason") is None:
+            if "error" in response:
+                # Если ошибка, записываем ее в сессию
+                parking_session.error = response["error"]
+            else:
+                # Если ошибки нет, обновляем состояние и сохраняем eTicket
                 parking_session.state = parking_session.ENTER_ALLOWED
                 parking_session.e_ticket = e_ticket
-                parking_session.save()
-            else:
-                parking_session.error = response.get("reason")
-                parking_session.save()
+                parking_session.error = ""
+            parking_session.save()
 
         except Exception as e:
-            parking_session.error = str(e)
+            # Обработка неожиданных исключений
+            parking_session.error = f"Exception occurred: {str(e)}"
             parking_session.save()
             
     def confirm_entrance(self, rps_parking, e_ticket, regular_customer_id, parking_session):
