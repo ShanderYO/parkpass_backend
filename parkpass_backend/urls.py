@@ -39,7 +39,7 @@ urlpatterns = [
     path('api/v1/vendor/', include("vendors.urls")),
     path('api/v1/auth/', include("jwtauth.urls")),
     path('api/v1/valet/', include("valet.urls")),
-    path('app/', GetAppUrlView.as_view())
+    path('app/', GetAppUrlView.as_view()),
 
               ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) \
     + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -3,7 +3,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from rps_vendor.views import RpsCreateParkingSessionView, RpsCancelParkingSessionView, RpsUpdateParkingSessionView, \
     RpsCompleteParkingSessionView, RpsParkingSessionListUpdateView, MockingGetParkingCardDebt, MockingOrderAuthorized, \
-    MockingOrderConfirm, MockingOrderRefund, GetParkingCardDebt, InitPayDebt, AccountInitPayment, GetCardSessionStatus, \
+    MockingOrderConfirm, MockingOrderRefund, GetParkingCardRedirect, GetParkingCardDebt, InitPayDebt, AccountInitPayment, GetCardSessionStatus, \
     SubscriptionCallbackView, RpsCreateOrGetAccount, SubscriptionUpdateView, GetDeveloperParkingCardDebt, \
     ConfirmPayDeveloperDebt, CheckTimestamp, ResetDeveloperToken, send_push_notifications, check_remote_network, \
     GetCardSessionStatusForDeveloper, get_users_for_push_notifications
@@ -16,6 +16,7 @@ urlpatterns = [
     url(r'^rps/session/list/update/$', RpsParkingSessionListUpdateView.as_view()),
 
     url(r'^rps/cards/debt/$', GetParkingCardDebt.as_view()),
+    url(r'^rps/cards/redirect/$', GetParkingCardRedirect.as_view()),
     url(r'^rps/cards/account/payment/init/$', AccountInitPayment.as_view()),
     url(r'^rps/cards/guest/payment/init/$', InitPayDebt.as_view()),
     url(r'^rps/cards/payment/status/$', GetCardSessionStatus.as_view()),

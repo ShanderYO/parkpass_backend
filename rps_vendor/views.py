@@ -1,3 +1,4 @@
+from contextlib import redirect_stdout
 import datetime
 import secrets
 import time
@@ -137,6 +138,45 @@ class RpsParkingSessionListUpdateView(SignedRequestAPIView):
             )
             return JsonResponse(e.to_dict(), status=400)
         return JsonResponse({}, status=202)
+
+
+class GetParkingCardRedirect(APIView):
+    """
+    Получает домен для редиректа по `card_id` и `parking_id` через `POST`-запрос.
+    """
+
+    def post(self, request, *args, **kwargs):
+        card_id = request.data.get("card_id")
+        parking_id = request.data.get("parking_id")
+
+        # Проверяем, переданы ли обязательные параметры
+        if not card_id:
+            return JsonResponse({"redirect": False, "error": "Card ID is missing"}, status=400)
+        if not parking_id:
+            return JsonResponse({"redirect": False, "error": "Parking ID is missing"}, status=400)
+
+        try:
+            # Проверяем, существует ли карта
+            parking_card = ParkingCard.objects.filter(card_id=card_id).first()
+            if not parking_card:
+                return JsonResponse({"redirect": False, "error": "Parking card not found"}, status=404)
+
+            # Получаем информацию о парковке
+            rps_parking = RpsParking.objects.select_related("parking").filter(parking__id=parking_id).first()
+            if not rps_parking:
+                return JsonResponse({"redirect": False, "error": "Parking not found"}, status=404)
+
+            # Проверяем, разрешён ли редирект и есть ли домен
+            if not rps_parking.redirect or not rps_parking.domain:
+                return JsonResponse({"redirect": False}, status=200)
+
+            # Формируем URL для редиректа
+            redirect_url = f"https://{rps_parking.domain}/qr/search-results.html?CardId={card_id}"
+
+            return JsonResponse({"redirect": True, "redirect_url": redirect_url}, status=200)
+
+        except Exception as e:
+            return JsonResponse({"redirect": False, "error": f"Internal error: {str(e)}"}, status=500)
 
 
 class GetParkingCardDebtMixin:

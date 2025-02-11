@@ -56,6 +56,8 @@ class RpsParking(models.Model):
     parking = models.ForeignKey(to='parkings.Parking', on_delete=models.CASCADE)
     
     domain = models.CharField(max_length=255, null=True, blank=True)
+    redirect = models.BooleanField(default=False)
+    
     token = models.CharField(max_length=255, null=True, blank=True)
     token_expired = models.DateTimeField(null=True, blank=True)
     integrator_id = models.CharField(max_length=255, null=True, blank=True)
