@@ -3,6 +3,12 @@ from import_export import resources
 from import_export.admin import ExportActionMixin
 from import_export.fields import Field
 
+from django.urls import path
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.utils.html import format_html
+from django.urls import reverse
+
 from parkings.models import Parking
 from rps_vendor.models import (
     RpsParking, ParkingCard, RpsParkingCardSession, RpsSubscription, Developer, DevelopersLog, DEVELOPER_LOG_TYPES,
@@ -12,8 +18,36 @@ from rps_vendor.models import (
 
 @admin.register(RpsParking)
 class RpsParkingAdmin(admin.ModelAdmin):
-    list_display = ('parking', 'domain', 'token', 'token_expired', 'integrator_id', 'integrator_password')
+    list_display = ('parking', 'domain', 'token', 'token_expired', 'integrator_id', 'integrator_password', 'update_token_button')
     search_fields = ('parking__name', 'domain', 'integrator_id')
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:pk>/update-token/', self.admin_site.admin_view(self.update_token_view), name='rpsparking-update-token'),
+        ]
+        return custom_urls + urls
+
+    def update_token_button(self, obj):
+        if obj.integrator_id and obj.integrator_password:
+            url = reverse('admin:rpsparking-update-token', args=[obj.pk])
+            return format_html('<a class="button" href="{}">Обновить токен</a>', url)
+        return "-"
+    
+    update_token_button.short_description = "Обновление токена"
+    update_token_button.allow_tags = True
+
+    def update_token_view(self, request, pk, *args, **kwargs):
+        try:
+            rps = RpsParking.objects.get(pk=pk)
+            token = rps.ensure_token()
+            if token:
+                messages.success(request, f"Токен успешно обновлён: {token}")
+            else:
+                messages.error(request, f"Не удалось обновить токен")
+        except Exception as e:
+            messages.error(request, f"Ошибка при обновлении токена: {e}")
+        return redirect(f'../../')
 
 
 @admin.register(ParkingCard)

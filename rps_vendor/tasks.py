@@ -17,6 +17,11 @@ from rps_vendor.models import RpsParking, RpsSubscription
 
 
 @app.task()
+def update_rps_tokens():
+    for rps in RpsParking.objects.exclude(integrator_id=None, integrator_password=None):
+        rps.ensure_token()
+
+@app.task()
 def rps_process_updated_sessions(parking_id, sessions):
     logging.info("rps_process_updated_sessions")
     try:
