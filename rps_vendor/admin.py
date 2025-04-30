@@ -40,7 +40,7 @@ class RpsParkingAdmin(admin.ModelAdmin):
     def update_token_view(self, request, pk, *args, **kwargs):
         try:
             rps = RpsParking.objects.get(pk=pk)
-            token = rps.ensure_token()
+            token = rps.ensure_token(force=True)
             if token:
                 messages.success(request, f"Токен успешно обновлён: {token}")
             else:
