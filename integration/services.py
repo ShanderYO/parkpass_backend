@@ -21,7 +21,7 @@ class RpsIntegrationService:
         }
 
         try:
-            response = requests.post(url, json=payload, timeout=5)
+            response = requests.post(url, json=payload, timeout=3.0)
             if response.status_code == 200:
                 result = response.json()
                 token = result.get("token")
@@ -45,7 +45,7 @@ class RpsIntegrationService:
         }
         try:
             response = requests.post(
-                url, json=payload, headers=headers, timeout=(self.connect_timeout, 5.0)
+                url, json=payload, headers=headers, timeout=(self.connect_timeout, 3.0)
             )
             response.raise_for_status()
             return response.json() if response.status_code == 200 else None
