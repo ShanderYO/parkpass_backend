@@ -331,7 +331,7 @@ class RpsParkingCardSession(models.Model):
             url = order.payload["parking_payment_url"]
             data = {"regularCustomerId": order.payload["card_id"],
                     "amount": int(order.sum)}
-            send_request_with_retries(url, 'POST', retries=5, data=data, headers=headers)
+            send_request_with_retries(url, 'POST', retries=5, json=data, headers=headers)
             return True
         else:
             try:
