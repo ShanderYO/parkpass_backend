@@ -401,7 +401,7 @@ class RpsParkingCardSession(models.Model):
             # r = requests.post(url, data=payload, headers=headers,
             #                   timeout=(connect_timeout, 30.0))  # TODO make
             #
-            r = session.post(url, data=payload, headers=headers, verify=False)
+            r = session.post(url, data=payload, headers=headers, verify=False, timeout=(connect_timeout, 30.0))
 
             try:
                 if developer_id:

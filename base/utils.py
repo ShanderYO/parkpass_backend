@@ -20,7 +20,7 @@ from parkpass_backend.settings import BASE_LOGGER_NAME
 from parkpass_backend.settings import PAGINATION_OBJECTS_PER_PAGE
 
 
-def send_request_with_retries(url, method='GET', retries=3, backoff_factor=0.3, **kwargs):
+def send_request_with_retries(url, method='GET', retries=3, backoff_factor=0.3, timeout=5, **kwargs):
     """
     Send a HTTP request with retries.
     
@@ -39,7 +39,7 @@ def send_request_with_retries(url, method='GET', retries=3, backoff_factor=0.3, 
     """
     for attempt in range(1, retries + 1):
         try:
-            response = requests.request(method, url, **kwargs)
+            response = requests.request(method, url, timeout=timeout, **kwargs)
             response.raise_for_status()  # Raise HTTPError for bad responses (4xx and 5xx)
             return response
         except (HTTPError, ConnectionError, Timeout) as e:
