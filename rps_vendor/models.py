@@ -305,6 +305,9 @@ class RpsParkingCardSession(models.Model):
 
         str_for_hash = prefix_query_str + ("&%s" % SECRET_HASH)
         hash_str = hashlib.sha1(str_for_hash.encode('utf-8')).hexdigest()
+        
+        rps_parking = RpsParking.objects.select_related(
+                    'parking').filter(parking__id=self.parking_id).first()
 
         payload = json.dumps({
             "ticket_id": self.parking_card.card_id,
@@ -312,6 +315,12 @@ class RpsParkingCardSession(models.Model):
             "FromPay": "ParkPass",
             "hash": hash_str
         })
+        
+        headers = {
+            "Authorization": f"Bearer {rps_parking.token}",
+            "RPSIntegrator": f"Id {rps_parking.integrator_id}",
+            "Content-Type": "application/json",
+        }
 
         get_logger().info("SEND REQUEST TO RPS")
         get_logger().info(payload)
@@ -322,15 +331,15 @@ class RpsParkingCardSession(models.Model):
             url = order.payload["parking_payment_url"]
             data = {"regularCustomerId": order.payload["card_id"],
                     "amount": int(order.sum)}
-            send_request_with_retries(url, 'POST', retries=5, data=data)
+            send_request_with_retries(url, 'POST', retries=5, data=data, headers=headers)
             return True
         else:
             try:
-                rps_parking = RpsParking.objects.select_related(
-                    'parking').get(parking__id=self.parking_id)
+                if not rps_parking:
+                    raise RpsParking.DoesNotExist
 
                 result = self._make_http_ok_status(
-                    rps_parking.request_payment_authorize_url, payload, developer_id, rps_parking)
+                    rps_parking.request_payment_authorize_url, payload, developer_id, rps_parking, headers=headers)
 
                 if result['success']:
                     if result['leave_at'] is not None:
@@ -340,11 +349,11 @@ class RpsParkingCardSession(models.Model):
                         get_logger().info("Get `leave_at` is None from RPS")
                         # return False
 
-                    elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
-                        'rps_request_data': result['leave_at'] if result['leave_at'] else '',
-                        'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
-                        'payload': payload
-                    })
+                    # elastic_log(ES_APP_CARD_PAY_LOGS_INDEX_NAME, "Send authorized request to rps", {
+                    #     'rps_request_data': result['leave_at'] if result['leave_at'] else '',
+                    #     'order': serializer(order, foreign=False, include_attr=("id", "sum", "authorized", "paid")),
+                    #     'payload': payload
+                    # })
 
                     return True
                 else:
@@ -367,16 +376,17 @@ class RpsParkingCardSession(models.Model):
         self.save()
         return True
 
-    def _make_http_ok_status(self, url, payload, developer_id=None, rps_parking=None):
+    def _make_http_ok_status(self, url, payload, developer_id=None, rps_parking=None, headers=None):
         get_logger().info("_make_http_ok_status")
         connect_timeout = 2
 
         self.last_request_date = timezone.now()
         self.last_request_body = payload
-
-        headers = {
-            'Content-type': 'application/json',
-        }
+        
+        if not headers:
+            headers = {
+                'Content-type': 'application/json',
+            }
 
         try:
             get_logger().info("Try to make_http_ok")

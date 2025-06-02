@@ -61,9 +61,9 @@ class TinkoffCallbackView(APIView):
 
     def post(self, request, *args, **kwargs):
         self.log_data(request.data)
-        elastic_log(
-            ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get Tinkoff callback", request.data
-        )
+        # elastic_log(
+        #     ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get Tinkoff callback", request.data
+        # )
 
         self.is_successful = request.data.get("Success", False)
         self.status = self.parse_status(request.data["Status"])
@@ -135,19 +135,19 @@ class TinkoffCallbackView(APIView):
                 order.save()
                 self.close_parking_session_if_needed(order)
 
-            elastic_log(
-                ES_APP_SESSION_PAY_LOGS_INDEX_NAME,
-                "Payment callback for session",
-                {
-                    "parking_session": serializer(order.session),
-                    "request_data": request.data,
-                    "order": serializer(
-                        order,
-                        foreign=False,
-                        include_attr=("id", "sum", "authorized", "paid"),
-                    ),
-                },
-            )
+            # elastic_log(
+            #     ES_APP_SESSION_PAY_LOGS_INDEX_NAME,
+            #     "Payment callback for session",
+            #     {
+            #         "parking_session": serializer(order.session),
+            #         "request_data": request.data,
+            #         "order": serializer(
+            #             order,
+            #             foreign=False,
+            #             include_attr=("id", "sum", "authorized", "paid"),
+            #         ),
+            #     },
+            # )
 
         elif self.is_account_credit_card_payment(order):
             rebill_id = int(request.data["RebillId"])
@@ -195,18 +195,18 @@ class TinkoffCallbackView(APIView):
                 order.paid = True
                 order.save()
 
-            elastic_log(
-                ES_APP_CARD_PAY_LOGS_INDEX_NAME,
-                "Payment callback for card",
-                {
-                    "request_data": request.data,
-                    "order": serializer(
-                        order,
-                        foreign=False,
-                        include_attr=("id", "sum", "authorized", "paid"),
-                    ),
-                },
-            )
+            # elastic_log(
+            #     ES_APP_CARD_PAY_LOGS_INDEX_NAME,
+            #     "Payment callback for card",
+            #     {
+            #         "request_data": request.data,
+            #         "order": serializer(
+            #             order,
+            #             foreign=False,
+            #             include_attr=("id", "sum", "authorized", "paid"),
+            #         ),
+            #     },
+            # )
         elif self.is_parking_card_pay(order):
             get_logger().warn("is_parking_card_pay")
             if self.status == PAYMENT_STATUS_AUTHORIZED:
@@ -233,18 +233,18 @@ class TinkoffCallbackView(APIView):
                 order.authorized = False
                 self.notify_refund_rps(order)  # TODO make async
 
-            elastic_log(
-                ES_APP_CARD_PAY_LOGS_INDEX_NAME,
-                "Payment callback for card",
-                {
-                    "request_data": request.data,
-                    "order": serializer(
-                        order,
-                        foreign=False,
-                        include_attr=("id", "sum", "authorized", "paid"),
-                    ),
-                },
-            )
+            # elastic_log(
+            #     ES_APP_CARD_PAY_LOGS_INDEX_NAME,
+            #     "Payment callback for card",
+            #     {
+            #         "request_data": request.data,
+            #         "order": serializer(
+            #             order,
+            #             foreign=False,
+            #             include_attr=("id", "sum", "authorized", "paid"),
+            #         ),
+            #     },
+            # )
 
         elif self.is_subscription_pay(order):
             if self.status == PAYMENT_STATUS_AUTHORIZED:
@@ -278,36 +278,36 @@ class TinkoffCallbackView(APIView):
                 subs = order.subscription
                 subs.reset(error_message="Payment error")
 
-            elastic_log(
-                ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME,
-                "Payment callback for subscription",
-                {
-                    "request_data": request.data,
-                    "order": serializer(
-                        order,
-                        foreign=False,
-                        include_attr=("id", "sum", "authorized", "paid"),
-                    ),
-                    "subs": serializer(
-                        subs,
-                        include_attr=(
-                            "id",
-                            "name",
-                            "description",
-                            "sum",
-                            "data",
-                            "started_at",
-                            "expired_at",
-                            "duration",
-                            "prolongation",
-                            "unlimited",
-                            "state",
-                            "active",
-                            "error_message",
-                        ),
-                    ),
-                },
-            )
+            # elastic_log(
+            #     ES_APP_SUBSCRIPTION_PAY_LOGS_INDEX_NAME,
+            #     "Payment callback for subscription",
+            #     {
+            #         "request_data": request.data,
+            #         "order": serializer(
+            #             order,
+            #             foreign=False,
+            #             include_attr=("id", "sum", "authorized", "paid"),
+            #         ),
+            #         "subs": serializer(
+            #             subs,
+            #             include_attr=(
+            #                 "id",
+            #                 "name",
+            #                 "description",
+            #                 "sum",
+            #                 "data",
+            #                 "started_at",
+            #                 "expired_at",
+            #                 "duration",
+            #                 "prolongation",
+            #                 "unlimited",
+            #                 "state",
+            #                 "active",
+            #                 "error_message",
+            #             ),
+            #         ),
+            #     },
+            # )
 
         else:
             get_logger().warn("Unknown successefull operation")
@@ -544,18 +544,18 @@ class TinkoffCallbackView(APIView):
                 parking_session.state = ParkingSession.STATE_CLOSED
                 parking_session.save()
 
-                elastic_log(
-                    ES_APP_SESSION_PAY_LOGS_INDEX_NAME,
-                    "Close session after payment",
-                    {
-                        "parking_session": serializer(parking_session),
-                        "order": serializer(
-                            order,
-                            foreign=False,
-                            include_attr=("id", "sum", "authorized", "paid"),
-                        ),
-                    },
-                )
+                # elastic_log(
+                #     ES_APP_SESSION_PAY_LOGS_INDEX_NAME,
+                #     "Close session after payment",
+                #     {
+                #         "parking_session": serializer(parking_session),
+                #         "order": serializer(
+                #             order,
+                #             foreign=False,
+                #             include_attr=("id", "sum", "authorized", "paid"),
+                #         ),
+                #     },
+                # )
 
     def confirm_order(self, order):
         payments = TinkoffPayment.objects.filter(order=order, error_code=-1)
@@ -603,9 +603,9 @@ class HomeBankCallbackView(APIView):
 
     def post(self, request, *args, **kwargs):
         self.log_data(request.data)
-        elastic_log(
-            ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get HomeBank callback", request.data
-        )
+        # elastic_log(
+        #     ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Get HomeBank callback", request.data
+        # )
 
         self.status = request.data.get("status", None)
         self.is_successful = False
