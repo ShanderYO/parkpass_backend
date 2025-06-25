@@ -72,14 +72,14 @@ class RpsParking(models.Model):
         return "%s" % (self.parking.name)
     
     def ensure_token(self):
-        if self.token_expired is None or self.token_expired <= timezone.now():
-            token, expired_date = RpsIntegrationService.get_token(self)
-            if token:
-                self.token = token
-                self.token_expired = expired_date
-                self.save()
-            return token
-        return self.token
+        #if self.token_expired is None or self.token_expired <= timezone.now():
+        token, expired_date = RpsIntegrationService.get_token(self)
+        if token:
+            self.token = token
+            self.token_expired = expired_date
+            self.save()
+        return token
+        # return self.token
 
     def make_rps_request(self, endpoint, payload):
         return RpsIntegrationService.make_rps_request(self, endpoint, payload)
