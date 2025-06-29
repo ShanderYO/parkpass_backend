@@ -139,6 +139,7 @@ INSTALLED_APPS = [
     'jwtauth',
     'rps_vendor',
     'owners',
+    'reports',
     'control',
     'partners',
     'fcm_django',
