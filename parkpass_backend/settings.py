@@ -145,6 +145,8 @@ INSTALLED_APPS = [
     'notifications'
 ]
 
+INSTALLED_APPS.append('transaction_reports')
+
 if PROD:
     INSTALLED_APPS.append('corsheaders')
 
