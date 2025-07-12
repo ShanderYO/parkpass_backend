@@ -197,7 +197,7 @@ def write_session(filepath, qs):
                 status_str = "Приостановлена"
 
             elif session.state in [
-                ParkingSession.STATE_COMPLETED_BY_VENDOR_FULLY,
+                ParkingSession.EXIT_ALLOWED,
                 ParkingSession.STATE_COMPLETED,
                 ParkingSession.CLIENT_STATE_SUSPENDED]:
                 status_str = "Ожидает оплаты"

@@ -379,6 +379,20 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'vendor.task.notify_mos_parking',
         'schedule': 15.0
     },
+    'update_rps_token': {
+        'task': 'parkings.tasks.update_rps_token',
+        'schedule': 60.0
+    },
+     'task-check-and-confirm-entrance': {
+        'task': 'accounts.tasks.check_and_confirm_entrance',
+        'schedule': 10.0,  # Выполняется каждые 10 секунд
+    },
+     'fetch-and-update-session-statuses': {
+        'task': 'parkings.tasks.fetch_and_update_session_statuses',
+        'schedule': 300.0,  # каждые 5 минут
+    },
+    
+    
     # 'valet-bot-notification': {
     #     'task': 'parkings.tasks.send_message_by_valet_bots_task',
     #     'schedule': 10.0

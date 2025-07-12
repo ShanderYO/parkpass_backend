@@ -77,10 +77,11 @@ def _create_parking(vendor,
 
 
 def _make_signed_json_post(url, body):
-    signature = hmac.new("12345678", body, hashlib.sha512)
+    key = b"12345678"  # Преобразование ключа в bytes
+    signature = hmac.new(key, body.encode(), hashlib.sha512).hexdigest()
     response = Client().post(url, body, content_type="application/json",
-                             **{'HTTP_X_SIGNATURE': signature.hexdigest(),
-                                'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
+                         **{'HTTP_X_SIGNATURE': signature,
+                            'HTTP_X_VENDOR_NAME': "test-parking-vendor"})
     return response
 
 
@@ -231,6 +232,9 @@ class UpdateParkingTestCase(TestCase):
             "free_places": 10
         })
         response = _make_signed_json_post(url, body)
+        
+        print(response)
+        
         self.assertEqual(response.status_code, 200)
     # print(response.content)
 
@@ -400,7 +404,7 @@ class CreateSessionParkingTestCase(TestCase):
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 200)
 
-        parkings = ParkingSession.objects.filter(state=ParkingSession.STATE_VERIFICATION_REQUIRED)
+        parkings = ParkingSession.objects.filter(state=ParkingSession.STATE_CANCELED, error="Verification required")
         self.assertEquals(parkings.count(), 1)
 
     def test_parking_datetime_converted(self):
@@ -588,7 +592,7 @@ class UpdateSessionParkingTestCase(TestCase):
         response = _make_signed_json_post(url, body)
         self.assertEqual(response.status_code, 400)
 
-        # print(response.content)
+        print(response.content)
 
         error_code = json.loads(response.content)["code"]
         self.assertEqual(error_code, ValidationException.VALIDATION_ERROR)

@@ -14,37 +14,43 @@ from parkpass_backend.settings import AVATARS_ROOT
 from payments.models import CreditCard, Order, FiskalNotification
 from vendors.models import Vendor
 
-TOKEN_DICT = {'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd15e1',
-              'content_type': 'application/json'}
+TOKEN_DICT = {
+    "HTTP_AUTHORIZATION": "Token 0ff08840935eb00fad198ef5387423bc24cd15e1",
+    "content_type": "application/json",
+}
 TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
 URL_PREFIX = "/api/v1/account/"
 
 
-def create_account(name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"):
-    account = Account(
-        first_name=name,
-        phone=phone,
-        email=email
-    )
+def create_account(
+    name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"
+):
+    account = Account(first_name=name, phone=phone, email=email)
     account.set_password(password)
     account.save()
-    account_session = AccountSession(
-        token=TOKEN,
-        account=account
-    )
+    account_session = AccountSession(token=TOKEN, account=account)
     account_session.set_expire_date()
     account_session.save(not_generate_token=True)
 
     return account, account_session
 
 
-def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678", park_enabled=True, approved=True,
-                          park_name="parking-1", park_desc="default", park_lat=1, park_lon=1, park_places=5):
+def create_vendor_parking(
+    ven_name="test-parking-vendor",
+    ven_secret="12345678",
+    park_enabled=True,
+    approved=True,
+    park_name="parking-1",
+    park_desc="default",
+    park_lat=1,
+    park_lon=1,
+    park_places=5,
+):
     v = Vendor(
         display_id=1,
         name=ven_name,
         secret=ven_secret,
-        fetch_extern_user_data_url="/api/v1/account/login/external/"
+        fetch_extern_user_data_url="/api/v1/account/login/external/",
     )
     v.save(not_generate_secret=True)
     p = Parking.objects.create(
@@ -56,7 +62,7 @@ def create_vendor_parking(ven_name="test-parking-vendor", ven_secret="12345678",
         free_places=park_places,
         max_places=park_places,
         vendor=v,
-        approved=approved
+        approved=approved,
     )
     return v, p
 
@@ -74,9 +80,7 @@ class PasswordTestCase(TestCase):
     def test_add_email_test(self):
         url = URL_PREFIX + "email/add/"
 
-        body = json.dumps({
-            "email": "diman-mich@yandex.ru"
-        })
+        body = json.dumps({"email": "diman-mich@yandex.ru"})
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
 
@@ -87,9 +91,7 @@ class PasswordTestCase(TestCase):
         """
         url = URL_PREFIX + "password/restore/"
 
-        body = json.dumps({
-            "email": "abra@cadabra.boom"
-        })
+        body = json.dumps({"email": "abra@cadabra.boom"})
         response = Client().post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 400)
@@ -101,9 +103,7 @@ class PasswordTestCase(TestCase):
         """
         url = URL_PREFIX + "password/restore/"
 
-        body = json.dumps({
-            "email": "test@testing.com"
-        })
+        body = json.dumps({"email": "test@testing.com"})
         response = Client().post(url, body, content_type="application/json")
 
         self.assertEqual(response.status_code, 200)
@@ -115,10 +115,7 @@ class PasswordTestCase(TestCase):
         """
         url = URL_PREFIX + "password/change/"
 
-        body = json.dumps({
-            "old": "abracadabra",
-            "new": "12345"
-        })
+        body = json.dumps({"old": "abracadabra", "new": "12345"})
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
@@ -130,10 +127,7 @@ class PasswordTestCase(TestCase):
         """
         url = URL_PREFIX + "password/change/"
 
-        body = json.dumps({
-            "old": "qwerty",
-            "new": "uiop"
-        })
+        body = json.dumps({"old": "qwerty", "new": "uiop"})
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
@@ -156,10 +150,12 @@ class LoginEmailTestCase(TestCase):
     def test_invalid_email_login_with_email(self):
         url = URL_PREFIX + "login/email/"
 
-        body = json.dumps({
-            "email": "diman1-mich@yandex.ru",
-            "password": "qwerty",
-        })
+        body = json.dumps(
+            {
+                "email": "diman1-mich@yandex.ru",
+                "password": "qwerty",
+            }
+        )
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
@@ -168,10 +164,12 @@ class LoginEmailTestCase(TestCase):
     def test_invalid_password_login_with_email(self):
         url = URL_PREFIX + "login/email/"
 
-        body = json.dumps({
-            "email": "diman-mich@yandex.ru",
-            "password": "qwerty1",
-        })
+        body = json.dumps(
+            {
+                "email": "diman-mich@yandex.ru",
+                "password": "qwerty1",
+            }
+        )
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
@@ -181,22 +179,27 @@ class LoginEmailTestCase(TestCase):
         url = URL_PREFIX + "login/email/"
         url2 = URL_PREFIX + "me/"
 
-        body = json.dumps({
-            "email": "diman-mich@yandex.ru",
-            "password": "qwerty",
-        })
+        body = json.dumps(
+            {
+                "email": "diman-mich@yandex.ru",
+                "password": "qwerty",
+            }
+        )
         response = Client().post(url, body, **TOKEN_DICT)
         j = json.loads(response.content)
         self.assertEqual(response.status_code, 200)
-        response = Client().get(url2, content_type='application/json',
-                                HTTP_AUTHORIZATION='Token %s' % j['token'])
+        response = Client().get(
+            url2,
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Token %s" % j["token"],
+        )
         self.assertEqual(response.status_code, 200)
         # print(response.content)
 
 
 class AccountTestCase(TestCase):
     """
-        Test for /api/v1/account/me
+    Test for /api/v1/account/me
     """
 
     def setUp(self):
@@ -206,11 +209,14 @@ class AccountTestCase(TestCase):
     def test_invalid_token(self):
         url = URL_PREFIX + "me/"
 
-        response = Client().get(url, content_type="application/json",
-                                **{'HTTP_AUTHORIZATION': 'Token 0ff08840935eb00fad198ef5387423bc24cd1523'})
+        response = Client().get(
+            url,
+            content_type="application/json",
+            **{"HTTP_AUTHORIZATION": "Token 0ff08840935eb00fad198ef5387423bc24cd1523"}
+        )
         self.assertEqual(response.status_code, 401)
         j = json.loads(response.content)
-        self.assertEqual(102, j['code'])
+        self.assertEqual(102, j["code"])
 
     def test_valid_request(self):
         url = URL_PREFIX + "me/"
@@ -219,16 +225,14 @@ class AccountTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         j = json.loads(response.content)
         self.assertEqual(len(j), 7)
-        self.assertEqual(1, j['id'])
+        self.assertEqual(1, j["id"])
 
     def test_new_session_without_card(self):
         url = URL_PREFIX + "session/create/"
 
-        body = json.dumps({
-            "session_id": "lala",
-            "parking_id": 2,
-            "started_at": 1467936000
-        })
+        body = json.dumps(
+            {"session_id": "lala", "parking_id": 2, "started_at": 1467936000}
+        )
 
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertNotEqual(response.status_code, 200)
@@ -276,7 +280,7 @@ class AccountDeactivateTestCase(AccountTestCase):
             client=account,
             parking=parking,
             debt=120,
-            state=ParkingSession.STATE_STARTED_BY_CLIENT,
+            state=ParkingSession.ENTER_ALLOWED,
             started_at=timezone.now() - timedelta(seconds=60),
             updated_at=timezone.now(),
             # completed_at=timezone.now(),
@@ -314,9 +318,7 @@ class AccountWithCardTestCase(AccountTestCase):
     def test_set_default_not_exist_card(self):
         url = URL_PREFIX + "card/default/"
 
-        body = json.dumps({
-            "id": 3  # not exists
-        })
+        body = json.dumps({"id": 3})  # not exists
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
@@ -325,9 +327,7 @@ class AccountWithCardTestCase(AccountTestCase):
     def test_change_default_card_repeat(self):
         url = URL_PREFIX + "card/default/"
 
-        body = json.dumps({
-            "id": 1  # already by default
-        })
+        body = json.dumps({"id": 1})  # already by default
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
@@ -336,9 +336,7 @@ class AccountWithCardTestCase(AccountTestCase):
     def test_change_default_card(self):
         url = URL_PREFIX + "card/default/"
 
-        body = json.dumps({
-            "id": 2
-        })
+        body = json.dumps({"id": 2})
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
@@ -347,18 +345,14 @@ class AccountWithCardTestCase(AccountTestCase):
     def test_delete_card(self):
         url = URL_PREFIX + "card/delete/"
 
-        body = json.dumps({
-            "id": 3  # not exists
-        })
+        body = json.dumps({"id": 3})  # not exists
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
-        self.assertEqual(402, j['code'])
+        self.assertEqual(402, j["code"])
 
-        body = json.dumps({
-            "id": 1
-        })
+        body = json.dumps({"id": 1})
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
@@ -396,7 +390,7 @@ class AccountSessionsTestCase(TestCase):
         # For pagination test
         for i in range(3, 10):
             ParkingSession.objects.create(
-                session_id="session_"+str(i),
+                session_id="session_" + str(i),
                 client=account,
                 parking=parking,
                 debt=120,
@@ -498,20 +492,16 @@ class AccountSessionsTestCase(TestCase):
 
     def test_session_pay_invalid_id(self):
         url = URL_PREFIX + "session/pay/"
-        body = json.dumps({
-            "id": 999  # not exists
-        })
+        body = json.dumps({"id": 999})  # not exists
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
-        self.assertEqual(402, j['code'])
+        self.assertEqual(402, j["code"])
 
     def test_session_pay(self):
         url = URL_PREFIX + "session/pay/"
 
-        body = json.dumps({
-            "id": 15
-        })
+        body = json.dumps({"id": 15})
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
         # print(response.content)
@@ -531,7 +521,7 @@ class StartAccountTestCaseWithDebt(TestCase):
             debt=120,
             state=ParkingSession.STATE_CLOSED,
             started_at=timezone.now() + timezone.timedelta(days=-1),
-            updated_at=timezone.now()
+            updated_at=timezone.now(),
         )
 
         # Create active account session
@@ -543,72 +533,59 @@ class StartAccountTestCaseWithDebt(TestCase):
             debt=120,
             state=ParkingSession.STATE_COMPLETED,
             started_at=timezone.now(),
-            updated_at=timezone.now()
+            updated_at=timezone.now(),
         )
 
     def test_denied_start_session(self):
         url = URL_PREFIX + "session/create/"
 
-        body = json.dumps({
-            "session_id": "lala",
-            "parking_id": 1,
-            "started_at": 1467936000
-        })
+        body = json.dumps(
+            {"session_id": "lala", "parking_id": 1, "started_at": 1467936000}
+        )
 
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
-        self.assertEqual(j['code'], 304)
+        self.assertEqual(j["code"], 304)
 
     def test_force_stop_session(self):
         url = URL_PREFIX + "session/stop/"
 
-        body = json.dumps({
-            "id": 1
-        })
+        body = json.dumps({"id": 1})
 
         response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content, '{}')
-        self.assertTrue(ParkingSession.objects.get(id=1).is_suspended)
+        self.assertEqual(response.content, "{}")
 
     def test_force_stop_session_invalid(self):
         url = URL_PREFIX + "session/stop/"
 
-        body = json.dumps({
-            "id": 55
-        })
+        body = json.dumps({"id": 55})
 
         response = Client().post(url, body, **TOKEN_DICT)
         # print(response.content, 12321)
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
-        self.assertEqual(402, j['code'])
+        self.assertEqual(402, j["code"])
 
     def test_force_stop_and_resume_session(self):
         url = URL_PREFIX + "session/stop/"
 
-        body = json.dumps({
-            "id": 1
-        })
+        body = json.dumps({"id": 1})
 
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content, '{}')
-        self.assertTrue(ParkingSession.objects.get(id=1).is_suspended)
+        self.assertEqual(response.content, "{}")
 
         url = URL_PREFIX + "session/resume/"
 
-        body = json.dumps({
-            "id": 1
-        })
+        body = json.dumps({"id": 1})
 
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content, '{}')
-        self.assertFalse(ParkingSession.objects.get(id=1).is_suspended)
+        self.assertEqual(response.content, "{}")
 
 
 class ReceiptTestCase(TestCase):
@@ -641,7 +618,7 @@ class ReceiptTestCase(TestCase):
             url="http://yandex.ru",
             qr_code_url="http://qr_code_url.ru",
             receipt="recept_text",
-            type="type_of_notification"
+            type="type_of_notification",
         )
 
         order = Order.objects.create(
@@ -651,46 +628,40 @@ class ReceiptTestCase(TestCase):
             paid=True,
             session=parking_session,
             account=account,
-            fiscal_notification=fiskal
+            fiscal_notification=fiskal,
         )
 
     def test_not_exists_parking(self):
         url = URL_PREFIX + "session/receipt/get/"
 
-        body = json.dumps({
-            "id": 3
-        })
+        body = json.dumps({"id": 3})
 
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
-        self.assertEqual(402, j['code'])
+        self.assertEqual(402, j["code"])
 
     def test_valid_receipt(self):
         url = URL_PREFIX + "session/receipt/get/"
 
-        body = json.dumps({
-            "id": 1
-        })
+        body = json.dumps({"id": 1})
 
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 200)
         j = json.loads(response.content)
-        self.assertEqual(1, j['result'][0]['order']['id'])
-        self.assertEqual(1, j['result'][0]['fiscal']['id'])
+        self.assertEqual(1, j["result"][0]["order"]["id"])
+        self.assertEqual(1, j["result"][0]["fiscal"]["id"])
 
     def test_send_receipt_to_unbound_mail(self):
         url = URL_PREFIX + "session/receipt/send/"
-        body = json.dumps({
-            "id": 1
-        })
+        body = json.dumps({"id": 1})
         response = Client().post(url, body, **TOKEN_DICT)
 
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
-        self.assertEqual(306, j['code'])
+        self.assertEqual(306, j["code"])
 
 
 class AccountAvatarTestCase(AccountTestCase):
@@ -700,9 +671,11 @@ class AccountAvatarTestCase(AccountTestCase):
     def test_set_avatar(self):
         url = URL_PREFIX + "avatar/set/"
         with open("test1.jpg", "rb") as fp:
-            body = json.dumps({
-                "avatar": base64.b64encode(fp.read()),
-            })
+            body = json.dumps(
+                {
+                    "avatar": base64.b64encode(fp.read()),
+                }
+            )
             response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 200)
 
@@ -714,15 +687,17 @@ class AccountAvatarTestCase(AccountTestCase):
     def test_set_large_avatar(self):
         url = URL_PREFIX + "avatar/set/"
         with open("test.jpg", "rb") as fp:
-            body = json.dumps({
-                "avatar": base64.b64encode(fp.read()),
-            })
+            body = json.dumps(
+                {
+                    "avatar": base64.b64encode(fp.read()),
+                }
+            )
             response = Client().post(url, body, **TOKEN_DICT)
         self.assertEqual(response.status_code, 400)
         j = json.loads(response.content)
-        self.assertEqual(j['code'], 404)
+        self.assertEqual(j["code"], 404)
         phone = "+7(123)4567890"
-        path = AVATARS_ROOT + '/' + md5(phone).hexdigest()
+        path = AVATARS_ROOT + "/" + md5(phone).hexdigest()
         self.assertFalse(isfile(path))
 
 
@@ -738,7 +713,7 @@ class WantedParkingsTestCase(TestCase):
             longitude=1,
             max_places=5,
             free_places=5,
-            vendor=vendor
+            vendor=vendor,
         )
         self.p3 = Parking.objects.create(
             name="parking-1",
@@ -749,7 +724,7 @@ class WantedParkingsTestCase(TestCase):
             max_places=5,
             free_places=5,
             vendor=vendor,
-            approved=True
+            approved=True,
         )
         self.p1.save()
         self.p2.save()
@@ -779,50 +754,44 @@ class WantedParkingsTestCase(TestCase):
 class Issue(TestCase):
 
     def test_full_data(self):
-        url = URL_PREFIX + 'owner/'
+        url = URL_PREFIX + "owner/"
 
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'phone': '81234567890',
-            'email': 'wnnpasha@mailg.moc'
-        })
+        body = json.dumps(
+            {"name": "PashaWNN", "phone": "81234567890", "email": "wnnpasha@mailg.moc"}
+        )
 
-        response = Client().post(url, body, content_type='application/json')
+        response = Client().post(url, body, content_type="application/json")
         # print(response.content)
         self.assertEqual(200, response.status_code)
 
     def test_partial_data(self):
-        url = URL_PREFIX + 'owner/'
+        url = URL_PREFIX + "owner/"
 
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'phone': '81234567890',
-        })
+        body = json.dumps(
+            {
+                "name": "PashaWNN",
+                "phone": "81234567890",
+            }
+        )
 
-        response = Client().post(url, body, content_type='application/json')
+        response = Client().post(url, body, content_type="application/json")
         # print(response.content)
         self.assertEqual(200, response.status_code)
 
-        url = URL_PREFIX + 'owner/'
+        url = URL_PREFIX + "owner/"
 
-        body = json.dumps({
-            'name': 'PashaWNN',
-            'email': 'wnnpasha@mailg.moc'
-        })
+        body = json.dumps({"name": "PashaWNN", "email": "wnnpasha@mailg.moc"})
 
-        response = Client().post(url, body, content_type='application/json')
+        response = Client().post(url, body, content_type="application/json")
         # print(response.content)
         self.assertEqual(200, response.status_code)
 
     def test_no_name(self):
-        url = URL_PREFIX + 'owner/'
+        url = URL_PREFIX + "owner/"
 
-        body = json.dumps({
-            'phone': '81234567890',
-            'email': 'wnnpasha@mailg.moc'
-        })
+        body = json.dumps({"phone": "81234567890", "email": "wnnpasha@mailg.moc"})
 
-        response = Client().post(url, body, content_type='application/json')
+        response = Client().post(url, body, content_type="application/json")
         # print(response.content)
         self.assertEqual(200, response.status_code)
 
@@ -833,39 +802,31 @@ class ExtenalLoginTestCase(TestCase):
             ven_name="mos-parking",
             ven_secret="12345678",
             park_name="parking-2",
-            park_desc="default"
+            park_desc="default",
         )
 
     def test_invalid_body_external_login(self):
         url = URL_PREFIX + "login/external/"
 
-        body = json.dumps({
-            'external_user_id': 'test-user'
-        })
+        body = json.dumps({"external_user_id": "test-user"})
 
-        response = Client().post(url, body, content_type='application/json')
+        response = Client().post(url, body, content_type="application/json")
         self.assertEqual(400, response.status_code)
 
     def test_not_exists_external_login(self):
         url = URL_PREFIX + "login/external/"
 
-        body = json.dumps({
-            'external_user_id': 'another-user',
-            'vendor_id':1
-        })
+        body = json.dumps({"external_user_id": "another-user", "vendor_id": 1})
 
-        response = Client().post(url, body, content_type='application/json')
+        response = Client().post(url, body, content_type="application/json")
         print(response.content)
         self.assertEqual(400, response.status_code)
 
     def test_exists_external_login(self):
         url = URL_PREFIX + "login/external/"
 
-        body = json.dumps({
-            'external_user_id': 'test_id',
-            'vendor_id': 1
-        })
+        body = json.dumps({"external_user_id": "test_id", "vendor_id": 1})
 
-        response = Client().post(url, body, content_type='application/json')
+        response = Client().post(url, body, content_type="application/json")
         print(response.content)
         self.assertEqual(200, response.status_code)

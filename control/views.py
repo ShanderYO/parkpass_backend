@@ -127,7 +127,7 @@ admin_objects = {
     'parkingsession': {
         'object': ParkingSession,
         'readonly_fields': ('id', 'session_id', 'client', 'parking', 'debt', 'state', 'started_at', 'updated_at',
-                            'completed_at', 'suspended_at', 'try_refund', 'target_refund_sum',
+                            'completed_at', 'try_refund', 'target_refund_sum',
                             'current_refund_sum', 'created_at',)
     },
     'parking': {

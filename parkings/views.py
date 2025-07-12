@@ -480,7 +480,7 @@ class CreateParkingSessionView(SignedRequestAPIView):
                     "Session has already started by vendor"
                 )
                 return JsonResponse(e.to_dict(), status=400)
-            session.add_vendor_start_mark()
+            # session.add_vendor_start_mark()
             session.started_at = utc_started_at
             session.vendor_id = int(vendor_id) if vendor_id else 0
 
@@ -488,15 +488,15 @@ class CreateParkingSessionView(SignedRequestAPIView):
             # check active session
             last_active_session = ParkingSession.get_active_session(account)
             if last_active_session:
-                last_active_session.state = ParkingSession.STATE_VERIFICATION_REQUIRED
-                last_active_session.suspended_at = utc_started_at
+                last_active_session.state = ParkingSession.STATE_CANCELED
+                last_active_session.error = "Verification required"
                 last_active_session.save()
 
             session = ParkingSession(
                 session_id=session_id,
                 client=account,
                 parking=parking,
-                state=ParkingSession.STATE_STARTED_BY_VENDOR,
+                state=ParkingSession.ENTER_ALLOWED,
                 started_at=utc_started_at
             )
             session.vendor_id = int(vendor_id) if vendor_id else 0
