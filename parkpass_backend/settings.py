@@ -142,7 +142,8 @@ INSTALLED_APPS = [
     'control',
     'partners',
     'fcm_django',
-    'notifications'
+    'notifications',
+    'payments_reports'
 ]
 
 if PROD:
