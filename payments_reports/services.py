@@ -39,7 +39,7 @@ class OwnersPaymentsReports:
     def _process_parking_config(cls, config, report, period_start, period_end):
         parking = config.parking
 
-        # 💥 здесь важная правка: проверяем, есть ли terminal у parking
+        # здесь важная правка: проверяем, есть ли terminal у parking
         if not hasattr(parking, "terminal") or parking.terminal is None:
             # пропускаем, если нет terminal
             return
