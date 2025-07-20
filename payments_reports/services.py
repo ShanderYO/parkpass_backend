@@ -1,32 +1,24 @@
-from datetime import timedelta
 from decimal import Decimal
-
-from payments.models import TinkoffPayment
-from payments_reports.models import (
-    ParkingPaymentReport,
-    ParkingPaymentReportTransaction,
-)
-from payments_reports.models import TransactionType
-from django.utils import timezone
+from payments.models import Order
+from rps_vendor.models import RpsParking
+from payments_reports.models import ParkingPaymentReport, ParkingPaymentReportTransaction, TransactionType
 
 
 class OwnersPaymentsReports:
     @classmethod
     def generate_report_for_owner(cls, owner, period_start, period_end):
-        configs = owner.report_configs.select_related("parking").all()
-
+        configs = owner.report_configs.select_related('parking', 'owner', 'company').all()
         if not configs.exists():
             return None
 
-        # создаём общий объект отчёта
         report = ParkingPaymentReport.objects.create(
             owner=owner,
             period_start=period_start,
             period_end=period_end,
-            total_amount=0,
-            total_commission=0,
-            total_refunds=0,
-            payout_amount=0,
+            total_amount=Decimal('0.0'),
+            total_commission=Decimal('0.0'),
+            total_refunds=Decimal('0.0'),
+            payout_amount=Decimal('0.0'),
             is_sent=False,
         )
 
@@ -39,70 +31,44 @@ class OwnersPaymentsReports:
     def _process_parking_config(cls, config, report, period_start, period_end):
         parking = config.parking
 
-        # здесь важная правка: проверяем, есть ли terminal у parking
-        if not hasattr(parking, "terminal") or parking.terminal is None:
-            # пропускаем, если нет terminal
+        # Берём только RpsParking
+        try:
+            rps_parking = RpsParking.objects.get(parking=parking)
+        except RpsParking.DoesNotExist:
+            return  # пропускаем, если нет RpsParking
+
+        # Смотрим только tinkoff и с терминалом
+        orders = Order.objects.filter(
+            parking_card_session__parking=rps_parking,
+            acquiring='tinkoff',
+            terminal__isnull=False,
+            created_at__range=(period_start, period_end)
+        )
+
+        if not orders.exists():
             return
 
-        terminal = parking.terminal
+        total_amount = Decimal('0.0')
+        total_count = 0
 
-        confirmed_payments = TinkoffPayment.objects.filter(
-            terminal=terminal,
-            status=TransactionType.CONFIRMED.value,
-            paid_at__range=(period_start, period_end),
-        )
-
-        refund_payments = TinkoffPayment.objects.filter(
-            terminal=terminal,
-            status=TransactionType.REFUND.value,
-            paid_at__range=(period_start, period_end),
-        )
-
-        total_amount = Decimal("0.0")
-        total_refund = Decimal("0.0")
-        total_commission = Decimal("0.0")
-
-        # добавляем подтверждённые платежи
-        for payment in confirmed_payments:
-            commission = payment.amount * (config.commission_percent / Decimal("100"))
-            payout_amount = payment.amount - commission
-
+        for order in orders:
             ParkingPaymentReportTransaction.objects.create(
                 report=report,
-                parking=parking,
-                amount=payment.amount,
+                parking=parking,  # оригинальный Parking
+                amount=order.sum,
                 transaction_type=TransactionType.CONFIRMED.value,
                 commission_percent=config.commission_percent,
-                commission_amount=commission,
-                payout_amount=payout_amount,
-                paid_at=payment.paid_at,
+                commission_amount=Decimal('0.0'),  # комиссия, если появится, можно рассчитать
+                payout_amount=order.sum,  # пока без комиссии
+                paid_at=order.created_at,
             )
 
-            total_amount += payment.amount
-            total_commission += commission
+            total_amount += order.sum
+            total_count += 1
 
-        # добавляем возвраты (отрицательные суммы)
-        for payment in refund_payments:
-            ParkingPaymentReportTransaction.objects.create(
-                report=report,
-                parking=parking,
-                amount=-payment.amount,
-                transaction_type=TransactionType.REFUND.value,
-                commission_percent=Decimal("0"),
-                commission_amount=Decimal("0"),
-                payout_amount=-payment.amount,
-                paid_at=payment.paid_at,
-            )
-
-            total_refund += payment.amount
-
-        # обновляем агрегаты в report
         report.total_amount += total_amount
-        report.total_refund += total_refund
-        report.total_commission += total_commission
-        report.payout_amount = (
-            report.total_amount - report.total_refund - report.total_commission
-        )
+        # total_refunds и total_commission пока 0, но можно расширить позже
+        report.payout_amount = report.total_amount - report.total_refunds - report.total_commission
         report.save()
 
     @classmethod

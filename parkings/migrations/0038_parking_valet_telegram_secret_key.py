@@ -4,7 +4,7 @@ from django.db import migrations, models
 import uuid
 
 def create_uuid(apps, schema_editor):
-    from parkings.models import Parking
+    Parking = apps.get_model('parkings', 'Parking')
     for device in Parking.objects.all():
         device.valet_telegram_secret_key = uuid.uuid4()
         device.save()

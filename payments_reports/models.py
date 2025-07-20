@@ -2,6 +2,8 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from enum import Enum
 
+from owners.models import Company
+
 
 class PayoutPeriodicity(Enum):
     DAILY = "daily"
@@ -37,6 +39,7 @@ class ParkingReportConfig(models.Model):
         "owners.Owner", on_delete=models.CASCADE, related_name="report_configs"
     )
     parking = models.ForeignKey("parkings.Parking", on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True)
     commission_percent = models.DecimalField(max_digits=5, decimal_places=2)
 
     recipient_name = models.CharField(max_length=255)
