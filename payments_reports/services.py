@@ -1,13 +1,19 @@
 from decimal import Decimal
 from payments.models import Order
 from rps_vendor.models import RpsParking
-from payments_reports.models import ParkingPaymentReport, ParkingPaymentReportTransaction, TransactionType
+from payments_reports.models import (
+    ParkingPaymentReport,
+    ParkingPaymentReportTransaction,
+    TransactionType,
+)
 
 
 class OwnersPaymentsReports:
     @classmethod
     def generate_report_for_owner(cls, owner, period_start, period_end):
-        configs = owner.report_configs.select_related('parking', 'owner', 'company').all()
+        configs = owner.report_configs.select_related(
+            "parking", "owner", "company"
+        ).all()
         if not configs.exists():
             return None
 
@@ -15,10 +21,10 @@ class OwnersPaymentsReports:
             owner=owner,
             period_start=period_start,
             period_end=period_end,
-            total_amount=Decimal('0.0'),
-            total_commission=Decimal('0.0'),
-            total_refunds=Decimal('0.0'),
-            payout_amount=Decimal('0.0'),
+            total_amount=Decimal("0.0"),
+            total_commission=Decimal("0.0"),
+            total_refunds=Decimal("0.0"),
+            payout_amount=Decimal("0.0"),
             is_sent=False,
         )
 
@@ -33,42 +39,54 @@ class OwnersPaymentsReports:
 
         # Берём только RpsParking
         try:
-            rps_parking = RpsParking.objects.get(parking=parking)
+            RpsParking.objects.get(parking=parking)
         except RpsParking.DoesNotExist:
             return  # пропускаем, если нет RpsParking
 
         # Смотрим только tinkoff и с терминалом
         orders = Order.objects.filter(
-            parking_card_session__parking=rps_parking,
-            acquiring='tinkoff',
+            parking_card_session__parking_id=parking.id,
+            acquiring="tinkoff",
             terminal__isnull=False,
-            created_at__range=(period_start, period_end)
+            created_at__range=(period_start, period_end),
         )
 
         if not orders.exists():
             return
 
-        total_amount = Decimal('0.0')
-        total_count = 0
+        transactions = []
+        total_amount = Decimal("0.0")
+        total_commission = Decimal("0.0")
 
         for order in orders:
-            ParkingPaymentReportTransaction.objects.create(
+            amount = order.sum
+            commission = (
+                amount * config.commission_percent / Decimal("100.0")
+            ).quantize(Decimal("0.01"))
+            amount_after_commission = (amount - commission).quantize(Decimal("0.01"))
+
+            transaction = ParkingPaymentReportTransaction(
                 report=report,
-                parking=parking,  # оригинальный Parking
-                amount=order.sum,
+                tinkoff_payment=order.tinkoffpayment_set.order_by("id").last(),
+                parking=parking,
+                date_time=order.created_at,
+                amount=amount,
                 transaction_type=TransactionType.CONFIRMED.value,
                 commission_percent=config.commission_percent,
-                commission_amount=Decimal('0.0'),  # комиссия, если появится, можно рассчитать
-                payout_amount=order.sum,  # пока без комиссии
-                paid_at=order.created_at,
+                amount_after_commission=amount_after_commission,
             )
+            transactions.append(transaction)
 
-            total_amount += order.sum
-            total_count += 1
+            total_amount += amount
+            total_commission += commission
+
+        ParkingPaymentReportTransaction.objects.bulk_create(transactions)
 
         report.total_amount += total_amount
-        # total_refunds и total_commission пока 0, но можно расширить позже
-        report.payout_amount = report.total_amount - report.total_refunds - report.total_commission
+        report.total_commission += total_commission
+        report.payout_amount = (
+            report.total_amount - report.total_commission - report.total_refunds
+        )
         report.save()
 
     @classmethod

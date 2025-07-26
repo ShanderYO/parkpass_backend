@@ -39,14 +39,16 @@ class ParkingReportConfig(models.Model):
         "owners.Owner", on_delete=models.CASCADE, related_name="report_configs"
     )
     parking = models.ForeignKey("parkings.Parking", on_delete=models.CASCADE)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True)
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, null=True, blank=True
+    )
     commission_percent = models.DecimalField(max_digits=5, decimal_places=2)
 
     recipient_name = models.CharField(max_length=255)
-    inn = models.CharField(max_length=12)
+    inn = models.CharField(max_length=12, null=True, blank=True)
     kpp = models.CharField(max_length=9, blank=True, null=True)
-    bank_bik = models.CharField(max_length=9)
-    bank_account = models.CharField(max_length=20)
+    bank_bik = models.CharField(max_length=9, null=True, blank=True)
+    bank_account = models.CharField(max_length=20, null=True, blank=True)
 
     payout_periodicity = models.CharField(
         max_length=20,
@@ -61,7 +63,7 @@ class ParkingReportConfig(models.Model):
     )
 
     def __str__(self):
-        return f"{self.parking.name} ({self.owner.get_full_name() or self.owner.email})"
+        return f"{self.parking.name} ({self.owner.email})"
 
 
 class ParkingPaymentReport(models.Model):
@@ -73,15 +75,25 @@ class ParkingPaymentReport(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     last_sent_at = models.DateTimeField(null=True, blank=True)
 
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2)
-    total_refunds = models.DecimalField(max_digits=12, decimal_places=2)
-    total_commission = models.DecimalField(max_digits=12, decimal_places=2)
-    payout_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    total_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    total_refunds = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    total_commission = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    payout_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
 
     is_sent = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.owner.get_full_name() or self.owner.email} [{self.period_start} - {self.period_end}]"
+        if self.owner:
+            return f"Config for {self.owner.name} ({self.owner.email})"
+        return "Config without owner"
 
 
 class ParkingPaymentReportTransaction(models.Model):
@@ -118,4 +130,3 @@ class PayoutHistory(models.Model):
 
     def __str__(self):
         return f"{self.report} - {self.status}"
-
