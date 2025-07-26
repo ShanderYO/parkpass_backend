@@ -104,7 +104,7 @@ class ParkingReportConfigAdmin(admin.ModelAdmin):
 @admin.register(ParkingPaymentReport)
 class ParkingPaymentReportAdmin(admin.ModelAdmin):
     form = ParkingPaymentReportForm
-    inlines = [ParkingPaymentReportTransactionInline]  # 🔹 отображение транзакций
+    inlines = [ParkingPaymentReportTransactionInline]
 
     list_display = (
         "id",
@@ -129,8 +129,21 @@ class ParkingPaymentReportAdmin(admin.ModelAdmin):
         "total_refunds",
         "total_commission",
         "payout_amount",
+        "is_sent",  # is_sent делаем readonly
     )
     list_display_links = ("id", "owner")
+
+    def get_fields(self, request, obj=None):
+        fields = super().get_fields(request, obj)
+        if obj is None:
+            fields = [f for f in fields if f != "is_sent"]
+        return fields
+
+    def get_inline_instances(self, request, obj=None):
+        """Скрыть inlines при создании нового объекта"""
+        if obj is None:
+            return []
+        return super().get_inline_instances(request, obj=obj)
 
     def save_model(self, request, obj, form, change):
         config = ParkingReportConfig.objects.filter(owner=obj.owner).first()
