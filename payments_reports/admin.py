@@ -1,8 +1,7 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django import forms
 from django.urls import path
 from django.shortcuts import redirect
-from django.contrib import messages
 from django.utils.html import format_html
 
 from .models import (
@@ -14,7 +13,6 @@ from .models import (
 from .services import OwnersPaymentsReports
 
 
-# 🔹 Кастомная форма для выбора дат в виде календаря
 class ParkingPaymentReportForm(forms.ModelForm):
     class Meta:
         model = ParkingPaymentReport
@@ -24,8 +22,30 @@ class ParkingPaymentReportForm(forms.ModelForm):
             "period_end": forms.DateInput(attrs={"type": "date"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-# 🔹 Inline-транзакции для отображения в отчёте
+        if "owner" in self.fields:
+            self.fields["owner"].widget = forms.HiddenInput()
+            self.fields["owner"].required = False
+
+        if "company" in self.fields:
+            self.fields["company"].widget = forms.HiddenInput()
+
+        if "commission_percent" in self.fields:
+            self.fields["commission_percent"].widget = forms.HiddenInput()
+
+        from payments_reports.models import ParkingReportConfig
+
+        allowed_parkings = ParkingReportConfig.objects.values_list(
+            "parking_id", flat=True
+        )
+        if "parking" in self.fields:
+            self.fields["parking"].queryset = self.fields["parking"].queryset.filter(
+                id__in=allowed_parkings
+            )
+
+
 class ParkingPaymentReportTransactionInline(admin.TabularInline):
     model = ParkingPaymentReportTransaction
     extra = 0
@@ -75,8 +95,8 @@ class ParkingReportConfigAdmin(admin.ModelAdmin):
             self.message_user(request, "Config not found.", level=messages.ERROR)
             return redirect("..")
 
-        report = OwnersPaymentsReports.generate_report_for_owner(
-            config.owner,
+        report = OwnersPaymentsReports.generate_report_for_parking(
+            parking=config.parking,
             period_start=None,
             period_end=None,
         )
@@ -109,6 +129,9 @@ class ParkingPaymentReportAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "owner",
+        "parking",
+        "commission_percent",
+        "company",
         "period_start",
         "period_end",
         "created_at",
@@ -129,7 +152,10 @@ class ParkingPaymentReportAdmin(admin.ModelAdmin):
         "total_refunds",
         "total_commission",
         "payout_amount",
-        "is_sent",  # is_sent делаем readonly
+        "is_sent",
+        "owner",
+        "commission_percent",
+        "company",
     )
     list_display_links = ("id", "owner")
 
@@ -140,29 +166,32 @@ class ParkingPaymentReportAdmin(admin.ModelAdmin):
         return fields
 
     def get_inline_instances(self, request, obj=None):
-        """Скрыть inlines при создании нового объекта"""
         if obj is None:
             return []
         return super().get_inline_instances(request, obj=obj)
 
     def save_model(self, request, obj, form, change):
-        config = ParkingReportConfig.objects.filter(owner=obj.owner).first()
+        config = ParkingReportConfig.objects.filter(parking=obj.parking).first()
         if config:
             obj.commission_percent = config.commission_percent
             obj.company = config.company
-            obj.parking = config.parking
+            if not obj.owner_id and obj.parking:
+                obj.owner = obj.parking.owner
+
             super().save_model(request, obj, form, change)
 
             if not change:
-                OwnersPaymentsReports.generate_report_for_owner(
-                    owner=obj.owner,
+                OwnersPaymentsReports._process_parking_config(
+                    config=config,
+                    report=obj,
                     period_start=obj.period_start,
                     period_end=obj.period_end,
                 )
+                obj.save()
         else:
             messages.warning(
                 request,
-                "⚠️ Не найден конфиг ParkingReportConfig для выбранного Owner. Данные не подставлены.",
+                "⚠️ Не найден конфиг ParkingReportConfig для выбранной парковки. Данные не подставлены.",
             )
             super().save_model(request, obj, form, change)
 

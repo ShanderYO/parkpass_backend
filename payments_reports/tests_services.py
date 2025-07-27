@@ -12,16 +12,15 @@ from rps_vendor.models import RpsParking, RpsParkingCardSession, ParkingCard
 
 
 @pytest.fixture
-def account(
-    name="Test", phone="+7(999)1234567", email="test@testing.com", password="qwerty"
-):
-    TOKEN = "0ff08840935eb00fad198ef5387423bc24cd15e1"
-    account = Account(first_name=name, phone=phone, email=email)
-    account.set_password(password)
+def account():
+    account = Account(
+        first_name="Test", phone="+7(999)1234567", email="test@testing.com"
+    )
+    account.set_password("qwerty")
     account.save()
-    account_session = AccountSession(token=TOKEN, account=account)
-    account_session.set_expire_date()
-    account_session.save(not_generate_token=True)
+    session = AccountSession(token="tok", account=account)
+    session.set_expire_date()
+    session.save(not_generate_token=True)
     return account
 
 
@@ -48,8 +47,12 @@ def parking(company):
         name="Test Parking",
         address="Test Address",
         company=company,
+        owner=company.owner,
         latitude=55.7558,
         longitude=37.6173,
+        domain="test.local",
+        currency="RUB",
+        tz_name="Europe/Moscow",
     )
 
 
@@ -132,29 +135,35 @@ def rps_parking(parking):
 
 
 @pytest.mark.django_db
-def test_generate_report_for_owner(owner, parking_report_config):
-    report = OwnersPaymentsReports.generate_report_for_owner(
-        owner, date(2025, 7, 1), date(2025, 7, 31)
+def test_generate_report_for_parking_without_orders(
+    parking, parking_report_config, rps_parking
+):
+    report = OwnersPaymentsReports.generate_report_for_parking(
+        parking, date(2025, 7, 1), date(2025, 7, 31)
     )
     assert report is not None
-    assert report.owner == owner
-    assert report.payout_amount == 0
+    assert report.parking == parking
+    assert report.owner == parking.company.owner
+    assert report.company == parking.company
     assert report.total_amount == 0
     assert report.total_commission == 0
+    assert report.payout_amount == 0
 
 
 @pytest.mark.django_db
-def test_generate_report_with_payments(
-    owner,
+def test_generate_report_for_parking_with_payments(
+    parking,
     parking_report_config,
     tinkoff_payment,
     rps_parking,
 ):
-    report = OwnersPaymentsReports.generate_report_for_owner(
-        owner, date(2025, 7, 1), date(2025, 7, 31)
+    report = OwnersPaymentsReports.generate_report_for_parking(
+        parking, date(2025, 7, 1), date(2025, 7, 31)
     )
     assert report is not None
-    assert report.owner == owner
-    assert report.payout_amount == Decimal("90.00")
+    assert report.parking == parking
+    assert report.owner == parking.company.owner
+    assert report.company == parking.company
     assert report.total_amount == Decimal("100.00")
     assert report.total_commission == Decimal("10.00")
+    assert report.payout_amount == Decimal("90.00")

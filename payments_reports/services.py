@@ -10,15 +10,21 @@ from payments_reports.models import (
 
 class OwnersPaymentsReports:
     @classmethod
-    def generate_report_for_owner(cls, owner, period_start, period_end):
-        configs = owner.report_configs.select_related(
-            "parking", "owner", "company"
-        ).all()
-        if not configs.exists():
+    def generate_report_for_parking(cls, parking, period_start, period_end):
+        from payments_reports.models import ParkingReportConfig
+
+        try:
+            config = ParkingReportConfig.objects.select_related("owner", "company").get(
+                parking=parking
+            )
+        except ParkingReportConfig.DoesNotExist:
             return None
 
         report = ParkingPaymentReport.objects.create(
-            owner=owner,
+            owner=parking.owner if parking.owner else config.owner,
+            parking=parking,
+            company=parking.company if parking.company else config.company,
+            commission_percent=config.commission_percent,
             period_start=period_start,
             period_end=period_end,
             total_amount=Decimal("0.0"),
@@ -28,8 +34,7 @@ class OwnersPaymentsReports:
             is_sent=False,
         )
 
-        for config in configs:
-            cls._process_parking_config(config, report, period_start, period_end)
+        cls._process_parking_config(config, report, period_start, period_end)
 
         return report
 
@@ -81,6 +86,10 @@ class OwnersPaymentsReports:
             total_commission += commission
 
         ParkingPaymentReportTransaction.objects.bulk_create(transactions)
+
+        report.total_amount = report.total_amount or Decimal("0.00")
+        report.total_commission = report.total_commission or Decimal("0.00")
+        report.total_refunds = report.total_refunds or Decimal("0.00")
 
         report.total_amount += total_amount
         report.total_commission += total_commission
