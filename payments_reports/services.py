@@ -1,4 +1,8 @@
 from decimal import Decimal
+import os
+
+import xlwt
+
 from payments.models import Order
 from rps_vendor.models import RpsParking
 from payments_reports.models import (
@@ -42,13 +46,11 @@ class OwnersPaymentsReports:
     def _process_parking_config(cls, config, report, period_start, period_end):
         parking = config.parking
 
-        # Берём только RpsParking
         try:
             RpsParking.objects.get(parking=parking)
         except RpsParking.DoesNotExist:
-            return  # пропускаем, если нет RpsParking
+            return
 
-        # Смотрим только tinkoff и с терминалом
         orders = Order.objects.filter(
             parking_card_session__parking_id=parking.id,
             acquiring="tinkoff",
@@ -104,3 +106,57 @@ class OwnersPaymentsReports:
 
         for owner in Owner.objects.all():
             cls.generate_report_for_owner(owner, period_start, period_end)
+
+    @classmethod
+    def export_report_to_xls(cls, report, directory="/tmp"):
+        wb = xlwt.Workbook()
+        ws = wb.add_sheet("Отчёт")
+
+        # Заголовки таблицы
+        headers = [
+            "ID транзакции",
+            "Парковка",
+            "Компания",
+            "Дата",
+            "Тип",
+            "Сумма",
+            "Комиссия (%)",
+            "Комиссия (₽)",
+            "После комиссии",
+        ]
+        for col, header in enumerate(headers):
+            ws.write(0, col, header)
+
+        # Строки с транзакциями
+        for row, t in enumerate(report.transactions.all(), start=1):
+            ws.write(row, 0, t.id)
+            ws.write(row, 1, str(t.parking.name if t.parking else ""))
+            ws.write(row, 2, str(report.company.name if report.company else ""))
+            ws.write(
+                row, 3, t.date_time.strftime("%Y-%m-%d %H:%M:%S") if t.date_time else ""
+            )
+            ws.write(
+                row,
+                4,
+                (
+                    t.get_transaction_type_display()
+                    if hasattr(t, "get_transaction_type_display")
+                    else t.transaction_type
+                ),
+            )
+            ws.write(row, 5, float(t.amount))
+            ws.write(row, 6, float(t.commission_percent or 0))
+            ws.write(row, 7, float(t.amount * (t.commission_percent or 0) / 100))
+            ws.write(row, 8, float(t.amount_after_commission or 0))
+
+        # Итоговая строка
+        summary_row = report.transactions.count() + 1
+        ws.write(summary_row, 4, "Итого:")
+        ws.write(summary_row, 5, float(report.total_amount or 0))
+        ws.write(summary_row, 6, "")
+        ws.write(summary_row, 7, float(report.total_commission or 0))
+        ws.write(summary_row, 8, float(report.payout_amount or 0))
+
+        path = os.path.join(directory, f"report_{report.id}.xls")
+        wb.save(path)
+        return path
