@@ -1,0 +1,12 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block submit_buttons_top %}
+{{ block.super }}
+{% if additional_button %}
+    <div style="margin-top: 10px;">
+        {{ additional_button|safe }}
+    </div>
+{% endif %}
+{% endblock %}
+
