@@ -7,7 +7,6 @@ from owners.models import Company
 
 class PayoutPeriodicity(Enum):
     DAILY = "daily"
-    WEEKLY = "weekly"
     MONTHLY = "monthly"
     N_DAYS = "n_days"
 
@@ -36,7 +35,11 @@ class PayoutStatus(Enum):
 
 class ParkingReportConfig(models.Model):
     owner = models.ForeignKey(
-        "owners.Owner", on_delete=models.CASCADE, related_name="report_configs"
+        "owners.Owner",
+        on_delete=models.CASCADE,
+        related_name="report_configs",
+        null=True,
+        blank=True,
     )
     parking = models.ForeignKey("parkings.Parking", on_delete=models.CASCADE)
     company = models.ForeignKey(

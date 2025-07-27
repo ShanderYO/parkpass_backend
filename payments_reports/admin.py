@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 from django import forms
-from django.urls import path
+from django.urls import path, reverse
 from django.shortcuts import redirect
 from django.utils.html import format_html
 from django.http import HttpResponse
@@ -14,6 +14,7 @@ from .models import (
 from .services import OwnersPaymentsReports
 
 
+# --- Форма для отчёта ParkingPaymentReport ---
 class ParkingPaymentReportForm(forms.ModelForm):
     class Meta:
         model = ParkingPaymentReport
@@ -47,6 +48,18 @@ class ParkingPaymentReportForm(forms.ModelForm):
             )
 
 
+# --- Форма для конфигурации ParkingReportConfig ---
+class ParkingReportConfigForm(forms.ModelForm):
+    class Meta:
+        model = ParkingReportConfig
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["owner"].widget = forms.HiddenInput()
+        self.fields["company"].widget = forms.HiddenInput()
+
+
 class ParkingPaymentReportTransactionInline(admin.TabularInline):
     model = ParkingPaymentReportTransaction
     extra = 0
@@ -65,6 +78,8 @@ class ParkingPaymentReportTransactionInline(admin.TabularInline):
 
 @admin.register(ParkingReportConfig)
 class ParkingReportConfigAdmin(admin.ModelAdmin):
+    form = ParkingReportConfigForm
+
     list_display = (
         "id",
         "owner",
@@ -121,6 +136,15 @@ class ParkingReportConfigAdmin(admin.ModelAdmin):
             )
         return super().render_change_form(request, context, *args, **kwargs)
 
+    def save_model(self, request, obj, form, change):
+        if obj.parking:
+            obj.owner = obj.parking.owner
+            obj.company = obj.parking.company
+        else:
+            self.message_user(request, "Выберите парковку", level=messages.ERROR)
+            return
+        super().save_model(request, obj, form, change)
+
 
 @admin.register(ParkingPaymentReport)
 class ParkingPaymentReportAdmin(admin.ModelAdmin):
@@ -157,7 +181,7 @@ class ParkingPaymentReportAdmin(admin.ModelAdmin):
         "company",
         "download_xls_link",
     )
-    list_display_links = ("id", "owner")
+    list_display_links = ("id", "parking")
 
     def get_fields(self, request, obj=None):
         fields = super().get_fields(request, obj)
@@ -202,10 +226,8 @@ class ParkingPaymentReportAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return [f.name for f in self.model._meta.fields] + ("download_xls_link",)
+            return [f.name for f in self.model._meta.fields] + ["download_xls_link"]
         return self.readonly_fields
-
-    # --- XLS экспорт ---
 
     def get_urls(self):
         urls = super().get_urls()
@@ -220,10 +242,8 @@ class ParkingPaymentReportAdmin(admin.ModelAdmin):
 
     def download_xls_link(self, obj):
         if obj.pk:
-            return format_html(
-                '<a class="button" href="{}">Скачать XLS</a>',
-                f"{obj.id}/download_xls/",
-            )
+            url = reverse("admin:download_report_xls", args=[obj.pk])
+            return format_html('<a class="button" href="{}">Скачать XLS</a>', url)
         return "Сначала сохраните отчёт"
 
     download_xls_link.short_description = "Экспорт в XLS"
