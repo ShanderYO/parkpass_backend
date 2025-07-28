@@ -39,7 +39,7 @@ from payments.models import (
     HomeBankPayment,
     HomeBankFiskalNotification,
 )
-from payments.payment_api import TinkoffAPI, HomeBankOdfAPI
+from payments.payment_api import TinkoffAPI, HomeBankOdfAPI, UzumBankAPI
 
 from payments.tasks import (
     start_cancel_request,
@@ -48,6 +48,12 @@ from payments.tasks import (
 )
 from integration.services import RpsIntegrationService
 from rps_vendor.models import RpsParking
+
+from payments.models import (
+    UzumBankPayment,
+    PAYMENT_STATUS_CONFIRMED,
+    PAYMENT_STATUS_REJECTED,
+)
 
 
 class TinkoffCallbackView(APIView):
@@ -1008,3 +1014,55 @@ class HomebankAcquiringResultPageSuccessView(APIView):
 class HomebankAcquiringResultPageErrorView(APIView):
     def get(self, request):
         return render(request, "acquiring/error-page.html")
+
+
+class UzumCallbackView(APIView):
+    def post(self, request, *args, **kwargs):
+        get_logger().info("UzumBank callback received: %s", request.data)
+        merchant_order_id = request.data.get("merchantOrderId")
+
+        if not merchant_order_id:
+            get_logger().error("Missing merchantOrderId in callback")
+            return HttpResponse("Missing merchantOrderId", status=400)
+
+        # Получаем актуальный статус из API
+        status_response = UzumBankAPI().get_order_status(merchant_order_id)
+
+        if not status_response or "status" not in status_response:
+            get_logger().error("Failed to fetch status from Uzum API")
+            return HttpResponse("Invalid status", status=400)
+
+        try:
+            payment = UzumBankPayment.objects.select_related("order").get(
+                merchant_order_id=merchant_order_id
+            )
+        except UzumBankPayment.DoesNotExist:
+            get_logger().error("UzumBankPayment not found for %s", merchant_order_id)
+            return HttpResponse("Not found", status=404)
+
+        status = status_response["status"]
+        payment.status = status
+        payment.raw_response = status_response
+        payment.save()
+
+        order = payment.order
+
+        if status == "COMPLETED":
+            order.paid = True
+            order.save()
+
+            # логгируем как сессию
+            elastic_log(
+                ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                "UzumBank COMPLETED",
+                {
+                    "payment": serializer(payment),
+                    "order": serializer(order, include_attr=("id", "sum", "paid")),
+                },
+            )
+
+        elif status in ["DECLINED", "ERROR"]:
+            # отказ, ничего не делаем
+            get_logger().info("UzumBank payment declined or errored")
+
+        return HttpResponse("OK", status=200)

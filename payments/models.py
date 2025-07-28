@@ -29,7 +29,7 @@ from parkpass_backend.settings import (
     REQUESTS_LOGGER_NAME,
     EMAILS_HOST_ALERT,
 )
-from payments.payment_api import TinkoffAPI, HomeBankAPI
+from payments.payment_api import TinkoffAPI, HomeBankAPI, UzumBankAPI
 
 logger = get_logger(REQUESTS_LOGGER_NAME)
 
@@ -94,6 +94,7 @@ class CreditCard(models.Model):
         choices=(
             ("tinkoff", "Тинькофф"),
             ("homebank", "HomeBank"),
+            ("uzumbank", "UzumBank"),
         ),
     )
     account = models.ForeignKey(
@@ -490,6 +491,8 @@ class Order(models.Model):
         try:
             if self.acquiring == "homebank":
                 return self.create_payment_homebank()
+            elif self.acquiring == "uzumbank":
+                return self.create_payment_uzumbank()
             else:
                 self.create_payment()
         except Exception as e:
@@ -721,6 +724,53 @@ class Order(models.Model):
                 EMAILS_HOST_ALERT,
             )
             logger.error(message)
+
+    def create_payment_uzumbank(self):
+        # receipt_data = self.generate_receipt_data()
+        get_logger().info("Uzum payment start")
+        # get_logger().info(receipt_data)
+
+        callback_url = (
+            "https://%s/api/v1/payments/uzum-callback/" % settings.BASE_DOMAIN
+        )
+        cart = None
+
+        if self.session:
+            cart = [
+                {
+                    "name": self.get_payment_description(),
+                    "count": 1,
+                    "price": int(self.sum * 100),  # копейки
+                }
+            ]
+
+        merchant_order_id = f"uzum-{self.id}"
+        result = UzumBankAPI().register_payment(
+            merchant_order_id=merchant_order_id,
+            amount=int(self.sum * 100),
+            callback_url=callback_url,
+            description=self.get_payment_description(),
+            cart=cart,
+        )
+
+        if not result or "orderId" not in result or "formUrl" not in result:
+            get_logger().error("UzumBank register_payment failed: %s", result)
+            return None
+
+        UzumBankPayment.objects.create(
+            order=self,
+            merchant_order_id=merchant_order_id,
+            uzum_order_id=result["orderId"],
+            amount=int(self.sum * 100),
+            raw_response=result,
+            status="REGISTERED",
+        )
+
+        return {
+            "payment_url": result["formUrl"],
+            "payment_id": result["orderId"],
+            "order_id": self.id,
+        }
 
     def create_payment_homebank(self):
 
@@ -1319,3 +1369,41 @@ class HomeBankPayment(models.Model):
             order.refund_request = True
             order.refunded_sum = Decimal(float(order.get_payment_amount()))
             order.save()
+
+
+class UzumBankPayment(models.Model):
+    STATUS_CHOICES = [
+        ("REGISTERED", "Зарегистрирован"),
+        ("COMPLETED", "Завершён"),
+        ("DECLINED", "Отклонён"),
+        ("REFUNDED", "Возврат"),
+        ("AUTHORIZED", "Холд средств"),
+        ("REVERSED", "Отменён"),
+        ("ERROR", "Ошибка"),
+    ]
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="uzum_payments"
+    )
+    merchant_order_id = models.CharField(max_length=64, unique=True)
+    uzum_order_id = models.CharField(
+        max_length=64, blank=True, null=True
+    )  # внутренний orderId Uzum
+    status = models.CharField(
+        max_length=32, choices=STATUS_CHOICES, default="REGISTERED"
+    )
+    amount = models.PositiveIntegerField(
+        help_text="Сумма в тийинах"
+    )  # Uzum принимает int
+    raw_response = JSONField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "uzum_bank_payment"
+        verbose_name = "Платёж через UzumBank"
+        verbose_name_plural = "Платежи через UzumBank"
+
+    def __str__(self):
+        return f"UzumPayment {self.merchant_order_id} [{self.status}]"
