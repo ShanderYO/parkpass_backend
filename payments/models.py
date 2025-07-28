@@ -726,13 +726,9 @@ class Order(models.Model):
             logger.error(message)
 
     def create_payment_uzumbank(self):
-        # receipt_data = self.generate_receipt_data()
         get_logger().info("Uzum payment start")
-        # get_logger().info(receipt_data)
 
-        callback_url = (
-            "https://%s/api/v1/payments/uzum-callback/" % settings.BASE_DOMAIN
-        )
+        callback_url = "https://%s/api/v1/payments/uzum-callback/" % settings.BASE_DOMAIN
         cart = None
 
         if self.session:
@@ -740,36 +736,49 @@ class Order(models.Model):
                 {
                     "name": self.get_payment_description(),
                     "count": 1,
-                    "price": int(self.sum * 100),  # копейки
+                    "price": int(self.sum * 100),  # сумма в тийинах
                 }
             ]
 
         merchant_order_id = f"uzum-{self.id}"
+
         result = UzumBankAPI().register_payment(
             merchant_order_id=merchant_order_id,
             amount=int(self.sum * 100),
             callback_url=callback_url,
             description=self.get_payment_description(),
             cart=cart,
+            client_id=str(self.account_id if self.account_id else "anonymous"),
+            view_type="REDIRECT",
         )
 
-        if not result or "orderId" not in result or "formUrl" not in result:
-            get_logger().error("UzumBank register_payment failed: %s", result)
-            return None
+        get_logger().info("Uzum register result: %s", result)
 
-        UzumBankPayment.objects.create(
-            order=self,
-            merchant_order_id=merchant_order_id,
-            uzum_order_id=result["orderId"],
-            amount=int(self.sum * 100),
-            raw_response=result,
-            status="REGISTERED",
-        )
+        # Проверка наличия ключей ответа
+        uzum_order_id = result.get("order_id") or result.get("orderId")
+        payment_status = result.get("status") or "REGISTERED"
 
+        if uzum_order_id:
+            UzumBankPayment.objects.create(
+                order=self,
+                merchant_order_id=merchant_order_id,
+                uzum_order_id=uzum_order_id,
+                status=payment_status,
+                amount=int(self.sum * 100),
+                payment_url=payment_url,
+                raw_response=result,
+            )
+            return {
+                "payment_url": result.get("redirect_url"),
+                "order_id": self.id,
+                "uzum_order_id": uzum_order_id,
+            }
+
+        # Ошибка регистрации
+        get_logger().error("Uzum payment registration failed: %s", result)
         return {
-            "payment_url": result["formUrl"],
-            "payment_id": result["orderId"],
-            "order_id": self.id,
+            "error": "Ошибка регистрации платежа в UzumBank",
+            "details": result,
         }
 
     def create_payment_homebank(self):
@@ -1396,6 +1405,12 @@ class UzumBankPayment(models.Model):
         help_text="Сумма в тийинах"
     )  # Uzum принимает int
     raw_response = JSONField(blank=True, null=True)
+    payment_url = models.URLField(
+        max_length=512,
+        blank=True,
+        null=True,
+        help_text="URL для редиректа пользователя на страницу оплаты UzumBank"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

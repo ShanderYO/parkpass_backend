@@ -473,7 +473,7 @@ class UzumBankAPI:
         self.base_url = settings.UZUM_BASE_URL.rstrip("/")
         self.api_key = settings.UZUM_API_KEY
         self.terminal_id = settings.UZUM_TERMINAL_ID
-        self.language = getattr(settings, "UZUM_CONTENT_LANGUAGE", "ru-RU")
+        self.language = getattr(settings.UZUM_CONTENT_LANGUAGE, "ru-RU", "ru-RU")
 
     def _headers(self):
         return {
@@ -486,13 +486,13 @@ class UzumBankAPI:
     def _post(self, path, data):
         url = f"{self.base_url}{path}"
         try:
-            get_logger().info("POST %s payload=%s", url, data)
+            get_logger().info("UzumBank POST %s payload=%s", url, data)
             response = requests.post(url, headers=self._headers(), json=data, timeout=5)
             response.raise_for_status()
-            get_logger().info("Response from %s: %s", url, response.json())
+            get_logger().info("UzumBank response from %s: %s", url, response.json())
             return response.json()
         except requests.RequestException as e:
-            get_logger().error("Request to %s failed: %s", url, e)
+            get_logger().error("UzumBank request to %s failed: %s", url, str(e))
             return {"error": str(e)}
 
     def register_payment(
@@ -503,58 +503,88 @@ class UzumBankAPI:
         pay_type="ONE_STEP",
         description=None,
         cart=None,
+        client_id="test-client-001",
+        view_type="REDIRECT",
     ):
         """
-        Регистрация платежа UzumBank.
+        Регистрация одностадийного платежа через UzumBank Checkout.
         """
         payload = {
             "merchantOrderId": str(merchant_order_id),
             "orderNumber": str(merchant_order_id),
-            "amount": int(amount),
-            "currency": "UZS",
-            "clientId": "test-client-001",
-            "viewType": "REDIRECT",
+            "amount": int(amount),  # в тийинах (UZS * 100)
+            "currency": 860,  # UZS
+            "clientId": client_id,
+            "viewType": view_type,
+            "successUrl": "https://sandbox.parkpass.ru/success/",
+            "failureUrl": "https://sandbox.parkpass.ru/failure/",
             "payType": pay_type,
             "callbackUrl": callback_url,
             "orderDescription": description or "Оплата Uzum",
             "sessionTimeoutSecs": 1200,
-            "paymentParams": {},  # обязательно, даже если пустой
+            "paymentParams": {
+                "payType": "ONE_STEP",
+                "operationType": "PAYMENT",
+                "phoneNumber": "998901234567",
+            },
+            "merchantParams": {},
         }
 
         if cart:
             payload["cart"] = cart
 
-        return self._post("/api/invoice/create", payload)
+        return self._post("/api/v1/payment/register", payload)
 
     def complete_payment(self, merchant_order_id, amount=None):
+        """
+        Подтверждение двухстадийного платежа.
+        """
         payload = {"merchantOrderId": str(merchant_order_id)}
         if amount is not None:
             payload["amount"] = int(amount)
         return self._post("/api/v1/acquiring/complete", payload)
 
     def reverse_payment(self, merchant_order_id):
+        """
+        Отмена холда средств.
+        """
         payload = {"merchantOrderId": str(merchant_order_id)}
         return self._post("/api/v1/acquiring/reverse", payload)
 
     def refund_payment(self, merchant_order_id, amount=None):
+        """
+        Возврат средств по платежу.
+        """
         payload = {"merchantOrderId": str(merchant_order_id)}
         if amount is not None:
             payload["amount"] = int(amount)
         return self._post("/api/v1/acquiring/refund", payload)
 
     def get_order_status(self, merchant_order_id):
+        """
+        Получить статус заказа.
+        """
         payload = {"merchantOrderId": str(merchant_order_id)}
         return self._post("/api/v1/payment/getOrderStatus", payload)
 
     def get_bindings(self, customer_id):
+        """
+        Получить список привязанных карт.
+        """
         payload = {"customerId": str(customer_id)}
         return self._post("/api/v1/acquiring/getBindings", payload)
 
     def unbind_card(self, binding_id):
+        """
+        Отвязать карту.
+        """
         payload = {"bindingId": binding_id}
         return self._post("/api/v1/acquiring/unBindCard", payload)
 
     def pay_with_binding(self, merchant_order_id, amount, binding_id, callback_url):
+        """
+        Оплата по привязанной карте.
+        """
         payload = {
             "merchantOrderId": str(merchant_order_id),
             "amount": int(amount),
