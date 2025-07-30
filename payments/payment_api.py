@@ -560,11 +560,14 @@ class UzumBankAPI:
             payload["amount"] = int(amount)
         return self._post("/api/v1/acquiring/refund", payload)
 
-    def get_order_status(self, merchant_order_id):
-        """
-        Получить статус заказа.
-        """
-        payload = {"merchantOrderId": str(merchant_order_id)}
+    def get_order_status(self, uzum_order_id: str):
+        url = f"{self.base_url}/api/v1/payment/getOrderStatus"
+        payload = {
+            "orderId": uzum_order_id
+        }
+
+        get_logger().info("➡️ Uzum status request: %s %s", url, payload)
+
         return self._post("/api/v1/payment/getOrderStatus", payload)
 
     def get_bindings(self, customer_id):

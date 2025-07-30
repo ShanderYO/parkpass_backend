@@ -729,8 +729,8 @@ class Order(models.Model):
         get_logger().info("Uzum payment start")
 
         callback_url = "https://%s/api/v1/payments/uzum-callback/" % settings.BASE_DOMAIN
-        cart = None
 
+        cart = None
         if self.session:
             cart = [
                 {
@@ -741,6 +741,7 @@ class Order(models.Model):
             ]
 
         merchant_order_id = f"uzum-{self.id}"
+        client_id = str(self.account_id if self.account_id else "anonymous")
 
         result = UzumBankAPI().register_payment(
             merchant_order_id=merchant_order_id,
@@ -748,17 +749,20 @@ class Order(models.Model):
             callback_url=callback_url,
             description=self.get_payment_description(),
             cart=cart,
-            client_id=str(self.account_id if self.account_id else "anonymous"),
+            client_id=client_id,
             view_type="REDIRECT",
         )
 
         get_logger().info("Uzum register result: %s", result)
 
-        # Проверка наличия ключей ответа
-        uzum_order_id = result.get("order_id") or result.get("orderId")
+        if isinstance(result, dict) and "result" in result:
+            result = result["result"]  # <-- извлекаем вложенные данные
+
+        uzum_order_id = result.get("orderId")
+        payment_url = result.get("paymentRedirectUrl")
         payment_status = result.get("status") or "REGISTERED"
 
-        if uzum_order_id:
+        if uzum_order_id and payment_url:
             UzumBankPayment.objects.create(
                 order=self,
                 merchant_order_id=merchant_order_id,
@@ -769,17 +773,17 @@ class Order(models.Model):
                 raw_response=result,
             )
             return {
-                "payment_url": result.get("redirect_url"),
+                "payment_url": payment_url,
                 "order_id": self.id,
                 "uzum_order_id": uzum_order_id,
             }
 
-        # Ошибка регистрации
         get_logger().error("Uzum payment registration failed: %s", result)
         return {
             "error": "Ошибка регистрации платежа в UzumBank",
             "details": result,
         }
+
 
     def create_payment_homebank(self):
 

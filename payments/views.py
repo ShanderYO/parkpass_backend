@@ -1018,19 +1018,36 @@ class HomebankAcquiringResultPageErrorView(APIView):
 
 class UzumCallbackView(APIView):
     def post(self, request, *args, **kwargs):
-        get_logger().info("UzumBank callback received: %s", request.data)
-        merchant_order_id = request.data.get("merchantOrderId")
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except Exception as e:
+            get_logger().error("Uzum callback JSON decode error: %s", str(e))
+            return HttpResponse("Bad Request", status=400)
 
+        get_logger().info("UzumBank callback received: %s", data)
+
+        # поддержка обоих вариантов ключа: merchantOrderId и orderNumber
+        merchant_order_id = data.get("merchantOrderId") or data.get("orderNumber")
         if not merchant_order_id:
-            get_logger().error("Missing merchantOrderId in callback")
+            get_logger().error("Missing merchantOrderId/orderNumber in callback")
             return HttpResponse("Missing merchantOrderId", status=400)
 
-        # Получаем актуальный статус из API
-        status_response = UzumBankAPI().get_order_status(merchant_order_id)
+        # Получение актуального статуса через API
+        
+        uzum_order_id = request.data.get("orderId")
+        status_response = UzumBankAPI().get_order_status(uzum_order_id=uzum_order_id)
 
-        if not status_response or "status" not in status_response:
-            get_logger().error("Failed to fetch status from Uzum API")
+        if not status_response or not isinstance(status_response, dict):
+            get_logger().error(
+                "Uzum API did not return valid status: %s", status_response
+            )
             return HttpResponse("Invalid status", status=400)
+
+        uzum_status = status_response.get("result", {}).get("status")
+        get_logger().info(f"Current status {uzum_status}")
+        if uzum_status not in dict(UzumBankPayment.STATUS_CHOICES):
+            get_logger().error("Unknown Uzum status received: %s", uzum_status)
+            return HttpResponse("Unknown status", status=400)
 
         try:
             payment = UzumBankPayment.objects.select_related("order").get(
@@ -1040,29 +1057,18 @@ class UzumCallbackView(APIView):
             get_logger().error("UzumBankPayment not found for %s", merchant_order_id)
             return HttpResponse("Not found", status=404)
 
-        status = status_response["status"]
-        payment.status = status
+        payment.status = uzum_status
         payment.raw_response = status_response
         payment.save()
 
         order = payment.order
 
-        if status == "COMPLETED":
+        if uzum_status == "COMPLETED":
             order.paid = True
             order.save()
-
-            # логгируем как сессию
-            elastic_log(
-                ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                "UzumBank COMPLETED",
-                {
-                    "payment": serializer(payment),
-                    "order": serializer(order, include_attr=("id", "sum", "paid")),
-                },
+        elif uzum_status in ["DECLINED", "ERROR"]:
+            get_logger().info(
+                "UzumBank payment declined or errored for %s", merchant_order_id
             )
-
-        elif status in ["DECLINED", "ERROR"]:
-            # отказ, ничего не делаем
-            get_logger().info("UzumBank payment declined or errored")
 
         return HttpResponse("OK", status=200)
