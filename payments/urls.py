@@ -21,7 +21,7 @@ urlpatterns = [
     url(r"^homebank/$", HomebankAcquiringPageView.as_view()),
     url(r"^result-success/$", HomebankAcquiringResultPageSuccessView.as_view()),
     url(r"^result-error/$", HomebankAcquiringResultPageErrorView.as_view()),
-    url(r"^init/$", InitPayment.as_view()),
+    url(r"^init/$", InitPayment.as_view(), name="init_payment"),
     url(r"^uzum-callback/$", UzumCallbackView.as_view()),
 ]
 

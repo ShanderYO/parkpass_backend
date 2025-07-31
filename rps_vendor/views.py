@@ -151,32 +151,50 @@ class GetParkingCardRedirect(APIView):
 
         # Проверяем, переданы ли обязательные параметры
         if not card_id:
-            return JsonResponse({"redirect": False, "error": "Card ID is missing"}, status=400)
+            return JsonResponse(
+                {"redirect": False, "error": "Card ID is missing"}, status=400
+            )
         if not parking_id:
-            return JsonResponse({"redirect": False, "error": "Parking ID is missing"}, status=400)
+            return JsonResponse(
+                {"redirect": False, "error": "Parking ID is missing"}, status=400
+            )
 
         try:
             # Проверяем, существует ли карта
             parking_card = ParkingCard.objects.filter(card_id=card_id).first()
             if not parking_card:
-                return JsonResponse({"redirect": False, "error": "Parking card not found"}, status=404)
+                return JsonResponse(
+                    {"redirect": False, "error": "Parking card not found"}, status=404
+                )
 
             # Получаем информацию о парковке
-            rps_parking = RpsParking.objects.select_related("parking").filter(parking__id=parking_id).first()
+            rps_parking = (
+                RpsParking.objects.select_related("parking")
+                .filter(parking__id=parking_id)
+                .first()
+            )
             if not rps_parking:
-                return JsonResponse({"redirect": False, "error": "Parking not found"}, status=404)
+                return JsonResponse(
+                    {"redirect": False, "error": "Parking not found"}, status=404
+                )
 
             # Проверяем, разрешён ли редирект и есть ли домен
             if not rps_parking.redirect or not rps_parking.domain:
                 return JsonResponse({"redirect": False}, status=200)
 
             # Формируем URL для редиректа
-            redirect_url = f"https://{rps_parking.domain}/qr/search-results.html?CardId={card_id}"
+            redirect_url = (
+                f"https://{rps_parking.domain}/qr/search-results.html?CardId={card_id}"
+            )
 
-            return JsonResponse({"redirect": True, "redirect_url": redirect_url}, status=200)
+            return JsonResponse(
+                {"redirect": True, "redirect_url": redirect_url}, status=200
+            )
 
         except Exception as e:
-            return JsonResponse({"redirect": False, "error": f"Internal error: {str(e)}"}, status=500)
+            return JsonResponse(
+                {"redirect": False, "error": f"Internal error: {str(e)}"}, status=500
+            )
 
 
 class GetParkingCardDebtMixin:
@@ -667,16 +685,26 @@ class InitPaymentMixin:
                     parking_enter_time=parking_enter_time,
                     parking_amount_calculated_time=parking_amount_calculated_time,
                 ),
+                acquiring=rps_parking.parking.acquiring,
             )
-            result = order.create_non_recurrent_payment(email=email)
+
             response_dict = dict(
                 client_uuid=str(new_client_uuid),
                 order_id=order.id,
             )
-            if result:
-                card_session.state = STATE_INITED
-                card_session.save()
-                response_dict["payment_url"] = result["payment_url"]
+
+            if order.acquiring == "uzumbank":
+                result = order.create_payment_uzumbank()
+                if result:
+                    card_session.state = STATE_INITED
+                    card_session.save()
+                    response_dict["payment_url"] = result["payment_url"]
+            else:
+                result = order.create_non_recurrent_payment(email=email)
+                if result:
+                    card_session.state = STATE_INITED
+                    card_session.save()
+                    response_dict["payment_url"] = result["payment_url"]
 
             return JsonResponse(response_dict, status=200)
 
