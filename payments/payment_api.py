@@ -505,6 +505,7 @@ class UzumBankAPI:
         cart=None,
         client_id="test-client-001",
         view_type="REDIRECT",
+        success_url="",
     ):
         """
         Регистрация одностадийного платежа через UzumBank Checkout.
@@ -516,8 +517,8 @@ class UzumBankAPI:
             "currency": 860,  # UZS
             "clientId": client_id,
             "viewType": view_type,
-            "successUrl": "https://sandbox.parkpass.ru/success/",
-            "failureUrl": "https://sandbox.parkpass.ru/failure/",
+            "successUrl": success_url,
+            "failureUrl": success_url,
             "payType": pay_type,
             "callbackUrl": callback_url,
             "orderDescription": description or "Оплата Uzum",
@@ -562,9 +563,7 @@ class UzumBankAPI:
 
     def get_order_status(self, uzum_order_id: str):
         url = f"{self.base_url}/api/v1/payment/getOrderStatus"
-        payload = {
-            "orderId": uzum_order_id
-        }
+        payload = {"orderId": uzum_order_id}
 
         get_logger().info("➡️ Uzum status request: %s %s", url, payload)
 

@@ -728,7 +728,9 @@ class Order(models.Model):
     def create_payment_uzumbank(self):
         get_logger().info("Uzum payment start")
 
-        callback_url = "https://%s/api/v1/payments/uzum-callback/" % settings.BASE_DOMAIN
+        callback_url = (
+            "https://%s/api/v1/payments/uzum-callback/" % settings.BASE_DOMAIN
+        )
 
         cart = None
         if self.session:
@@ -751,6 +753,7 @@ class Order(models.Model):
             cart=cart,
             client_id=client_id,
             view_type="REDIRECT",
+            success_url=self.payload.get("parking_redirect_url", ""),
         )
 
         get_logger().info("Uzum register result: %s", result)
@@ -783,7 +786,6 @@ class Order(models.Model):
             "error": "Ошибка регистрации платежа в UzumBank",
             "details": result,
         }
-
 
     def create_payment_homebank(self):
 
@@ -1413,7 +1415,7 @@ class UzumBankPayment(models.Model):
         max_length=512,
         blank=True,
         null=True,
-        help_text="URL для редиректа пользователя на страницу оплаты UzumBank"
+        help_text="URL для редиректа пользователя на страницу оплаты UzumBank",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

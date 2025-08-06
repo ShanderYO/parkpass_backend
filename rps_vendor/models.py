@@ -118,6 +118,8 @@ class RpsParking(models.Model):
             defaults={"debt": debt, "duration": duration},
         )
 
+        get_logger().info("Created/Found card session: %s" % card_session.id)
+
         if debt >= 0:
             card_session.debt = debt
             card_session.duration = duration
