@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import logging
-import os
-import urllib.parse
+import uuid
 from decimal import Decimal
 
 import requests
@@ -274,6 +273,42 @@ class Order(models.Model):
                 result_sum = result_sum + session.sum
         return result_sum
 
+    def generate_receipt_data_uzum(self):
+        if self.acquiring != "uzumbank":
+            return {}
+
+        item_name = self.get_payment_description()
+        amount = int(self.sum * 100)
+        product_id = f"o{self.id}"
+
+        tin = "305102556"  # или self.account.tin / self.company.inn
+
+        items = [
+            {
+                "title": item_name,
+                "productId": product_id,
+                "quantity": 1,
+                "unitPrice": amount,
+                "total": amount,
+                "receiptParams": {
+                    "spic": "10199001007000000",
+                    "packageCode": "1202248",
+                    "vatPercent": 0,
+                    "TIN": "306777698",
+                    "label": "010460703539530221rPjLFNMsM5uC",
+                },
+            }
+        ]
+
+        return {
+            "cart": {
+                "cartId": str(uuid.uuid4()),
+                "receiptType": "PURCHASE",
+                "total": amount,
+                "items": items,
+            }
+        }
+
     def generate_receipt_data(self, email=None):
         if self.subscription:
             email = (
@@ -353,6 +388,8 @@ class Order(models.Model):
                     "email": email,
                     "phone": phone,
                 }
+            elif self.acquiring == "uzumbank":
+                return self.generate_receipt_data_uzum()
             else:
                 return dict(
                     Email=email,
@@ -389,6 +426,8 @@ class Order(models.Model):
                     "cardId": {"id": ""},
                     "phone": self.account.phone,
                 }
+            elif self.acquiring == "uzumbank":
+                return self.generate_receipt_data_uzum()
             else:
                 return dict(
                     Email=None,  # not send to email
@@ -429,6 +468,8 @@ class Order(models.Model):
                 ),
                 "phone": str(self.session.client.phone),
             }
+        elif self.acquiring == "uzumbank":
+            return self.generate_receipt_data_uzum()
         else:
             return dict(
                 Email=(
@@ -749,6 +790,7 @@ class Order(models.Model):
             merchant_order_id=merchant_order_id,
             amount=int(self.sum * 100),
             callback_url=callback_url,
+            merchant_params=self.generate_receipt_data(),
             description=self.get_payment_description(),
             cart=cart,
             client_id=client_id,

@@ -461,4 +461,4 @@ UZUM_API_KEY = os.getenv(
     "UZUM_API_KEY", "5d9517899744b827a8f29be89ee4006759f9c87845a93c9ead9a5c1e207ff900"
 )
 UZUM_BASE_URL = os.getenv("UZUM_BASE_URL", "https://test-chk-api.uzumcheckout.uz")
-UZUM_CONTENT_LANGUAGE = os.getenv("UZUM_CONTENT_LANGUAGE", "ru-RU")
+UZUM_CONTENT_LANGUAGE = os.getenv("UZUM_CONTENT_LANGUAGE", "uz-UZ")

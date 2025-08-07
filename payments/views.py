@@ -1033,7 +1033,7 @@ class UzumCallbackView(APIView):
             return HttpResponse("Missing merchantOrderId", status=400)
 
         # Получение актуального статуса через API
-        
+
         uzum_order_id = request.data.get("orderId")
         status_response = UzumBankAPI().get_order_status(uzum_order_id=uzum_order_id)
 
@@ -1066,6 +1066,14 @@ class UzumCallbackView(APIView):
         if uzum_status == "COMPLETED":
             order.paid = True
             order.save()
+            if order.payload:
+                parking_id = order.parking_card_session.parking_id
+                rps_parking = RpsParking.objects.get(parking_id=parking_id)
+                card_id = order.payload.get("card_id")
+                RpsIntegrationService().send_rps_confirm_payment(
+                    rps_parking, card_id, int(order.sum)
+                )
+                get_logger().info("send_rps_confirm_payment from notify_confirm_rps")
         elif uzum_status in ["DECLINED", "ERROR"]:
             get_logger().info(
                 "UzumBank payment declined or errored for %s", merchant_order_id
