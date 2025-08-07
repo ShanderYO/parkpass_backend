@@ -3,6 +3,7 @@ import collections
 import hashlib
 import json
 import os
+from typing import Optional
 
 import requests
 from django.core.exceptions import ObjectDoesNotExist
@@ -484,7 +485,6 @@ class UzumBankAPI:
         }
 
     def _post(self, path, data):
-        print(self._headers())
         url = f"{self.base_url}{path}"
         try:
             get_logger().info("UzumBank POST %s payload=%s", url, data)
@@ -508,6 +508,7 @@ class UzumBankAPI:
         client_id="test-client-001",
         view_type="REDIRECT",
         success_url="",
+        payment_details: Optional[str]= None,
     ):
         success_url = success_url or f"https://{settings.BASE_DOMAIN}"
 
@@ -535,6 +536,9 @@ class UzumBankAPI:
 
         if cart:
             payload["cart"] = cart
+            
+        if payment_details:
+            payload["paymentDetails"] = payment_details
 
         return self._post("/api/v1/payment/register", payload)
 

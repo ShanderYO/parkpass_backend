@@ -796,6 +796,7 @@ class Order(models.Model):
             client_id=client_id,
             view_type="REDIRECT",
             success_url=self.payload.get("parking_redirect_url", ""),
+            payment_details=self.get_payment_description()
         )
 
         get_logger().info("Uzum register result: %s", result)
