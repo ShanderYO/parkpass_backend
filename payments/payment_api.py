@@ -508,7 +508,7 @@ class UzumBankAPI:
         client_id="test-client-001",
         view_type="REDIRECT",
         success_url="",
-        payment_details: Optional[str]= None,
+        payment_details: Optional[str] = None,
     ):
         success_url = success_url or f"https://{settings.BASE_DOMAIN}"
 
@@ -581,3 +581,54 @@ class UzumBankAPI:
         Получение информации о чеках по orderId.
         """
         return self._post("/api/v1/payment/getReceipts", {"orderId": uzum_order_id})
+    
+    def register_payment_with_receipts_callback(
+        self,
+        merchant_order_id,
+        amount,
+        callback_url,
+        receipts_callback_url,
+        merchant_params,
+        pay_type="ONE_STEP",
+        description=None,
+        cart=None,
+        client_id="test-client-001",
+        view_type="REDIRECT",
+        success_url="",
+        payment_details: Optional[str] = None,
+    ):
+        """
+        Регистрация платежа с отдельным callback для получения чеков
+        """
+        success_url = success_url or f"https://{settings.BASE_DOMAIN}"
+
+        payload = {
+            "merchantOrderId": str(merchant_order_id),
+            "orderNumber": str(merchant_order_id),
+            "amount": int(amount),
+            "currency": 860,
+            "clientId": client_id,
+            "viewType": view_type,
+            "successUrl": success_url,
+            "failureUrl": success_url,
+            "localeType": self.language,
+            "payType": pay_type,
+            "callbackUrl": callback_url,
+            "receiptsCallbackUrl": receipts_callback_url,  # отдельный callback для чеков
+            "orderDescription": description or "Оплата Uzum",
+            "sessionTimeoutSecs": 1200,
+            "paymentParams": {
+                "payType": "ONE_STEP",
+                "operationType": "PAYMENT",
+                "phoneNumber": "998901234567",
+            },
+            "merchantParams": merchant_params,
+        }
+
+        if cart:
+            payload["cart"] = cart
+            
+        if payment_details:
+            payload["paymentDetails"] = payment_details
+
+        return self._post("/api/v1/payment/register", payload)

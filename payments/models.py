@@ -772,6 +772,10 @@ class Order(models.Model):
         callback_url = (
             "https://%s/api/v1/payments/uzum-callback/" % settings.BASE_DOMAIN
         )
+        
+        receipts_callback_url = (
+            "https://%s/api/v1/payments/uzum-callback-receipts/" % settings.BASE_DOMAIN
+        )
 
         cart = None
         if self.session:
@@ -786,10 +790,11 @@ class Order(models.Model):
         merchant_order_id = f"uzum-{self.id}"
         client_id = str(self.account_id if self.account_id else "anonymous")
 
-        result = UzumBankAPI().register_payment(
+        result = UzumBankAPI().register_payment_with_receipts_callback(
             merchant_order_id=merchant_order_id,
             amount=int(self.sum * 100),
             callback_url=callback_url,
+            receipts_callback_url=receipts_callback_url,
             merchant_params=self.generate_receipt_data(),
             description=self.get_payment_description(),
             cart=cart,
@@ -1471,3 +1476,17 @@ class UzumBankPayment(models.Model):
 
     def __str__(self):
         return f"UzumPayment {self.merchant_order_id} [{self.status}]"
+    
+    def get_receipts(self):
+        """
+        Получить чеки из raw_response
+        """
+        if not self.raw_response:
+            return []
+        return self.raw_response.get("receipts", [])
+    
+    def has_receipts(self):
+        """
+        Проверить, есть ли чеки
+        """
+        return len(self.get_receipts()) > 0

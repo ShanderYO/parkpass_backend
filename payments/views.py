@@ -4,7 +4,7 @@ import os
 from decimal import Decimal
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponse, Http404, HttpResponseRedirect
+from django.http import HttpResponse, Http404
 from django.shortcuts import render
 from django.utils import timezone
 from django.utils.decorators import decorator_from_middleware
@@ -49,11 +49,8 @@ from payments.tasks import (
 from integration.services import RpsIntegrationService
 from rps_vendor.models import RpsParking
 
-from payments.models import (
-    UzumBankPayment,
-    PAYMENT_STATUS_CONFIRMED,
-    PAYMENT_STATUS_REJECTED,
-)
+from payments.models import UzumBankPayment
+from django.db import models
 
 
 class TinkoffCallbackView(APIView):
@@ -1024,46 +1021,69 @@ class UzumCallbackView(APIView):
             get_logger().error("Uzum callback JSON decode error: %s", str(e))
             return HttpResponse("Bad Request", status=400)
 
-        get_logger().info("UzumBank callback received: %s", data)
+        get_logger().info("UzumCallbackView: UzumBank callback received: %s", data)
 
         # поддержка обоих вариантов ключа: merchantOrderId и orderNumber
         merchant_order_id = data.get("merchantOrderId") or data.get("orderNumber")
         if not merchant_order_id:
-            get_logger().error("Missing merchantOrderId/orderNumber in callback")
+            get_logger().error(
+                "UzumCallbackView: Missing merchantOrderId/orderNumber in callback"
+            )
             return HttpResponse("Missing merchantOrderId", status=400)
 
         # Получение актуального статуса через API
 
         uzum_order_id = request.data.get("orderId")
+        get_logger().info(
+            "UzumCallbackView: Getting status for uzum_order_id=%s", uzum_order_id
+        )
         status_response = UzumBankAPI().get_order_status(uzum_order_id=uzum_order_id)
 
         if not status_response or not isinstance(status_response, dict):
             get_logger().error(
-                "Uzum API did not return valid status: %s", status_response
+                "UzumCallbackView: Uzum API did not return valid status: %s", status_response
             )
             return HttpResponse("Invalid status", status=400)
 
         uzum_status = status_response.get("result", {}).get("status")
-        get_logger().info(f"Current status {uzum_status}")
+        get_logger().info(
+            "UzumCallbackView: Current status %s for order %s", 
+            uzum_status, merchant_order_id
+        )
         if uzum_status not in dict(UzumBankPayment.STATUS_CHOICES):
-            get_logger().error("Unknown Uzum status received: %s", uzum_status)
+            get_logger().error("UzumCallbackView: Unknown Uzum status received: %s", uzum_status)
             return HttpResponse("Unknown status", status=400)
 
         try:
             payment = UzumBankPayment.objects.select_related("order").get(
                 merchant_order_id=merchant_order_id
             )
+            get_logger().info(
+                "UzumCallbackView: Found payment - merchant_order_id=%s, "
+                "uzum_order_id=%s, current_status=%s",
+                payment.merchant_order_id, payment.uzum_order_id, payment.status
+            )
         except UzumBankPayment.DoesNotExist:
-            get_logger().error("UzumBankPayment not found for %s", merchant_order_id)
+            get_logger().error(
+                "UzumCallbackView: UzumBankPayment not found for %s", merchant_order_id
+            )
             return HttpResponse("Not found", status=404)
 
         payment.status = uzum_status
         payment.raw_response = status_response
         payment.save()
 
+        get_logger().info(
+            "UzumCallbackView: Updated payment status to %s for order %s",
+            uzum_status, merchant_order_id
+        )
+
         order = payment.order
 
         if uzum_status == "COMPLETED":
+            get_logger().info(
+                "UzumCallbackView: Payment completed for order %s", merchant_order_id
+            )
             order.paid = True
             order.save()
             if order.payload:
@@ -1073,10 +1093,161 @@ class UzumCallbackView(APIView):
                 RpsIntegrationService().send_rps_confirm_payment(
                     rps_parking, card_id, int(order.sum)
                 )
-                get_logger().info("send_rps_confirm_payment from notify_confirm_rps")
+                get_logger().info(
+                    "UzumCallbackView: send_rps_confirm_payment from notify_confirm_rps"
+                )
         elif uzum_status in ["DECLINED", "ERROR"]:
             get_logger().info(
-                "UzumBank payment declined or errored for %s", merchant_order_id
+                "UzumCallbackView: UzumBank payment declined or errored for %s",
+                merchant_order_id
             )
 
         return HttpResponse("OK", status=200)
+
+
+class UzumCallbackReceiptsView(APIView):
+    """
+    Callback для получения чеков от UzumBank после успешной оплаты
+    """
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except Exception as e:
+            get_logger().error("Uzum receipts callback JSON decode error: %s", str(e))
+            return HttpResponse("Bad Request", status=400)
+
+        get_logger().info("UzumBank receipts callback received: %s", data)
+
+        # Получаем orderId из callback'а
+        uzum_order_id = data.get("orderId")
+        if not uzum_order_id:
+            get_logger().error("Missing orderId in receipts callback")
+            return HttpResponse("Missing orderId", status=400)
+
+        # Получаем чеки через API
+        get_logger().info(
+            "UzumCallbackReceiptsView: Requesting receipts for uzum_order_id=%s",
+            uzum_order_id
+        )
+        receipts_response = UzumBankAPI().get_receipts(uzum_order_id)
+
+        if not receipts_response or "error" in receipts_response:
+            get_logger().error(
+                "UzumCallbackReceiptsView: Failed to get receipts for order %s: %s",
+                uzum_order_id, receipts_response
+            )
+            return HttpResponse("Failed to get receipts", status=400)
+
+        receipts = receipts_response.get("result", {}).get("receipts", [])
+        receipts_count = len(receipts)
+        get_logger().info(
+            "UzumCallbackReceiptsView: Received %d receipts for order %s",
+            receipts_count, uzum_order_id
+        )
+
+        # Находим платеж по uzum_order_id
+        try:
+            payment = UzumBankPayment.objects.select_related("order").get(
+                uzum_order_id=uzum_order_id
+            )
+            get_logger().info(
+                "UzumCallbackReceiptsView: Found payment - merchant_order_id=%s, "
+                "status=%s",
+                payment.merchant_order_id, payment.status
+            )
+        except UzumBankPayment.DoesNotExist:
+            get_logger().error(
+                "UzumCallbackReceiptsView: UzumBankPayment not found for "
+                "uzum_order_id %s",
+                uzum_order_id
+            )
+            return HttpResponse("Payment not found", status=404)
+
+        # Сохраняем чеки в raw_response или создаем отдельное поле
+        payment.raw_response = {
+            **(payment.raw_response or {}),
+            "receipts": receipts,
+            "receipts_callback_received_at": timezone.now().isoformat()
+        }
+        payment.save()
+
+        get_logger().info(
+            "UzumCallbackReceiptsView: Saved %d receipts for payment %s",
+            receipts_count, payment.merchant_order_id
+        )
+
+        # Логируем получение чеков
+        get_logger().info(
+            "UzumCallbackReceiptsView: Elasticsearch log - uzum_order_id=%s, "
+            "merchant_order_id=%s, receipts_count=%d",
+            uzum_order_id, payment.merchant_order_id, receipts_count
+        )
+
+        return HttpResponse("OK", status=200)
+
+
+class UzumReceiptsView(APIView):
+    """
+    API для получения чеков по order_id
+    """
+    def get(self, request, *args, **kwargs):
+        order_id = request.GET.get("order_id")
+
+        get_logger().info(
+            "UzumReceiptsView: Request for order_id=%s", order_id
+        )
+
+        if not order_id:
+            get_logger().error("UzumReceiptsView: Missing order_id parameter")
+            return HttpResponse("Missing order_id parameter", status=400)
+
+        try:
+            # Ищем по merchant_order_id или uzum_order_id
+            payment = UzumBankPayment.objects.select_related("order").get(
+                models.Q(merchant_order_id=order_id) | 
+                models.Q(uzum_order_id=order_id)
+            )
+            get_logger().info(
+                "UzumReceiptsView: Found payment - merchant_order_id=%s, "
+                "uzum_order_id=%s, status=%s",
+                payment.merchant_order_id, payment.uzum_order_id, payment.status
+            )
+        except UzumBankPayment.DoesNotExist:
+            get_logger().error(
+                "UzumReceiptsView: Payment not found for order_id=%s", order_id
+            )
+            return HttpResponse("Payment not found", status=404)
+
+        receipts = payment.get_receipts()
+        receipts_count = len(receipts)
+        has_receipts = payment.has_receipts()
+
+        get_logger().info(
+            "UzumReceiptsView: Returning receipts - count=%d, has_receipts=%s",
+            receipts_count, has_receipts
+        )
+
+        # Логируем запрос чеков
+        get_logger().info(
+            "UzumReceiptsView: API request - order_id=%s, merchant_order_id=%s, "
+            "uzum_order_id=%s, status=%s, receipts_count=%d, has_receipts=%s, "
+            "request_ip=%s",
+            order_id, payment.merchant_order_id, payment.uzum_order_id,
+            payment.status, receipts_count, has_receipts,
+            request.META.get('REMOTE_ADDR')
+        )
+
+        response_data = {
+            "order_id": order_id,
+            "merchant_order_id": payment.merchant_order_id,
+            "uzum_order_id": payment.uzum_order_id,
+            "status": payment.status,
+            "receipts_count": receipts_count,
+            "receipts": receipts,
+            "has_receipts": has_receipts
+        }
+
+        return HttpResponse(
+            json.dumps(response_data, ensure_ascii=False, indent=2),
+            content_type="application/json; charset=utf-8"
+        )
