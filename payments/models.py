@@ -1464,6 +1464,10 @@ class UzumBankPayment(models.Model):
         null=True,
         help_text="Чеки об оплате от Uzum Bank"
     )
+    receipt_sent = models.BooleanField(
+        default=False,
+        help_text="Флаг отправки чека на email"
+    )
     payment_url = models.URLField(
         max_length=512,
         blank=True,

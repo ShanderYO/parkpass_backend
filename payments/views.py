@@ -45,7 +45,6 @@ from payments.tasks import (
     start_cancel_request,
     make_buy_subscription_request,
     create_screenshot,
-    send_uzum_receipts_email,
     fetch_uzum_receipts,
 )
 from integration.services import RpsIntegrationService
@@ -1133,27 +1132,6 @@ class UzumCallbackReceiptsView(APIView):
             get_logger().error("Missing orderId in receipts callback")
             return HttpResponse("Missing orderId", status=400)
 
-        # Получаем чеки через API
-        get_logger().info(
-            "UzumCallbackReceiptsView: Requesting receipts for uzum_order_id=%s",
-            uzum_order_id
-        )
-        receipts_response = UzumBankAPI().get_receipts(uzum_order_id)
-
-        if not receipts_response or "error" in receipts_response:
-            get_logger().error(
-                "UzumCallbackReceiptsView: Failed to get receipts for order %s: %s",
-                uzum_order_id, receipts_response
-            )
-            return HttpResponse("Failed to get receipts", status=400)
-
-        receipts = receipts_response.get("result", {}).get("receipts", [])
-        receipts_count = len(receipts)
-        get_logger().info(
-            "UzumCallbackReceiptsView: Received %d receipts for order %s",
-            receipts_count, uzum_order_id
-        )
-
         # Находим платеж по uzum_order_id
         try:
             payment = UzumBankPayment.objects.select_related("order").get(
@@ -1172,33 +1150,22 @@ class UzumCallbackReceiptsView(APIView):
             )
             return HttpResponse("Payment not found", status=404)
 
-        # Сохраняем чеки в отдельное поле
-        payment.receipts = receipts
+        # Обновляем raw_response с информацией о получении callback'а
         payment.raw_response = {
             **(payment.raw_response or {}),
             "receipts_callback_received_at": timezone.now().isoformat()
         }
-        payment.save()
+        payment.save(update_fields=['raw_response'])
 
         get_logger().info(
-            "UzumCallbackReceiptsView: Saved %d receipts for payment %s",
-            receipts_count, payment.merchant_order_id
+            "UzumCallbackReceiptsView: Received receipts callback for payment %s, "
+            "scheduling fetch task",
+            payment.merchant_order_id
         )
 
-        # Логируем получение чеков
-        get_logger().info(
-            "UzumCallbackReceiptsView: Elasticsearch log - uzum_order_id=%s, "
-            "merchant_order_id=%s, receipts_count=%d",
-            uzum_order_id, payment.merchant_order_id, receipts_count
-        )
-
-        # Отправляем чеки клиенту на email
-        if receipts_count > 0:
-            get_logger().info(
-                "UzumCallbackReceiptsView: Scheduling email task for payment %s",
-                payment.merchant_order_id
-            )
-            send_uzum_receipts_email.delay(payment.id)
+        # Вызываем отложенную задачу для получения и отправки чеков
+        # Задача сама проверит, нужно ли получать чеки и отправлять email
+        fetch_uzum_receipts.delay(payment.id)
 
         return HttpResponse("OK", status=200)
 

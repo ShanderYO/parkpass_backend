@@ -236,10 +236,12 @@ def send_uzum_receipts_email(payment_id):
 @app.task(bind=True, max_retries=5, default_retry_delay=60)
 def fetch_uzum_receipts(self, payment_id):
     """
-    Получение и сохранение чеков Uzum банка с ретраями
+    Получение и сохранение чеков Uzum банка с ретраями.
+    Гарантирует отправку email только один раз с помощью select_for_update и флага receipt_sent.
     """
     try:
-        payment = UzumBankPayment.objects.select_related("order").get(
+        # Используем select_for_update для предотвращения race conditions
+        payment = UzumBankPayment.objects.select_related("order").select_for_update().get(
             id=payment_id
         )
         get_logger().info(
@@ -255,6 +257,14 @@ def fetch_uzum_receipts(self, payment_id):
             )
             return
 
+        # Проверяем, был ли уже отправлен чек
+        if payment.receipt_sent:
+            get_logger().info(
+                "Receipt already sent for payment %s, skipping",
+                payment.merchant_order_id
+            )
+            return
+
         # Проверяем, есть ли уже чеки
         existing_receipts = payment.get_receipts()
         if existing_receipts:
@@ -262,7 +272,10 @@ def fetch_uzum_receipts(self, payment_id):
                 "Receipts already exist for payment %s, sending email",
                 payment.merchant_order_id
             )
+            # Отправляем email и помечаем как отправленный
             send_uzum_receipts_email.delay(payment.id)
+            payment.receipt_sent = True
+            payment.save(update_fields=['receipt_sent'])
             return
 
         # Получаем чеки через API
@@ -308,8 +321,10 @@ def fetch_uzum_receipts(self, payment_id):
             receipts_count, payment.merchant_order_id
         )
 
-        # Отправляем email с чеками
+        # Отправляем email с чеками и помечаем как отправленный
         send_uzum_receipts_email.delay(payment.id)
+        payment.receipt_sent = True
+        payment.save(update_fields=['receipt_sent'])
 
     except UzumBankPayment.DoesNotExist:
         get_logger().error(

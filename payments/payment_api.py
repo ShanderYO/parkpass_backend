@@ -614,7 +614,6 @@ class UzumBankAPI:
             "localeType": self.language,
             "payType": pay_type,
             "callbackUrl": callback_url,
-            "receiptsCallbackUrl": receipts_callback_url,  # отдельный callback для чеков
             "orderDescription": description or "Оплата Uzum",
             "sessionTimeoutSecs": 1200,
             "paymentParams": {
@@ -624,6 +623,10 @@ class UzumBankAPI:
             },
             "merchantParams": merchant_params,
         }
+        
+        # Добавляем receiptsCallbackUrl только если он указан
+        if receipts_callback_url:
+            payload["receiptsCallbackUrl"] = receipts_callback_url
 
         if cart:
             payload["cart"] = cart
