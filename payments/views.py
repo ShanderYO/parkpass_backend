@@ -1172,10 +1172,10 @@ class UzumCallbackReceiptsView(APIView):
             )
             return HttpResponse("Payment not found", status=404)
 
-        # Сохраняем чеки в raw_response или создаем отдельное поле
+        # Сохраняем чеки в отдельное поле
+        payment.receipts = receipts
         payment.raw_response = {
             **(payment.raw_response or {}),
-            "receipts": receipts,
             "receipts_callback_received_at": timezone.now().isoformat()
         }
         payment.save()

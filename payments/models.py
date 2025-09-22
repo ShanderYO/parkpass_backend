@@ -1459,6 +1459,11 @@ class UzumBankPayment(models.Model):
         help_text="Сумма в тийинах"
     )  # Uzum принимает int
     raw_response = JSONField(blank=True, null=True)
+    receipts = JSONField(
+        blank=True, 
+        null=True,
+        help_text="Чеки об оплате от Uzum Bank"
+    )
     payment_url = models.URLField(
         max_length=512,
         blank=True,
@@ -1479,14 +1484,14 @@ class UzumBankPayment(models.Model):
     
     def get_receipts(self):
         """
-        Получить чеки из raw_response
+        Получить чеки из отдельного поля receipts
         """
-        if not self.raw_response:
+        if not self.receipts:
             return []
-        return self.raw_response.get("receipts", [])
+        return self.receipts
     
     def has_receipts(self):
         """
         Проверить, есть ли чеки
         """
-        return len(self.get_receipts()) > 0
+        return bool(self.receipts and len(self.receipts) > 0)

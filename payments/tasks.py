@@ -294,10 +294,10 @@ def fetch_uzum_receipts(self, payment_id):
                 countdown=60 * (self.request.retries + 1)
             )
 
-        # Сохраняем чеки в базу
+        # Сохраняем чеки в отдельное поле
+        payment.receipts = receipts
         payment.raw_response = {
             **(payment.raw_response or {}),
-            "receipts": receipts,
             "receipts_fetched_at": timezone.now().isoformat(),
             "receipts_fetch_attempts": self.request.retries + 1
         }
