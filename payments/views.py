@@ -45,6 +45,8 @@ from payments.tasks import (
     start_cancel_request,
     make_buy_subscription_request,
     create_screenshot,
+    send_uzum_receipts_email,
+    fetch_uzum_receipts,
 )
 from integration.services import RpsIntegrationService
 from rps_vendor.models import RpsParking
@@ -1096,6 +1098,13 @@ class UzumCallbackView(APIView):
                 get_logger().info(
                     "UzumCallbackView: send_rps_confirm_payment from notify_confirm_rps"
                 )
+            
+            # Запускаем задачу получения чеков только для завершенных платежей
+            get_logger().info(
+                "UzumCallbackView: Scheduling receipts fetch task for completed payment %s",
+                merchant_order_id
+            )
+            fetch_uzum_receipts.delay(payment.id)
         elif uzum_status in ["DECLINED", "ERROR"]:
             get_logger().info(
                 "UzumCallbackView: UzumBank payment declined or errored for %s",
@@ -1182,6 +1191,14 @@ class UzumCallbackReceiptsView(APIView):
             "merchant_order_id=%s, receipts_count=%d",
             uzum_order_id, payment.merchant_order_id, receipts_count
         )
+
+        # Отправляем чеки клиенту на email
+        if receipts_count > 0:
+            get_logger().info(
+                "UzumCallbackReceiptsView: Scheduling email task for payment %s",
+                payment.merchant_order_id
+            )
+            send_uzum_receipts_email.delay(payment.id)
 
         return HttpResponse("OK", status=200)
 
