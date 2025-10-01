@@ -1,4 +1,5 @@
 from typing import Optional
+import os
 
 import docker
 
@@ -44,7 +45,9 @@ def send_email(user, pwd, recipient, subject, body):
 
 
     try:
-        server = smtplib.SMTP("smtp.yandex.ru", 587)
+        smtp_host = os.environ.get("EMAIL_HOST", "smtp.yandex.ru")
+        smtp_port = int(os.environ.get("EMAIL_PORT", "587"))
+        server = smtplib.SMTP(smtp_host, smtp_port)
         server.ehlo()
         server.starttls()
         server.login(user, pwd)
@@ -66,10 +69,14 @@ if __name__ == "__main__":
             not_running_containers.append(container_name)
 
     if not_running_containers:
+        email_user = os.environ.get("EMAIL_HOST_USER", "noreply@parkpass.ru")
+        email_password = os.environ.get("EMAIL_HOST_PASSWORD", "Vn$qf{s5x8")
+        alert_emails = os.environ.get("EMAILS_HOST_ALERT", "lokkomokko1@gmail.com,app@vldmrnine.com").split(",")
+        
         send_email(
-            'noreply@parkpass.ru',
-            'Vn$qf{s5x8',
-            ['lokkomokko1@gmail.com', 'app@vldmrnine.com'],
+            email_user,
+            email_password,
+            alert_emails,
             '!!!! ОПОВЕЩЕНИЕ С САЙТА. ОТКЛЮЧИЛСЯ(-ЛИСЬ) КОНТЕЙНЕРЫ !!!!',
             'Список отключившихся контейнеров: ' + ', '.join(not_running_containers)
         )

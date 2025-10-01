@@ -188,12 +188,12 @@ USE_TZ = True
 
 
 # Email configs
-# TODO change SMTP parameters
-EMAIL_HOST = "smtp.yandex.ru"
-EMAIL_PORT = 587
-EMAIL_HOST_USER = "noreply@parkpass.ru"
-EMAIL_HOST_PASSWORD = "3PRNyDGYYwojAkZ"
-EMAIL_USE_TLS = True
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.yandex.ru")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "noreply@parkpass.ru")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "3PRNyDGYYwojAkZ")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() == "true"
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() == "true"
 
 
 BASE_LOGGER_NAME = "parkpass"
