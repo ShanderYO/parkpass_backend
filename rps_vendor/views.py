@@ -694,7 +694,7 @@ class InitPaymentMixin:
             )
 
             if order.acquiring == "uzumbank":
-                result = order.create_payment_uzumbank()
+                result = order.create_payment_uzumbank(receipt_email=email)
                 if result:
                     card_session.state = STATE_INITED
                     card_session.save()

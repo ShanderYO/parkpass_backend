@@ -182,15 +182,35 @@ def send_uzum_receipts_email(payment_id):
             )
             return
 
-        # Получаем email клиента (используем ту же логику, что и в Tinkoff)
-        account = payment.order.get_account()
-        if (
-            not account
-            or not account.email_fiskal_notification_enabled
-            or not account.email
-        ):
+        # Получаем email клиента - приоритет у сохраненного email в платеже
+        email_to_send = None
+
+        # Сначала проверяем сохраненный email в платеже
+        if payment.receipt_email:
+            email_to_send = payment.receipt_email
+            get_logger().info(
+                "Using saved email from payment for Uzum payment %s: %s",
+                payment.merchant_order_id,
+                email_to_send,
+            )
+        else:
+            # Fallback на логику аккаунта (для обратной совместимости)
+            account = payment.order.get_account()
+            if (
+                account
+                and account.email_fiskal_notification_enabled
+                and account.email
+            ):
+                email_to_send = account.email
+                get_logger().info(
+                    "Using account email for Uzum payment %s: %s",
+                    payment.merchant_order_id,
+                    email_to_send,
+                )
+
+        if not email_to_send:
             get_logger().warning(
-                "No email or email notifications disabled for account in Uzum payment %s",
+                "No email available for Uzum payment %s (no saved email and no account email)",
                 payment.merchant_order_id,
             )
             return
@@ -215,7 +235,7 @@ def send_uzum_receipts_email(payment_id):
                 "receipt_urls": receipt_urls,
                 "payment": payment,
                 "order": payment.order,
-                "account": account,
+                "email": email_to_send,
                 "receipts_count": len(receipt_urls),
             },
         )
@@ -225,13 +245,13 @@ def send_uzum_receipts_email(payment_id):
             "Чек об оплате - Uzum Bank",
             "",
             EMAIL_HOST_USER,
-            [account.email],
+            [email_to_send],
             html_message=msg_html,
         )
 
         get_logger().info(
             "Successfully sent Uzum receipts email to %s for payment %s",
-            account.email,
+            email_to_send,
             payment.merchant_order_id,
         )
 
@@ -335,7 +355,7 @@ def fetch_uzum_receipts(self, payment_id):
                 .select_for_update()
                 .get(id=payment_id)
             )
-            
+
             # Двойная проверка флага
             if payment.receipt_sent:
                 get_logger().info(

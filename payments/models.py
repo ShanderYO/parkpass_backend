@@ -766,7 +766,7 @@ class Order(models.Model):
             )
             logger.error(message)
 
-    def create_payment_uzumbank(self):
+    def create_payment_uzumbank(self, receipt_email=None):
         get_logger().info("Uzum payment start")
 
         callback_url = (
@@ -776,7 +776,6 @@ class Order(models.Model):
         receipts_callback_url = (
             "https://%s/api/v1/payments/uzum-callback-receipts/" % settings.BASE_DOMAIN
         )
-
         cart = None
         if self.session:
             cart = [
@@ -822,6 +821,7 @@ class Order(models.Model):
                 amount=int(self.sum * 100),
                 payment_url=payment_url,
                 raw_response=result,
+                receipt_email=receipt_email,
             )
             return {
                 "payment_url": payment_url,
@@ -1460,7 +1460,7 @@ class UzumBankPayment(models.Model):
     )  # Uzum принимает int
     raw_response = JSONField(blank=True, null=True)
     receipts = JSONField(
-        blank=True, 
+        blank=True,
         null=True,
         help_text="Чеки об оплате от Uzum Bank"
     )
@@ -1474,6 +1474,11 @@ class UzumBankPayment(models.Model):
         null=True,
         help_text="URL для редиректа пользователя на страницу оплаты UzumBank",
     )
+    receipt_email = models.EmailField(
+        blank=True,
+        null=True,
+        help_text="Email клиента для отправки чека"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1485,7 +1490,7 @@ class UzumBankPayment(models.Model):
 
     def __str__(self):
         return f"UzumPayment {self.merchant_order_id} [{self.status}]"
-    
+
     def get_receipts(self):
         """
         Получить чеки из отдельного поля receipts
@@ -1493,7 +1498,7 @@ class UzumBankPayment(models.Model):
         if not self.receipts:
             return []
         return self.receipts
-    
+
     def has_receipts(self):
         """
         Проверить, есть ли чеки
