@@ -818,7 +818,7 @@ class Order(models.Model):
                 merchant_order_id=merchant_order_id,
                 uzum_order_id=uzum_order_id,
                 status=payment_status,
-                amount=int(self.sum * 100),
+                amount=int(self.sum),
                 payment_url=payment_url,
                 raw_response=result,
                 receipt_email=receipt_email,
