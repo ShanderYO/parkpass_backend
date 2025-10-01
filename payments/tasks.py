@@ -263,6 +263,74 @@ def send_uzum_receipts_email(payment_id):
         )
 
 
+@app.task(bind=True, max_retries=3, default_retry_delay=300)
+def retry_uzum_receipts_email(self, payment_id):
+    """
+    Повторная отправка чеков Uzum банка клиенту на email.
+    Используется для платежей, у которых receipt_sent=False но есть чеки.
+    """
+    try:
+        payment = UzumBankPayment.objects.select_related("order").get(id=payment_id)
+        
+        # Проверяем, что платеж завершен и есть чеки
+        if payment.status != "COMPLETED":
+            get_logger().warning(
+                "Payment %s is not completed (status: %s), skipping retry",
+                payment.merchant_order_id,
+                payment.status,
+            )
+            return
+
+        if payment.receipt_sent:
+            get_logger().info(
+                "Receipt already sent for payment %s, skipping retry",
+                payment.merchant_order_id,
+            )
+            return
+
+        receipts = payment.get_receipts()
+        if not receipts:
+            get_logger().warning(
+                "No receipts found for payment %s, skipping retry",
+                payment.merchant_order_id,
+            )
+            return
+
+        get_logger().info(
+            "Retrying Uzum receipts email for payment %s (attempt %d/%d)",
+            payment.merchant_order_id,
+            self.request.retries + 1,
+            3,
+        )
+
+        # Отправляем email синхронно
+        send_uzum_receipts_email(payment.id)
+        
+        # Помечаем как отправленный только после успешной отправки
+        # Используем update для атомарности
+        UzumBankPayment.objects.filter(
+            id=payment_id, 
+            receipt_sent=False
+        ).update(receipt_sent=True)
+        
+        get_logger().info(
+            "Successfully retried and sent receipts email for payment %s",
+            payment.merchant_order_id,
+        )
+
+    except UzumBankPayment.DoesNotExist:
+        get_logger().error("UzumBankPayment with id %s not found for retry", payment_id)
+    except Exception as exc:
+        get_logger().error(
+            "Error retrying Uzum receipts email for payment %s (attempt %d): %s",
+            payment_id,
+            self.request.retries + 1,
+            str(exc),
+        )
+        # Ретраим задачу
+        raise self.retry(exc=exc, countdown=300 * (self.request.retries + 1))
+
+
 @app.task(bind=True, max_retries=5, default_retry_delay=60)
 def fetch_uzum_receipts(self, payment_id):
     """
@@ -312,9 +380,31 @@ def fetch_uzum_receipts(self, payment_id):
                     .get(id=payment_id)
                 )
                 if not payment.receipt_sent:  # Двойная проверка
-                    send_uzum_receipts_email.delay(payment.id)
-                    payment.receipt_sent = True
-                    payment.save(update_fields=["receipt_sent"])
+                    try:
+                        send_uzum_receipts_email(payment.id)
+                        # Атомарное обновление только если receipt_sent=False
+                        updated = UzumBankPayment.objects.filter(
+                            id=payment_id, 
+                            receipt_sent=False
+                        ).update(receipt_sent=True)
+                        
+                        if updated:
+                            get_logger().info(
+                                "Successfully sent existing receipts email and marked receipt_sent=True for payment %s",
+                                payment.merchant_order_id,
+                            )
+                        else:
+                            get_logger().warning(
+                                "Receipt already sent for payment %s (race condition)",
+                                payment.merchant_order_id,
+                            )
+                    except Exception as email_exc:
+                        get_logger().error(
+                            "Failed to send existing receipts email for payment %s: %s",
+                            payment.merchant_order_id,
+                            str(email_exc),
+                        )
+                        # Не помечаем receipt_sent=True если email не отправился
             return
 
         # Получаем чеки через API
@@ -379,10 +469,33 @@ def fetch_uzum_receipts(self, payment_id):
                 payment.merchant_order_id,
             )
 
-            # Отправляем email с чеками и помечаем как отправленный
-            send_uzum_receipts_email.delay(payment.id)
-            payment.receipt_sent = True
-            payment.save(update_fields=["receipt_sent"])
+            # Отправляем email с чеками синхронно
+            try:
+                send_uzum_receipts_email(payment.id)
+                # Атомарное обновление только если receipt_sent=False
+                updated = UzumBankPayment.objects.filter(
+                    id=payment_id, 
+                    receipt_sent=False
+                ).update(receipt_sent=True)
+                
+                if updated:
+                    get_logger().info(
+                        "Successfully sent receipts email and marked receipt_sent=True for payment %s",
+                        payment.merchant_order_id,
+                    )
+                else:
+                    get_logger().warning(
+                        "Receipt already sent for payment %s (race condition)",
+                        payment.merchant_order_id,
+                    )
+            except Exception as email_exc:
+                get_logger().error(
+                    "Failed to send receipts email for payment %s: %s",
+                    payment.merchant_order_id,
+                    str(email_exc),
+                )
+                # Не помечаем receipt_sent=True если email не отправился
+                # Это позволит повторить попытку позже
 
     except UzumBankPayment.DoesNotExist:
         get_logger().error("UzumBankPayment with id %s not found", payment_id)
@@ -395,3 +508,38 @@ def fetch_uzum_receipts(self, payment_id):
         )
         # Ретраим задачу
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
+
+
+@app.task()
+def monitor_uzum_receipts():
+    """
+    Мониторинг и повторная отправка неотправленных чеков Uzum банка.
+    Запускается периодически для проверки платежей с receipt_sent=False.
+    """
+    try:
+        # Находим платежи с чеками, но без отправки email
+        payments_to_retry = UzumBankPayment.objects.filter(
+            status="COMPLETED",
+            receipt_sent=False,
+            receipts__isnull=False,
+        ).exclude(receipts=[])[:10]  # Ограничиваем количество для одной задачи
+        
+        if not payments_to_retry:
+            get_logger().info("No Uzum payments found for receipt retry")
+            return
+        
+        get_logger().info(
+            "Found %d Uzum payments with receipts but no email sent",
+            len(payments_to_retry)
+        )
+        
+        for payment in payments_to_retry:
+            get_logger().info(
+                "Scheduling retry for payment %s (merchant_order_id: %s)",
+                payment.id,
+                payment.merchant_order_id,
+            )
+            retry_uzum_receipts_email.delay(payment.id)
+            
+    except Exception as e:
+        get_logger().error("Error in monitor_uzum_receipts: %s", str(e))
