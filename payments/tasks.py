@@ -182,38 +182,20 @@ def send_uzum_receipts_email(payment_id):
             )
             return
 
-        # Получаем email клиента - приоритет у сохраненного email в платеже
-        email_to_send = None
-
-        # Сначала проверяем сохраненный email в платеже
-        if payment.receipt_email:
-            email_to_send = payment.receipt_email
-            get_logger().info(
-                "Using saved email from payment for Uzum payment %s: %s",
-                payment.merchant_order_id,
-                email_to_send,
-            )
-        else:
-            # Fallback на логику аккаунта (для обратной совместимости)
-            account = payment.order.get_account()
-            if (
-                account
-                and account.email_fiskal_notification_enabled
-                and account.email
-            ):
-                email_to_send = account.email
-                get_logger().info(
-                    "Using account email for Uzum payment %s: %s",
-                    payment.merchant_order_id,
-                    email_to_send,
-                )
-
-        if not email_to_send:
+        # Получаем email клиента из сохраненного email в платеже
+        if not payment.receipt_email:
             get_logger().warning(
-                "No email available for Uzum payment %s (no saved email and no account email)",
+                "No receipt_email found for Uzum payment %s",
                 payment.merchant_order_id,
             )
             return
+
+        email_to_send = payment.receipt_email
+        get_logger().info(
+            "Using receipt_email for Uzum payment %s: %s",
+            payment.merchant_order_id,
+            email_to_send,
+        )
 
         # Подготавливаем данные для email
         receipt_urls = [
@@ -543,3 +525,5 @@ def monitor_uzum_receipts():
             
     except Exception as e:
         get_logger().error("Error in monitor_uzum_receipts: %s", str(e))
+
+
