@@ -212,13 +212,16 @@ class TinkoffCallbackView(APIView):
             if self.status == PAYMENT_STATUS_AUTHORIZED:
                 order.authorized = True
                 order.save()
-                # Отправка по старой схеме
-                # self.notify_authorize_rps(order)  # TODO make async
+                if order.payload: # Отправка по новой схеме
+                    pass
+                else:
+                    # Отправка по старой схеме
+                    self.notify_authorize_rps(order)  # TODO make async
 
             elif self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
                 order.save()
-                if order.payload:
+                if order.payload: # Отправка по новой схеме
                     parking_id = order.parking_card_session.parking_id
                     rps_parking = RpsParking.objects.get(parking_id=parking_id)
                     card_id = order.payload.get("card_id")
@@ -231,7 +234,8 @@ class TinkoffCallbackView(APIView):
                     get_logger().info(
                         "send_rps_confirm_payment_async from notify_confirm_rps"
                     )
-                self.notify_confirm_rps(order)  # TODO make async
+                else: # Отправка по старой схеме
+                    self.notify_confirm_rps(order)  # TODO make async
             else:
                 order.paid = False
                 order.authorized = False
