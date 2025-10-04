@@ -212,7 +212,8 @@ class TinkoffCallbackView(APIView):
             if self.status == PAYMENT_STATUS_AUTHORIZED:
                 order.authorized = True
                 order.save()
-                self.notify_authorize_rps(order)  # TODO make async
+                # Отправка по старой схеме
+                # self.notify_authorize_rps(order)  # TODO make async
 
             elif self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
