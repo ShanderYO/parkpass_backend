@@ -46,7 +46,7 @@ from payments.tasks import (
     make_buy_subscription_request,
     create_screenshot,
 )
-from integration.services import RpsIntegrationService
+from integration.services import RpsPaymentTaskService
 from rps_vendor.models import RpsParking
 
 
@@ -221,11 +221,14 @@ class TinkoffCallbackView(APIView):
                     parking_id = order.parking_card_session.parking_id
                     rps_parking = RpsParking.objects.get(parking_id=parking_id)
                     card_id = order.payload.get("card_id")
-                    RpsIntegrationService().send_rps_confirm_payment(
-                        rps_parking, card_id, int(order.sum)
+                    RpsPaymentTaskService.send_rps_confirm_payment_async(
+                        rps_parking=rps_parking, 
+                        card_id=card_id, 
+                        amount=order.sum,
+                        order_id=order.id
                     )
                     get_logger().info(
-                        "send_rps_confirm_payment from notify_confirm_rps"
+                        "send_rps_confirm_payment_async from notify_confirm_rps"
                     )
                 self.notify_confirm_rps(order)  # TODO make async
             else:
