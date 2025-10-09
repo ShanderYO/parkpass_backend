@@ -4,7 +4,11 @@ from django.utils import timezone
 
 class RpsPaymentTask(models.Model):
     """
-    Модель для хранения задач на отправку данных об оплате на RPS
+    Модель для хранения задач на отправку данных об оплате на RPS.
+
+    RpsPaymentTask используется для отслеживания и управления задачами
+    отправки платежных данных в систему RPS. Каждая задача содержит
+    информацию о заказе, парковке, карте и сумме платежа.
     """
 
     STATUS_CREATED = 'created'
@@ -59,7 +63,7 @@ class RpsPaymentTask(models.Model):
     max_attempts = models.PositiveIntegerField(
         default=3, help_text="Максимальное количество попыток"
     )
-    
+
     class Meta:
         db_table = 'integration_rps_payment_task'
         verbose_name = 'Задача отправки оплаты на RPS'
@@ -72,7 +76,8 @@ class RpsPaymentTask(models.Model):
         ]
 
     def __str__(self):
-        return f"RPS Payment Task {self.id} - Order {self.order_id} - {self.status}"
+        return (f"RPS Payment Task {self.id} - Order {self.order_id} - "
+                f"{self.status}")
 
     def can_retry(self):
         """Проверяет, можно ли повторить попытку"""
