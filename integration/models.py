@@ -125,10 +125,7 @@ class RpsPaymentTask(models.Model):
         Returns:
             RpsPaymentTask or None: Задача для заказа или None, если не найдена
         """
-        try:
-            return cls.objects.get(order_id=order_id)
-        except cls.DoesNotExist:
-            return None
+        return cls.objects.filter(order_id=order_id).first()
 
     @classmethod
     def can_create_task_for_order(cls, order_id):
