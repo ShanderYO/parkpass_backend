@@ -184,7 +184,8 @@ class RpsPaymentTaskService:
     @staticmethod
     def create_payment_task(order_id, rps_parking_id, card_id, amount):
         """
-        Создает задачу на отправку данных об оплате на RPS и запускает celery task
+        Создает задачу на отправку данных об оплате на RPS и запускает celery task.
+        Если задача для данного заказа уже существует, возвращает существующую.
 
         Args:
             order_id (int): ID заказа
@@ -193,7 +194,7 @@ class RpsPaymentTaskService:
             amount (Decimal): Сумма оплаты
 
         Returns:
-            RpsPaymentTask: Созданная задача
+            RpsPaymentTask: Созданная или существующая задача
         """
         from integration.models import RpsPaymentTask
         from integration.tasks import send_rps_payment_task
@@ -201,7 +202,17 @@ class RpsPaymentTaskService:
         logger = get_logger()
 
         try:
-            # Создаем задачу
+            # Проверяем, существует ли уже задача для этого заказа
+            existing_task = RpsPaymentTask.get_task_for_order(order_id)
+            if existing_task:
+                logger.info(
+                    f"RPS payment task already exists for order {order_id}: "
+                    f"task_id={existing_task.id}, "
+                    f"status={existing_task.status}"
+                )
+                return existing_task
+
+            # Создаем новую задачу
             task = RpsPaymentTask.objects.create(
                 order_id=order_id,
                 rps_parking_id=rps_parking_id,
@@ -213,18 +224,21 @@ class RpsPaymentTaskService:
             send_rps_payment_task.delay(task.id)
 
             logger.info(
-                f"Created RPS payment task {task.id} for order {order_id}"
+                f"Created new RPS payment task {task.id} for order {order_id}"
             )
             return task
 
         except Exception as e:
             logger.error(
-                f"Failed to create RPS payment task for order {order_id}: {str(e)}"
+                f"Failed to create RPS payment task for order {order_id}: "
+                f"{str(e)}"
             )
             raise
 
     @staticmethod
-    def send_rps_confirm_payment_async(rps_parking, card_id, amount, order_id=None):
+    def send_rps_confirm_payment_async(
+        rps_parking, card_id, amount, order_id=None
+    ):
         """
         Асинхронная отправка данных об оплате на RPS
 

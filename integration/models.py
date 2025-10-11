@@ -113,3 +113,32 @@ class RpsPaymentTask(models.Model):
         self.save(update_fields=[
             'status', 'processed_at', 'last_error', 'error_message'
         ])
+
+    @classmethod
+    def get_task_for_order(cls, order_id):
+        """
+        Получает задачу для указанного заказа, если она существует
+
+        Args:
+            order_id (int): ID заказа
+
+        Returns:
+            RpsPaymentTask or None: Задача для заказа или None, если не найдена
+        """
+        try:
+            return cls.objects.get(order_id=order_id)
+        except cls.DoesNotExist:
+            return None
+
+    @classmethod
+    def can_create_task_for_order(cls, order_id):
+        """
+        Проверяет, можно ли создать задачу для указанного заказа
+
+        Args:
+            order_id (int): ID заказа
+
+        Returns:
+            bool: True, если можно создать задачу, False - если уже существует
+        """
+        return not cls.objects.filter(order_id=order_id).exists()
