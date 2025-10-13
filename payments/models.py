@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import logging
-import os
-import urllib.parse
+import uuid
 from decimal import Decimal
 
 import requests
@@ -29,7 +28,7 @@ from parkpass_backend.settings import (
     REQUESTS_LOGGER_NAME,
     EMAILS_HOST_ALERT,
 )
-from payments.payment_api import TinkoffAPI, HomeBankAPI
+from payments.payment_api import TinkoffAPI, HomeBankAPI, UzumBankAPI
 
 logger = get_logger(REQUESTS_LOGGER_NAME)
 
@@ -94,6 +93,7 @@ class CreditCard(models.Model):
         choices=(
             ("tinkoff", "Тинькофф"),
             ("homebank", "HomeBank"),
+            ("uzumbank", "UzumBank"),
         ),
     )
     account = models.ForeignKey(
@@ -273,6 +273,42 @@ class Order(models.Model):
                 result_sum = result_sum + session.sum
         return result_sum
 
+    def generate_receipt_data_uzum(self):
+        if self.acquiring != "uzumbank":
+            return {}
+
+        item_name = self.get_payment_description()
+        amount = int(self.sum * 100)
+        product_id = f"o{self.id}"
+
+        tin = "305102556"  # или self.account.tin / self.company.inn
+
+        items = [
+            {
+                "title": item_name,
+                "productId": product_id,
+                "quantity": 1,
+                "unitPrice": amount,
+                "total": amount,
+                "receiptParams": {
+                    "spic": "10199001007000000",
+                    "packageCode": "1202248",
+                    "vatPercent": 0,
+                    "TIN": "306777698",
+                    "label": "010460703539530221rPjLFNMsM5uC",
+                },
+            }
+        ]
+
+        return {
+            "cart": {
+                "cartId": str(uuid.uuid4()),
+                "receiptType": "PURCHASE",
+                "total": amount,
+                "items": items,
+            }
+        }
+
     def generate_receipt_data(self, email=None):
         if self.subscription:
             email = (
@@ -352,6 +388,8 @@ class Order(models.Model):
                     "email": email,
                     "phone": phone,
                 }
+            elif self.acquiring == "uzumbank":
+                return self.generate_receipt_data_uzum()
             else:
                 return dict(
                     Email=email,
@@ -388,6 +426,8 @@ class Order(models.Model):
                     "cardId": {"id": ""},
                     "phone": self.account.phone,
                 }
+            elif self.acquiring == "uzumbank":
+                return self.generate_receipt_data_uzum()
             else:
                 return dict(
                     Email=None,  # not send to email
@@ -428,6 +468,8 @@ class Order(models.Model):
                 ),
                 "phone": str(self.session.client.phone),
             }
+        elif self.acquiring == "uzumbank":
+            return self.generate_receipt_data_uzum()
         else:
             return dict(
                 Email=(
@@ -490,6 +532,8 @@ class Order(models.Model):
         try:
             if self.acquiring == "homebank":
                 return self.create_payment_homebank()
+            elif self.acquiring == "uzumbank":
+                return self.create_payment_uzumbank()
             else:
                 self.create_payment()
         except Exception as e:
@@ -721,6 +765,75 @@ class Order(models.Model):
                 EMAILS_HOST_ALERT,
             )
             logger.error(message)
+
+    def create_payment_uzumbank(self, receipt_email=None):
+        get_logger().info("Uzum payment start")
+
+        callback_url = (
+            "https://%s/api/v1/payments/uzum-callback/" % settings.BASE_DOMAIN
+        )
+        
+        receipts_callback_url = (
+            "https://%s/api/v1/payments/uzum-callback-receipts/" % settings.BASE_DOMAIN
+        )
+        cart = None
+        if self.session:
+            cart = [
+                {
+                    "name": self.get_payment_description(),
+                    "count": 1,
+                    "price": int(self.sum * 100),  # сумма в тийинах
+                }
+            ]
+
+        merchant_order_id = f"uzum-{self.id}"
+        client_id = str(self.account_id if self.account_id else "anonymous")
+
+        result = UzumBankAPI().register_payment_with_receipts_callback(
+            merchant_order_id=merchant_order_id,
+            amount=int(self.sum * 100),
+            callback_url=callback_url,
+            receipts_callback_url=receipts_callback_url,
+            merchant_params=self.generate_receipt_data(),
+            description=self.get_payment_description(),
+            cart=cart,
+            client_id=client_id,
+            view_type="REDIRECT",
+            success_url=self.payload.get("parking_redirect_url", ""),
+            payment_details=self.get_payment_description()
+        )
+
+        get_logger().info("Uzum register result: %s", result)
+
+        if isinstance(result, dict) and "result" in result:
+            result = result["result"]  # <-- извлекаем вложенные данные
+
+        uzum_order_id = result.get("orderId")
+        payment_url = result.get("paymentRedirectUrl")
+        payment_status = result.get("status") or "REGISTERED"
+
+        if uzum_order_id and payment_url:
+            UzumBankPayment.objects.create(
+                order=self,
+                merchant_order_id=merchant_order_id,
+                uzum_order_id=uzum_order_id,
+                status=payment_status,
+                amount=int(self.sum),
+                payment_url=payment_url,
+                raw_response=result,
+                receipt_email=receipt_email,
+            )
+            return {
+                "payment_url": payment_url,
+                "order_id": self.id,
+                "uzum_order_id": uzum_order_id,
+            }
+
+        get_logger().error("Uzum payment registration failed: %s", result)
+        return {
+            "error": "Ошибка регистрации платежа в UzumBank",
+            "details": result,
+        }
 
     def create_payment_homebank(self):
 
@@ -1319,3 +1432,75 @@ class HomeBankPayment(models.Model):
             order.refund_request = True
             order.refunded_sum = Decimal(float(order.get_payment_amount()))
             order.save()
+
+
+class UzumBankPayment(models.Model):
+    STATUS_CHOICES = [
+        ("REGISTERED", "Зарегистрирован"),
+        ("COMPLETED", "Завершён"),
+        ("DECLINED", "Отклонён"),
+        ("REFUNDED", "Возврат"),
+        ("AUTHORIZED", "Холд средств"),
+        ("REVERSED", "Отменён"),
+        ("ERROR", "Ошибка"),
+    ]
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="uzum_payments"
+    )
+    merchant_order_id = models.CharField(max_length=64, unique=True)
+    uzum_order_id = models.CharField(
+        max_length=64, blank=True, null=True
+    )  # внутренний orderId Uzum
+    status = models.CharField(
+        max_length=32, choices=STATUS_CHOICES, default="REGISTERED"
+    )
+    amount = models.PositiveIntegerField(
+        help_text="Сумма в тийинах"
+    )  # Uzum принимает int
+    raw_response = JSONField(blank=True, null=True)
+    receipts = JSONField(
+        blank=True,
+        null=True,
+        help_text="Чеки об оплате от Uzum Bank"
+    )
+    receipt_sent = models.BooleanField(
+        default=False,
+        help_text="Флаг отправки чека на email"
+    )
+    payment_url = models.URLField(
+        max_length=512,
+        blank=True,
+        null=True,
+        help_text="URL для редиректа пользователя на страницу оплаты UzumBank",
+    )
+    receipt_email = models.EmailField(
+        blank=True,
+        null=True,
+        help_text="Email клиента для отправки чека"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "uzum_bank_payment"
+        verbose_name = "Платёж через UzumBank"
+        verbose_name_plural = "Платежи через UzumBank"
+
+    def __str__(self):
+        return f"UzumPayment {self.merchant_order_id} [{self.status}]"
+
+    def get_receipts(self):
+        """
+        Получить чеки из отдельного поля receipts
+        """
+        if not self.receipts:
+            return []
+        return self.receipts
+
+    def has_receipts(self):
+        """
+        Проверить, есть ли чеки
+        """
+        return bool(self.receipts and len(self.receipts) > 0)
