@@ -1,4 +1,4 @@
-version: '2'
+version: "2"
 networks:
     main_net:
         driver: bridge
@@ -8,24 +8,23 @@ services:
         image: nginx-proxy
         restart: always
         ports:
-          - "80:80"
-          - "443:443"
+            - "80:80"
+            - "443:443"
         volumes:
-          - ./shares/app_sockets:/app_sockets
-          - ./nginx/certs:/etc/nginx/certs
-          - ./nginx/conf.d:/etc/nginx/conf.d
-          - ./storage:/files
+            - ./shares/app_sockets:/app_sockets
+            - ./nginx/certs:/etc/nginx/certs
+            - ./nginx/conf.d:/etc/nginx/conf.d
+            - ./storage:/files
         networks:
             - main_net
         depends_on:
-          - backend-master
-          - user-landing
-          - user-cabinet
-          - owner-cabinet
-          - owner-landing
-          - vendor-landing
-          #- backend-slave-1
-
+            - backend-master
+            - user-landing
+            - user-cabinet
+            - owner-cabinet
+            - owner-landing
+            - vendor-landing
+            #- backend-slave-1
 
     user-landing:
         container_name: user-landing-container
@@ -107,6 +106,15 @@ services:
             - POSTGRES_DB_NAME=parkpass
             - POSTGRES_USER=parkpass
             - POSTGRES_PASSWORD=parkpass
+            # SMTP Email Configuration
+            - EMAIL_HOST=smtp.yandex.ru
+            - EMAIL_PORT=465
+            - EMAIL_HOST_USER=shanderyo.money@yandex.ru
+            - EMAIL_HOST_PASSWORD=sdflpm,sdf999ekwp0o
+            - EMAIL_USE_TLS=False
+            - EMAIL_USE_SSL=True
+            - DEFAULT_FROM_EMAIL=shanderyo.money@yandex.ru
+            - EMAILS_HOST_ALERT=shanderyo.money@yandex.ru
         command: bash -c "uwsgi --ini uwsgi.ini"
         volumes:
             - ./shares/app_sockets:/app/socket-dir
@@ -115,8 +123,8 @@ services:
 
     backend_celery_worker:
         depends_on:
-          - parkpass-postgres
-          - redis
+            - parkpass-postgres
+            - redis
         container_name: celery-worker
         image: parkpass:latest
         networks:
@@ -130,6 +138,15 @@ services:
             - POSTGRES_DB_NAME=parkpass
             - POSTGRES_USER=parkpass
             - POSTGRES_PASSWORD=parkpass
+            # SMTP Email Configuration
+            - EMAIL_HOST=smtp.yandex.ru
+            - EMAIL_PORT=465
+            - EMAIL_HOST_USER=shanderyo.money@yandex.ru
+            - EMAIL_HOST_PASSWORD=sdflpm,sdf999ekwp0o
+            - EMAIL_USE_TLS=False
+            - EMAIL_USE_SSL=True
+            - DEFAULT_FROM_EMAIL=shanderyo.money@yandex.ru
+            - EMAILS_HOST_ALERT=shanderyo.money@yandex.ru
         command: celery -A parkpass worker -l info --app=parkpass.celery:app
         volumes:
             - ./var/log/backend/master:/var/log
@@ -151,10 +168,18 @@ services:
             - POSTGRES_DB_NAME=parkpass
             - POSTGRES_USER=parkpass
             - POSTGRES_PASSWORD=parkpass
+            # SMTP Email Configuration
+            - EMAIL_HOST=smtp.yandex.ru
+            - EMAIL_PORT=465
+            - EMAIL_HOST_USER=shanderyo.money@yandex.ru
+            - EMAIL_HOST_PASSWORD=sdflpm,sdf999ekwp0o
+            - EMAIL_USE_TLS=False
+            - EMAIL_USE_SSL=True
+            - DEFAULT_FROM_EMAIL=shanderyo.money@yandex.ru
+            - EMAILS_HOST_ALERT=shanderyo.money@yandex.ru
         command: celery -A parkpass beat -l info --app=parkpass.celery:app
         volumes:
             - ./var/log/backend/master:/var/log
-
 #
 #    backend-slave-1:
 #        depends_on:

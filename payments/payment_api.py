@@ -3,7 +3,7 @@ import collections
 import hashlib
 import json
 import os
-from base64 import b64encode, b64decode
+from typing import Optional
 
 import requests
 from django.core.exceptions import ObjectDoesNotExist
@@ -24,7 +24,7 @@ class TinkoffApiException:
     TINKOFF_EXCEPTION_INTERNAL_ERROR = [9999]
 
 
-class TinkoffAPI():
+class TinkoffAPI:
     INIT = "https://securepay.tinkoff.ru/v2/Init"
     CONFIRM = "https://securepay.tinkoff.ru/v2/Confirm"
     CHARGE = "https://securepay.tinkoff.ru/v2/Charge"
@@ -58,15 +58,28 @@ class TinkoffAPI():
 
         return self.get_response(method, body)
 
-    def get_check_url (self, ecr_reg_number, fn_number, fiscal_document_number):
-        get_logger().info('get tinkoff check url %s %s %s' % (ecr_reg_number, fn_number, fiscal_document_number))
+    def get_check_url(self, ecr_reg_number, fn_number, fiscal_document_number):
+        get_logger().info(
+            "get tinkoff check url %s %s %s"
+            % (ecr_reg_number, fn_number, fiscal_document_number)
+        )
 
-        auth = requests.post(self.OFD_AUTH_URL, data=json.dumps({
-            "login": settings.TINKOFF_ODF_LOGIN,
-            "password": settings.TINKOFF_ODF_PASSWORD
-        }), headers={'Content-Type': 'application/json'})
+        auth = requests.post(
+            self.OFD_AUTH_URL,
+            data=json.dumps(
+                {
+                    "login": settings.TINKOFF_ODF_LOGIN,
+                    "password": settings.TINKOFF_ODF_PASSWORD,
+                }
+            ),
+            headers={"Content-Type": "application/json"},
+        )
 
-        transaction_id = '%s_%s_%s' % (ecr_reg_number, fn_number, fiscal_document_number)
+        transaction_id = "%s_%s_%s" % (
+            ecr_reg_number,
+            fn_number,
+            fiscal_document_number,
+        )
         r = requests.get(self.OFD_GET_CHECK_URL + transaction_id, cookies=auth.cookies)
 
         if r.status_code == 200:
@@ -75,79 +88,82 @@ class TinkoffAPI():
         return None
 
     def get_token(self, params):
-        params = {key: params[key]  for key in params if type(params[key]) not in (dict, list)}
+        params = {
+            key: params[key] for key in params if type(params[key]) not in (dict, list)
+        }
         concat_str = ""
         for key in params:
             concat_str += str(params[key])
-        return hashlib.sha256(concat_str.encode('utf-8')).hexdigest()
+        return hashlib.sha256(concat_str.encode("utf-8")).hexdigest()
 
     def get_response(self, url, payload):
         connect_timeout = 2
 
-        headers = {'Content-Type': 'application/json'}
+        headers = {"Content-Type": "application/json"}
         json_data = json.dumps(payload)
 
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to Tinkoff", json_data)
-        get_logger().info('TinkoffAPI payload: ' + json_data)
+        elastic_log(
+            ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to Tinkoff", json_data
+        )
+        get_logger().info("TinkoffAPI payload: " + json_data)
 
         try:
-            r = requests.post(url, data=json_data, headers=headers,
-                              timeout=(connect_timeout, 5.0))
+            r = requests.post(
+                url, data=json_data, headers=headers, timeout=(connect_timeout, 5.0)
+            )
             try:
                 get_logger().info("Init status code %s" % r.status_code)
-                elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                            "Tinkoff response status %s" % str(r.status_code),
-                            r.content)
+                elastic_log(
+                    ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                    "Tinkoff response status %s" % str(r.status_code),
+                    r.content,
+                )
                 if r.status_code != 200:
                     get_logger().info("%s", r.content)
                 result = r.json()
                 return result
 
             except Exception as e:
-                elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                            "Tinkoff invoke error", str(e))
+                elastic_log(
+                    ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Tinkoff invoke error", str(e)
+                )
                 get_logger().info(e)
                 return None
 
         except requests.exceptions.MissingSchema as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "Tinkoff invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Tinkoff invoke error", str(e))
             get_logger().info("Missing schema for request error")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ConnectionError as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "Tinkoff invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Tinkoff invoke error", str(e))
             get_logger().info("requests.exceptions.ConnectionError")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ConnectTimeout as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "Tinkoff invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Tinkoff invoke error", str(e))
             get_logger().info("requests.exceptions.ConnectTimeout")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ReadTimeout as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "Tinkoff invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Tinkoff invoke error", str(e))
             get_logger().info("Waited too long between bytes error")
             get_logger().info(e)
             return None
 
         except requests.exceptions.HTTPError as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "Tinkoff invoke error", str(e))
+            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Tinkoff invoke error", str(e))
             get_logger().info("requests.exceptions.HTTPError")
             get_logger().info(e)
             return None
 
 
-class HomeBankAPI():
+class HomeBankAPI:
 
-    if  os.environ.get("PROD","0") == "1":
+    if os.environ.get("PROD", "0") == "1":
         TOKEN_URL = "https://epay-oauth.homebank.kz/oauth2/token"
         AUTHORIZED_URL = "https://epay-api.homebank.kz/payments/cards/auth"
         CONFIRMED_URL = "https://epay-api.homebank.kz/operation/%s/charge"
@@ -171,8 +187,8 @@ class HomeBankAPI():
         payload.update(params)
         r = self.get_response(self.TOKEN_URL, payload)
 
-        if r['access_token']:
-            self.token = r['access_token']
+        if r["access_token"]:
+            self.token = r["access_token"]
             return True
 
         return None
@@ -185,7 +201,7 @@ class HomeBankAPI():
             get_logger().error("No token for request")
             return None
 
-        headers = {'Authorization': 'bearer ' + self.token}
+        headers = {"Authorization": "bearer " + self.token}
         r = requests.post(self.CANCEL_URL % payment_id, headers=headers)
         if r.status_code == 200:
             get_logger().info("cancel success")
@@ -193,23 +209,21 @@ class HomeBankAPI():
 
         return None
 
-
     def authorize(self, data):
         params = {
-            'invoiceID': data['invoiceId'],
-            'amount': data['amount'],
-            "terminal": data['terminalId'],
-            'currency': 'KZT',
-            'postLink': '',
-            'failurePostLink': '',
+            "invoiceID": data["invoiceId"],
+            "amount": data["amount"],
+            "terminal": data["terminalId"],
+            "currency": "KZT",
+            "postLink": "",
+            "failurePostLink": "",
         }
         get_logger().info("HomeBank make payment")
 
-        token = self.get_token(params=params, scope='payment')
+        token = self.get_token(params=params, scope="payment")
         if not token:
             get_logger().error("No token for request")
             return None
-
 
         get_logger().info(params)
 
@@ -223,7 +237,7 @@ class HomeBankAPI():
             get_logger().error("No token for request")
             return None
 
-        headers = {'Authorization': 'bearer ' + self.token}
+        headers = {"Authorization": "bearer " + self.token}
         r = requests.post(self.CONFIRMED_URL % id, headers=headers)
         if r.status_code == 200:
             get_logger().info("confirm success")
@@ -236,67 +250,77 @@ class HomeBankAPI():
         headers = {}
         json_data = payload
 
-        if 'paymentType' in payload:
+        if "paymentType" in payload:
             json_data = json.dumps(payload)
-            headers['Content-Type'] = 'application/json'
+            headers["Content-Type"] = "application/json"
 
         if self.token:
-            headers['Authorization'] = 'bearer ' + self.token
+            headers["Authorization"] = "bearer " + self.token
 
-        elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to HomeBank", json_data)
+        elastic_log(
+            ES_APP_PAYMENTS_LOGS_INDEX_NAME, "Make request to HomeBank", json_data
+        )
         log_data = payload.copy()
 
-        get_logger().info('HomeBank payload: ' + json.dumps(log_data))
-
+        get_logger().info("HomeBank payload: " + json.dumps(log_data))
 
         try:
-            r = requests.post(url, data=json_data, headers=headers,
-                              timeout=(connect_timeout, 5.0))
+            r = requests.post(
+                url, data=json_data, headers=headers, timeout=(connect_timeout, 5.0)
+            )
             try:
                 get_logger().info("Init status code %s" % r.status_code)
-                elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                            "HomeBank response status %s" % str(r.status_code),
-                            r.content)
+                elastic_log(
+                    ES_APP_PAYMENTS_LOGS_INDEX_NAME,
+                    "HomeBank response status %s" % str(r.status_code),
+                    r.content,
+                )
                 if r.status_code != 200:
                     get_logger().info("%s", r.content)
                 result = r.json()
                 return result
 
             except Exception as e:
-                elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                            "HomeBank invoke error", str(e))
+                elastic_log(
+                    ES_APP_PAYMENTS_LOGS_INDEX_NAME, "HomeBank invoke error", str(e)
+                )
                 get_logger().info(e)
                 return None
 
         except requests.exceptions.MissingSchema as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "HomeBank invoke error", str(e))
+            elastic_log(
+                ES_APP_PAYMENTS_LOGS_INDEX_NAME, "HomeBank invoke error", str(e)
+            )
             get_logger().info("Missing schema for request error")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ConnectionError as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "HomeBank invoke error", str(e))
+            elastic_log(
+                ES_APP_PAYMENTS_LOGS_INDEX_NAME, "HomeBank invoke error", str(e)
+            )
             get_logger().info("requests.exceptions.ConnectionError")
             get_logger().info(e)
             return None
 
         except requests.exceptions.ReadTimeout as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "HomeBank invoke error", str(e))
+            elastic_log(
+                ES_APP_PAYMENTS_LOGS_INDEX_NAME, "HomeBank invoke error", str(e)
+            )
             get_logger().info("Waited too long between bytes error")
             get_logger().info(e)
             return None
 
         except requests.exceptions.HTTPError as e:
-            elastic_log(ES_APP_PAYMENTS_LOGS_INDEX_NAME,
-                        "HomeBank invoke error", str(e))
+            elastic_log(
+                ES_APP_PAYMENTS_LOGS_INDEX_NAME, "HomeBank invoke error", str(e)
+            )
             get_logger().info("requests.exceptions.HTTPError")
             get_logger().info(e)
             return None
 
-class HomeBankOdfAPI():
+
+class HomeBankOdfAPI:
     TOKEN_URL = "https://kkm.webkassa.kz/api/Authorize"
     GET_SHIFTS_URL = "https://kkm.webkassa.kz/api/Cashbox/ShiftHistory"
     CREATE_CHECK = "https://kkm.webkassa.kz/api/Check"
@@ -312,12 +336,11 @@ class HomeBankOdfAPI():
         }
         r = self.get_response(self.TOKEN_URL, payload)
 
-        if r and r['Data'] and r['Data']['Token']:
-            self.token = r['Data']['Token']
+        if r and r["Data"] and r["Data"]["Token"]:
+            self.token = r["Data"]["Token"]
             return True
 
         return None
-
 
     def get_shifts(self):
 
@@ -327,18 +350,17 @@ class HomeBankOdfAPI():
             "Token": self.token,
             "CashboxUniqueNumber": settings.HOMEBANK_ODF_KASSA_ID,
             "Skip": 0,
-            "Take": 50
+            "Take": 50,
         }
         get_logger().info("HomeBank get shifts request")
 
         r = self.get_response(self.GET_SHIFTS_URL, payload)
 
-        if r and r['Data'] and r['Data']['Shifts']:
-            self.shift = r['Data']['Shifts'][0]['ShiftNumber']
+        if r and r["Data"] and r["Data"]["Shifts"]:
+            self.shift = r["Data"]["Shifts"][0]["ShiftNumber"]
             return True
 
         return None
-
 
     def create_check(self, order, payment):
 
@@ -369,19 +391,14 @@ class HomeBankOdfAPI():
                     "Taxpercent": 0,
                     "Tax": 0,
                     "TaxType": 0,
-                    "PositionName": receipt_data['description'],
-                    "UnitCode": 5114
+                    "PositionName": receipt_data["description"],
+                    "UnitCode": 5114,
                 }
             ],
-            "Payments": [
-                {
-                    "Sum": int(order.sum),
-                    "PaymentType": 1
-                }
-            ],
+            "Payments": [{"Sum": int(order.sum), "PaymentType": 1}],
             "Change": 0,
             "RoundType": 2,
-            "ExternalCheckNumber": receipt_data['invoiceId'],
+            "ExternalCheckNumber": receipt_data["invoiceId"],
             # "CustomerEmail": "lokkomokko1@gmail.com"
         }
 
@@ -404,9 +421,6 @@ class HomeBankOdfAPI():
             "ticket_url": check["Data"]["TicketUrl"],
         }
 
-
-
-
     def get_response(self, url, payload):
         connect_timeout = 5
         headers = {}
@@ -415,15 +429,18 @@ class HomeBankOdfAPI():
         # get_logger().info('HomeBank ODF payload: ' + json.dumps(json_data))
 
         try:
-            r = requests.post(url, json=json_data, headers=headers,
-                              timeout=(connect_timeout, 5.0))
+            r = requests.post(
+                url, json=json_data, headers=headers, timeout=(connect_timeout, 5.0)
+            )
             try:
                 get_logger().info("Init odf status code %s" % r.status_code)
                 if r.status_code != 200:
                     get_logger().info("%s", r.content)
                 result = r.json()
                 if "Errors" in result:
-                    get_logger().info("requests for homebank odf catch error: " + json.dumps(result))
+                    get_logger().info(
+                        "requests for homebank odf catch error: " + json.dumps(result)
+                    )
                     return None
                 return result
 
@@ -450,3 +467,171 @@ class HomeBankOdfAPI():
             get_logger().info("requests.exceptions.HTTPError")
             get_logger().info(e)
             return None
+
+
+class UzumBankAPI:
+    def __init__(self):
+        self.base_url = settings.UZUM_BASE_URL.rstrip("/")
+        self.api_key = settings.UZUM_API_KEY
+        self.terminal_id = settings.UZUM_TERMINAL_ID
+        self.language = getattr(settings, "UZUM_CONTENT_LANGUAGE", "uz-UZ")
+
+    def _headers(self):
+        return {
+            "X-API-Key": self.api_key,
+            "X-Terminal-Id": self.terminal_id,
+            "Content-Language": self.language,
+            "Content-Type": "application/json",
+        }
+
+    def _post(self, path, data):
+        url = f"{self.base_url}{path}"
+        try:
+            get_logger().info("UzumBank POST %s payload=%s", url, data)
+            response = requests.post(url, headers=self._headers(), json=data, timeout=5)
+            response.raise_for_status()
+            get_logger().info("UzumBank response from %s: %s", url, response.json())
+            return response.json()
+        except requests.RequestException as e:
+            get_logger().error("UzumBank request to %s failed: %s", url, str(e))
+            return {"error": str(e)}
+
+    def register_payment(
+        self,
+        merchant_order_id,
+        amount,
+        callback_url,
+        merchant_params,
+        pay_type="ONE_STEP",
+        description=None,
+        cart=None,
+        client_id="test-client-001",
+        view_type="REDIRECT",
+        success_url="",
+        payment_details: Optional[str] = None,
+    ):
+        success_url = success_url or f"https://{settings.BASE_DOMAIN}"
+
+        payload = {
+            "merchantOrderId": str(merchant_order_id),
+            "orderNumber": str(merchant_order_id),
+            "amount": int(amount),
+            "currency": 860,
+            "clientId": client_id,
+            "viewType": view_type,
+            "successUrl": success_url,
+            "failureUrl": success_url,
+            "localeType": self.language,
+            "payType": pay_type,
+            "callbackUrl": callback_url,
+            "orderDescription": description or "Оплата Uzum",
+            "sessionTimeoutSecs": 1200,
+            "paymentParams": {
+                "payType": "ONE_STEP",
+                "operationType": "PAYMENT",
+                "phoneNumber": "998901234567",
+            },
+            "merchantParams": merchant_params,
+        }
+
+        if cart:
+            payload["cart"] = cart
+            
+        if payment_details:
+            payload["paymentDetails"] = payment_details
+
+        return self._post("/api/v1/payment/register", payload)
+
+    def complete_payment(self, merchant_order_id, amount=None):
+        payload = {"merchantOrderId": str(merchant_order_id)}
+        if amount is not None:
+            payload["amount"] = int(amount)
+        return self._post("/api/v1/acquiring/complete", payload)
+
+    def reverse_payment(self, merchant_order_id):
+        payload = {"merchantOrderId": str(merchant_order_id)}
+        return self._post("/api/v1/acquiring/reverse", payload)
+
+    def refund_payment(self, merchant_order_id, amount=None):
+        payload = {"merchantOrderId": str(merchant_order_id)}
+        if amount is not None:
+            payload["amount"] = int(amount)
+        return self._post("/api/v1/acquiring/refund", payload)
+
+    def get_order_status(self, uzum_order_id: str):
+        return self._post("/api/v1/payment/getOrderStatus", {"orderId": uzum_order_id})
+
+    def get_bindings(self, customer_id):
+        return self._post("/api/v1/acquiring/getBindings", {"customerId": str(customer_id)})
+
+    def unbind_card(self, binding_id):
+        return self._post("/api/v1/acquiring/unBindCard", {"bindingId": binding_id})
+
+    def pay_with_binding(self, merchant_order_id, amount, binding_id, callback_url):
+        return self._post("/api/v1/payment/merchantPay", {
+            "merchantOrderId": str(merchant_order_id),
+            "amount": int(amount),
+            "callbackUrl": callback_url,
+            "type": "bind",
+            "bindingId": binding_id,
+        })
+
+    def get_receipts(self, uzum_order_id: str):
+        """
+        Получение информации о чеках по orderId.
+        """
+        return self._post("/api/v1/payment/getReceipts", {"orderId": uzum_order_id})
+    
+    def register_payment_with_receipts_callback(
+        self,
+        merchant_order_id,
+        amount,
+        callback_url,
+        receipts_callback_url,
+        merchant_params,
+        pay_type="ONE_STEP",
+        description=None,
+        cart=None,
+        client_id="test-client-001",
+        view_type="REDIRECT",
+        success_url="",
+        payment_details: Optional[str] = None,
+    ):
+        """
+        Регистрация платежа с отдельным callback для получения чеков
+        """
+        success_url = success_url or f"https://{settings.BASE_DOMAIN}"
+
+        payload = {
+            "merchantOrderId": str(merchant_order_id),
+            "orderNumber": str(merchant_order_id),
+            "amount": int(amount),
+            "currency": 860,
+            "clientId": client_id,
+            "viewType": view_type,
+            "successUrl": success_url,
+            "failureUrl": success_url,
+            "localeType": self.language,
+            "payType": pay_type,
+            "callbackUrl": callback_url,
+            "orderDescription": description or "Оплата Uzum",
+            "sessionTimeoutSecs": 1200,
+            "paymentParams": {
+                "payType": "ONE_STEP",
+                "operationType": "PAYMENT",
+                "phoneNumber": "998901234567",
+            },
+            "merchantParams": merchant_params,
+        }
+        
+        # Добавляем receiptsCallbackUrl только если он указан
+        if receipts_callback_url:
+            payload["receiptsCallbackUrl"] = receipts_callback_url
+
+        if cart:
+            payload["cart"] = cart
+            
+        if payment_details:
+            payload["paymentDetails"] = payment_details
+
+        return self._post("/api/v1/payment/register", payload)

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чек об оплате - Uzum Bank</title>
+    <style>
+        body {
+            background-color: #F2F4F7;
+            margin: 0;
+            padding: 0;
+            font-family: 'Proxima Nova', Arial, sans-serif;
+        }
+        .email-container {
+            max-width: 580px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        .content {
+            padding: 20px 15px 30px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .title {
+            color: #050D9E;
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 1.3px;
+            line-height: 25px;
+            text-transform: uppercase;
+            margin: 0;
+        }
+        .order-info {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .order-text {
+            color: #4E5A7C;
+            font-size: 16px;
+            line-height: 25px;
+            margin: 0;
+        }
+        .receipt-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .receipt-button {
+            display: inline-block;
+            background-color: #050D9E;
+            color: #ffffff;
+            padding: 14px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 15px;
+            line-height: 120%;
+        }
+        .amount-info {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .amount-text {
+            color: #4E5A7C;
+            font-size: 14px;
+            line-height: 20px;
+            margin: 0;
+        }
+        @media all and (max-width: 480px) {
+            .email-container {
+                max-width: 100%;
+            }
+            .content {
+                padding: 15px 10px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="content">
+            <!-- Заголовок -->
+            <div class="header">
+                <h1 class="title">Чек об оплате - Uzum Bank</h1>
+            </div>
+
+            <!-- Информация о заказе -->
+            <div class="order-info">
+                <p class="order-text">
+                    Ваш чек об оплате готов. Номер заказа: {{ order.id }}
+                </p>
+            </div>
+
+            <!-- Ссылки на чеки -->
+            {% for receipt_url in receipt_urls %}
+            <div class="receipt-section">
+                <a href="{{ receipt_url }}" class="receipt-button" target="_blank">
+                    {% if receipts_count > 1 %}
+                        Чек {{ forloop.counter }}
+                    {% else %}
+                        Открыть чек
+                    {% endif %}
+                </a>
+            </div>
+            {% endfor %}
+
+            <!-- Сумма оплаты -->
+            <div class="amount-info">
+                <p class="amount-text">
+                    Сумма оплаты: {{ payment.amount|floatformat:2 }} сум
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
