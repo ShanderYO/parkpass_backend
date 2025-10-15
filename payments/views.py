@@ -47,7 +47,7 @@ from payments.tasks import (
     create_screenshot,
     fetch_uzum_receipts,
 )
-from integration.services import RpsIntegrationService
+from integration.services import RpsPaymentTaskService
 from rps_vendor.models import RpsParking
 
 from payments.models import UzumBankPayment
@@ -216,22 +216,30 @@ class TinkoffCallbackView(APIView):
             if self.status == PAYMENT_STATUS_AUTHORIZED:
                 order.authorized = True
                 order.save()
-                self.notify_authorize_rps(order)  # TODO make async
+                if order.payload: # Отправка по новой схеме
+                    pass
+                else:
+                    # Отправка по старой схеме
+                    self.notify_authorize_rps(order)  # TODO make async
 
             elif self.status == PAYMENT_STATUS_CONFIRMED:
                 order.paid = True
                 order.save()
-                if order.payload:
+                if order.payload: # Отправка по новой схеме
                     parking_id = order.parking_card_session.parking_id
                     rps_parking = RpsParking.objects.get(parking_id=parking_id)
                     card_id = order.payload.get("card_id")
-                    RpsIntegrationService().send_rps_confirm_payment(
-                        rps_parking, card_id, int(order.sum)
+                    RpsPaymentTaskService.send_rps_confirm_payment_async(
+                        rps_parking=rps_parking, 
+                        card_id=card_id, 
+                        amount=order.sum,
+                        order_id=order.id
                     )
                     get_logger().info(
-                        "send_rps_confirm_payment from notify_confirm_rps"
+                        "send_rps_confirm_payment_async from notify_confirm_rps"
                     )
-                self.notify_confirm_rps(order)  # TODO make async
+                else: # Отправка по старой схеме
+                    self.notify_confirm_rps(order)  # TODO make async
             else:
                 order.paid = False
                 order.authorized = False
@@ -1056,9 +1064,9 @@ class UzumCallbackView(APIView):
             return HttpResponse("Unknown status", status=400)
 
         try:
-            payment = UzumBankPayment.objects.select_related("order").get(
-                merchant_order_id=merchant_order_id
-            )
+            payment = UzumBankPayment.objects.select_related(
+                "order__parking_card_session"
+            ).get(merchant_order_id=merchant_order_id)
             get_logger().info(
                 "UzumCallbackView: Found payment - merchant_order_id=%s, "
                 "uzum_order_id=%s, current_status=%s",
@@ -1085,19 +1093,19 @@ class UzumCallbackView(APIView):
             get_logger().info(
                 "UzumCallbackView: Payment completed for order %s", merchant_order_id
             )
-            order.paid = True
-            order.save()
-            if order.payload:
-                parking_id = order.parking_card_session.parking_id
-                rps_parking = RpsParking.objects.get(parking_id=parking_id)
-                card_id = order.payload.get("card_id")
-                RpsIntegrationService().send_rps_confirm_payment(
-                    rps_parking, card_id, int(order.sum)
-                )
-                get_logger().info(
-                    "UzumCallbackView: send_rps_confirm_payment from notify_confirm_rps"
-                )
             
+            # Используем транзакцию для атомарности операций
+            from django.db import transaction
+            with transaction.atomic():
+                order.paid = True
+                order.save()
+                
+                # Обрабатываем завершенный платеж через сервис
+                from payments.services import UzumPaymentService
+                error_response = UzumPaymentService.process_completed_payment(order)
+                if error_response:
+                    # Если ошибка в создании RPS задачи, откатываем транзакцию
+                    raise Exception("Failed to create RPS payment task")
             # Запускаем задачу получения чеков только для завершенных платежей
             get_logger().info(
                 "UzumCallbackView: Scheduling receipts fetch task for completed payment %s",
