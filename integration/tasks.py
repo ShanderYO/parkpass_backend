@@ -150,7 +150,10 @@ def retry_failed_rps_payment_tasks():
     for task in failed_tasks:
         try:
             # Запускаем задачу на отправку
-            send_rps_payment_task.delay(task.id)
+            send_rps_payment_task.apply_async(
+                args=[task.id],
+                priority=9  # Максимальный приоритет
+            )
             processed_count += 1
             logger.info(f"Queued retry for task {task.id}")
         except Exception as e:
