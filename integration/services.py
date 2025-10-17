@@ -221,7 +221,10 @@ class RpsPaymentTaskService:
             )
 
             # Запускаем celery task
-            send_rps_payment_task.delay(task.id)
+            send_rps_payment_task.apply_async(
+                args=[task.id],
+                priority=9  # Максимальный приоритет
+            )
 
             logger.info(
                 f"Created new RPS payment task {task.id} for order {order_id}"

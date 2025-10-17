@@ -394,17 +394,18 @@ def edit_object_view(request, id, object, fields, incl_attr=None, req_attr=None,
 
 
 def elastic_log(index, message, data):
-    from datetime import datetime
+    pass
+    # from datetime import datetime
 
-    body_dict = {
-        "timestamp": datetime.now(),
-        "message": message,
-        "data": data
-    }
-    try:
-        es_client.index(
-            index=index,
-            body=body_dict,
-        )
-    except Exception as e:
-        get_logger(BASE_LOGGER_NAME).warning(str(e))
+    # body_dict = {
+    #     "timestamp": datetime.now(),
+    #     "message": message,
+    #     "data": data
+    # }
+    # try:
+    #     es_client.index(
+    #         index=index,
+    #         body=body_dict,
+    #     )
+    # except Exception as e:
+    #     get_logger(BASE_LOGGER_NAME).warning(str(e))
